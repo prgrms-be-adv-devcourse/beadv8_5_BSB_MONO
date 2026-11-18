@@ -50,3 +50,4 @@ export {
   type SellerRaceRow,
   type SellerSaleStatus,
 } from './model/seller-race'
+export { SaleRateBar } from './ui/SaleRateBar'

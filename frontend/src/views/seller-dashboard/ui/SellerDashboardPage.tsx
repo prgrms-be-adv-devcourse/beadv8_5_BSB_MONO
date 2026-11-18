@@ -9,24 +9,25 @@ import { ConsoleCard, ConsoleLoading, ConsoleOffline, ConsolePage } from '@/widg
 import { useManageInquiries } from '@/entities/inquiry'
 import {
   myRacesQueryOptions,
+  SaleRateBar,
   SELLER_SALE_STATUS_TEXT,
   toSellerRaceRow,
   type SellerRaceRow,
 } from '@/entities/race'
 import { shippableCount, useSellerKitSummary } from '@/entities/seller-kit'
 import { ApiError, payoutApi, unwrapData } from '@/shared/api'
-import { cn, formatNumber, useNow } from '@/shared/lib'
+import { cn, formatNumber } from '@/shared/lib'
 import {
   Alert,
   buttonClassName,
   EmptyState,
   FOCUS_RING,
   Icon,
-  ProgressBar,
   Skeleton,
+  type IconName,
 } from '@/shared/ui'
 
-import { formatBaseDate, formatKoreanMonthDay, soldRate } from '../lib/dashboard'
+import { formatKoreanMonthDay, soldRate } from '../lib/dashboard'
 
 function errorText(error: unknown) {
   return (error instanceof ApiError && error.serverMessage) || '잠시 뒤 다시 시도해 주세요.'
@@ -37,11 +38,9 @@ const CARD = 'rounded-md border border-border-default shadow-none'
 
 // 피그마 Final v3 · 판매자 · 대시보드: 처리할 일 → 다음 정산 → 대회별 판매
 export function SellerDashboardPage({ state }: { state?: 'loading' | 'offline' }) {
-  const now = useNow()
   return (
     <ConsolePage
       title="대시보드"
-      description={now ? formatBaseDate(now) : undefined}
       actions={
         <Link href="/seller/races/new?from=home" className={buttonClassName()}>
           대회 등록하기
@@ -68,8 +67,10 @@ function DashboardBody() {
 
   return (
     <>
-      <TodoCard />
-      <PayoutCard />
+      <div className="grid grid-cols-[7fr_4fr] gap-6">
+        <TodoCard />
+        <PayoutCard />
+      </div>
       <RaceSalesCard rows={races.data} error={races.isError ? races.error : null} />
     </>
   )
@@ -89,7 +90,17 @@ function TodoCard() {
       : shippable + waiting + held
 
   return (
-    <ConsoleCard title="처리할 일" className={cn(CARD, 'gap-2')}>
+    <ConsoleCard
+      title={
+        <>
+          처리할 일{' '}
+          {total !== undefined && (
+            <span className="text-text-secondary">{formatNumber(total)}</span>
+          )}
+        </>
+      }
+      className={cn(CARD, 'gap-2')}
+    >
       {total === 0 ? (
         <p className="py-2 text-body2-regular text-text-secondary">처리할 일이 없어요</p>
       ) : (
@@ -97,19 +108,28 @@ function TodoCard() {
           {(shippable === undefined || shippable > 0) && (
             <TodoRow
               href="/seller/kits"
-              label={countLabel('송장 입력 대기', shippable, isFailing(kits))}
+              icon="Truck"
+              name="송장 입력 대기"
+              count={countLabel(shippable, isFailing(kits))}
+              menu="키트 배송"
             />
           )}
           {(waiting === undefined || waiting > 0) && (
             <TodoRow
               href="/seller/inquiries"
-              label={countLabel('답변 대기 문의', waiting, inquiries.isError)}
+              icon="Help"
+              name="답변 대기 문의"
+              count={countLabel(waiting, inquiries.isError)}
+              menu="문의"
             />
           )}
           {(held === undefined || held > 0) && (
             <TodoRow
               href="/seller/settlements"
-              label={countLabel('지급보류', held, isFailing(summary))}
+              icon="TriangleAlert"
+              name="지급보류"
+              count={countLabel(held, isFailing(summary))}
+              menu="정산"
               danger
             />
           )}
@@ -119,14 +139,28 @@ function TodoCard() {
   )
 }
 
-function countLabel(name: string, count: number | undefined, failed: boolean): ReactNode {
-  if (count !== undefined) return `${name} ${formatNumber(count)}건`
-  if (failed) return `${name} -`
-  return <Skeleton className="h-5 w-32" />
+function countLabel(count: number | undefined, failed: boolean): ReactNode {
+  if (count !== undefined) return `${formatNumber(count)}건`
+  if (failed) return '-'
+  return <Skeleton className="h-5 w-12" />
 }
 
-// 줄 전체가 그 메뉴로 가는 링크다
-function TodoRow({ href, label, danger }: { href: Route; label: ReactNode; danger?: boolean }) {
+// 줄 전체가 그 메뉴로 가는 링크다: 아이콘 + 이름 + 굵은 건수, 오른쪽에 이동할 메뉴
+function TodoRow({
+  href,
+  icon,
+  name,
+  count,
+  menu,
+  danger,
+}: {
+  href: Route
+  icon: IconName
+  name: string
+  count: ReactNode
+  menu: string
+  danger?: boolean
+}) {
   return (
     <Link
       href={href}
@@ -136,8 +170,12 @@ function TodoRow({ href, label, danger }: { href: Route; label: ReactNode; dange
         FOCUS_RING,
       )}
     >
-      <span className="min-w-0 flex-1">{label}</span>
-      <Icon name="ChevronRight" className="size-4" />
+      <Icon name={icon} className="size-5" />
+      <span className="flex min-w-0 flex-1 items-center gap-3">
+        <span>{name}</span> <span className="text-body1-bold">{count}</span>
+      </span>
+      <span className="text-body2-regular text-text-secondary">{menu}</span>
+      <Icon name="ChevronRight" className="size-4 text-text-secondary" />
     </Link>
   )
 }
@@ -151,9 +189,9 @@ function PayoutCard() {
       aside={
         <Link
           href="/seller/settlements"
-          className={buttonClassName({ variant: 'secondary', size: 's' })}
+          className={cn('rounded-sm text-caption-regular text-text-secondary', FOCUS_RING)}
         >
-          정산
+          정산 ›
         </Link>
       }
       className={CARD}
@@ -193,15 +231,7 @@ function PayoutCard() {
 
 function RaceSalesCard({ rows, error }: { rows: SellerRaceRow[] | undefined; error: unknown }) {
   return (
-    <ConsoleCard
-      title="대회별 판매"
-      aside={
-        <Link href="/seller/races" className={buttonClassName({ variant: 'secondary', size: 's' })}>
-          대회 관리
-        </Link>
-      }
-      className={CARD}
-    >
+    <ConsoleCard title="대회별 판매" className={CARD}>
       {error ? (
         <Alert tone="danger" title="대회 목록을 불러오지 못했어요" description={errorText(error)} />
       ) : !rows ? (
@@ -245,10 +275,10 @@ function RaceSalesCard({ rows, error }: { rows: SellerRaceRow[] | undefined; err
                   {formatNumber(row.sold)} / {formatNumber(row.capacity)}
                 </td>
                 <td className="pl-6">
-                  <ProgressBar
-                    size="s"
+                  <SaleRateBar
                     aria-label={`${row.title} 판매율`}
-                    value={soldRate(row.sold, row.capacity)}
+                    percent={soldRate(row.sold, row.capacity)}
+                    label={`${soldRate(row.sold, row.capacity)}%`}
                   />
                 </td>
                 <td

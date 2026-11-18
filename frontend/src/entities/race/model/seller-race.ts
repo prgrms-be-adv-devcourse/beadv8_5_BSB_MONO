@@ -17,14 +17,14 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
   ON_SALE: { label: '판매 중', tone: 'brand' },
   STOPPED: { label: '판매 중지', tone: 'warning' },
   CLOSED: { label: '판매 종료', tone: 'neutral' },
-  CANCELED: { label: '대회 취소', tone: 'danger' },
+  CANCELED: { label: '취소됨', tone: 'danger' },
 }
 
-/** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 초록, 중지·취소는 빨강, 그 밖은 보조 글자색 */
+/** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 파랑, 취소됨은 빨강, 그 밖은 보조 글자색 */
 export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
   SCHEDULED: 'text-text-secondary',
-  ON_SALE: 'text-text-success',
-  STOPPED: 'text-text-danger',
+  ON_SALE: 'text-text-brand',
+  STOPPED: 'text-text-secondary',
   CLOSED: 'text-text-secondary',
   CANCELED: 'text-text-danger',
 }

@@ -48,7 +48,7 @@ describe('SellerRacesPage', () => {
 
   it('상태 칩으로 걸러 결과가 없으면 빈 상태를 보여 준다', async () => {
     renderPage()
-    await userEvent.click(await screen.findByRole('button', { name: '대회 취소 0' }))
+    await userEvent.click(await screen.findByRole('button', { name: '취소됨 0' }))
 
     expect(await screen.findByText('해당하는 대회가 없어요')).toBeInTheDocument()
   })
