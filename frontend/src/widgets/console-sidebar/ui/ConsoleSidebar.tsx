@@ -8,7 +8,13 @@ import { useLogout } from '@/features/auth'
 import { cn } from '@/shared/lib'
 import { FOCUS_RING, Icon, Logo, type IconName } from '@/shared/ui'
 
-type Item = { href: Route; label: string; icon: IconName }
+type Item = {
+  href: Route
+  label: string
+  icon: IconName
+  /** 메뉴 묶음의 첫 항목이면 위에 묶음 여백(16)을 둔다 */
+  groupStart?: boolean
+}
 
 const MENU: Record<
   ConsoleRole,
@@ -38,14 +44,14 @@ const MENU: Record<
     settings: { href: '/admin/settings', label: '설정', icon: 'Settings' },
     items: [
       { href: '/admin', label: '대시보드', icon: 'Dashboard' },
-      { href: '/admin/members', label: '회원 관리', icon: 'User' },
+      { href: '/admin/members', label: '회원 관리', icon: 'User', groupStart: true },
       { href: '/admin/sellers', label: '판매자 관리', icon: 'Users' },
-      { href: '/admin/settlements', label: '정산 · 환급 처리', icon: 'Inbox' },
-      // 시안 메뉴에는 없지만 회수 관리 화면으로 가는 길이 여기뿐이라 남긴다
+      { href: '/admin/races', label: '대회 관리', icon: 'Calendar', groupStart: true },
+      { href: '/admin/settlements', label: '정산 관리', icon: 'Inbox' },
       { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
-      { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
-      { href: '/admin/inquiries', label: '문의', icon: 'Help' },
-      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
+      { href: '/admin/inquiries', label: '문의', icon: 'Help', groupStart: true },
+      { href: '/admin/community-reports', label: '커뮤니티 신고', icon: 'Message' },
+      { href: '/admin/ai', label: '크루런 AI', icon: 'Message', groupStart: true },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
     ],
   },
@@ -90,13 +96,13 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
   )
 }
 
-function SidebarItem({ href, label, icon, selected }: Item & { selected: boolean }) {
+function SidebarItem({ href, label, icon, groupStart, selected }: Item & { selected: boolean }) {
   return (
     <Link
       href={href}
       aria-current={selected ? 'page' : undefined}
       title={label}
-      className={itemClassName(selected)}
+      className={cn(itemClassName(selected), groupStart && 'mt-3')}
     >
       <ItemContent label={label} icon={icon} />
     </Link>
