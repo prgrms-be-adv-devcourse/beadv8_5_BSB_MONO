@@ -67,9 +67,8 @@ describe('SellerSalesPage', () => {
 
     expect(await screen.findByRole('heading', { name: '2026 춘천 나이트런' })).toBeInTheDocument()
     // 판매 120 + 80 = 200, 정원 500, 남은 자리 500 - 200 - 결제 대기 10 = 290
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('290')).toBeInTheDocument()
-    expect(screen.getAllByText('/ 500명')).toHaveLength(2)
+    expect(screen.getByText('200 / 500명')).toBeInTheDocument()
+    expect(screen.getByText('290명')).toBeInTheDocument()
     expect(screen.getByText('참가자 200명')).toBeInTheDocument()
     expect(await screen.findAllByText(/11\/5 \(목\) 23:59/)).not.toHaveLength(0)
   })
