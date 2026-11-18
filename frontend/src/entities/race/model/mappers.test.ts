@@ -30,6 +30,19 @@ describe('대회 응답 → 화면 모양', () => {
     expect(toRaceListItem(summary)).not.toHaveProperty('remaining')
   })
 
+  it('목록 배지(v3): 접수 중은 배지 없음, 마감 임박은 남은 날 경고 배지, 오픈 예정은 브랜드 배지', () => {
+    expect(toRaceListItem(summary, OPEN).badge).toBeUndefined()
+    expect(toRaceListItem(summary, new Date('2026-10-29T12:00:00+09:00')).badge).toEqual({
+      label: 'D-2',
+      tone: 'warning',
+    })
+    expect(toRaceListItem(summary, BEFORE_OPEN).badge).toEqual({
+      label: '오픈 예정',
+      tone: 'brand',
+    })
+    expect(toRaceListItem(summary, AFTER_CLOSE).badge).toEqual({ label: '마감', tone: 'neutral' })
+  })
+
   it('목록 응답에 imageUrl이 있을 때만 카드 이미지가 붙는다', () => {
     expect(toRaceListItem(summary).image).toBeUndefined()
     expect(toRaceListItem({ ...summary, imageUrl: '/mock/races/a.png' }).image).toBe(
