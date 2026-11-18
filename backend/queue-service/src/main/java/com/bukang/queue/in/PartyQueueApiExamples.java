@@ -45,6 +45,14 @@ final class PartyQueueApiExamples {
 		}
 		""";
 
+	static final String RELEASE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "파티 입장을 해제했습니다.",
+			"data": null
+		}
+		""";
+
 	static final String NOT_CREW_SALE_PERIOD = """
 		{ "status": 403, "message": "크루 예매 기간이 아닙니다.", "data": null }
 		""";
