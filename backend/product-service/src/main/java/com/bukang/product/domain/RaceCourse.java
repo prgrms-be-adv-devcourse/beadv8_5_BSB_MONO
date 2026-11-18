@@ -2,11 +2,17 @@ package com.bukang.product.domain;
 
 import static jakarta.persistence.EnumType.STRING;
 import static jakarta.persistence.FetchType.LAZY;
+import static lombok.AccessLevel.NONE;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.DynamicUpdate;
@@ -17,7 +23,9 @@ import com.bukang.product.domain.exception.RaceChangeNotAllowedException;
 import com.bukang.product.dto.RaceCourseSaveRequestDto;
 
 import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
@@ -131,6 +139,21 @@ public class RaceCourse extends BaseIdAndTime {
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
 	private CourseStatus status;
 
+	// 기록증 규칙 (BUK-270). 세 칸이 모두 있거나 모두 없다(규칙 없음). 밖으로는 getRecordCertRule()로만 꺼낸다
+	@Getter(NONE)
+	private LocalDate recordRecognizedSince;
+
+	@Getter(NONE)
+	private Integer recordMaxNetSeconds;
+
+	// 인정 종목 구분은 값 하나당 한 줄로 자식 테이블에 둔다. 요청과 다른 줄만 더하고 지우며, 종목을 빼면 함께 지워진다
+	@Getter(NONE)
+	@ElementCollection
+	@CollectionTable(name = "product_record_cert_course_type", joinColumns = @JoinColumn(name = "race_course_id"))
+	@Enumerated(STRING)
+	@Column(name = "course_type", nullable = false, columnDefinition = "varchar(10)")
+	private Set<CourseType> recordAllowedCourseTypes = new HashSet<>();
+
 	public RaceCourse(RaceCourseSaveRequestDto request) {
 		this.status = CourseStatus.OPEN;
 		apply(request);
@@ -209,6 +232,11 @@ public class RaceCourse extends BaseIdAndTime {
 		if (request.getKitIncluded() != kitIncluded) {
 			return "키트 포함 여부";
 		}
+		// 규칙 칸이 없는 요청은 규칙을 그대로 두므로 바뀐 것이 아니다
+		if (request.getRecordCertRule() != null
+			&& !Objects.equals(request.getRecordCertRule().toRule(), getRecordCertRule())) {
+			return "기록증 규칙";
+		}
 		return null;
 	}
 
@@ -230,6 +258,34 @@ public class RaceCourse extends BaseIdAndTime {
 		this.kitIncluded = request.getKitIncluded();
 		this.crewQuota = request.getCrewQuota();
 		this.individualQuota = request.getIndividualQuota();
+		if (request.getRecordCertRule() != null) {
+			applyRecordCertRule(request.getRecordCertRule().toRule());
+		}
+	}
+
+	// 규칙을 바꾼다. null이면 규칙을 지운다
+	private void applyRecordCertRule(RecordCertRule rule) {
+		this.recordRecognizedSince = rule == null ? null : rule.recognizedSince();
+		this.recordMaxNetSeconds = rule == null ? null : rule.maxNetSeconds();
+		// 컬렉션을 바꿔 끼우지 않고 고쳐야 Hibernate가 달라진 줄만 더하고 지운다
+		recordAllowedCourseTypes.retainAll(rule == null ? Set.of() : rule.allowedCourseTypes());
+		if (rule != null) {
+			recordAllowedCourseTypes.addAll(rule.allowedCourseTypes());
+		}
+	}
+
+	// 기록증이 필요한 종목인지 (규칙이 있는지). 자식 테이블을 읽지 않는다
+	public boolean hasRecordCertRule() {
+		return recordRecognizedSince != null;
+	}
+
+	// 규칙이 없으면 null. 인정 종목 구분은 enum 순서로 담아 응답 순서가 늘 같다
+	public RecordCertRule getRecordCertRule() {
+		if (!hasRecordCertRule()) {
+			return null;
+		}
+		return new RecordCertRule(recordRecognizedSince, recordMaxNetSeconds,
+			Collections.unmodifiableSet(new TreeSet<>(recordAllowedCourseTypes)));
 	}
 
 	public void addRace(Race race) {

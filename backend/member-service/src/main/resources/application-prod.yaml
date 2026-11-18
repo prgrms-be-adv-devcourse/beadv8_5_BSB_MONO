@@ -60,6 +60,8 @@ member:
       base-url: http://bukang-order-service:8084
     product:
       base-url: http://bukang-product-service:8085
+    file:
+      base-url: http://bukang-file-service:8083
 
 # 민감 정보 변환 정보
 crypto:

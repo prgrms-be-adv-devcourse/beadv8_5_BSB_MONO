@@ -6,6 +6,7 @@ import static com.bukang.product.support.RaceRequests.race;
 import static com.bukang.product.support.RaceRequests.thumbnail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -234,7 +235,9 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			conditionChange("제한 시간", "90분 → 100분", builder -> builder.timeLimitMinutes(100)),
 			conditionChange("나이 제한", "최소 14세 → 20세", builder -> builder.age(20, null)),
 			conditionChange("나이 제한", "최대 없음 → 60세", builder -> builder.age(14, 60)),
-			conditionChange("키트 포함 여부", "키트 없음 → 포함", builder -> builder.kit(0))
+			conditionChange("키트 포함 여부", "키트 없음 → 포함", builder -> builder.kit(0)),
+			conditionChange("기록증 규칙", "규칙 없음 → 있음",
+				builder -> builder.recordCertRule(LocalDate.of(2025, 1, 1), 7200, CourseType.HALF))
 		);
 	}
 
@@ -782,7 +785,140 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			.containsExactly(tuple("T-shirt", "L", 100));
 	}
 
+	// ---------- 기록증 규칙 (BUK-270) ----------
+
+	private static final LocalDate RULE_SINCE = LocalDate.of(2025, 1, 1);
+
+	@Test
+	@DisplayName("판매 예정 대회는 기록증 규칙을 넣고(하프 · 풀), 고치고(풀만 · 1시간 50분), 규칙 칸을 빼면 그대로 두고, {}로 지울 수 있다")
+	void changeRecordCertRuleBeforeSaleOpen() throws Exception {
+		RegisteredRace registered = register(scheduledRace().build());
+
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId())
+				.recordCertRule(RULE_SINCE, 7200, CourseType.HALF, CourseType.FULL))
+			.build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.recognizedSince").value("2025-01-01"))
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(7200))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("HALF", "FULL")));
+
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).recordCertRule(RULE_SINCE, 6600, CourseType.FULL))
+			.build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(6600))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("FULL")));
+
+		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId())).build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(6600))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("FULL")));
+
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).noRecordCertRule())
+			.build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule").isEmpty());
+	}
+
+	static Stream<Arguments> partialRecordCertRules() {
+		return Stream.of(
+			Arguments.of("기록 인정 시작일 없음", course().recordCertRule(null, 7200, CourseType.HALF),
+				"기록 인정 시작일을 작성해주세요."),
+			Arguments.of("기준 넷타임 없음", course().recordCertRule(RULE_SINCE, null, CourseType.HALF),
+				"기준 넷타임을 작성해주세요."),
+			Arguments.of("인정 종목 구분 없음", course().recordCertRule(RULE_SINCE, 7200),
+				"인정 종목 구분을 하나 이상 골라주세요.")
+		);
+	}
+
+	@ParameterizedTest(name = "{0} → 400")
+	@MethodSource("partialRecordCertRules")
+	@DisplayName("기록증 규칙의 세 칸 중 일부만 넣으면 400이고 규칙은 그대로 없다")
+	void rejectPartialRecordCertRule(String situation, CourseBuilder partial, String message) throws Exception {
+		RegisteredRace registered = register(scheduledRace().build());
+
+		update(registered.raceId(), scheduledRace().course(partial.courseId(registered.courseId())).build())
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value(message));
+
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule").isEmpty());
+	}
+
+	@Test
+	@DisplayName("판매 중 종목에 같은 기록증 규칙을 다시 보내면 200이고, 인정 종목 구분만 바꿔도(하프 · 풀 → 풀) 409이다")
+	void keepRecordCertRuleAfterSaleStarted() throws Exception {
+		RegisteredRace registered = registerOnSale(sameRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF, CourseType.FULL))
+			.build());
+
+		update(registered.raceId(), sameRace()
+			.course(sameCourse(registered.courseId())
+				.recordCertRule(RULE_SINCE, 7200, CourseType.FULL, CourseType.HALF))
+			.build())
+			.andExpect(status().isOk());
+
+		update(registered.raceId(), sameRace()
+			.course(sameCourse(registered.courseId()).recordCertRule(RULE_SINCE, 7200, CourseType.FULL))
+			.build())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("판매가 시작된 종목은 참가 조건(기록증 규칙)을 바꿀 수 없습니다. (종목: 10K)"));
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("HALF", "FULL")));
+	}
+
+	@Test
+	@DisplayName("판매 중 종목의 기록증 규칙을 {}로 지우면 409이다")
+	void rejectRemovingRecordCertRuleAfterSaleStarted() throws Exception {
+		RegisteredRace registered = registerOnSale(sameRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF))
+			.build());
+
+		update(registered.raceId(), sameRace().course(sameCourse(registered.courseId()).noRecordCertRule()).build())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("판매가 시작된 종목은 참가 조건(기록증 규칙)을 바꿀 수 없습니다. (종목: 10K)"));
+	}
+
+	@Test
+	@DisplayName("판매 중 종목을 규칙 칸 없이 이름만 바꾸면(10K → 10K 코스) 200이고 기록증 규칙은 그대로다")
+	void keepRecordCertRuleWhenOmittedAfterSaleStarted() throws Exception {
+		RegisteredRace registered = registerOnSale(sameRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF))
+			.build());
+
+		update(registered.raceId(), sameRace().course(sameCourse(registered.courseId()).name("10K 코스")).build())
+			.andExpect(status().isOk());
+
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(7200))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("HALF")));
+	}
+
+	@Test
+	@DisplayName("판매 예정 대회에서 기록증 규칙이 있는 종목을 빼면 200이고 그 종목은 조회되지 않는다(404)")
+	void removeCourseWithRecordCertRule() throws Exception {
+		RegisteredRace registered = register(scheduledRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF))
+			.build());
+
+		update(registered.raceId(), scheduledRace().course(halfCourse()).build())
+			.andExpect(status().isOk());
+
+		findRule(registered.courseId())
+			.andExpect(status().isNotFound());
+	}
+
 	// ---------- 도우미 ----------
+
+	private ResultActions findRule(long courseId) throws Exception {
+		return getAs("/internal/v1/product/courses/" + courseId + "/record-cert-rule", null);
+	}
 
 	// 기본 요청과 같은 일정 (대회 15일 뒤, 개인 예매 한 시간 전 오픈, 접수 마감 10일 뒤, 환불 기준일 = 대회 날짜)
 	// 판매 시작일이 오늘이므로 registerOnSale()로 판매 중 대회를 만든다

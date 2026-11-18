@@ -1,6 +1,7 @@
 package com.bukang.file.in;
 
 import static com.bukang.common.shared.file.domain.FileType.DETAIL;
+import static com.bukang.common.shared.file.domain.FileType.RECORD_CERT;
 import static com.bukang.common.shared.file.domain.FileType.THUMBNAIL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -37,6 +38,7 @@ class FileLinkAndQueryTest {
 	private static final long OWNER_ID = 1;
 	private static final long OTHER_MEMBER_ID = 2;
 	private static final String RACE = "Race";
+	private static final String RECORD_CERT_REF = "RecordCert";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -266,6 +268,36 @@ class FileLinkAndQueryTest {
 			.andExpect(jsonPath("$.data.url").doesNotExist());
 		mockMvc.perform(get("/api/v1/file/files/{fileId}", 9999))
 			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("기록증은 대상에 연결돼도 올린 회원만 조회한다")
+	void findRecordCertOnlyByOwner() throws Exception {
+		StoredFile cert = uploadedFile(OWNER_ID, RECORD_CERT);
+		link(RECORD_CERT_REF, 1, OWNER_ID, item(cert, "RECORD_CERT", 0)).andExpect(status().isOk());
+
+		mockMvc.perform(get("/api/v1/file/files/{fileId}", cert.getId())
+				.header("X-Member-Id", OWNER_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.url").isNotEmpty());
+		mockMvc.perform(get("/api/v1/file/files/{fileId}", cert.getId())
+				.header("X-Member-Id", OTHER_MEMBER_ID))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.message").value("기록증은 본인이 올린 파일만 볼 수 있습니다."));
+		mockMvc.perform(get("/api/v1/file/files/{fileId}", cert.getId()))
+			.andExpect(status().isForbidden());
+
+		mockMvc.perform(get("/api/v1/file/files").param("refType", RECORD_CERT_REF).param("refId", "1")
+				.header("X-Member-Id", OWNER_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(1));
+		mockMvc.perform(get("/api/v1/file/files").param("refType", RECORD_CERT_REF).param("refId", "1")
+				.header("X-Member-Id", OTHER_MEMBER_ID))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(0));
+		mockMvc.perform(get("/api/v1/file/files").param("refType", RECORD_CERT_REF).param("refId", "1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(0));
 	}
 
 	private ResultActions link(String refType, long refId, long ownerId, String... items) throws Exception {

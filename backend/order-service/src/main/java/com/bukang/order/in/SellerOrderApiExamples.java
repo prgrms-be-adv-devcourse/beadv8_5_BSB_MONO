@@ -32,6 +32,65 @@ final class SellerOrderApiExamples {
 		}
 		""";
 
+	static final String ORDER_DETAIL_SUCCESS = """
+		{
+			"status": 200,
+			"message": "주문 상세를 조회했습니다.",
+			"data": {
+				"orderItemId": 12,
+				"orderId": 10,
+				"orderNo": "OD-20261016-000C",
+				"orderedAt": "2026-10-16T10:15:00",
+				"paidAt": "2026-10-16T10:17:30",
+				"raceId": 1,
+				"raceCourseId": 1,
+				"courseName": "10K",
+				"status": "PAID",
+				"participantName": "김러너",
+				"tshirtSize": null,
+				"kitOptions": [ { "kitOptionId": 12, "name": "T-shirt", "value": "L" } ],
+				"partyId": null,
+				"unitPrice": 45000,
+				"quantity": 1,
+				"amount": 45000,
+				"canceledAt": null,
+				"canceledAmount": 0,
+				"cancelReason": null,
+				"shippingAddress": {
+					"recipientName": "김러너",
+					"recipientPhone": "010-1234-5678",
+					"zipcode": "04700",
+					"address": "서울 성동구 왕십리로 00",
+					"addressDetail": "101동 1001호"
+				},
+				"deliveryMemo": "문 앞에 놓아 주세요",
+				"kitDeliveryStatus": "SHIPPING",
+				"kitCarrier": "CJ대한통운",
+				"kitTrackingNumber": "684912345678",
+				"kitShippedAt": "2026-11-01T14:20:00",
+				"kitDeliveredAt": null,
+				"kitReceivedAt": null,
+				"kitTracking": {
+					"carrierId": "kr.cjlogistics",
+					"status": "IN_TRANSIT",
+					"statusLabel": "이동 중",
+					"statusText": "간선상차",
+					"lastEventAt": "2026-11-02T09:05:00",
+					"lastTrackedAt": "2026-11-02T09:30:00",
+					"events": [
+						{
+							"time": "2026-11-02T09:05:00",
+							"status": "IN_TRANSIT",
+							"statusText": "간선상차",
+							"description": "서울 마포 터미널에 도착했습니다.",
+							"location": "서울 마포"
+						}
+					]
+				}
+			}
+		}
+		""";
+
 	static final String PARTIES_SUCCESS = """
 		{
 			"status": 200,
@@ -108,6 +167,14 @@ final class SellerOrderApiExamples {
 
 	static final String OTHER_SELLER_PARTY = """
 		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "본인 대회의 파티만 볼 수 있습니다.", "data": null }
+		""";
+
+	static final String OTHER_SELLER_ORDER = """
+		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "본인 대회의 주문만 볼 수 있습니다.", "data": null }
+		""";
+
+	static final String ORDER_ITEM_NOT_FOUND = """
+		{ "status": 404, "code": "ORDER_ITEM_NOT_FOUND", "message": "주문에 없는 상품입니다.", "data": null }
 		""";
 
 	static final String COURSE_NOT_FOUND = """

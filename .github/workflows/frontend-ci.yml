@@ -35,6 +35,8 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/workflows/frontend-ci.yml'
+              # 기록증 OCR 모델 · 사전 두 벌(프론트 · ai-service)의 sha256 검사
+              - 'backend/ai-service/src/main/resources/recordcert/**'
 
   # 이 job 이름(frontend)이 main 브랜치 보호의 필수 체크다. 바꾸면 보호 규칙도 같이 바꾼다.
   frontend:
@@ -57,6 +59,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm ocr:check
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck

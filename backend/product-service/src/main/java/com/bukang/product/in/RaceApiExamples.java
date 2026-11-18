@@ -486,7 +486,8 @@ final class RaceApiExamples {
 						"crewQuota": 0,
 						"individualQuota": 600,
 						"crewRemaining": 0,
-						"individualRemaining": 580
+						"individualRemaining": 580,
+						"recordCertRequired": false
 					}
 				]
 			}

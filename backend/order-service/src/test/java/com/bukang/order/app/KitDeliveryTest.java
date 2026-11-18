@@ -97,7 +97,8 @@ import jakarta.persistence.Table;
  * 결제·취소·대회 취소·주소 수정이 배송(ORDER_SHIPMENT)을 어떻게 바꾸는지도 본다 (BUK-6)
  * 조회 배치가 Delivery Tracker의 상태·이동 기록을 남기고 배송 완료로 바꾸는지도 본다 (BUK-55, 요청 사이 쉬지 않게 0ms)
  */
-@SpringBootTest(properties = "order.kit-tracking.request-interval=0ms")
+@SpringBootTest(properties = {"order.kit-tracking.request-interval=0ms",
+	"order.clients.delivery-tracker.client-id=" + KitDeliveryTest.CLIENT_ID})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
@@ -109,6 +110,10 @@ class KitDeliveryTest {
 	private static final String CARRIER_ID = "kr.cjlogistics";
 	private static final String CARRIER = "CJ대한통운";
 	private static final String TRACKING_NUMBER = "684912345678";
+	// 구매자 「배송 조회」 링크를 만드는 Delivery Tracker Client ID (CRU-38)
+	static final String CLIENT_ID = "test-client";
+	private static final String TRACKING_URL = "https://link.tracker.delivery/track?client_id=" + CLIENT_ID
+		+ "&carrier_id=" + CARRIER_ID + "&tracking_number=" + TRACKING_NUMBER;
 	private static final long RACE_ID = 400;
 	private static final long MEMBER_ID = 1;
 	private static final long SELLER_ID = StubRaceCoursePort.SELLER_ID;
@@ -480,7 +485,8 @@ class KitDeliveryTest {
 		assertThat(deliveryTrackingPort.calls()).isEmpty();
 		findOrder(legacyOrderId)
 			.andExpect(jsonPath("$.data.items[0].kitCarrier").value(CARRIER))
-			.andExpect(jsonPath("$.data.items[0].kitTracking").isEmpty());
+			.andExpect(jsonPath("$.data.items[0].kitTracking").isEmpty())
+			.andExpect(jsonPath("$.data.items[0].kitTrackingUrl").isEmpty());
 	}
 
 	@Test
@@ -492,6 +498,7 @@ class KitDeliveryTest {
 		findOrder(orderId)
 			.andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").value("PREPARING"))
 			.andExpect(jsonPath("$.data.items[0].kitTrackingNumber").isEmpty())
+			.andExpect(jsonPath("$.data.items[0].kitTrackingUrl").isEmpty())
 			.andExpect(jsonPath("$.data.items[0].kitShippedAt").isEmpty());
 
 		// DB는 마이크로초까지만 저장한다. 리눅스(CI)는 지금 시각을 나노초까지 줘 저장한 값과 비교하면 어긋난다
@@ -503,6 +510,7 @@ class KitDeliveryTest {
 			.andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").value("SHIPPING"))
 			.andExpect(jsonPath("$.data.items[0].kitCarrier").value(CARRIER))
 			.andExpect(jsonPath("$.data.items[0].kitTrackingNumber").value(TRACKING_NUMBER))
+			.andExpect(jsonPath("$.data.items[0].kitTrackingUrl").value(TRACKING_URL))
 			.andExpect(jsonPath("$.data.items[0].kitDeliveredAt").isEmpty());
 		assertThat(shipmentOf(orderId).getShippedAt()).isEqualTo(shippedAt);
 
@@ -636,6 +644,7 @@ class KitDeliveryTest {
 		confirmReceipt(MEMBER_ID, orderId, itemId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("SHIPPING"))
+			.andExpect(jsonPath("$.data.kitTrackingUrl").value(TRACKING_URL))
 			.andExpect(jsonPath("$.data.kitReceivedAt").isNotEmpty());
 		LocalDateTime receivedAt = shipmentOf(orderId).getReceivedAt();
 		assertThat(receivedAt).isNotNull();
@@ -804,7 +813,9 @@ class KitDeliveryTest {
 		raceCoursePort.put(StubRaceCoursePort.courseWithoutKit(COURSE_ID, RACE_ID));
 		long orderId = paidOrder();
 
-		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").isEmpty());
+		findOrder(orderId)
+			.andExpect(jsonPath("$.data.items[0].kitDeliveryStatus").isEmpty())
+			.andExpect(jsonPath("$.data.items[0].kitTrackingUrl").isEmpty());
 		assertThatThrownBy(() -> ship(itemIdOf(orderId)))
 			.isInstanceOf(KitNotShippableException.class)
 			.hasMessage("키트가 없는 참가권입니다.");

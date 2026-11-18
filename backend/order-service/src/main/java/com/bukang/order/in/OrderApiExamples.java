@@ -203,7 +203,24 @@ final class OrderApiExamples {
 						"unitPrice": 50000,
 						"quantity": 1,
 						"amount": 50000,
-						"status": "PAID"
+						"status": "PAID",
+						"canceledAt": null,
+						"kitDeliveryStatus": "SHIPPING",
+						"kitCarrier": "CJ대한통운",
+						"kitTrackingNumber": "684912345678",
+						"kitShippedAt": "2026-11-05T10:00:00",
+						"kitDeliveredAt": null,
+						"kitReceivedAt": null,
+						"kitTracking": {
+							"carrierId": "kr.cjlogistics",
+							"status": "NOT_TRACKED",
+							"statusLabel": "아직 조회되지 않음",
+							"statusText": null,
+							"lastEventAt": null,
+							"lastTrackedAt": null,
+							"events": []
+						},
+						"kitTrackingUrl": "https://link.tracker.delivery/track?client_id=YOUR_CLIENT_ID&carrier_id=kr.cjlogistics&tracking_number=684912345678"
 					}
 				]
 			}
@@ -511,7 +528,8 @@ final class OrderApiExamples {
 				"kitShippedAt": "2026-11-05T10:00:00",
 				"kitDeliveredAt": "2026-11-07T14:20:00",
 				"kitReceivedAt": "2026-11-08T12:00:00",
-				"kitTracking": null
+				"kitTracking": null,
+				"kitTrackingUrl": null
 			}
 		}
 		""";
