@@ -217,7 +217,8 @@ describe('RaceDetailPage v3 배치', () => {
     expect(screen.getByText(RACE_DETAIL.startsAt)).toBeInTheDocument()
     expect(screen.getByText(RACE_DETAIL.place)).toBeInTheDocument()
     expect(screen.getByText('접수 마감 D-12 · 정원 3,000명')).toBeInTheDocument()
-    expect(screen.getByText('35,000원')).toBeInTheDocument()
+    // 종목 5K도 35,000원이라 「부터」 바로 앞 글자로 최저가를 찾는다
+    expect(screen.getByText('부터').previousElementSibling).toHaveTextContent('35,000원')
   })
 
   it('바로 가기 탭은 종목 · 일정 · 환불 · 상세이고, 누르면 그 자리로 스크롤한다', async () => {
