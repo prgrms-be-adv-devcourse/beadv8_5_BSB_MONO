@@ -1,5 +1,6 @@
 package com.bukang.file.app;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import com.bukang.common.shared.file.domain.FileKind;
 import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.file.config.S3Properties;
 import com.bukang.file.domain.FileFormat;
+import com.bukang.file.domain.ImageSize;
 import com.bukang.file.domain.StoredFile;
 import com.bukang.file.domain.exception.FileAccessDeniedException;
 import com.bukang.file.domain.exception.InvalidFileException;
@@ -19,6 +21,7 @@ import com.bukang.file.out.storage.StoredObject;
 /**
  * 업로드 URL 발급과 업로드 확인.
  * 파일 본문은 브라우저가 presigned URL로 S3에 직접 올리므로, 서버는 올라간 뒤에 형식과 크기를 다시 확인한다.
+ * 이미지는 가로·세로 픽셀이 규격(FileKind 최대, FileType 최소 가로)에 맞는지도 본다.
  *
  * presigned URL은 만료 전까지 여러 번 쓸 수 있어서, 확인을 마친 뒤 같은 URL로 다른 내용을 덮어쓸 수 있다.
  * 그래서 브라우저는 업로드 경로({환경}/uploads/)에만 올리고, 서버가 확인할 때 확정 경로({환경}/files/)로 복사한 뒤 복사본을 검사한다.
@@ -98,6 +101,14 @@ public class FileUploadUseCase {
 			throw new InvalidFileException("올린 파일이 신고한 형식이나 크기와 다릅니다. 업로드 URL을 다시 받아 올려주세요.");
 		}
 
+		// 이미지는 가로·세로가 규격에 맞는지 본다. 맞지 않으면 위와 같이 복사본을 지우고 삭제 상태로 바꾼다
+		String sizeProblem = imageSizeProblem(file, confirmedKey);
+		if (sizeProblem != null) {
+			fileStorage.delete(confirmedKey);
+			file.delete();
+			throw new InvalidFileException(sizeProblem);
+		}
+
 		// PENDING → UPLOADED, 키를 확정 경로로 바꾼다
 		file.confirmUpload(confirmedKey);
 		return file;
@@ -122,6 +133,33 @@ public class FileUploadUseCase {
 			&& uploaded.size() <= file.getFileType().getKind().getMaxSize()
 			&& file.getContentType().equalsIgnoreCase(uploaded.contentType())
 			&& file.getFormat().matches(head);
+	}
+
+	// 이미지 규격(가로·세로 최대, 용도별 최소 가로)에 어긋나면 판매자에게 보낼 문구, 맞으면 null
+	// 크기를 담은 칸이 JPEG는 사진 정보(EXIF) 뒤에 있어 파일 전체를 읽는다 (앞에서 이미지 최대 크기 이하임을 확인했다)
+	private String imageSizeProblem(StoredFile file, String confirmedKey) {
+		FileType type = file.getFileType();
+		FileKind kind = type.getKind();
+		if (kind != FileKind.IMAGE) {
+			return null;
+		}
+
+		byte[] content = fileStorage.readFirstBytes(confirmedKey, (int)kind.getMaxSize());
+		Optional<ImageSize> size = file.getFormat().readSize(content);
+		if (size.isEmpty()) {
+			return "이미지를 읽지 못했습니다. 다른 파일로 다시 올려주세요.";
+		}
+
+		int maxDimension = kind.getMaxDimension();
+		if (size.get().width() > maxDimension || size.get().height() > maxDimension) {
+			return "이미지는 가로·세로 %dpx 이하만 올릴 수 있습니다(올린 이미지 %d×%dpx)."
+				.formatted(maxDimension, size.get().width(), size.get().height());
+		}
+		if (size.get().width() < type.getMinWidth()) {
+			return "%s는 가로 %dpx 이상만 올릴 수 있습니다(올린 이미지 가로 %dpx)."
+				.formatted(type.getLabel(), type.getMinWidth(), size.get().width());
+		}
+		return null;
 	}
 
 	// 일부 브라우저는 경로(C:\fakepath\a.png)를 함께 보내므로 파일명만 남긴다

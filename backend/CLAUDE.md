@@ -146,6 +146,7 @@ backend/
 ```
 
 - 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
+  이미지는 이때 파일 머리에서 가로·세로를 읽어 `FileKind.maxDimension`(4000px)·`FileType.minWidth`(소개 이미지 1080px)도 확인한다(새 의존성 없이 `ImageSizeReader`).
   `{환경}`은 `file.storage.s3.key-prefix`로, 프로파일별 yaml에 적는다(dev=`dev`, prod=`prod`, 테스트=`test`). 로컬과 운영이 같은 버킷을 써도 경로가 나뉜다.
 - 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장하면 같은 트랜잭션에서 아웃박스에 파일 연결 메시지(`FileLinkRequestedEvent`, 토픽 `race.filelink.requested`)를 남기고,
   커밋 뒤 Kafka로 보낸다. file-service가 받아 대상마다 보낸 목록으로 파일을 통째로 바꾼다(빈 목록이면 모두 뗀다).

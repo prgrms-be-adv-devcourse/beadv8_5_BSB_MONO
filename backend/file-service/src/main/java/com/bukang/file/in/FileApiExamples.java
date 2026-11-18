@@ -144,6 +144,26 @@ final class FileApiExamples {
 		}
 		""";
 
+	static final String IMAGE_TOO_LARGE = """
+		{
+			"status": 400,
+			"message": "이미지는 가로·세로 4000px 이하만 올릴 수 있습니다(올린 이미지 6000×4000px).",
+			"data": null
+		}
+		""";
+
+	static final String IMAGE_TOO_NARROW = """
+		{
+			"status": 400,
+			"message": "대회 소개 이미지는 가로 1080px 이상만 올릴 수 있습니다(올린 이미지 가로 800px).",
+			"data": null
+		}
+		""";
+
+	static final String IMAGE_UNREADABLE = """
+		{ "status": 400, "message": "이미지를 읽지 못했습니다. 다른 파일로 다시 올려주세요.", "data": null }
+		""";
+
 	static final String LOGIN_REQUIRED = """
 		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
