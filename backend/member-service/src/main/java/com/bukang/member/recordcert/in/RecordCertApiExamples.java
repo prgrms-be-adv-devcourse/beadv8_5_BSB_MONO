@@ -20,13 +20,15 @@ final class RecordCertApiExamples {
 					"orderItemId": 42,
 					"status": "CHECKING",
 					"reasons": [],
+					"denyReason": null,
 					"submittedAt": "2026-11-18T10:00:00"
 				},
 				{
 					"submissionId": 1,
 					"orderItemId": 42,
-					"status": "REJECTED",
-					"reasons": ["NET_TIME_OVER"],
+					"status": "DENIED",
+					"reasons": ["TOO_FAST"],
+					"denyReason": "NAME_MISMATCH",
 					"submittedAt": "2026-11-17T10:00:00"
 				}
 			]
