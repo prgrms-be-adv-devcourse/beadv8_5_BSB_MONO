@@ -120,4 +120,15 @@ describe('CommunityPage', () => {
     await user.type(screen.getByRole('searchbox', { name: '글 검색' }), '울트라 트레일 후기{Enter}')
     expect(await screen.findByText('‘울트라 트레일 후기’에 맞는 글이 없어요')).toBeInTheDocument()
   })
+
+  it('검색어 앞뒤 공백은 빼고 보낸다', async () => {
+    const user = userEvent.setup()
+    renderPage(true)
+    await screen.findByText('JTBC 서울마라톤 첫 풀코스 완주했어요')
+
+    await user.click(screen.getByRole('button', { name: '글 검색' }))
+    await user.type(screen.getByRole('searchbox', { name: '글 검색' }), '  풀코스  {Enter}')
+
+    expect(await screen.findByText('글 1개')).toBeInTheDocument()
+  })
 })

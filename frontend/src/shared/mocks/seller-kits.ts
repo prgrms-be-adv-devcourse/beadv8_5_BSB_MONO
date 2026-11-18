@@ -121,6 +121,32 @@ export const sellerKitHandlers = [
       },
     })
   }),
+  // 내려받기: 목록과 같은 조건으로 거른 CSV(UTF-8 BOM). 사유가 비면 서버처럼 400
+  http.post('*/api/v1/order/seller/kits/export', async ({ request }) => {
+    const body = (await request.json()) as { raceId?: number; status?: string; reason?: string }
+    if (!body.reason?.trim()) {
+      return HttpResponse.json(
+        { status: 400, message: '내려받는 사유를 입력해주세요.', data: null },
+        { status: 400 },
+      )
+    }
+    const found = kits.filter(
+      (k) =>
+        (!body.status || k.kitDeliveryStatus === body.status) &&
+        (!body.raceId || k.raceId === body.raceId),
+    )
+    const lines = found.map((k) =>
+      [
+        k.orderNo,
+        k.courseName,
+        k.participantName,
+        k.kitDeliveryStatus,
+        k.kitTrackingNumber ?? '',
+      ].join(','),
+    )
+    const csv = ['\uFEFF주문번호,종목,참가자 이름,배송 상태,운송장 번호', ...lines].join('\r\n')
+    return new HttpResponse(csv + '\r\n', { headers: { 'Content-Type': 'text/csv;charset=UTF-8' } })
+  }),
   http.get('*/api/v1/order/seller/kits', ({ request }) => {
     const params = new URL(request.url).searchParams
     const status = params.get('status')

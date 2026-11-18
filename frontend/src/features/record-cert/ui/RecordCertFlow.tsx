@@ -1,6 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { parseISO } from 'date-fns'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
@@ -334,10 +335,11 @@ export function ConfirmForm({
             mode="single"
             withTime={false}
             label={<FieldLabel text="대회일" auto={auto(read.values.raceDate)} />}
-            defaultValue={field.value ? new Date(`${field.value}T00:00:00`) : undefined}
-            onValueChange={field.onChange}
-            focusTarget={field.ref}
             error={errors.raceDate?.message}
+            defaultValue={field.value ? parseISO(field.value) : undefined}
+            ref={field.ref}
+            isDateDisabled={(date) => date > new Date()}
+            onValueChange={field.onChange}
           />
         )}
       />

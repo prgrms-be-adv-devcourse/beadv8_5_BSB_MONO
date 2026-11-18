@@ -7,16 +7,8 @@ import { useEffect, useRef, useState } from 'react'
 import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import { myRacesQueryOptions, toSellerRaceRow } from '@/entities/race'
 import { ApiError } from '@/shared/api'
-import { cn, copyText, formatNumber } from '@/shared/lib'
-import {
-  Alert,
-  Badge,
-  buttonClassName,
-  DataTable,
-  EmptyState,
-  FOCUS_RING,
-  useToast,
-} from '@/shared/ui'
+import { copyText, formatNumber } from '@/shared/lib'
+import { Alert, Badge, Button, buttonClassName, DataTable, EmptyState, useToast } from '@/shared/ui'
 
 import { SaleChangeCard } from './SaleChangeCard'
 
@@ -96,12 +88,9 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
           <ConsoleCard
             title={`대회 ${rows.length}개`}
             aside={
-              <button
-                type="button"
-                className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-              >
+              <Button variant="text" size="s" className="text-text-brand">
                 대회명으로 찾기
-              </button>
+              </Button>
             }
             className="min-w-130 flex-1"
           >

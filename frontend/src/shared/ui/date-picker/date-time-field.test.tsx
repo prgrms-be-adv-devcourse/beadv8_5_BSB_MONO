@@ -131,9 +131,9 @@ describe('DateTimeField', () => {
     expect(onValueChange).toHaveBeenLastCalledWith('2026-10-18 18:30')
   })
 
-  it('focusTarget로 날짜 칸을 넘기면 그 칸에 초점을 줄 수 있다', () => {
+  it('ref로 날짜 칸을 넘기면 그 칸에 초점을 줄 수 있다', () => {
     const ref = createRef<HTMLButtonElement>()
-    render(<DateTimeField mode="single" withTime={false} label="생년월일" focusTarget={ref} />)
+    render(<DateTimeField mode="single" withTime={false} label="생년월일" ref={ref} />)
 
     ref.current?.focus()
 

@@ -13,7 +13,7 @@ import { myTicketCountQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
 import { cn, formatNumber } from '@/shared/lib'
-import { Avatar, Dialog, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
+import { Avatar, Button, Dialog, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
 
 import { EMPTY, MenuGroup, MenuRow } from './MenuRow'
 
@@ -129,17 +129,15 @@ export function MyPage() {
         </MenuGroup>
         <AdminMenuGroup />
 
-        <button
-          type="button"
+        <Button
+          variant="text"
+          size="s"
           onClick={() => setLogoutOpen(true)}
           disabled={logout.isPending}
-          className={cn(
-            'mx-5 mt-8 self-start rounded-sm text-body2-regular text-text-secondary',
-            FOCUS_RING,
-          )}
+          className="mx-5 mt-8 self-start"
         >
           로그아웃
-        </button>
+        </Button>
       </main>
       <BottomNav />
       <Dialog

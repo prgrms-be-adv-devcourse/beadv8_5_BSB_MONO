@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useId, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import {
@@ -10,8 +11,18 @@ import {
   walletLedgersQueryOptions,
   type WalletLedger,
 } from '@/entities/wallet'
-import { formatNumber, useSearchParamsState } from '@/shared/lib'
-import { Alert, BottomCta, Button, buttonClassName, Chip, EmptyState, Skeleton } from '@/shared/ui'
+import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
+import {
+  Alert,
+  BottomCta,
+  Button,
+  buttonClassName,
+  Chip,
+  EmptyState,
+  FOCUS_RING,
+  Icon,
+  Skeleton,
+} from '@/shared/ui'
 
 import { chargeRemaining } from '../api/refund-contract'
 import {
@@ -46,6 +57,9 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
     ...walletLedgersQueryOptions(filter === 'all' ? undefined : filter),
     enabled: loggedIn,
   })
+  // 돌려받는 방법은 금액 옆에서 눌러야 펼쳐진다 (v3에서 아래 구역을 없앤 안내)
+  const [howOpen, setHowOpen] = useState(false)
+  const howId = useId()
   const rows = uniqueLedgers(ledgers.data?.pages.flatMap((p) => p.content) ?? [])
 
   return (
@@ -64,6 +78,26 @@ export function DepositPage({ refunding = false }: { refunding?: boolean }) {
             )}
             {isError && (
               <p className="text-caption-regular text-text-tertiary">잔액을 불러오지 못했어요.</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              aria-expanded={howOpen}
+              aria-controls={howId}
+              onClick={() => setHowOpen((open) => !open)}
+              className={cn(
+                'flex items-center gap-1 self-start rounded-sm text-caption-regular text-text-secondary',
+                FOCUS_RING,
+              )}
+            >
+              <Icon name="Info" className="size-4" aria-hidden />
+              돌려받는 방법
+            </button>
+            {howOpen && (
+              <p id={howId} className="text-caption-regular text-text-secondary">
+                결제한 카드로 먼저 돌려드려요. 카드 취소 기한이 지난 몫만 환급으로 계좌에 보내요.
+              </p>
             )}
           </div>
           {refunding && (

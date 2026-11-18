@@ -12,13 +12,14 @@ import {
   Button,
   DataTable,
   Divider,
-  FOCUS_RING,
   KeyValue,
   Select,
   StatTile,
   TextField,
   type BadgeTone,
 } from '@/shared/ui'
+
+import { holdFormSchema } from '../model/hold-form'
 
 type Hold = {
   /** 보류 해제 API에 넘기는 지급보류 번호 */
@@ -67,11 +68,6 @@ const HOLDS: Hold[] = [
   },
 ]
 
-/** '12' 같은 양의 정수만 정산 내역 번호로 받는다 */
-function parsePayoutId(text: string): number | null {
-  return /^[1-9]\d*$/.test(text.trim()) ? Number(text.trim()) : null
-}
-
 // 피그마 V2 · A06 지급보류 관리
 export function AdminHoldsPage() {
   const [selectedId, setSelectedId] = useState('HD-20261025-0C13')
@@ -82,13 +78,16 @@ export function AdminHoldsPage() {
   const [payoutIdError, setPayoutIdError] = useState<string>()
 
   const submitHold = () => {
-    const payoutId = parsePayoutId(payoutIdText)
-    if (payoutId === null) {
-      setPayoutIdError('정산 내역 번호를 숫자로 넣어 주세요.')
+    const parsed = holdFormSchema.safeParse({ payoutId: payoutIdText, reasonType })
+    if (!parsed.success) {
+      setPayoutIdError(parsed.error.issues[0].message)
       return
     }
     setPayoutIdError(undefined)
-    placeHold.mutate({ payoutId, data: { reasonType } })
+    placeHold.mutate({
+      payoutId: parsed.data.payoutId,
+      data: { reasonType: parsed.data.reasonType },
+    })
   }
 
   return (
@@ -107,12 +106,9 @@ export function AdminHoldsPage() {
       <ConsoleCard
         title={`지급보류 ${HOLDS.length}건`}
         aside={
-          <button
-            type="button"
-            className={cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)}
-          >
+          <Button variant="text" size="s" className="text-text-brand">
             ID로 찾기
-          </button>
+          </Button>
         }
       >
         <DataTable

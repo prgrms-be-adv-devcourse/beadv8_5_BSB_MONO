@@ -24,6 +24,7 @@ export {
   TYPE_CHOICES,
   TYPE_LABEL,
 } from './lib/inquiry-display'
+export { answerSchema, inquiryFormSchema } from './model/schemas'
 export {
   ANSWER_MAX,
   BODY_MAX,
