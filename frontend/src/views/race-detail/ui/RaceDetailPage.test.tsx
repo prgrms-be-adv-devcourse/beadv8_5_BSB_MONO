@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -219,6 +219,14 @@ describe('RaceDetailPage v3 배치', () => {
     expect(screen.getByText('접수 마감 D-12 · 정원 3,000명')).toBeInTheDocument()
     // 종목 5K도 35,000원이라 「부터」 바로 앞 글자로 최저가를 찾는다
     expect(screen.getByText('부터').previousElementSibling).toHaveTextContent('35,000원')
+  })
+
+  it('접수가 끝났으면 「접수 마감」을 한 번만 쓰고, 마감일이 없으면 정원만 쓴다', () => {
+    renderPage({ race: { ...RACE_DETAIL, dDay: '마감' } })
+    expect(screen.getByText('접수 마감 · 정원 3,000명')).toBeInTheDocument()
+    cleanup()
+    renderPage({ race: { ...RACE_DETAIL, dDay: '-' } })
+    expect(screen.getByText('정원 3,000명')).toBeInTheDocument()
   })
 
   it('바로 가기 탭은 종목 · 일정 · 환불 · 상세이고, 누르면 그 자리로 스크롤한다', async () => {
