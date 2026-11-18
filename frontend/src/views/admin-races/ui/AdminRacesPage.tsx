@@ -7,20 +7,13 @@ import { cn } from '@/shared/lib'
 import { DataTable, FOCUS_RING, KeyValue } from '@/shared/ui'
 
 // 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
-const STATUS_TEXT = {
+const STATUS_TEXT: Record<string, string> = {
   success: 'text-text-success',
   danger: 'text-text-danger',
-  other: 'text-text-secondary',
+  warning: 'text-text-warning',
 }
 const statusText = (tone: string) =>
-  cn(
-    'text-body2-medium',
-    tone === 'success'
-      ? STATUS_TEXT.success
-      : tone === 'danger'
-        ? STATUS_TEXT.danger
-        : STATUS_TEXT.other,
-  )
+  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
 
 type Race = {
   id: string

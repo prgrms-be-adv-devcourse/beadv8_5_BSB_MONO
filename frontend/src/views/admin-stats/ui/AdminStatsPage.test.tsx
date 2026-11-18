@@ -125,6 +125,15 @@ describe('AdminStatsPage', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
+  it('직접 고르기를 누르면 위 기간 버튼 묶음과 이름이 다른 날짜 고르기가 열린다', async () => {
+    renderPage()
+
+    await userEvent.click(screen.getByRole('tab', { name: '직접 고르기' }))
+
+    expect(screen.getByRole('group', { name: '기간 직접 고르기' })).toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: '기간' })).toBeInTheDocument()
+  })
+
   it('Clarity ID가 없으면 바로가기를 보여 주지 않는다', () => {
     clarity.id = undefined
     renderPage()

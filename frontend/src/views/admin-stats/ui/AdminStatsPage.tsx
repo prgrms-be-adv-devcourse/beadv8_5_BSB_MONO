@@ -135,7 +135,7 @@ function PeriodPicker({
           <DateTimeField
             mode="range"
             withTime={false}
-            label="기간"
+            label="기간 직접 고르기"
             className="w-80"
             endMonth={new Date(`${today}T00:00:00`)}
             isDateDisabled={(d) => format(d, 'yyyy-MM-dd') > today}

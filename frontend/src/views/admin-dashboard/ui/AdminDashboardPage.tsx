@@ -12,6 +12,7 @@ import { cn } from '@/shared/lib'
 import { FOCUS_RING } from '@/shared/ui'
 
 import { oldestDay, todoSummary } from '../lib/todo-summary'
+import { PayCheckRequiredCard } from './PayCheckRequired'
 
 type Todo = {
   label: string
@@ -19,6 +20,8 @@ type Todo = {
   /** 불러온 건수. 셀 수 있는 목록 API가 없는 줄은 null, 아직 못 불러왔으면 undefined */
   count: number | null | undefined
   oldestAt?: string
+  /** 건수를 불러오지 못했다 */
+  failed?: boolean
 }
 
 // 피그마 v3 · 관리자 대시보드: 할 일 목록과 이번 정산 상자만 둔다.
@@ -41,16 +44,29 @@ export function AdminDashboardPage() {
       label: '판매자 승인 대기',
       href: '/admin/sellers',
       count: sellers.data?.length,
+      failed: sellers.isError,
       oldestAt: oldestDay(sellers.data?.map((s) => s.requestedAt) ?? []),
     },
-    { label: '답변 대기 문의', href: '/admin/inquiries', count: inquiries.data?.waitingCount },
-    { label: '숨겨진 신고 글', href: '/admin/community-reports', count: reports.data?.hiddenCount },
+    {
+      label: '답변 대기 문의',
+      href: '/admin/inquiries',
+      count: inquiries.data?.waitingCount,
+      failed: inquiries.isError,
+    },
+    {
+      label: '숨겨진 신고 글·댓글',
+      href: '/admin/community-reports',
+      count: reports.data?.hiddenCount,
+      failed: reports.isError,
+    },
     // 입금 기한이 지난 건만 세는 API가 없다
     { label: '입금 기한 지난 회수', href: '/admin/claims', count: null },
     {
-      label: '확인이 필요한 계정',
+      // totalElements는 계정 수가 아니라 같은 사람으로 보이는 묶음 수다
+      label: '확인이 필요한 계정 묶음',
       href: '/admin/members',
       count: identity.data?.totalElements,
+      failed: identity.isError,
     },
   ]
 
@@ -77,6 +93,11 @@ export function AdminDashboardPage() {
                       )}
                     </>
                   )}
+                  {todo.failed && (
+                    <span className="text-body2-regular text-text-secondary">
+                      불러오지 못했어요
+                    </span>
+                  )}
                   {summary.kind === 'none' && (
                     <span className="text-body2-regular text-text-secondary">없음</span>
                   )}
@@ -89,6 +110,8 @@ export function AdminDashboardPage() {
           })}
         </ul>
       </ConsoleCard>
+
+      <PayCheckRequiredCard />
 
       {/* 관리자 정산 요약 API가 없어 금액을 보여 주지 않고 화면으로 가는 링크만 둔다 */}
       <ConsoleCard title="이번 정산">

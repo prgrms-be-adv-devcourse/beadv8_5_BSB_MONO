@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
@@ -23,20 +23,13 @@ import {
 } from '../model/admin-sellers-api'
 
 // 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
-const STATUS_TEXT = {
+const STATUS_TEXT: Record<string, string> = {
   success: 'text-text-success',
   danger: 'text-text-danger',
-  other: 'text-text-secondary',
+  warning: 'text-text-warning',
 }
 const statusText = (tone: string) =>
-  cn(
-    'text-body2-medium',
-    tone === 'success'
-      ? STATUS_TEXT.success
-      : tone === 'danger'
-        ? STATUS_TEXT.danger
-        : STATUS_TEXT.other,
-  )
+  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
 
 type Tab = 'pending' | 'approved' | 'rejected'
 
@@ -232,13 +225,19 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
               반려하면 신청자에게 알림이 가고, 사유가 신청자 화면(S01-1)에 그대로 보여요. 신청자는
               고쳐서 다시 신청할 수 있어요.
             </p>
-            <Textarea
-              label="반려 사유 (필수)"
-              helper="신청자 화면에 그대로 보여요"
-              showCounter
-              maxLength={REASON_MAX_LENGTH}
-              error={rejectForm.formState.errors.reason?.message}
-              {...rejectForm.register('reason')}
+            <Controller
+              control={rejectForm.control}
+              name="reason"
+              render={({ field, fieldState }) => (
+                <Textarea
+                  label="반려 사유 (필수)"
+                  helper="신청자 화면에 그대로 보여요"
+                  showCounter
+                  maxLength={REASON_MAX_LENGTH}
+                  error={fieldState.error?.message}
+                  {...field}
+                />
+              )}
             />
           </div>
         }

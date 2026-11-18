@@ -192,6 +192,35 @@ describe('AdminSellersPage 반려', () => {
     expect(body).toEqual({ reason: '번호를 확인할 수 없어요.' })
   })
 
+  it('창을 닫았다 다시 열어도 적던 사유와 글자 수가 그대로다', async () => {
+    useLists({ PENDING: [BUSINESS] })
+    const user = userEvent.setup()
+    renderPage()
+
+    let dialog = await openRejectDialog(user)
+    await user.type(within(dialog).getByLabelText(/반려 사유/), '서류 부족')
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
+    dialog = await openRejectDialog(user)
+
+    expect(within(dialog).getByLabelText(/반려 사유/)).toHaveValue('서류 부족')
+    expect(within(dialog).getByText('5/500')).toBeInTheDocument()
+  })
+
+  it('다른 신청을 고르면 앞 신청에 적던 사유가 비워진다', async () => {
+    useLists({ PENDING: [BUSINESS, INDIVIDUAL] })
+    const user = userEvent.setup()
+    renderPage()
+
+    let dialog = await openRejectDialog(user)
+    await user.type(within(dialog).getByLabelText(/반려 사유/), 'A 신청 사유')
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
+    await user.click(screen.getByText('이춘천', { selector: 'td *, td' }))
+    dialog = await openRejectDialog(user)
+
+    expect(within(dialog).getByLabelText(/반려 사유/)).toHaveValue('')
+    expect(within(dialog).getByText('0/500')).toBeInTheDocument()
+  })
+
   it('사유가 비어 있으면 보내지 않고 사유를 입력하라고 알린다', async () => {
     useLists({ PENDING: [BUSINESS] })
     let called = false

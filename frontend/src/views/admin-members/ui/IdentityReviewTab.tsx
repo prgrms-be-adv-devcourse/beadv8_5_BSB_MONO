@@ -11,20 +11,13 @@ import { Alert, DataTable, Pagination } from '@/shared/ui'
 import { ADMIN_MEMBER_PAGE_SIZE, loadErrorMessage, toDateTime } from '../model/admin-members-api'
 
 // 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
-const STATUS_TEXT = {
+const STATUS_TEXT: Record<string, string> = {
   success: 'text-text-success',
   danger: 'text-text-danger',
-  other: 'text-text-secondary',
+  warning: 'text-text-warning',
 }
 const statusText = (tone: string) =>
-  cn(
-    'text-body2-medium',
-    tone === 'success'
-      ? STATUS_TEXT.success
-      : tone === 'danger'
-        ? STATUS_TEXT.danger
-        : STATUS_TEXT.other,
-  )
+  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
 
 // 확인이 필요한 계정: 같은 사람으로 보이는 계정 묶음. 묶음마다 카드 하나, 표 하나.
 export function IdentityReviewTab() {

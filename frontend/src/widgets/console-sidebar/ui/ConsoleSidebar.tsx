@@ -50,7 +50,7 @@ const MENU: Record<
       { href: '/admin/settlements', label: '정산 관리', icon: 'Inbox' },
       { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
       { href: '/admin/inquiries', label: '문의', icon: 'Help', groupStart: true },
-      { href: '/admin/community-reports', label: '커뮤니티 신고', icon: 'Message' },
+      { href: '/admin/community-reports', label: '커뮤니티 신고', icon: 'TriangleAlert' },
       { href: '/admin/ai', label: '크루런 AI', icon: 'Message', groupStart: true },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
     ],
