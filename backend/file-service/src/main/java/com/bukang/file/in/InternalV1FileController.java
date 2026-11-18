@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,14 +32,59 @@ import lombok.RequiredArgsConstructor;
  * 서비스끼리 부르는 내부 API. 게이트웨이에 라우팅하지 않는다(/internal/** 경로)
  * 노출되면 위험한 URL이므로 ApiV1FileController 와 구분된다.
  */
-@Tag(name = "FileInternal", description = "대상(대회 등)에 파일 연결 API (서비스 간 내부 호출 전용)")
+@Tag(name = "FileInternal", description = "대상(대회 등)에 파일 연결, 파일 보기 주소 발급, 파일 삭제 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/internal/v1/file/refs")
+@RequestMapping("/internal/v1/file")
 public class InternalV1FileController {
 	private final FileFacade fileFacade;
 
-	@PutMapping("/{refType}/{refId}/files")
+	@GetMapping("/files/{fileId}/view-url")
+	@Operation(summary = "파일 보기 주소 발급",
+		description = "파일 정보와 30분 뒤 만료되는 presigned GET URL을 돌려준다. 올린 회원인지 보지 않으므로, "
+			+ "기록증처럼 공개 조회가 막힌 파일은 부른 서비스(member)가 볼 자격을 확인한 뒤 부른다. ai-service도 서버 확인 때 원본을 이것으로 받는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "발급 성공",
+			content = @Content(examples = @ExampleObject(value = FileInternalApiExamples.VIEW_URL_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "파일 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileInternalApiExamples.INVALID_VALUE_TYPE))),
+		@ApiResponse(responseCode = "404", description = "없거나 삭제된 파일",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileApiExamples.FILE_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<FileDto>> viewUrl(
+		@Parameter(description = "파일 ID", example = "7")
+		@PathVariable long fileId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "파일 보기 주소를 발급했습니다.", fileFacade.findForView(fileId)));
+	}
+
+	@DeleteMapping("/files/{fileId}")
+	@Operation(summary = "파일 삭제",
+		description = "S3 객체를 지운 뒤 파일 행을 지운다. 이미 없는 파일도 성공으로 답한다. "
+			+ "S3 객체를 지우지 못하면 행을 남기고 503으로 답하므로, 부른 쪽이 다시 부르면 이어서 지운다. "
+			+ "member가 끝난 지 30일 지난 제출의 기록증 사진을 지울 때 부른다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "삭제 성공 (이미 없던 파일 포함)",
+			content = @Content(examples = @ExampleObject(value = FileInternalApiExamples.DELETE_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "파일 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileInternalApiExamples.INVALID_VALUE_TYPE))),
+		@ApiResponse(responseCode = "503", description = "S3 객체를 지우지 못함 (행은 남음, 다시 부르면 된다)",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileInternalApiExamples.DELETE_FAILED)))
+	})
+	public ResponseEntity<RsData<Void>> delete(
+		@Parameter(description = "파일 ID", example = "7")
+		@PathVariable long fileId
+	) {
+		fileFacade.delete(fileId);
+		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "파일을 지웠습니다.", null));
+	}
+
+	@PutMapping("/refs/{refType}/{refId}/files")
 	@Operation(summary = "대상에 파일 연결",
 		description = "업로드를 마친 파일을 대상에 연결한다. 요청한 목록이 그 대상의 파일 전체가 되므로 같은 요청을 다시 보내도 결과가 같고, "
 			+ "목록에서 빠진 기존 파일은 삭제 상태가 된다. 파일 용도(fileType)는 업로드할 때 정한 값과 같아야 하고, "

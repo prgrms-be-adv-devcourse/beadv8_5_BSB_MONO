@@ -45,6 +45,12 @@ public class FakeFileStorage implements FileStorage {
 		deleteRequestFails = true;
 	}
 
+	// 지우기 실패 흉내를 멈춘다 (S3가 돌아온 뒤 다시 시도하는 상황)
+	public void recoverDelete() {
+		failingDeleteKeys.clear();
+		deleteRequestFails = false;
+	}
+
 	public void clear() {
 		objects.clear();
 		failingDeleteKeys.clear();
