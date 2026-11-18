@@ -14,7 +14,6 @@ import com.bukang.member.domain.SocialAccount;
 import com.bukang.member.domain.SocialProvider;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SocialAccountAlreadyLinkedException;
-import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
 import com.bukang.member.dto.MemberDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SocialAccountRepository;
@@ -43,9 +42,7 @@ public class SocialAccountUseCase {
 	@Transactional(readOnly = true)
 	public String issueLinkTicket(long memberId, SocialProvider provider) {
 		Member member = findActive(memberId);
-		if (member.hasSocial(provider)) {
-			throw new SocialProviderAlreadyLinkedException("이미 연결된 소셜 로그인입니다.");
-		}
+		member.requireNotLinked(provider);
 		String ticket = SocialRedirects.randomId();
 		socialLoginStore.saveLinkTicket(ticket, new LinkTicket(memberId, provider));
 		return ticket;
@@ -59,7 +56,7 @@ public class SocialAccountUseCase {
 		Optional<SocialAccount> existing = socialAccountRepository.findByProviderAndProviderUserId(
 			identity.provider(), identity.providerUserId());
 		if (existing.isPresent()) {
-			if (existing.get().getMember().getId() == memberId) {
+			if (existing.get().isOwnedBy(memberId)) {
 				return;
 			}
 			throw new SocialAccountAlreadyLinkedException(ALREADY_LINKED_MESSAGE);
@@ -82,7 +79,7 @@ public class SocialAccountUseCase {
 		memberRepository.flush();
 		eventPublisher.publishEvent(new SocialAccountsUnlinkedEvent(
 			List.of(new Target(removed.getProvider(), removed.getProviderUserId()))));
-		return member.toDto();
+		return MemberDto.from(member);
 	}
 
 	/**
@@ -91,9 +88,7 @@ public class SocialAccountUseCase {
 	 */
 	@Transactional(readOnly = true)
 	public Optional<String> findLoginMethod(String email) {
-		return memberRepository.findActiveByEmail(email).map(member -> member.hasPassword()
-			? "email"
-			: member.socialProviders().stream().findFirst().map(SocialProvider::getPathValue).orElse("email"));
+		return memberRepository.findActiveByEmail(email).map(Member::loginMethod);
 	}
 
 	private Member findActive(long memberId) {

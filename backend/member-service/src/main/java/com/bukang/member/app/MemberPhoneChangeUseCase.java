@@ -50,20 +50,24 @@ public class MemberPhoneChangeUseCase {
 		// 하이픈 유무와 상관없이 같은 번호면 번호는 그대로 두고 본인인증 해시만 채운다 (BUK-193)
 		// 해시가 비어 있는 기존 회원이 판매자 신청 안내대로 같은 번호로 다시 인증하는 경우다
 		String phoneHash = blindIndexGenerator.generatePhone(identity.phone());
-		if (phoneHash.equals(member.getPhoneHash())) {
+		if (member.hasPhoneHash(phoneHash)) {
 			member.refreshIdentityVerification(identity.ciHash(), identity.identityHash(), identity.nameBirthHash(),
 				identity.verifiedAt());
-		} else {
-			if (memberRepository.existsByPhoneHashAndIdNot(phoneHash, memberId)) {
-				throw new DuplicatePhoneException(MemberDuplicateExceptions.DUPLICATE_PHONE_MESSAGE);
-			}
-			member.changePhone(identity.phone(), phoneHash, identity.ciHash(), identity.identityHash(),
-				identity.nameBirthHash(), identity.verifiedAt());
+			return saveAndFlush(member);
 		}
+		if (memberRepository.existsByPhoneHashAndIdNot(phoneHash, memberId)) {
+			throw new DuplicatePhoneException(MemberDuplicateExceptions.DUPLICATE_PHONE_MESSAGE);
+		}
+		member.changePhone(identity.phone(), phoneHash, identity.ciHash(), identity.identityHash(),
+			identity.nameBirthHash(), identity.verifiedAt());
+		return saveAndFlush(member);
+	}
+
+	private MemberDto saveAndFlush(Member member) {
 		try {
 			// 같은 번호로 동시에 바꾸면 둘 다 위의 검사를 통과하고, 늦은 쪽이 DB 유니크 제약에 걸린다
 			// 이름 + 생년월일 + 번호 해시의 유니크 제약에 걸려도 같은 방식으로 409가 된다
-			return memberRepository.saveAndFlush(member).toDto();
+			return MemberDto.from(memberRepository.saveAndFlush(member));
 		} catch (DataIntegrityViolationException exception) {
 			throw MemberDuplicateExceptions.from(exception);
 		}

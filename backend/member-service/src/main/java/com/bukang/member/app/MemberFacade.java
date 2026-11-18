@@ -54,7 +54,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
-	static final String LOGIN_LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 	public static final int MAX_REPLICA_PAGE_SIZE = 500;
 
 	private final MemberJoinUseCase memberJoinUseCase;
@@ -77,14 +76,14 @@ public class MemberFacade {
 	@Transactional
 	public MemberDto join(MemberJoinRequestDto memberJoinDto) {
 		VerifiedIdentity identity = identityVerificationUseCase.takeForJoin(memberJoinDto.getVerificationToken());
-		return memberJoinUseCase.join(
+		return MemberDto.from(memberJoinUseCase.join(
 			memberJoinDto.getEmail(),
 			memberJoinDto.getPassword(),
 			memberJoinDto.getNickname(),
 			memberJoinDto.getGender(),
 			memberJoinDto.getAgreedTerms(),
 			identity
-		).toDto();
+		));
 	}
 
 	public EmailAvailabilityResponseDto checkEmailAvailability(String email) {
@@ -93,12 +92,12 @@ public class MemberFacade {
 
 	public MemberDto findMe(long memberId) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
-		return memberRepository.findActiveById(memberId).orElseThrow(MemberNotFoundException::new).toDto();
+		return MemberDto.from(memberRepository.findActiveById(memberId).orElseThrow(MemberNotFoundException::new));
 	}
 
 	@Transactional
 	public MemberDto modifyMe(long memberId, MemberModifyRequestDto memberModifyRequestDto) {
-		return memberModifyUseCase.modify(memberId, memberModifyRequestDto.getNickname()).toDto();
+		return MemberDto.from(memberModifyUseCase.modify(memberId, memberModifyRequestDto.getNickname()));
 	}
 
 	public MarketingConsentDto findMarketingConsent(long memberId) {
@@ -191,7 +190,7 @@ public class MemberFacade {
 		// shortcut: ß=ss처럼 악센트 말고도 MySQL 정렬이 같다고 보는 글자는 맞추지 못함, 그런 우회가 보이면 DB 정렬로 키를 만든다
 		String emailHash = Sha256.hex(attemptKey(found.map(Member::getEmail).orElse(memberLoginRequestDto.getEmail())));
 		if (recordAttempt(emailHash) > loginAttemptProperties.maxFailures()) {
-			throw new LoginLockedException(LOGIN_LOCKED_MESSAGE);
+			throw new LoginLockedException(loginLockedMessage());
 		}
 
 		found.filter(member -> !member.hasPassword())
@@ -211,13 +210,18 @@ public class MemberFacade {
 		Member member = memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail())
 			.orElseThrow(MemberNotFoundException::new);
 
-		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+		return new MemberLoginResult(MemberDto.from(member), tokenIssueUseCase.issue(member.getId()));
 	}
 
 	private static String attemptKey(String email) {
 		return Normalizer.normalize(email.trim(), Normalizer.Form.NFKD)
 			.replaceAll("\\p{M}", "")
 			.toLowerCase(Locale.ROOT);
+	}
+
+	private String loginLockedMessage() {
+		return "로그인을 %d번 실패해 %d분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요."
+			.formatted(loginAttemptProperties.maxFailures(), loginAttemptProperties.blockDuration().toMinutes());
 	}
 
 	// Redis 오류로 횟수를 못 세면 차단 없이 로그인을 계속한다. 토큰 발급도 Redis 오류에 로그인을 막지 않는다
