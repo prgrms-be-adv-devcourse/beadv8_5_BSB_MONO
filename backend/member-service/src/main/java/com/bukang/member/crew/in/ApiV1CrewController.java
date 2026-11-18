@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewInviteCommand;
+import com.bukang.member.crew.app.CrewManageCommand;
+import com.bukang.member.crew.app.CrewQuery;
 import com.bukang.member.crew.dto.CrewCreateRequestDto;
 import com.bukang.member.crew.dto.CrewHomeDto;
 import com.bukang.member.crew.dto.CrewInviteCreatedDto;
@@ -38,7 +40,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/member/crews")
 public class ApiV1CrewController {
-	private final CrewFacade crewFacade;
+	private final CrewManageCommand crewManageCommand;
+	private final CrewInviteCommand crewInviteCommand;
+	private final CrewQuery crewQuery;
 
 	@PostMapping
 	@Operation(operationId = "createCrew", summary = "크루 만들기",
@@ -62,7 +66,8 @@ public class ApiV1CrewController {
 		@RequestBody CrewCreateRequestDto request
 	) {
 		return ResponseEntity.status(HttpStatus.CREATED)
-			.body(RsData.of(HttpStatus.CREATED, "크루를 만들었습니다.", crewFacade.createCrew(memberId, request.getName())));
+			.body(RsData.of(HttpStatus.CREATED, "크루를 만들었습니다.",
+				crewManageCommand.createCrew(memberId, request.getName())));
 	}
 
 	@GetMapping("/me")
@@ -77,7 +82,7 @@ public class ApiV1CrewController {
 	})
 	public ResponseEntity<RsData<List<MyCrewDto>>> findMyCrews(@LoginMemberId long memberId) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "내 크루 목록을 조회했습니다.", crewFacade.findMyCrews(memberId)));
+			.body(RsData.of(HttpStatus.OK, "내 크루 목록을 조회했습니다.", crewQuery.findMyCrews(memberId)));
 	}
 
 	@GetMapping("/{crewId}")
@@ -104,7 +109,7 @@ public class ApiV1CrewController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "크루를 조회했습니다.", crewFacade.findCrew(memberId, crewId)));
+			.body(RsData.of(HttpStatus.OK, "크루를 조회했습니다.", crewQuery.findCrew(memberId, crewId)));
 	}
 
 	@PostMapping("/{crewId}/invites")
@@ -132,7 +137,7 @@ public class ApiV1CrewController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
 		return ResponseEntity.status(HttpStatus.CREATED)
-			.body(RsData.of(HttpStatus.CREATED, "초대 링크를 만들었습니다.", crewFacade.createInvite(memberId, crewId)));
+			.body(RsData.of(HttpStatus.CREATED, "초대 링크를 만들었습니다.", crewInviteCommand.createInvite(memberId, crewId)));
 	}
 
 	@GetMapping("/{crewId}/invites")
@@ -159,7 +164,7 @@ public class ApiV1CrewController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "초대 목록을 조회했습니다.", crewFacade.findInvites(memberId, crewId)));
+			.body(RsData.of(HttpStatus.OK, "초대 목록을 조회했습니다.", crewQuery.findInvites(memberId, crewId)));
 	}
 
 	@DeleteMapping("/{crewId}/invites/{inviteId}")
@@ -193,7 +198,7 @@ public class ApiV1CrewController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId,
 		@Parameter(description = "초대 ID", example = "3") @PathVariable long inviteId
 	) {
-		crewFacade.cancelInvite(memberId, crewId, inviteId);
+		crewInviteCommand.cancelInvite(memberId, crewId, inviteId);
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "초대를 취소했습니다.", null));
 	}
@@ -225,7 +230,7 @@ public class ApiV1CrewController {
 		@Parameter(description = "초대 토큰", example = "q7Xk2LmZ9vBn4RtW8yCp1A") @PathVariable String inviteToken
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "초대 링크를 조회했습니다.", crewFacade.findInviteByToken(memberId, inviteToken)));
+			.body(RsData.of(HttpStatus.OK, "초대 링크를 조회했습니다.", crewQuery.previewInvite(memberId, inviteToken)));
 	}
 
 	@PostMapping("/invites/{inviteToken}/join")
@@ -257,6 +262,6 @@ public class ApiV1CrewController {
 		@Parameter(description = "초대 토큰", example = "q7Xk2LmZ9vBn4RtW8yCp1A") @PathVariable String inviteToken
 	) {
 		return ResponseEntity.status(HttpStatus.CREATED)
-			.body(RsData.of(HttpStatus.CREATED, "크루에 가입했습니다.", crewFacade.join(memberId, inviteToken)));
+			.body(RsData.of(HttpStatus.CREATED, "크루에 가입했습니다.", crewInviteCommand.join(memberId, inviteToken)));
 	}
 }
