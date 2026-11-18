@@ -425,3 +425,31 @@ describe('RaceQueuePage', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 })
+
+describe('RaceQueuePage · 내 차례 화면 유지 시간', () => {
+  beforeEach(() => {
+    // 실제 시간이 흐르지 않는 가짜 시계. 시간은 이 테스트가 직접 옮긴다 (경계 확인용)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    replace.mockClear()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('내 차례 화면은 1.5초보다 1ms 일찍은 넘어가지 않고 1.5초에 신청서로 넘어간다', async () => {
+    mockQueueOpen()
+    server.use(orderMock.getFindAdmissionMockHandler({ status: 200, data: admitted(600) }))
+    renderQueue()
+
+    // 시계를 옮기지 않고(0ms) 대기 중인 짧은 타이머만 돌려서 내 차례 화면이 뜨기를 기다린다
+    await vi.waitFor(async () => {
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      await new Promise((resolve) => setImmediate(resolve))
+      expect(screen.getByRole('heading', { name: /내 차례예요/ })).toBeInTheDocument()
+    })
+    await act(() => vi.advanceTimersByTimeAsync(ADMITTED_HOLD_MS - 1))
+    expect(replace).not.toHaveBeenCalled()
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(replace).toHaveBeenCalledWith('/races/1/apply?option=2')
+  })
+})
