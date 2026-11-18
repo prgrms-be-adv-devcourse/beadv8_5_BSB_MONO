@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Fragment, useState } from 'react'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { KitExportButton } from '@/features/seller-kit-export'
 import { myRacesQueryOptions } from '@/entities/race'
 import {
   KIT_FLOW,
@@ -161,12 +162,7 @@ export function SellerKitsPage() {
     <ConsolePage
       title="키트 배송 관리"
       description="키트는 환불 기한이 지난 뒤 배송해요. 배송 상태는 판매자가 바꾸고, 송장 번호를 넣으면 배송 중이 돼요."
-      // TODO(api): 배송 목록 엑셀 내려받기 API가 없어 막아 둔다
-      actions={
-        <Button variant="secondary" disabled title="엑셀 내려받기는 준비 중이에요">
-          엑셀로 내려받기
-        </Button>
-      }
+      actions={<KitExportButton filters={filters} />}
     >
       <div role="group" aria-label="키트 배송 건수" className="flex gap-4">
         {summary.data ? (
