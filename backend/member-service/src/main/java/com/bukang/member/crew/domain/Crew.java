@@ -80,8 +80,4 @@ public class Crew {
 		}
 		return normalized;
 	}
-
-	public boolean isActive() {
-		return status == CrewStatus.ACTIVE;
-	}
 }
