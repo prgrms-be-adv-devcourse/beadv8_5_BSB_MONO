@@ -207,9 +207,36 @@ function ParticipantForm({
   // 같은 참가 신청으로 결제를 다시 누르면(두 번 클릭 · 실패 뒤 재시도) 같은 Idempotency-Key를 보낸다.
   const orderKey = useIdempotencyKey()
 
+  // 이 종목의 결제 대기 주문이 이미 있으면 그 주문으로 결제를 이어 간다.
+  // 새로 만들면 서버가 「결제를 시작할 수 없는 신청」으로 거절하기 때문이다. 조회가 실패하면 새로 만들어 서버가 판단하게 한다.
+  async function findPendingOrderId() {
+    try {
+      const page = unwrapData(await orderApi.findMyTickets({ active: true, size: 50 }))
+      return page.tickets?.find(
+        (t) =>
+          t.raceCourseId === Number(option.id) &&
+          t.participationType === 'INDIVIDUAL' &&
+          t.orderStatus === 'CREATED' &&
+          t.orderItemStatus === 'ORDERED',
+      )?.orderId
+    } catch {
+      return undefined
+    }
+  }
+
   // 참가 신청을 저장하고(이번에 이미 저장한 종목이면 참가자 정보만 고친다) 주문을 만들어 결제로 간다.
+  // 결제 대기 주문이 있으면 입력한 참가자 정보로 고치지 않고 그 주문을 그대로 결제한다. 고른 키트 옵션만 그 주문에 남긴다.
   const save = useMutation({
     mutationFn: async (values: ParticipantFormValues) => {
+      const pendingOrderId = await findPendingOrderId()
+      if (pendingOrderId != null) {
+        if (kitStep)
+          saveKitOptionIds(
+            pendingOrderId,
+            kitGroups.flatMap((g) => picked[g.name] ?? []),
+          )
+        return pendingOrderId
+      }
       const participant = toParticipantRequest(values, option)
       const participation = await saveParticipation(participant)
       submitApplication(
