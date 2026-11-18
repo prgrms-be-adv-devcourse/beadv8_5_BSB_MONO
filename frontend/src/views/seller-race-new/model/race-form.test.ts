@@ -113,7 +113,7 @@ describe('courseDraftSchema 종목 추가 창', () => {
     timeLimitMinutes: '180',
     price: '55000',
     individualQuota: '500',
-    minAge: '18',
+    adultOnly: false,
   }
 
   // 칸별 첫 오류 문구
@@ -136,10 +136,11 @@ describe('courseDraftSchema 종목 추가 창', () => {
       timeLimitMinutes: 180,
       price: 55000,
       individualQuota: 500,
-      minAge: 18,
-      maxAge: undefined,
+      minAge: 14,
       crewQuota: 0,
     })
+    expect(course).not.toHaveProperty('maxAge')
+    expect(course).not.toHaveProperty('adultOnly')
 
     const request = toRaceSaveRequest(
       { ...base, courses: [...base.courses, course] },
@@ -157,15 +158,21 @@ describe('courseDraftSchema 종목 추가 창', () => {
     })
   })
 
-  it('최대 나이가 최소 나이보다 작으면 막는다', () => {
-    expect(errorsOf({ ...draft, minAge: '20', maxAge: '19' })).toEqual({
-      maxAge: COURSE_FORM_ERRORS.maxAgeOrder,
-    })
+  it('성인만 받기를 체크하면 최소 나이 19, 안 하면 14로 만들고 최대 나이는 만들지 않는다', () => {
+    for (const [adultOnly, minAge] of [
+      [true, 19],
+      [false, 14],
+    ] as const) {
+      const result = courseDraftSchema.safeParse({ ...draft, adultOnly })
+      if (!result.success) throw new Error('종목이 만들어져야 한다')
+      const course = toCourseInputFromParsed(result.data)
+      expect(course.minAge).toBe(minAge)
+      expect(course).not.toHaveProperty('maxAge')
+    }
   })
 
-  it('최대 나이에 숫자가 아닌 값을 넣으면 한국어 숫자 오류를 준다', () => {
-    expect(errorsOf({ ...draft, maxAge: 'abc' })).toEqual({ maxAge: COURSE_FORM_ERRORS.number })
-    expect(errorsOf({ ...draft, maxAge: '1.5' })).toEqual({ maxAge: COURSE_FORM_ERRORS.number })
+  it('새 종목의 기본값은 성인만 받기 해제(최소 나이 14)다', () => {
+    expect(COURSE_DRAFT_DEFAULTS.adultOnly).toBe(false)
   })
 
   it('참가비 · 정원 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
