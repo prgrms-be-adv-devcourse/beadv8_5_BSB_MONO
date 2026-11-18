@@ -800,7 +800,7 @@ describe('결제 화면', () => {
     it('참가자 상자는 이름 · 생년월일 · 성별, 배송 주소, 비상 연락처를 보여 준다', async () => {
       renderCheckout()
 
-      const box = region('참가자 · 배송')
+      const box = await screen.findByRole('region', { name: '참가자 · 배송' })
       expect(await within(box).findByText('이달림 · 1994.06.25 · 남성')).toBeInTheDocument()
       expect(within(box).getByText(/서울 성동구 왕십리로/)).toBeInTheDocument()
       expect(within(box).getByText('비상 연락처 김가족 (010-9876-5432)')).toBeInTheDocument()
@@ -814,7 +814,7 @@ describe('결제 화면', () => {
       )
       renderCheckout()
 
-      const box = region('참가자 · 배송')
+      const box = await screen.findByRole('region', { name: '참가자 · 배송' })
       expect(await within(box).findByText(/서울 성동구 왕십리로/)).toBeInTheDocument()
       expect(within(box).queryByText(/비상 연락처/)).not.toBeInTheDocument()
       expect(within(box).queryByText(/1994/)).not.toBeInTheDocument()
@@ -823,7 +823,7 @@ describe('결제 화면', () => {
     it('신청 대회 상자는 대회 · 종목 · 키트 옵션 · 참가비를 보여 준다', async () => {
       renderCheckout()
 
-      const box = region('신청 대회')
+      const box = await screen.findByRole('region', { name: '신청 대회' })
       expect(await within(box).findByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
       expect(within(box).getByText(/ · 10K$/)).toBeInTheDocument()
       expect(within(box).getByText('키트 티셔츠 L')).toBeInTheDocument()
@@ -886,7 +886,7 @@ describe('결제 화면', () => {
       expect(pay).toBeDisabled()
       const consent = region('결제 동의')
       expect(
-        within(consent).getByText(/^\(필수\) .+ 뒤에는 취소해도 환불되지 않아요$/),
+        await within(consent).findByText(/^\(필수\) .+ 뒤에는 취소해도 환불되지 않아요$/),
       ).toBeInTheDocument()
       expect(within(consent).getByText('(필수) 결제대행 서비스 이용약관 동의')).toBeInTheDocument()
       expect(

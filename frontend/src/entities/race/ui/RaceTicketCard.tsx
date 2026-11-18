@@ -35,10 +35,10 @@ export function RaceTicketCard({
           alt=""
           width={96}
           height={72}
-          className="h-18 w-24 shrink-0 rounded-lg object-cover"
+          className="h-18 w-24 shrink-0 rounded-md object-cover"
         />
       ) : (
-        <RacePoster seed={title} title="" label="" className="h-18 w-24 shrink-0 rounded-lg" />
+        <RacePoster seed={title} title="" label="" className="h-18 w-24 shrink-0 rounded-md" />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="truncate text-body1-bold">{title}</p>
