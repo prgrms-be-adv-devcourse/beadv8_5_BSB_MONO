@@ -6,10 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RACE_DETAIL, type RaceDetail } from '@/entities/race'
 import { clearAccessToken, setAccessToken } from '@/shared/api'
+import { trackEvent } from '@/shared/lib'
 import { productMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { RaceDetailPage, type RaceDetailPageProps } from './RaceDetailPage'
+
+vi.mock('@/shared/lib', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/shared/lib')>()),
+  trackEvent: vi.fn(),
+}))
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -60,6 +66,7 @@ describe('RaceDetailPage 신청하기', () => {
     const asked: unknown[] = []
     beforeEach(() => {
       push.mockClear()
+      vi.mocked(trackEvent).mockClear()
       asked.length = 0
     })
     const answer = (response: () => Response | Promise<Response>) =>
@@ -129,6 +136,42 @@ describe('RaceDetailPage 신청하기', () => {
 
       await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
       expect(push.mock.calls[0][0]).toMatch(queueHref)
+    })
+
+    it('화면을 옮기기 시작한 뒤에도 버튼은 로딩을 유지해 다시 눌리지 않는다', async () => {
+      answer(() => HttpResponse.json(queueStatus(false)))
+      renderPage({ race: RACE })
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(screen.getByRole('button', { name: '신청하기' })).toHaveAttribute('aria-busy', 'true')
+    })
+
+    it('바로 입장하면 대기열 화면이 보내던 queue_enter · queue_pass를 같은 값으로 보낸다', async () => {
+      answer(() => HttpResponse.json(queueStatus(true)))
+      renderPage({ race: RACE })
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(vi.mocked(trackEvent).mock.calls).toEqual([
+        ['queue_enter', { raceId: RACE.id }],
+        ['queue_pass', { raceId: RACE.id, waitSeconds: 0 }],
+      ])
+    })
+
+    it('기다려야 하면 이벤트는 대기열 화면이 보내므로 여기서는 보내지 않는다', async () => {
+      answer(() => HttpResponse.json(queueStatus(false)))
+      renderPage({ race: RACE })
+      act(() => setAccessToken('access-token'))
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: '신청하기' }))
+
+      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+      expect(trackEvent).not.toHaveBeenCalled()
     })
 
     it('등록 요청이 실패하면 로딩을 풀고 대기열 화면의 기존 오류 안내로 넘긴다', async () => {
