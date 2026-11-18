@@ -184,6 +184,24 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("대회 상세의 종목은 기록증 필요 여부만 알려 주고(규칙 있는 하프 true, 없는 10K false) 규칙 값은 주지 않는다")
+	void findDetailShowsRecordCertRequired() throws Exception {
+		RegisteredRace registered = registerOnSale(race()
+			.course(
+				course(),
+				course().name("하프").type(CourseType.HALF).distanceKm("21.1").timeLimitMinutes(180)
+					.recordCertRule(LocalDate.of(2025, 1, 1), 7200, CourseType.HALF))
+			.build());
+
+		getAs(RACES + registered.raceId(), null)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.courses[0].recordCertRequired").value(false))
+			.andExpect(jsonPath("$.data.courses[1].recordCertRequired").value(true))
+			.andExpect(jsonPath("$.data.courses[1].recordCertRule").doesNotExist())
+			.andExpect(jsonPath("$.data.courses[1].rule").doesNotExist());
+	}
+
+	@Test
 	@DisplayName("개인 예매가 이틀 뒤 열리는 대회는 등록하자마자 판매 예정이고, 헤더 없음·등록한 판매자(9001)·다른 판매자(9002)·"
 		+ "판매자 아닌 회원(9999) 모두 200으로 본다")
 	void scheduledRaceVisibleToEveryone() throws Exception {

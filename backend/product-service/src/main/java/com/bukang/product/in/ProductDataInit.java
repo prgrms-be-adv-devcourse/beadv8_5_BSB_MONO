@@ -164,6 +164,6 @@ public class ProductDataInit {
 	private RaceCourseSaveRequestDto dummyCourse(String name, CourseType courseType, String distanceKm,
 		int timeLimitMinutes, long price, int individualQuota) {
 		return new RaceCourseSaveRequestDto(null, name, courseType, CourseSurface.ROAD, new BigDecimal(distanceKm),
-			timeLimitMinutes, price, false, 0L, 14, null, 0, individualQuota, List.of());
+			timeLimitMinutes, price, false, 0L, 14, null, 0, individualQuota, List.of(), null);
 	}
 }
