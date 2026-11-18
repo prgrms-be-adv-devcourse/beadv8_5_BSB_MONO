@@ -90,7 +90,12 @@ export function ParticipantFields({
           error={errors.name?.message}
           {...register('name')}
         />
-        <BirthDateField label="생년월일" error={errors.birth?.message} {...register('birth')} />
+        <BirthDateField
+          restrictAge={false}
+          label="생년월일"
+          error={errors.birth?.message}
+          {...register('birth')}
+        />
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-body2-medium">성별</legend>
           <Controller

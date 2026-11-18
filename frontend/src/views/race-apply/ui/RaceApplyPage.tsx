@@ -368,6 +368,7 @@ function ParticipantForm({
             >
               <TextField label="이름" error={errors.name?.message} {...register('name')} />
               <BirthDateField
+                restrictAge={false}
                 label="생년월일"
                 error={errors.birth?.message}
                 {...register('birth')}

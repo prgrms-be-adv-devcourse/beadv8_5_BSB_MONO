@@ -785,6 +785,8 @@ describe('파티 · 키트 배송지', () => {
 
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/1'))
       expect(bodies[0].participant).not.toHaveProperty('shippingAddress')
+      // 달력으로 고른 생년월일이 YYYY-MM-DD로 나간다
+      expect(bodies[0].participant.birth).toBe('1994-06-25')
     })
 
     it('키트가 든 종목에서 주소를 비우면 안내하고 요청을 보내지 않는다', async () => {
