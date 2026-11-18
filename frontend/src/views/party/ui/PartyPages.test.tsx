@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -68,6 +68,41 @@ describe('파티 상세', () => {
       'aria-disabled',
       'true',
     )
+  })
+
+  it('머리에 모집 상태 글자, 대회 이름, 크루 · 종목을 보여 주고 진행 단계 줄은 그리지 않는다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    expect(
+      await screen.findByRole('heading', { name: '2026 용감한 쿠키RUN in 서울' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('모집 중')).toBeInTheDocument()
+    expect(await screen.findByText('성수런 크루 · 10K')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: '파티 진행 단계' })).not.toBeInTheDocument()
+  })
+
+  it('초대 링크 상자에 쓸 수 있는 기한과 링크 복사 · 새로 만들기를 함께 둔다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const box = (await screen.findByText('초대 링크')).parentElement as HTMLElement
+    expect(within(box).getByText(/까지 쓸 수 있어요/)).toBeInTheDocument()
+    expect(screen.queryByText(/^링크 · /)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '링크 복사' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '새로 만들기' })).toBeInTheDocument()
+  })
+
+  it('모집 중에는 파티원 줄에 이름과 파티장 · 파티원만 보이고 결제 칩은 없다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    expect(await screen.findByText('달리는곰')).toBeInTheDocument()
+    expect(screen.getAllByText('파티원')).toHaveLength(2)
+    expect(screen.getByText('파티장')).toBeInTheDocument()
+    expect(screen.queryByText('결제 전')).not.toBeInTheDocument()
+  })
+
+  it('파티 참가하기는 아래 고정 영역에 두고, 꺼진 동안은 연한 파랑으로 보인다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const cta = await screen.findByRole('link', { name: '파티 참가하기' })
+    expect(cta).toHaveClass('bg-bg-brand-disabled')
+    expect(cta).not.toHaveClass('opacity-40')
+    expect(cta.closest('div.border-t')).not.toBeNull()
   })
 
   it('4명이 모이면 신청 버튼이 켜진다', async () => {
