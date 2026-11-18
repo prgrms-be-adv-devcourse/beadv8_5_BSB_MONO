@@ -7,6 +7,7 @@ const env = (patch: { mocking?: boolean } = {}) => ({
   mocking: false,
   clientKey: undefined,
   origin: 'https://crewrun.test',
+  historyLength: 3,
   navigate: vi.fn<(url: string) => void>(),
   ...patch,
 })
@@ -56,6 +57,12 @@ describe('requestCharge', () => {
     await requestCharge({ amount: 10_000 }, mock)
 
     expect(readPendingCharge()?.orderId).not.toBe(first)
+  })
+
+  it('떠나기 직전의 기록 길이를 충전 기록에 남긴다 (돌아와 그만큼 거슬러 가려고)', async () => {
+    await requestCharge({ amount: 10_000 }, env({ mocking: true }))
+
+    expect(readPendingCharge()?.historyLength).toBe(3)
   })
 
   it('클라이언트 키가 없으면 결제창을 띄우지 않고 실패한다', async () => {
