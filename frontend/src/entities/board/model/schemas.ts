@@ -14,6 +14,3 @@ export const postWriteSchema = z.object({
 export type PostWriteValues = z.input<typeof postWriteSchema>
 
 export const commentSchema = z.string().trim().min(1).max(COMMENT_MAX)
-
-/** 글 검색어. 앞뒤 공백을 뺀다. 빈 검색어는 검색을 지우는 뜻이라 허용한다. */
-export const postSearchSchema = z.string().trim()

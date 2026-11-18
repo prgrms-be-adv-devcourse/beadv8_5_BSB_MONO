@@ -11,7 +11,6 @@ import {
   LoginSheet,
   POST_SORTS,
   PostListItem,
-  postSearchSchema,
   usePosts,
   type BoardCategory,
   type PostSort,
@@ -81,8 +80,7 @@ export function CommunityPage() {
           className="flex items-center py-2.5 pr-4 pl-0.5"
           onSubmit={(e) => {
             e.preventDefault()
-            const parsed = postSearchSchema.safeParse(draft)
-            if (parsed.success) setUrl({ q: parsed.data })
+            setUrl({ q: draft.trim() })
           }}
         >
           <IconButton type="button" aria-label="뒤로 가기" onClick={closeSearch}>

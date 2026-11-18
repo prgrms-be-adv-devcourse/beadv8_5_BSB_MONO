@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { COMMENT_MAX, CONTENT_MAX, TITLE_MAX } from '../api/types'
-import { commentSchema, postSearchSchema, postWriteSchema } from './schemas'
+import { commentSchema, postWriteSchema } from './schemas'
 
 const post = { category: 'FREE', title: '제목', content: '본문' }
 
@@ -21,6 +21,12 @@ describe('postWriteSchema', () => {
     ).toBe(false)
   })
 
+  it('제목·본문이 최대 길이와 딱 같으면 통과한다', () => {
+    const title = 'a'.repeat(TITLE_MAX)
+    const content = 'a'.repeat(CONTENT_MAX)
+    expect(postWriteSchema.safeParse({ ...post, title, content }).success).toBe(true)
+  })
+
   it('없는 말머리는 거절한다', () => {
     expect(postWriteSchema.safeParse({ ...post, category: 'ETC' }).success).toBe(false)
   })
@@ -31,12 +37,6 @@ describe('commentSchema', () => {
     expect(commentSchema.safeParse('   ').success).toBe(false)
     expect(commentSchema.safeParse('a'.repeat(COMMENT_MAX + 1)).success).toBe(false)
     expect(commentSchema.parse(' 응원해요 ')).toBe('응원해요')
-  })
-})
-
-describe('postSearchSchema', () => {
-  it('앞뒤 공백을 빼고, 빈 검색어는 통과시킨다', () => {
-    expect(postSearchSchema.parse('  풀코스 ')).toBe('풀코스')
-    expect(postSearchSchema.parse('   ')).toBe('')
+    expect(commentSchema.safeParse('a'.repeat(COMMENT_MAX)).success).toBe(true)
   })
 })

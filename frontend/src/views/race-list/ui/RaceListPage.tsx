@@ -40,7 +40,6 @@ import {
   SortSelect,
 } from '@/shared/ui'
 
-import { searchTermSchema } from '../model/search-term'
 import { useDebouncedValue } from '../model/use-debounced-value'
 import { CategoryScreen } from './CategoryScreen'
 import { RecentSearches } from './RecentSearches'
@@ -114,10 +113,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
   function submitSearch(term: string) {
-    const parsed = searchTermSchema.safeParse(term)
-    if (!parsed.success) return
-    setUrl({ q: parsed.data })
-    setRecent(addRecentSearch(parsed.data))
+    const trimmed = term.trim()
+    setUrl({ q: trimmed })
+    setRecent(addRecentSearch(trimmed))
     inputRef.current?.blur()
   }
 
