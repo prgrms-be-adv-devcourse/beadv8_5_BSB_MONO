@@ -223,3 +223,17 @@ describe('키트 옵션 칸 (서버 RaceRequestValidator.validateKitOptions와 �
     for (const course of request.courses) expect(course).not.toHaveProperty('tshirtSizeOption')
   })
 })
+
+describe('대회 소개 칸', () => {
+  it('2,000자를 넘기면 막고, 비어 있으면 요청에 보내지 않는다', () => {
+    const tooLong = createRaceFormSchema().safeParse({ ...base, description: 'a'.repeat(2001) })
+    expect(tooLong.success).toBe(false)
+    expect(toRaceSaveRequest(base, [], []).description).toBeUndefined()
+  })
+
+  it('앞뒤 공백을 지워 보낸다', () => {
+    expect(toRaceSaveRequest({ ...base, description: '  가을 러닝  ' }, [], []).description).toBe(
+      '가을 러닝',
+    )
+  })
+})

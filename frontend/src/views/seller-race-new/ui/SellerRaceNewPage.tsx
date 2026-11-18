@@ -20,6 +20,7 @@ import {
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
+  Textarea,
   TextField,
   useImageList,
   type ImageUploadValue,
@@ -307,6 +308,12 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               className="flex-1"
             />
           </div>
+          <Textarea
+            label="대회 소개"
+            maxLength={2000}
+            error={errors.description?.message}
+            {...register('description')}
+          />
         </ConsoleCard>
 
         <ConsoleCard title="이미지">
