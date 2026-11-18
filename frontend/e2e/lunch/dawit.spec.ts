@@ -185,6 +185,19 @@ async function fillLogin(page: Page, email: string) {
   await page.getByRole('button', { name: '로그인', exact: true }).click()
 }
 
+// 생년월일은 공통 달력 칸이다. 칸을 열고 연·월 휠에서 해와 달을 고른 뒤 날짜를 눌러 확정한다
+async function pickBirth(page: Page, birth: string) {
+  const [year, month, day] = birth.split('-').map(Number)
+  await page.getByRole('button', { name: /^생년월일/ }).click()
+  const popup = page.getByRole('dialog', { name: '생년월일 고르기' })
+  await popup.getByRole('button', { name: /연·월 고르기/ }).click()
+  await popup.getByRole('option', { name: `${year}년` }).click()
+  await popup.getByRole('option', { name: `${month}월` }).click()
+  await popup.getByRole('button', { name: /연·월 고르기/ }).click()
+  await popup.getByRole('button', { name: new RegExp(`${year}년 ${month}월 ${day}일`) }).click()
+  await popup.getByRole('button', { name: '선택 완료' }).click()
+}
+
 test.describe('다윗', { tag: '@dawit' }, () => {
   test('22 개인 일반 예매', async ({ page }) => {
     const course = await onSaleCourse(DUMMY_RACES[0])
@@ -199,7 +212,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     const p = participant('김러너')
     await page.getByLabel('이름', { exact: true }).fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -352,7 +365,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     const p = participant('키트러너')
     await page.getByLabel('이름', { exact: true }).fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -559,7 +572,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     const p = participant('합류러너')
     await page.getByText('개인정보 제3자 제공에 동의해요 (필수)').click()
     await page.getByLabel('참가자 이름').fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
