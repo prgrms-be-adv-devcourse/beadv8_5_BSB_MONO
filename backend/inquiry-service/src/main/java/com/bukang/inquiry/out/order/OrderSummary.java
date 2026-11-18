@@ -13,6 +13,10 @@ import java.util.List;
  */
 public record OrderSummary(long memberId, String orderNo, long paymentAmount, String status,
 	List<OrderItemSummary> items) {
+	public boolean isOwnedBy(long memberId, long raceId) {
+		return this.memberId == memberId && hasRace(raceId);
+	}
+
 	public boolean hasRace(long raceId) {
 		return items.stream().anyMatch(item -> item.raceId() == raceId);
 	}
