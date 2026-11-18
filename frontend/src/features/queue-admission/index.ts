@@ -10,4 +10,5 @@ export {
   useQueueAdmission,
   type AdmissionMode,
 } from './model/use-queue-admission'
+export { useEnterQueue } from './model/use-enter-queue'
 export { useQueuePosition } from './model/use-queue-position'
