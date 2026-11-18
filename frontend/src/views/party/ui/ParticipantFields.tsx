@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Controller, type UseFormReturn } from 'react-hook-form'
 
+import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
 import { BirthDateField } from '@/entities/member'
 import { Checkbox, PhoneField, Radio, RadioGroup, TextField } from '@/shared/ui'
 
@@ -19,16 +21,30 @@ const CONSENT_LINES = [
 export function ParticipantFields({
   form,
   course,
+  kit = false,
 }: {
   form: UseFormReturn<ParticipantValues>
+  /** 키트가 든 종목이면 키트 배송지를 받는다 */
+  kit?: boolean
   /** 합류 화면에서 파티장이 정한 종목을 읽기 전용으로 보여 준다 (시안 파티 08) */
   course?: string
 }) {
   const {
     register,
     control,
+    setValue,
+    setFocus,
     formState: { errors },
   } = form
+  // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
+  const [manualAddress, setManualAddress] = useState(false)
+  const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
+    setValue('zipcode', zipcode, { shouldValidate: true, shouldDirty: true })
+    setValue('address', address, { shouldValidate: true, shouldDirty: true })
+    // 예전 주소의 동 · 호수가 새 주소에 붙어 잘못 배송되지 않게 비운다
+    setValue('addressDetail', '', { shouldDirty: true })
+    setFocus('addressDetail')
+  }
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
@@ -74,7 +90,12 @@ export function ParticipantFields({
           error={errors.name?.message}
           {...register('name')}
         />
-        <BirthDateField label="생년월일" error={errors.birth?.message} {...register('birth')} />
+        <BirthDateField
+          restrictAge={false}
+          label="생년월일"
+          error={errors.birth?.message}
+          {...register('birth')}
+        />
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-body2-medium">성별</legend>
           <Controller
@@ -113,6 +134,33 @@ export function ParticipantFields({
           {...register('emergencyContactPhone')}
         />
       </section>
+      {kit && (
+        <section className="flex flex-col gap-4">
+          <h3 className="text-body1-medium">키트 배송지</h3>
+          {/* 배송지는 Clarity 화면 녹화에서 가린다. 받는 사람은 참가자 본인으로 보낸다 */}
+          <div className="flex flex-col gap-4" data-clarity-mask="true">
+            <TextField
+              label="키트 배송 우편번호"
+              inputMode="numeric"
+              readOnly={!manualAddress}
+              error={errors.zipcode?.message}
+              {...register('zipcode')}
+            />
+            <TextField
+              label="키트 배송 주소"
+              readOnly={!manualAddress}
+              error={errors.address?.message}
+              {...register('address')}
+            />
+            <AddressSearch onSelect={pickAddress} onUnavailable={() => setManualAddress(true)} />
+            <TextField
+              label="상세 주소"
+              error={errors.addressDetail?.message}
+              {...register('addressDetail')}
+            />
+          </div>
+        </section>
+      )}
     </div>
   )
 }

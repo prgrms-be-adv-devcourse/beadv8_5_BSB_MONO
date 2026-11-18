@@ -19,7 +19,6 @@ import {
 } from '@/shared/ui'
 
 import {
-  ADMIN_SELLER_ERRORS,
   loadErrorMessage,
   reviewErrorMessage,
   sellerDisplayName,
@@ -27,6 +26,7 @@ import {
   shouldRefetchAfter,
   toShortDate,
 } from '../model/admin-sellers-api'
+import { rejectFormSchema } from '../model/reject-form'
 
 type Tab = 'pending' | 'approved' | 'rejected'
 
@@ -101,14 +101,14 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
   }
   const onReject = () => {
     if (!app) return
-    const trimmed = reason.trim()
-    if (!trimmed) {
-      setReasonError(ADMIN_SELLER_ERRORS.reasonRequired)
+    const parsed = rejectFormSchema.safeParse({ reason })
+    if (!parsed.success) {
+      setReasonError(parsed.error.issues[0].message)
       return
     }
     setReviewError(undefined)
     reject.mutate(
-      { id: app.id, data: { reason: trimmed } },
+      { id: app.id, data: parsed.data },
       { onSuccess: onReviewed, onError: onReviewFailed },
     )
   }

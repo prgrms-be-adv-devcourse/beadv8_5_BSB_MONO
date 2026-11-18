@@ -15,6 +15,7 @@ import {
   isQueueNotAdmitted,
   useAdmissionTimer,
 } from '@/features/queue-admission'
+import { BirthDateField } from '@/entities/member'
 import { RaceTicketCard, type RaceDetail, type RaceOption } from '@/entities/race'
 import {
   ApiError,
@@ -207,9 +208,44 @@ function ParticipantForm({
   // 같은 참가 신청으로 결제를 다시 누르면(두 번 클릭 · 실패 뒤 재시도) 같은 Idempotency-Key를 보낸다.
   const orderKey = useIdempotencyKey()
 
+  // 이 종목의 결제 대기 주문이 이미 있으면 그 주문으로 결제를 이어 간다. 결제 기한이 지난 주문은 이어 가지 않는다.
+  // 새로 만들면 서버가 「결제를 시작할 수 없는 신청」으로 거절하기 때문이다. 조회가 실패하면 새로 만들어 서버가 판단하게 한다.
+  async function findPendingOrder() {
+    try {
+      const page = unwrapData(await orderApi.findMyTickets({ active: true, size: 50 }))
+      return page.tickets?.find(
+        (t) =>
+          t.raceCourseId === Number(option.id) &&
+          t.participationType === 'INDIVIDUAL' &&
+          t.orderStatus === 'CREATED' &&
+          t.orderItemStatus === 'ORDERED' &&
+          t.orderId != null &&
+          t.paymentDueAt != null &&
+          Date.parse(t.paymentDueAt) > Date.now(),
+      )
+    } catch {
+      return undefined
+    }
+  }
+
   // 참가 신청을 저장하고(이번에 이미 저장한 종목이면 참가자 정보만 고친다) 주문을 만들어 결제로 간다.
+  // 결제 대기 주문이 있으면 새로 만들지 않고, 입력한 참가자 정보로 그 신청을 고친 뒤 그 주문을 결제한다. 고른 키트 옵션도 그 주문에 남긴다.
   const save = useMutation({
     mutationFn: async (values: ParticipantFormValues) => {
+      const pending = applications[option.id] ? undefined : await findPendingOrder()
+      if (pending?.orderId != null) {
+        const pendingOrderId = pending.orderId
+        await orderApi.changeParticipant(
+          pending.participationId,
+          toParticipantRequest(values, option),
+        )
+        if (kitStep)
+          saveKitOptionIds(
+            pendingOrderId,
+            kitGroups.flatMap((g) => picked[g.name] ?? []),
+          )
+        return pendingOrderId
+      }
       const participant = toParticipantRequest(values, option)
       const participation = await saveParticipation(participant)
       submitApplication(
@@ -331,9 +367,9 @@ function ParticipantForm({
               className="gap-3"
             >
               <TextField label="이름" error={errors.name?.message} {...register('name')} />
-              <TextField
+              <BirthDateField
+                restrictAge={false}
                 label="생년월일"
-                type="date"
                 error={errors.birth?.message}
                 {...register('birth')}
               />

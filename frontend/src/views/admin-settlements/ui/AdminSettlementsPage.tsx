@@ -5,8 +5,7 @@ import { useState } from 'react'
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { HOLD_REASON_ITEMS } from '@/entities/payout'
 import type { payoutModel } from '@/shared/api'
-import { cn } from '@/shared/lib'
-import { Button, DataTable, Dialog, FOCUS_RING, KeyValue, Select, StatTile } from '@/shared/ui'
+import { Button, DataTable, Dialog, KeyValue, Select, StatTile } from '@/shared/ui'
 
 type Settlement = {
   /** 보류 걸기 API에 넘기는 정산 내역 번호 */
@@ -61,8 +60,6 @@ const REFUNDS: RefundRequest[] = [
 ]
 
 // 표 안의 처리 글자 버튼
-const ACTION = cn('rounded-sm text-body2-regular text-text-primary hover:underline', FOCUS_RING)
-
 // 피그마 V2 · A02 정산 · 환급 처리 (+ A02-1 전체 지급 완료 확인)
 export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: boolean }) {
   const [allOpen, setAllOpen] = useState(confirmOpen)
@@ -106,9 +103,9 @@ export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: bo
               // TODO(api): 지급 완료로 바꾸기 API가 아직 없다
               // TODO(api): 관리자 목록 API가 생기면 실제 행에서만 켠다
               render: (r) => (
-                <button type="button" className={ACTION} disabled>
+                <Button variant="text" size="s" disabled>
                   {r.action}
-                </button>
+                </Button>
               ),
             },
           ]}
@@ -151,9 +148,9 @@ export function AdminSettlementsPage({ confirmOpen = false }: { confirmOpen?: bo
                 width: 'w-42.5',
                 // TODO(api): 환급 완료로 바꾸기
                 render: () => (
-                  <button type="button" className={ACTION}>
+                  <Button variant="text" size="s">
                     환급 완료로 바꾸기
-                  </button>
+                  </Button>
                 ),
               },
             ]}

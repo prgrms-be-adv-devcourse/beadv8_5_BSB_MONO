@@ -8,6 +8,7 @@ import {
   ANSWERER_NOTE,
   BODY_MAX,
   inquiryErrorMessage,
+  inquiryFormSchema,
   TITLE_MAX,
   useEditInquiry,
   useMyInquiry,
@@ -49,16 +50,16 @@ function EditForm({ inquiry, header }: { inquiry: Inquiry; header: React.ReactNo
   const raceName = useRaceName(inquiry.raceId)
   const [title, setTitle] = useState(inquiry.title)
   const [body, setBody] = useState(inquiry.body)
-  const ready = title.trim() !== '' && body.trim() !== ''
+  const form = inquiryFormSchema.safeParse({ title, body })
+  const ready = form.success
 
-  const save = () =>
-    edit.mutate(
-      { title: title.trim(), body: body.trim() },
-      {
-        onSuccess: () => goBack(`/me/inquiries/${inquiry.id}`),
-        onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
-      },
-    )
+  const save = () => {
+    if (!form.success) return
+    edit.mutate(form.data, {
+      onSuccess: () => goBack(`/me/inquiries/${inquiry.id}`),
+      onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
+    })
+  }
 
   return (
     <>

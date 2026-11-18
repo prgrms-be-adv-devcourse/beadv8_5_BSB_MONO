@@ -156,6 +156,62 @@ describe('SellerRaceNewPage', () => {
     expect(screen.queryByRole('cell', { name: '하프' })).not.toBeInTheDocument()
   })
 
+  it('종목 추가 창의 오류는 추가를 누를 때만 바뀐다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).queryByText(COURSE_FORM_ERRORS.nameRequired)).not.toBeInTheDocument()
+  })
+
+  it('종목 추가 창을 닫았다 다시 열면 쓰던 값이 지워진다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    let dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    expect(within(dialog).getByRole('textbox', { name: '종목 이름' })).toHaveValue('')
+  })
+
+  it('종목 추가 창에는 성인만 받기 체크 하나만 있고 나이 입력 칸은 없다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    expect(within(dialog).getByRole('checkbox', { name: '성인만 받기' })).not.toBeChecked()
+    expect(within(dialog).queryByRole('textbox', { name: /나이/ })).not.toBeInTheDocument()
+  })
+
+  it('성인만 받기를 체크해 종목을 추가하면 목록에 성인만이라고 보인다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+    await userEvent.click(await screen.findByRole('option', { name: '하프' }))
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '거리 (km)' }), '21.1')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '참가비 (원)' }), '55000')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '모집 정원 (명)' }), '500')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '제한 시간 (분)' }), '180')
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: '성인만 받기' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+    const row = screen.getByRole('cell', { name: '하프' }).closest('tr') as HTMLElement
+    expect(within(row).getByRole('cell', { name: '성인만' })).toBeInTheDocument()
+    // 기본 종목 둘은 제한이 없어 나이 문구가 없다
+    expect(screen.getAllByRole('cell', { name: '성인만' })).toHaveLength(1)
+  })
+
   it('종목을 모두 지우고 등록하기를 누르면 종목을 추가하라고 한다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '10K 종목 삭제' }))

@@ -1,7 +1,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 
-import { buttonClassName, EmptyState, Logo } from '@/shared/ui'
+import { Button, buttonClassName, EmptyState, Logo } from '@/shared/ui'
 
 import type { FailureCopy } from '../lib/party-copy'
 
@@ -42,13 +42,9 @@ export function PartyLoadError({ onRetry }: { onRetry: () => void }) {
       title="파티 정보를 불러오지 못했어요"
       description="잠시 후 다시 시도해 주세요."
       action={
-        <button
-          type="button"
-          className={buttonClassName({ variant: 'secondary', size: 'm' })}
-          onClick={onRetry}
-        >
+        <Button variant="secondary" onClick={onRetry}>
           다시 불러오기
-        </button>
+        </Button>
       }
     />
   )

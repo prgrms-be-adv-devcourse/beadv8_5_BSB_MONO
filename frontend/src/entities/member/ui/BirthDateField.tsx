@@ -18,6 +18,8 @@ export type BirthDateFieldProps = {
   onChange: (event: FieldEvent) => unknown
   onBlur?: (event: FieldEvent) => unknown
   ref?: Ref<HTMLInputElement>
+  /** false면 만 14세 제한 없이 1900년 1월 1일부터 오늘까지 고른다. 참가자 칸처럼 나이를 서버가 보는 곳에서 끈다 (기본 true) */
+  restrictAge?: boolean
 }
 
 // 생년월일 칸. 공용 달력(DateTimeField)을 열어 연·월 휠로 해를 고른 뒤 날짜를 누른다.
@@ -33,8 +35,10 @@ export function BirthDateField({
   onChange,
   onBlur,
   ref,
+  restrictAge = true,
 }: BirthDateFieldProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
   // 처음 값(숨은 input의 DOM 값)과 오늘 날짜는 렌더 중에 읽을 수 없어 마운트 뒤 한 번 함께 읽는다
   const [mounted, setMounted] = useState<{ initial: string; today: Date }>()
   useEffect(() => {
@@ -42,7 +46,11 @@ export function BirthDateField({
   }, [])
   const initial = mounted?.initial ?? ''
 
-  const latest = mounted && (parseBirth(latestJoinableBirth(mounted.today)) ?? mounted.today)
+  const latest =
+    mounted &&
+    (restrictAge
+      ? (parseBirth(latestJoinableBirth(mounted.today)) ?? mounted.today)
+      : mounted.today)
   const initialDate = parseBirth(initial) ?? undefined
 
   return (
@@ -52,6 +60,8 @@ export function BirthDateField({
         name={name}
         ref={(element) => {
           inputRef.current = element
+          // 폼이 오류 칸으로 포커스를 옮길 때 숨은 input 대신 날짜 열기 버튼으로 간다
+          if (element) element.focus = () => triggerRef.current?.focus()
           if (typeof ref === 'function') ref(element)
           else if (ref) ref.current = element
         }}
@@ -59,6 +69,7 @@ export function BirthDateField({
       <DateTimeField
         // 기본값을 읽은 뒤 달력을 다시 그려 처음 값으로 보여 준다
         key={initial}
+        ref={triggerRef}
         mode="single"
         withTime={false}
         label={label}
@@ -71,7 +82,9 @@ export function BirthDateField({
         endMonth={latest}
         // 값이 없으면 고를 수 있는 마지막 달(만 14세가 되는 달)부터 보여 준다. 해는 연·월 휠로 바꾼다
         defaultMonth={initialDate ?? latest}
-        isDateDisabled={(date) => !isJoinableAge(date)}
+        isDateDisabled={
+          restrictAge ? (date) => !isJoinableAge(date) : (date) => !!mounted && date > mounted.today
+        }
         onValueChange={(value) => {
           const event = { target: { name, value } }
           onChange(event)

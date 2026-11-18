@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import {
   COMMENT_MAX,
+  commentSchema,
   formatRelative,
   LoginSheet,
   useComments,
@@ -14,7 +15,7 @@ import {
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Avatar, Badge, Dialog, FOCUS_RING, Icon, IconButton, useToast } from '@/shared/ui'
+import { Avatar, Badge, Button, Dialog, Icon, IconButton, useToast } from '@/shared/ui'
 
 import { MenuSheet, MenuSheetAction } from './MenuSheet'
 
@@ -58,8 +59,9 @@ export function CommentSection({
   }
 
   const submit = () => {
-    const content = text.trim()
-    if (!content) return
+    const parsed = commentSchema.safeParse(text)
+    if (!parsed.success) return
+    const content = parsed.data
     const done = {
       onSuccess: reset,
       onError: (e: unknown) =>
@@ -119,16 +121,13 @@ export function CommentSection({
             댓글을 달 수 없는 글이에요
           </p>
         ) : !authenticated ? (
-          <button
-            type="button"
-            className={cn(
-              'h-11 w-full rounded-full bg-bg-surface text-body2-medium text-text-brand inset-ring inset-ring-border-default',
-              FOCUS_RING,
-            )}
+          <Button
+            variant="secondary"
+            className="w-full text-text-brand"
             onClick={() => setLoginOpen(true)}
           >
             로그인하고 댓글 남기기
-          </button>
+          </Button>
         ) : (
           <form
             className="flex items-center gap-3"
@@ -150,16 +149,15 @@ export function CommentSection({
                 <Icon name="X" />
               </IconButton>
             )}
-            <button
+            <Button
               type="submit"
+              variant="text"
+              size="s"
               disabled={!text.trim() || create.isPending || update.isPending}
-              className={cn(
-                'rounded-sm px-1 text-body2-medium text-text-secondary enabled:text-text-brand disabled:text-text-disabled',
-                FOCUS_RING,
-              )}
+              className="enabled:text-text-brand"
             >
               {mode.kind === 'edit' ? '저장' : '등록'}
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -239,13 +237,9 @@ function CommentRow({
             {comment.edited && ' · 수정됨'}
           </span>
           {onReply && (
-            <button
-              type="button"
-              className={cn('rounded-sm text-caption-medium', FOCUS_RING)}
-              onClick={onReply}
-            >
+            <Button variant="text" size="s" onClick={onReply}>
               답글 달기
-            </button>
+            </Button>
           )}
         </div>
       </div>

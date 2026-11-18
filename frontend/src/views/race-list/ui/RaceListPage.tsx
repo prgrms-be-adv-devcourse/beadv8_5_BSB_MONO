@@ -113,8 +113,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
   function submitSearch(term: string) {
-    setUrl({ q: term.trim() })
-    setRecent(addRecentSearch(term))
+    const trimmed = term.trim()
+    setUrl({ q: trimmed })
+    setRecent(addRecentSearch(trimmed))
     inputRef.current?.blur()
   }
 
