@@ -133,6 +133,8 @@ describe('MyTicketsPage', () => {
     await act(() => vi.advanceTimersByTimeAsync(12_000))
 
     expect(screen.queryByText('결제 확인 중')).not.toBeInTheDocument()
+    // 참가 확정은 기본 상태라 글자를 붙이지 않는다
+    expect(screen.queryByText('참가 확정')).not.toBeInTheDocument()
   })
 
   it('결제한 주문이 없으면 빈 화면을 보여 준다', async () => {

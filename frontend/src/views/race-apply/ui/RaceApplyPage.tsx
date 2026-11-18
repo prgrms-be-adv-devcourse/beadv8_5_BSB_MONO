@@ -335,6 +335,7 @@ function ParticipantForm({
                     endMonth={new Date()}
                     isDateDisabled={(date) => date > new Date()}
                     onValueChange={field.onChange}
+                    focusTarget={field.ref}
                     error={errors.birth?.message}
                   />
                 )}
@@ -450,7 +451,7 @@ function ParticipantForm({
         className="sticky bottom-0 z-10"
         secondary={
           step === 1 ? (
-            <Button size="l" variant="secondary" onClick={() => setStep(0)}>
+            <Button size="l" variant="secondary" disabled={busy} onClick={() => setStep(0)}>
               이전
             </Button>
           ) : undefined

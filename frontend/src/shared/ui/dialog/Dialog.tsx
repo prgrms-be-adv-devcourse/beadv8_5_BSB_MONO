@@ -3,6 +3,8 @@
 import { AlertDialog } from '@base-ui/react/alert-dialog'
 import type { ReactNode } from 'react'
 
+import { cn } from '@/shared/lib'
+
 import { Button } from '../button/Button'
 
 export type DialogProps = {
@@ -39,14 +41,20 @@ export function Dialog({
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-5 rounded-xl bg-bg-surface px-5 pt-6 pb-5 text-center shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-100">
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-5 rounded-xl bg-bg-surface px-5 pt-6 pb-5 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-100">
           <div className="flex flex-col gap-1.5">
-            <AlertDialog.Title className="text-title3 text-text-primary">{title}</AlertDialog.Title>
+            <AlertDialog.Title className="text-center text-title3 text-text-primary">
+              {title}
+            </AlertDialog.Title>
             {body && (
               // 본문에 입력칸(반려 사유 등)을 넣을 수 있게 p 대신 div로 그린다
               <AlertDialog.Description
                 render={<div />}
-                className="text-body2-regular text-text-secondary"
+                className={cn(
+                  'text-body2-regular text-text-secondary',
+                  // 글 본문만 가운데. 입력 폼 같은 요소가 들어오면 왼쪽 정렬을 그대로 둔다
+                  typeof body === 'string' && 'text-center',
+                )}
               >
                 {body}
               </AlertDialog.Description>

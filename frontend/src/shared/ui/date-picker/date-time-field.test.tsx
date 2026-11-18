@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef } from 'react'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import { dateTimeText, formatTimeTyping, padTime, rangeDateText } from './date-time'
@@ -128,5 +129,14 @@ describe('DateTimeField', () => {
     expect(time).toHaveValue('18:30')
     expect(time).toHaveAttribute('inputmode', 'numeric')
     expect(onValueChange).toHaveBeenLastCalledWith('2026-10-18 18:30')
+  })
+
+  it('focusTarget로 날짜 칸을 넘기면 그 칸에 초점을 줄 수 있다', () => {
+    const ref = createRef<HTMLButtonElement>()
+    render(<DateTimeField mode="single" withTime={false} label="생년월일" focusTarget={ref} />)
+
+    ref.current?.focus()
+
+    expect(screen.getByRole('button', { name: /생년월일/ })).toHaveFocus()
   })
 })

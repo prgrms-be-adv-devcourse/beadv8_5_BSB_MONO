@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -293,6 +293,27 @@ describe('참가 신청 · 참가자 정보', () => {
     expect(bodies[0]).toMatchObject({ participant: { tshirtSize: 'M' } })
     // 결제가 옵션 이름마다 하나씩 보낼 수 있도록 고른 kitOptionId를 주문에 붙여 남긴다
     expect(readKitOptionIds(1)).toEqual([11, 22])
+  })
+
+  it('키트 옵션 단계에서 결제를 저장하는 중에는 이전 버튼을 누를 수 없다', async () => {
+    server.use(
+      KIT_OPTIONS,
+      http.post('*/api/v1/order/participations', async () => {
+        await delay('infinite')
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByRole('group', { name: '기념 티셔츠' })
+    await user.click(screen.getByRole('button', { name: 'M' }))
+    await user.click(screen.getByRole('button', { name: '255-280' }))
+    await user.click(screen.getByRole('button', { name: '결제하기' }))
+
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: '이전' })).toBeDisabled())
   })
 
   it('키트 옵션을 불러오지 못하면 옵션 없음으로 보지 않고 진행을 막고 다시 시도를 보여 준다', async () => {

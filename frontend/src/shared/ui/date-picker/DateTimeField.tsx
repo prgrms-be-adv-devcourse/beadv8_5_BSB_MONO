@@ -1,7 +1,7 @@
 'use client'
 
 import { Popover } from '@base-ui/react/popover'
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode, type Ref } from 'react'
 
 import { cn } from '@/shared/lib'
 
@@ -36,6 +36,8 @@ type CommonProps = {
   /** false면 시간 칸 없이 날짜만 고르고 'yyyy-MM-dd'로 알린다 (기본 true) */
   withTime?: boolean
   className?: string
+  /** 날짜 칸(누르는 버튼)을 받는다. react-hook-form의 field.ref를 넘기면 오류 때 이 칸으로 초점이 온다. */
+  focusTarget?: Ref<HTMLButtonElement>
 }
 
 export type DateTimeFieldProps = CommonProps &
@@ -65,6 +67,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
     placeholder = '날짜를 골라 주세요',
     withTime = true,
     className,
+    focusTarget,
   } = props
   const labelId = useId()
   const valueId = useId()
@@ -138,6 +141,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
           }}
         >
           <Popover.Trigger
+            ref={focusTarget}
             disabled={disabled}
             aria-labelledby={`${label ? labelId : ''} ${valueId}`.trim()}
             className={cn(
