@@ -23,6 +23,8 @@ import {
   useToast,
 } from '@/shared/ui'
 
+import { claimSearchSchema } from '../model/claim-search'
+
 type Status = payoutModel.PayoutClaimStatus
 type Claim = payoutModel.PayoutClaimDto
 
@@ -71,7 +73,10 @@ export function AdminClaimsPage() {
   const changeStatus = (next: Status) => {
     setUrl({ status: next, page: '0', code: '' })
   }
-  const search = () => setUrl({ code: codeText.trim() })
+  const search = () => {
+    const parsed = claimSearchSchema.safeParse(codeText)
+    if (parsed.success) setUrl({ code: parsed.data })
+  }
   const clearSearch = () => {
     setCodeText('')
     setUrl({ code: '' })
