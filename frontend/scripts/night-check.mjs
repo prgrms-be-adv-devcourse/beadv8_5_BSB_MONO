@@ -63,7 +63,8 @@ function probe() {
     const added = new Set()
     const gone = []
     for (const m of list) {
-      nc.mut++
+      // 요소가 붙거나 빠질 때만 반응으로 센다. 속성·글자 변화는 타이머·버튼 상태 표시가 늘 바꿔서 반응 없는 버튼을 가린다
+      if (m.type === 'childList') nc.mut++
       for (const n of m.addedNodes) {
         if (n.nodeType !== 1) continue
         born.set(n, now)
@@ -239,7 +240,7 @@ async function openPage(ctx, role, url, view, watching = false) {
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 45_000 })
   } catch (e) {
-    rec('열리지 않음', role, tpl(url), e.message.split('\n')[0] + view)
+    if (watching) rec('열리지 않음', role, tpl(url), e.message.split('\n')[0] + view)
     await page.close()
     return null
   }
@@ -382,6 +383,9 @@ async function clickAll(ctx, role, url, view) {
       }
       for (const e of errs.slice(before.errs))
         rec('누른 뒤 JS 오류', role, tpl(url), `"${text}" → ${e.replace(/\d+/g, 'N')}${view}`)
+    } catch (e) {
+      // 페이지가 스스로 다른 주소로 옮겨 가면 evaluate가 실패한다. 버튼 하나 때문에 밤샘 실행 전체가 멈추지 않게 넘어간다
+      log(`건너뜀 ${role} ${tpl(url)} ${key}: ${e.message.split('\n')[0]}`)
     } finally {
       for (const p of ctx.pages()) await p.close().catch(() => {})
     }
