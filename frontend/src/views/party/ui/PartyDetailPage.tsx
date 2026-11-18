@@ -1,5 +1,6 @@
 'use client'
 
+import { Menu } from '@base-ui/react/menu'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
@@ -39,6 +40,9 @@ import {
   Button,
   buttonClassName,
   Dialog,
+  FOCUS_RING,
+  Icon,
+  IconButton,
   Skeleton,
   useToast,
   type BadgeTone,
@@ -71,7 +75,8 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
 
   return (
     <>
-      <AppHeader type="sub" title="파티 상세" />
+      {/* 파티를 불러온 뒤에는 ⋮ 메뉴가 든 머리글을 본문이 그린다 */}
+      {!data && <AppHeader type="sub" title="파티 상세" />}
       <main className="flex flex-1 flex-col bg-bg-surface">
         {party.isPending ? (
           <div className="flex flex-col gap-4 p-4" aria-busy>
@@ -212,6 +217,11 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
 
   return (
     <>
+      <AppHeader
+        type="sub"
+        title="파티 상세"
+        action={recruiting ? <PartyMoreMenu onLeave={() => setConfirm('leave')} /> : undefined}
+      />
       <section className="flex flex-col gap-1 px-5 py-4">
         <span className="text-body2-medium text-text-brand">
           {PARTY_STATUS_LABEL[party.status]}
@@ -341,13 +351,6 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
           }
         />
       )}
-      {recruiting && (
-        <div className="flex justify-center pb-8">
-          <Button variant="text" size="m" onClick={() => setConfirm('leave')}>
-            파티 나가기
-          </Button>
-        </div>
-      )}
       <Dialog
         open={confirm === 'regenerate'}
         onOpenChange={(open) => !open && setConfirm(null)}
@@ -383,5 +386,28 @@ function PartyDetailBody({ party }: { party: PartyDetail }) {
         confirming={leave.isPending}
       />
     </>
+  )
+}
+
+// 시안 · 파티 상세 ⋮ 메뉴. 모집 중에만 열 수 있고, 지금은 파티 나가기 하나다. Esc · 바깥 누름으로 닫힌다.
+function PartyMoreMenu({ onLeave }: { onLeave: () => void }) {
+  return (
+    <Menu.Root>
+      <Menu.Trigger render={<IconButton aria-label="더보기" />}>
+        <Icon name="MoreVertical" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner align="end" sideOffset={-4} className="z-50 outline-none">
+          <Menu.Popup className="w-40 rounded-md bg-bg-surface py-1.5 shadow-md outline-none">
+            <Menu.Item
+              onClick={onLeave}
+              className={`flex w-full cursor-pointer items-center px-4 py-3 text-body1-medium text-text-danger data-highlighted:bg-bg-subtle ${FOCUS_RING}`}
+            >
+              파티 나가기
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }
