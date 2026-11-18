@@ -16,6 +16,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.file.app.FileFacade;
 import com.bukang.file.dto.FileDto;
 import com.bukang.file.dto.FileLinkRequestDto;
+import com.bukang.file.dto.FileUploaderDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -59,6 +60,28 @@ public class InternalV1FileController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "파일 보기 주소를 발급했습니다.", fileFacade.findForView(fileId)));
+	}
+
+	@GetMapping("/files/{fileId}/uploader")
+	@Operation(summary = "파일을 올린 회원 조회",
+		description = "파일을 올린 회원 ID를 돌려준다. 연결 여부와 상관없이 늘 같은 답이다. "
+			+ "member가 기록증을 제출받을 때, 제출하는 회원이 올린 사진인지 확인하려고 부른다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = @ExampleObject(value = FileInternalApiExamples.UPLOADER_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "파일 ID 형식 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileInternalApiExamples.INVALID_VALUE_TYPE))),
+		@ApiResponse(responseCode = "404", description = "없거나 삭제된 파일",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = FileApiExamples.FILE_NOT_FOUND)))
+	})
+	public ResponseEntity<RsData<FileUploaderDto>> uploader(
+		@Parameter(description = "파일 ID", example = "7")
+		@PathVariable long fileId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "파일을 올린 회원을 조회했습니다.", fileFacade.findUploader(fileId)));
 	}
 
 	@DeleteMapping("/files/{fileId}")

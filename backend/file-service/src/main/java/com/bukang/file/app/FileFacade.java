@@ -25,6 +25,7 @@ import com.bukang.file.dto.FileLinkItemDto;
 import com.bukang.file.dto.FileLinkRequestDto;
 import com.bukang.file.dto.FileUploadDto;
 import com.bukang.file.dto.FileUploadRequestDto;
+import com.bukang.file.dto.FileUploaderDto;
 import com.bukang.file.out.StoredFileRepository;
 import com.bukang.file.out.storage.FileStorage;
 import com.bukang.file.out.storage.PresignedUpload;
@@ -173,6 +174,11 @@ public class FileFacade {
 	// 내부 API: 소유 · 판매자 확인은 부른 서비스(member)가 이미 했으므로 여기서는 보지 않는다
 	public FileDto findForView(long fileId) {
 		return toDto(findAlive(fileId));
+	}
+
+	// 내부 API: 올린 회원. 연결 여부와 상관없이 늘 같은 답이라, 연결 뒤 공개되는 조회 API의 403에 기대지 않는다 (BUK-274)
+	public FileUploaderDto findUploader(long fileId) {
+		return new FileUploaderDto(findAlive(fileId).getCreateUser());
 	}
 
 	// 내부 API: 기록증 원본처럼 부른 서비스가 정한 파일을 지운다. 이미 없으면 아무것도 하지 않는다
