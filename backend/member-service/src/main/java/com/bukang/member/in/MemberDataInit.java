@@ -106,7 +106,7 @@ public class MemberDataInit {
 	}
 
 	private void join(String name, String nickname, String email, String phone) {
-		if (memberFacade.existsByEmail(email)) {
+		if (!memberFacade.checkEmailAvailability(email).available()) {
 			return;
 		}
 

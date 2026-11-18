@@ -179,10 +179,6 @@ public class MemberFacade {
 		return new MemberAdminDto(adminVerifyUseCase.isAdmin(memberId));
 	}
 
-	public boolean existsByEmail(String email) {
-		return memberRepository.existsByEmail(email);
-	}
-
 	// bcrypt 비교가 느려서 트랜잭션 밖에서 실행한다. 읽기 전용 트랜잭션이면 비교하는 동안 DB 커넥션을 잡는다 (BUK-184)
 	// 토큰 발급은 Redis만 쓰므로 트랜잭션이 필요 없다. 이메일 조회는 트랜잭션 없이 각각 따로 실행한다
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
