@@ -156,6 +156,44 @@ describe('SellerRaceNewPage', () => {
     expect(screen.queryByRole('cell', { name: '하프' })).not.toBeInTheDocument()
   })
 
+  it('종목 추가 창의 오류는 추가를 누를 때만 바뀐다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).queryByText(COURSE_FORM_ERRORS.nameRequired)).not.toBeInTheDocument()
+  })
+
+  it('종목 추가 창을 닫았다 다시 열면 쓰던 값이 지워진다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    let dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    expect(within(dialog).getByRole('textbox', { name: '종목 이름' })).toHaveValue('')
+  })
+
+  it('종목 추가 창에서 최대 나이가 숫자가 아니면 한국어 오류를 보여 준다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '최대 나이 (만)' }), 'abc')
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    const messages = within(dialog).getAllByText(COURSE_FORM_ERRORS.number)
+    expect(messages.length).toBeGreaterThanOrEqual(1)
+    expect(within(dialog).queryByText(/Too big|Invalid/)).not.toBeInTheDocument()
+  })
+
   it('종목을 모두 지우고 등록하기를 누르면 종목을 추가하라고 한다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '10K 종목 삭제' }))

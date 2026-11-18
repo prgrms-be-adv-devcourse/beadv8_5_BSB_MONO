@@ -288,14 +288,11 @@ export const courseDraftSchema = z
       z.number().min(productZod.registerBodyCoursesItemMinAgeMin, COURSE_FORM_ERRORS.minAge),
     ),
     // 비우면 상한 없음
-    maxAge: z.union([
-      z
-        .string()
-        .trim()
-        .length(0)
-        .transform(() => undefined),
-      wholeNumber,
-    ]),
+    maxAge: z
+      .string()
+      .trim()
+      .regex(/^\d*$/, COURSE_FORM_ERRORS.number)
+      .transform((v) => (v === '' ? undefined : Number(v))),
   })
   .superRefine((v, ctx) => {
     if (v.maxAge !== undefined && v.maxAge < v.minAge) {
@@ -305,27 +302,6 @@ export const courseDraftSchema = z
 
 export type CourseDraftInput = z.input<typeof courseDraftSchema>
 export type CourseDraftParsed = z.output<typeof courseDraftSchema>
-
-export type CourseDraftErrors = Partial<Record<keyof CourseDraft, string>>
-
-/**
- * 종목 추가 창의 입력을 종목 한 줄로 바꾼다. 틀린 칸이 있으면 칸별 오류를 돌려준다.
- * 노면 · 키트는 세미 시안대로 도로 · 기념 티셔츠 포함으로 고정한다(키트 배송 표와 같다).
- */
-export function toCourseInput(
-  draft: CourseDraft,
-): { course: RaceCourseInput } | { errors: CourseDraftErrors } {
-  const parsed = courseDraftSchema.safeParse(draft)
-  if (!parsed.success) {
-    const errors: CourseDraftErrors = {}
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0] as keyof CourseDraft
-      errors[key] ??= issue.message
-    }
-    return { errors }
-  }
-  return { course: toCourseInputFromParsed(parsed.data) }
-}
 
 /** 검사를 통과한 종목 입력값에 고정값(노면 · 키트)을 붙여 종목 한 줄로 만든다 */
 export function toCourseInputFromParsed(data: CourseDraftParsed): RaceCourseInput {
