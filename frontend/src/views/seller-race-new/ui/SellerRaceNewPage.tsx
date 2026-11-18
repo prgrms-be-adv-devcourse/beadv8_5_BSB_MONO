@@ -210,7 +210,9 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       description="판매가 시작되면 가격과 취소 · 환불 정책은 바꿀 수 없어요. 구매자에게 유리하게 바꾸는 것만 돼요."
       actions={
         <>
-          <Button variant="secondary">미리보기</Button>
+          <Button variant="secondary" disabled>
+            미리보기
+          </Button>
           <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>

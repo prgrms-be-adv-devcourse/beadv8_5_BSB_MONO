@@ -96,7 +96,11 @@ export function AdminHoldsPage() {
       title="지급보류 관리"
       description="보류한 금액은 지급 완료로 바꿀 수 없어요. 풀면 해제일 다음 날 지급해요(원래 지급일보다 앞당기지 않아요)."
       // TODO(api): 지급보류 목록 엑셀 내려받기
-      actions={<Button variant="secondary">엑셀로 내려받기</Button>}
+      actions={
+        <Button variant="secondary" disabled>
+          엑셀로 내려받기
+        </Button>
+      }
     >
       <div className="flex gap-4">
         <StatTile label="지급보류 중" value="2" unit="건" />
