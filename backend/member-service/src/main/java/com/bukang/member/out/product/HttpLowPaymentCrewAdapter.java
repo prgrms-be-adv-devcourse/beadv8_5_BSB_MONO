@@ -36,7 +36,7 @@ public class HttpLowPaymentCrewAdapter implements LowPaymentCrewPort {
 				.body(RESPONSE_TYPE);
 		} catch (RestClientException exception) {
 			throw new CrewPenaltyLookupFailedException(
-				"상품 서비스에 결제율 미달 크루를 묻지 못했습니다. month=" + month + ", cause=" + exception);
+				"상품 서비스에 결제율 미달 크루를 묻지 못했습니다. month=" + month + ", cause=" + exception, exception);
 		}
 		if (response == null || response.data() == null) {
 			throw new CrewPenaltyLookupFailedException(

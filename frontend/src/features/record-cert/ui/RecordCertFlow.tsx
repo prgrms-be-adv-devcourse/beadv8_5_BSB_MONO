@@ -1,9 +1,11 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { parseISO } from 'date-fns'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
+import { DateTimeField } from '@/shared/date-picker'
 import {
   Alert,
   Badge,
@@ -325,11 +327,21 @@ export function ConfirmForm({
         </p>
       ) : null}
 
-      <TextField
-        type="date"
-        label={<FieldLabel text="대회일" auto={auto(read.values.raceDate)} />}
-        error={errors.raceDate?.message}
-        {...register('raceDate')}
+      <Controller
+        control={control}
+        name="raceDate"
+        render={({ field }) => (
+          <DateTimeField
+            mode="single"
+            withTime={false}
+            label={<FieldLabel text="대회일" auto={auto(read.values.raceDate)} />}
+            error={errors.raceDate?.message}
+            defaultValue={field.value ? parseISO(field.value) : undefined}
+            ref={field.ref}
+            isDateDisabled={(date) => date > new Date()}
+            onValueChange={field.onChange}
+          />
+        )}
       />
       <Controller
         control={control}

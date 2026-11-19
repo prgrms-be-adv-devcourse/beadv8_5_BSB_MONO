@@ -258,15 +258,12 @@ export function CommunityPage() {
                 글쓰기
               </Link>
             ) : (
-              <button
-                type="button"
-                className={buttonClassName({
-                  className: '-translate-y-full rounded-full shadow-md',
-                })}
+              <Button
+                className="-translate-y-full rounded-full shadow-md"
                 onClick={() => setLoginOpen(true)}
               >
                 글쓰기
-              </button>
+              </Button>
             )}
           </div>
         )}

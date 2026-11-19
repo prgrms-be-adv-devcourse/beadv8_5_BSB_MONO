@@ -185,6 +185,19 @@ async function fillLogin(page: Page, email: string) {
   await page.getByRole('button', { name: '로그인', exact: true }).click()
 }
 
+// 생년월일은 공통 달력 칸이다. 칸을 열고 연·월 휠에서 해와 달을 고른 뒤 날짜를 눌러 확정한다
+async function pickBirth(page: Page, birth: string) {
+  const [year, month, day] = birth.split('-').map(Number)
+  await page.getByRole('button', { name: /^생년월일/ }).click()
+  const popup = page.getByRole('dialog', { name: '생년월일 고르기', exact: true })
+  await popup.getByRole('button', { name: /연·월 고르기/ }).click()
+  await popup.getByRole('option', { name: `${year}년`, exact: true }).click()
+  await popup.getByRole('option', { name: `${month}월`, exact: true }).click()
+  await popup.getByRole('button', { name: /연·월 고르기/ }).click()
+  await popup.getByRole('button', { name: new RegExp(`${year}년 ${month}월 ${day}일`) }).click()
+  await popup.getByRole('button', { name: '선택 완료', exact: true }).click()
+}
+
 test.describe('다윗', { tag: '@dawit' }, () => {
   test('22 개인 일반 예매', async ({ page }) => {
     const course = await onSaleCourse(DUMMY_RACES[0])
@@ -193,13 +206,13 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     await uiLogin(page, buyer)
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     // 대기열을 지나 신청서로 넘어간다(설계 문서의 대기열 최대 대기 30초)
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
 
     const p = participant('김러너')
     await page.getByLabel('이름', { exact: true }).fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -347,12 +360,12 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     // 카카오 주소 검색을 막아 주소를 직접 입력하게 한다(AddressSearch가 불러오기 실패면 칸을 연다)
     await page.route(/postcode\.v2\.js/, (route) => route.abort())
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
 
     const p = participant('키트러너')
     await page.getByLabel('이름', { exact: true }).fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -559,7 +572,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
     const p = participant('합류러너')
     await page.getByText('개인정보 제3자 제공에 동의해요 (필수)').click()
     await page.getByLabel('참가자 이름').fill(p.name)
-    await page.getByLabel('생년월일').fill(p.birth)
+    await pickBirth(page, p.birth)
     await page.getByRole('radio', { name: '여성' }).check()
     await page.getByLabel('휴대폰 번호').fill(p.phone.replaceAll('-', ''))
     await page.getByLabel('비상 연락처 이름').fill(p.emergencyContactName)
@@ -724,7 +737,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
       await route.fulfill({ response: res, json: body })
     })
     await page.goto(`/races/${course.raceId}`)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page.getByRole('heading', { name: /잠시 기다리고 있어요/ })).toBeVisible({
       timeout: 30_000,
     })
@@ -737,7 +750,7 @@ test.describe('다윗', { tag: '@dawit' }, () => {
 
     // 다시 신청하면 처음부터 줄을 서고, 차례가 오면 신청서로 간다
     await page.unroute(queue)
-    await page.getByRole('link', { name: '신청하기' }).first().click()
+    await page.getByRole('button', { name: '신청하기' }).first().click()
     await expect(page).toHaveURL(/\/apply/, { timeout: 30_000 })
   })
 

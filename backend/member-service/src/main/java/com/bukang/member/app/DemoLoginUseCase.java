@@ -10,6 +10,7 @@ import com.bukang.member.config.auth.DemoLoginProperties;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.exception.DemoLoginTooManyRequestsException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
+import com.bukang.member.dto.MemberDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.demologin.DemoLoginStore;
@@ -43,6 +44,6 @@ public class DemoLoginUseCase {
 		}
 		Member member = memberRepository.findActiveByEmail(properties.email())
 			.orElseThrow(() -> new MemberNotFoundException("데모 로그인 계정이 없습니다."));
-		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+		return new MemberLoginResult(MemberDto.from(member), tokenIssueUseCase.issue(member.getId()));
 	}
 }

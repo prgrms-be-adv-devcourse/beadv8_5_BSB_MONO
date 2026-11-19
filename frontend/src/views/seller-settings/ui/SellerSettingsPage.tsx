@@ -6,7 +6,7 @@ import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, SELLER_STATUS, SELLER_TYPE_LABEL } from '@/entities/member'
 import { ApiError, memberApi, unwrapData, type memberModel } from '@/shared/api'
-import { Alert, Badge, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
+import { Alert, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 // 피그마 판매자 센터 · S06-5 판매자 정보 (정산 계좌는 API가 없어 준비 중 안내)
 // 판매자 정보는 내 신청 조회(GET /api/v1/member/sellers/me)로 보여 준다. 바꾸려면 관리자 재확인이 필요해 보기 전용이다.
@@ -35,11 +35,10 @@ export function SellerSettingsPage() {
         <SellerInfoCard seller={mine.data} />
       ) : mine.isError && isNoApplication(mine.error) ? (
         <EmptyState
-          title="아직 판매자 신청을 하지 않았어요"
-          description="신청이 승인되면 여기에서 판매자 정보를 볼 수 있어요."
+          title="판매자만 쓸 수 있어요"
           action={
             <Link href="/seller-apply" className={buttonClassName({ variant: 'secondary' })}>
-              판매자 신청하러 가기
+              판매자 신청하기
             </Link>
           }
         />
@@ -54,7 +53,10 @@ export function SellerSettingsPage() {
       )}
 
       {/* TODO(api): cash 서비스의 판매자 정산 계좌 API가 생기면 S11-1(계좌 입력 · 저장)로 바꾼다 */}
-      <ConsoleCard title="정산 계좌" className="border border-border-default">
+      <ConsoleCard
+        title="정산 계좌"
+        className="rounded-md border border-border-default shadow-none"
+      >
         <Alert
           tone="warning"
           title="정산 계좌 등록은 준비 중이에요"
@@ -85,21 +87,21 @@ function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
   return (
     <ConsoleCard
       title="판매자 정보"
-      aside={<Badge tone={status.tone}>{status.label}</Badge>}
-      className="border border-border-default"
+      aside={<span className="text-body2-medium text-text-secondary">{status.label}</span>}
+      className="rounded-md border border-border-default shadow-none"
     >
       {/* 사업자등록번호 · 상호 · 대표자 이름은 Clarity 화면 녹화에서 가린다 */}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-4" data-clarity-mask="true">
+      <dl className="flex flex-col" data-clarity-mask="true">
         {fields.map(([label, value]) => (
-          <div key={label} className="flex flex-col gap-0.5">
-            <dt className="text-caption-regular text-text-tertiary">{label}</dt>
+          <div
+            key={label}
+            className="flex h-14 items-center border-b border-border-default last:border-b-0"
+          >
+            <dt className="w-30 shrink-0 text-body2-regular text-text-secondary">{label}</dt>
             <dd className="text-body2-regular text-text-primary">{value}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-caption-regular text-text-tertiary">
-        판매자 정보를 바꾸면 관리자가 다시 확인해야 해요. 변경은 고객센터로 문의해 주세요.
-      </p>
     </ConsoleCard>
   )
 }

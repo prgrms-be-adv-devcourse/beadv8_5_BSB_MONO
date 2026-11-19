@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import com.bukang.member.domain.exception.LastLoginMethodException;
 import com.bukang.member.domain.exception.SocialAccountNotFoundException;
 import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
+import com.bukang.member.dto.MemberDto;
 
 class MemberSocialTest {
 	@Test
@@ -81,9 +82,9 @@ class MemberSocialTest {
 		Member member = member(null);
 		member.linkSocial(SocialProvider.KAKAO, "kakao-1");
 
-		assertThat(member.toDto().getSocialProviders()).containsExactly(SocialProvider.KAKAO);
-		assertThat(member.toDto().isPasswordSet()).isFalse();
-		assertThat(member("hash").toDto().isPasswordSet()).isTrue();
+		assertThat(MemberDto.from(member).getSocialProviders()).containsExactly(SocialProvider.KAKAO);
+		assertThat(MemberDto.from(member).isPasswordSet()).isFalse();
+		assertThat(MemberDto.from(member("hash")).isPasswordSet()).isTrue();
 	}
 
 	private static Member member(String passwordHash) {

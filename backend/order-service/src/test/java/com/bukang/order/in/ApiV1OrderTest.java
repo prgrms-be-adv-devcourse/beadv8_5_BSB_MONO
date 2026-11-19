@@ -43,11 +43,9 @@ import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
-import com.bukang.order.domain.QueueAdmission;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubQueueAdmissionPort;
 import com.bukang.order.support.StubQueueAdmissionPortConfig;
@@ -83,9 +81,6 @@ class ApiV1OrderTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private StubRaceCoursePort raceCoursePort;
 
 	@Autowired
@@ -109,7 +104,6 @@ class ApiV1OrderTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		queueAdmissionPort.clear();
@@ -188,7 +182,7 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("신청서 진입 때 입장하지 못했거나 저장한 입장 시간이 끝났으면 403이고, 자리를 확보하지 않는다")
+	@DisplayName("대기열에 입장 중이 아니거나 입장 시간이 끝났으면 403이고, 자리를 확보하지 않는다")
 	void createNotAdmitted() throws Exception {
 		queueAdmissionPort.notAdmitted(COURSE_ID);
 		long participationId = applyAndGetId(MEMBER_ID);
@@ -197,8 +191,8 @@ class ApiV1OrderTest {
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"))
 			.andExpect(jsonPath("$.message").value("대기열에서 입장한 뒤 결제할 수 있습니다."));
-		assertThat(queueAdmissionRepository.count()).isZero();
-		queueAdmissionRepository.save(QueueAdmission.of(MEMBER_ID, COURSE_ID, LocalDateTime.now().minusSeconds(1)));
+		queueAdmissionPort.clear();
+		queueAdmissionPort.admitUntil(COURSE_ID, LocalDateTime.now().minusSeconds(1));
 		create(MEMBER_ID, participationId, newKey()).andExpect(status().isForbidden());
 
 		assertThat(seatHoldPort.holdCalls()).isZero();
@@ -208,29 +202,36 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("신청서 진입 뒤에는 대기열에 다시 묻지 않아, 대기열이 입장 중이 아니라고 해도 저장한 끝 시각 안이면 결제 기한으로 쓴다")
-	void createUsesSavedAdmissionWithoutAskingQueue() throws Exception {
-		LocalDateTime endsAt = LocalDateTime.now().plusMinutes(4).withNano(0);
-		queueAdmissionPort.admitUntil(COURSE_ID, endsAt);
+	@DisplayName("[결제하기]는 누를 때 대기열에 다시 물어, 신청서 진입 뒤 대기열이 입장을 끝냈으면 403이다 (CRU-53)")
+	void createAsksQueueAgain() throws Exception {
+		queueAdmissionPort.admitUntil(COURSE_ID, LocalDateTime.now().plusMinutes(4));
 		long participationId = applyAndGetId(MEMBER_ID);
-		// 신청서를 쓰는 동안 대기열이 멈추거나 입장이 풀린 경우
 		queueAdmissionPort.notAdmitted(COURSE_ID);
-
-		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
-
-		assertThat(orderRepository.findAll().getFirst().getPaymentDueAt()).isEqualTo(endsAt);
-	}
-
-	@Test
-	@DisplayName("입장 상태 API를 부르지 않고(주소 직접 입력) [결제하기]하면 대기열이 입장 중이라고 해도 403이다")
-	void createWithoutEntry() throws Exception {
-		long participationId = applyAndGetId(MEMBER_ID);
-		queueAdmissionRepository.deleteAll();
 
 		create(MEMBER_ID, participationId, newKey())
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"));
 		assertThat(seatHoldPort.holdCalls()).isZero();
+	}
+
+	@Test
+	@DisplayName("대기열이 끝 시각을 다시 채우면 다음 입장 상태 조회와 [결제하기]가 새 끝 시각을 쓴다 (CRU-53)")
+	void createUsesResetAdmissionEndsAt() throws Exception {
+		queueAdmissionPort.admitUntil(COURSE_ID, LocalDateTime.now().plusMinutes(2));
+		long participationId = applyAndGetId(MEMBER_ID);
+		// 신청서 → 뒤로 → 다시 신청하기: 대기열이 끝 시각을 「지금 + 15분」으로 다시 채운다
+		LocalDateTime resetEndsAt = LocalDateTime.now().plusMinutes(14).withNano(0);
+		queueAdmissionPort.admitUntil(COURSE_ID, resetEndsAt);
+
+		String admission = mockMvc.perform(get("/api/v1/order/queue/admission").header("X-Member-Id", MEMBER_ID)
+				.param("raceId", "1").param("raceCourseId", String.valueOf(COURSE_ID)))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(LocalDateTime.parse(JsonPath.<String>read(admission, "$.data.admissionEndsAt")))
+			.isEqualTo(resetEndsAt);
+		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
+
+		assertThat(orderRepository.findAll().getFirst().getPaymentDueAt()).isEqualTo(resetEndsAt);
 	}
 
 	@Test

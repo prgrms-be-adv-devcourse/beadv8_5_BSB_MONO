@@ -81,7 +81,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 				.surface(CourseSurface.TRAIL)
 				.distanceKm("21.1")
 				.timeLimitMinutes(180)
-				.age(20, 60)
+				.age(19, null)
 				.kit(5_000))
 			.build();
 
@@ -102,8 +102,8 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getSurface()).isEqualTo(CourseSurface.TRAIL);
 		assertThat(course.getDistanceKm()).isEqualByComparingTo(new BigDecimal("21.1"));
 		assertThat(course.getTimeLimitMinutes()).isEqualTo(180);
-		assertThat(course.getMinAge()).isEqualTo(20);
-		assertThat(course.getMaxAge()).isEqualTo(60);
+		assertThat(course.getMinAge()).isEqualTo(19);
+		assertThat(course.getMaxAge()).isNull();
 		assertThat(course.isKitIncluded()).isTrue();
 		Race race = findRace(registered.raceId());
 		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(5).toLocalDate());
@@ -212,6 +212,24 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("수정으로 최소 나이를 16세로, 또는 최대 나이를 70세로 바꾸려 하면 400이고 종목은 그대로다")
+	void rejectNonAdultOnlyAgeOnUpdate() throws Exception {
+		RegisteredRace registered = register(scheduledRace().build());
+
+		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId()).age(16, null)).build())
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message")
+				.value("참가 최소 나이는 14(제한 없음) 또는 19(성인만)로 작성해주세요. (종목: 10K)"));
+		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId()).age(14, 70)).build())
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("참가 최대 나이는 받지 않습니다. 비워주세요. (종목: 10K)"));
+
+		RaceCourse course = findCourse(registered.courseId());
+		assertThat(course.getMinAge()).isEqualTo(14);
+		assertThat(course.getMaxAge()).isNull();
+	}
+
+	@Test
 	@DisplayName("크루 예매가 있는 판매 중 종목의 크루 정원을 10에서 9로 줄이면 409이다 (개인 정원 100은 그대로)")
 	void rejectCrewQuotaDecreaseAfterSaleStarted() throws Exception {
 		RegisteredRace registered = registerOnSale(withPassedCrewSale(sameRace())
@@ -233,8 +251,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			conditionChange("종목 구분", "KM_10 → HALF", builder -> builder.type(CourseType.HALF)),
 			conditionChange("노면", "ROAD → TRAIL", builder -> builder.surface(CourseSurface.TRAIL)),
 			conditionChange("제한 시간", "90분 → 100분", builder -> builder.timeLimitMinutes(100)),
-			conditionChange("나이 제한", "최소 14세 → 20세", builder -> builder.age(20, null)),
-			conditionChange("나이 제한", "최대 없음 → 60세", builder -> builder.age(14, 60)),
+			conditionChange("나이 제한", "제한 없음 → 성인만", builder -> builder.age(19, null)),
 			conditionChange("키트 포함 여부", "키트 없음 → 포함", builder -> builder.kit(0)),
 			conditionChange("기록증 규칙", "규칙 없음 → 있음",
 				builder -> builder.recordCertRule(LocalDate.of(2025, 1, 1), 7200, CourseType.HALF))

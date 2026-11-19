@@ -9,4 +9,9 @@ public class CrewPenaltyLookupFailedException extends BusinessException {
 	public CrewPenaltyLookupFailedException(String message) {
 		super(HttpStatus.SERVICE_UNAVAILABLE, "CREW_PENALTY_LOOKUP_FAILED", message);
 	}
+
+	public CrewPenaltyLookupFailedException(String message, Throwable cause) {
+		super(HttpStatus.SERVICE_UNAVAILABLE, "CREW_PENALTY_LOOKUP_FAILED", message);
+		initCause(cause);
+	}
 }

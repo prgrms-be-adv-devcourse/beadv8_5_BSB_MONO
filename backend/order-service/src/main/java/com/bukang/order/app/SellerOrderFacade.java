@@ -14,6 +14,7 @@ import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyPageDto;
 import com.bukang.order.dto.SellerRosterExportRequestDto;
 import com.bukang.order.dto.SellerSalesSummaryDto;
+import com.bukang.order.out.delivery.KitTrackingLink;
 import com.bukang.order.out.seller.SellerLookupPort;
 
 import lombok.RequiredArgsConstructor;
@@ -29,15 +30,16 @@ public class SellerOrderFacade {
 	private final SellerLookupPort sellerLookupPort;
 	private final SellerOrderQueryUseCase sellerOrderQueryUseCase;
 	private final SellerExportUseCase sellerExportUseCase;
+	private final KitTrackingLink kitTrackingLink;
 
 	public SellerOrderPageDto findOrders(long memberId, Long raceId, Long raceCourseId, OrderItemStatus status,
-		Long partyId, LocalDate from, LocalDate to, int page, int size) {
+		Long partyId, LocalDate from, LocalDate to, String keyword, int page, int size) {
 		return sellerOrderQueryUseCase.findOrders(sellerIdOf(memberId), raceId, raceCourseId, status, partyId, from,
-			to, page, size);
+			to, keyword, page, size);
 	}
 
 	public SellerOrderDetailDto findOrder(long memberId, long orderItemId) {
-		return sellerOrderQueryUseCase.findOrder(sellerIdOf(memberId), orderItemId);
+		return kitTrackingLink.addTo(sellerOrderQueryUseCase.findOrder(sellerIdOf(memberId), orderItemId));
 	}
 
 	public SellerPartyPageDto findParties(long memberId, long raceId, Long partyId, LocalDate from, LocalDate to,

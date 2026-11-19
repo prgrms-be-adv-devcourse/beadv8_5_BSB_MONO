@@ -40,7 +40,6 @@ import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
@@ -79,9 +78,6 @@ class OrderPayExpiryConcurrencyTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
 
 	@Autowired
@@ -115,7 +111,6 @@ class OrderPayExpiryConcurrencyTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();

@@ -12,6 +12,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 
+import com.bukang.order.out.kit.CachingKitOptionPort;
+import com.bukang.order.out.kit.KitOptionPort;
 import com.bukang.order.out.seat.CrewSeatHoldPort;
 import com.bukang.order.out.seat.FakeCrewSeatHoldAdapter;
 import com.bukang.order.out.seat.FakeSeatHoldAdapter;
@@ -36,6 +38,7 @@ class ProductClientConfigTest {
 			assertThat(context).getBean(RaceSellerPort.class).isInstanceOf(HttpRaceSellerAdapter.class);
 			assertThat(context).getBean(SeatHoldPort.class).isInstanceOf(HttpSeatHoldAdapter.class);
 			assertThat(context).getBean(CrewSeatHoldPort.class).isInstanceOf(HttpCrewSeatHoldAdapter.class);
+			assertThat(context).getBean(KitOptionPort.class).isInstanceOf(CachingKitOptionPort.class);
 		});
 	}
 

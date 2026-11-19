@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 
+import { ANSWER_MAX } from '@/entities/inquiry'
 import { server } from '@/shared/testing'
 
 import { InquiryAiDraft } from './InquiryAiDraft'
@@ -93,5 +94,48 @@ describe('InquiryAiDraft', () => {
     mockDraft()
     await user.click(screen.getByRole('button', { name: '다시 만들기' }))
     expect(await screen.findByText('확인 필요 1곳')).toBeInTheDocument()
+  })
+
+  it('공백만 쓴 답은 보낼 수 없다', async () => {
+    server.use(
+      http.post('*/api/v1/ai/seller/inquiries/5/draft', () =>
+        HttpResponse.json(
+          {
+            status: 503,
+            code: 'AI_MODEL_UNAVAILABLE',
+            message: '지금은 만들 수 없어요.',
+            data: null,
+          },
+          { status: 503 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderDraft()
+    await screen.findByText('답변 초안을 만들지 못했어요')
+
+    await user.type(screen.getByLabelText('답변'), '   ')
+
+    expect(screen.getByRole('button', { name: '답변 보내기' })).toBeDisabled()
+  })
+
+  it('초안이 글자 수 한도보다 길면 한도까지만 칸에 넣어 확인 뒤 보낼 수 있다', async () => {
+    server.use(
+      http.post('*/api/v1/ai/seller/inquiries/5/draft', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { draft: '가'.repeat(ANSWER_MAX + 100), references: [], missing: [] },
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    const onSend = renderDraft()
+
+    const box = await screen.findByLabelText('답변')
+    await waitFor(() => expect(box).toHaveValue('가'.repeat(ANSWER_MAX)))
+    await user.click(screen.getByRole('checkbox', { name: '초안 내용을 확인했어요' }))
+    await user.click(screen.getByRole('button', { name: '답변 보내기' }))
+    expect(onSend).toHaveBeenCalledWith('가'.repeat(ANSWER_MAX))
   })
 })

@@ -12,7 +12,8 @@ import org.springframework.stereotype.Service;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.member.config.KakaoInviteProperties;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewInviteCommand;
+import com.bukang.member.crew.app.CrewQuery;
 import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.dto.CrewInviteCreatedDto;
 import com.bukang.member.crew.out.CrewMemberProfilePort;
@@ -36,14 +37,15 @@ import lombok.RequiredArgsConstructor;
 /**
  * 크루 초대 카카오톡 보내기 (kakao-crew-invite 결정 3)
  * 카카오를 부르는 동안 DB 연결을 붙잡지 않도록 이 클래스에는 트랜잭션을 걸지 않는다
- * 크루 검사·초대 링크 만들기·취소는 CrewFacade가, 토큰은 KakaoMessageTokens가 각자 짧은 트랜잭션으로 한다
+ * 크루 검사·초대 링크 만들기·취소는 CrewInviteCommand·CrewQuery가, 토큰은 KakaoMessageTokens가 각자 짧은 트랜잭션으로 한다
  */
 @Service
 @RequiredArgsConstructor
 public class KakaoCrewInviteUseCase {
 	private static final String DEFAULT_SENDER = "크루원";
 
-	private final CrewFacade crewFacade;
+	private final CrewInviteCommand crewInviteCommand;
+	private final CrewQuery crewQuery;
 	private final CrewMemberRepository crewMemberRepository;
 	private final CrewMemberProfilePort profilePort;
 	private final SocialAccountRepository socialAccountRepository;
@@ -54,7 +56,7 @@ public class KakaoCrewInviteUseCase {
 
 	// 카카오 친구 중 크루런 회원이고 아직 이 크루원이 아닌 사람. 친구 정보는 저장하지 않는다
 	public List<KakaoFriendDto> findFriends(long memberId, long crewId) {
-		crewFacade.findInvitableCrewName(memberId, crewId);
+		crewQuery.requireInviter(memberId, crewId);
 		String accessToken = kakaoMessageTokens.accessToken(memberId);
 		List<KakaoFriend> friends = callKakao(memberId, () -> kakaoTalkClient.friends(accessToken));
 		if (friends.isEmpty()) {
@@ -82,7 +84,7 @@ public class KakaoCrewInviteUseCase {
 	 * 한 명도 못 보내면 모두 하루 한도일 때 429, 그 밖은 502다. 토큰 오류면 토큰을 지우고 403으로 다시 동의하게 한다
 	 */
 	public KakaoInviteSendResultDto send(long memberId, long crewId, List<String> receiverUuids) {
-		String crewName = crewFacade.findInvitableCrewName(memberId, crewId);
+		String crewName = crewQuery.requireInviter(memberId, crewId);
 		String accessToken = kakaoMessageTokens.accessToken(memberId);
 		String sender = profilePort.findNicknames(List.of(memberId)).getOrDefault(memberId, DEFAULT_SENDER);
 
@@ -90,13 +92,13 @@ public class KakaoCrewInviteUseCase {
 		List<Failure> failures = new ArrayList<>();
 		for (int i = 0; i < receiverUuids.size(); i++) {
 			String uuid = receiverUuids.get(i);
-			CrewInviteCreatedDto invite = crewFacade.createInvite(memberId, crewId);
+			CrewInviteCreatedDto invite = crewInviteCommand.createInvite(memberId, crewId);
 			try {
 				// 초대 토큰 원문은 메시지 안에만 싣고 응답·로그에는 남기지 않는다
 				kakaoTalkClient.send(accessToken, uuid, template(crewName, sender, invite.inviteToken()));
 				sent.add(uuid);
 			} catch (KakaoApiException exception) {
-				crewFacade.cancelInvite(memberId, crewId, invite.inviteId());
+				crewInviteCommand.cancelInvite(memberId, crewId, invite.inviteId());
 				if (exception.isTokenProblem()) {
 					// 토큰을 지우고 멈춘다. 이미 보낸 사람이 있으면 200으로 알려, 다시 동의한 뒤 같은 사람에게 또 보내지 않게 한다
 					kakaoMessageTokens.discard(memberId);

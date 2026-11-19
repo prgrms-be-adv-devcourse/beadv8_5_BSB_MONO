@@ -12,6 +12,8 @@
 /* 움직임. 값 없는 ProgressBar(대기열)가 쓴다.
  * delayed-show: 0.3초 동안 숨겼다가 보인다. 금방 끝나는 로딩에서 회색 틀이 깜빡이지 않게 한다(시나리오 38 · 01 홈 로딩). */
 @theme {
+  /* 누르는 흰 면(입력칸·칩)에 쓴다. 가장자리 1px 8%, 아래 1px·흐림 2 6%, 아래 2px·흐림 6 4% (DS-017) */
+  --shadow-field: 0 0 0 1px #17191c14, 0 1px 2px 0 #17191c0f, 0 2px 6px 0 #17191c0a;
   --animate-progress-indeterminate: progress-indeterminate 1.4s ease-in-out infinite;
   --animate-delayed-show: delayed-show 0s 300ms both;
 

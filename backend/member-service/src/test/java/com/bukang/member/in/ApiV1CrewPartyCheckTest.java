@@ -25,7 +25,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewInviteCommand;
+import com.bukang.member.crew.app.CrewManageCommand;
 import com.bukang.member.crew.domain.exception.CrewPartyCheckFailedException;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
@@ -59,7 +60,9 @@ class ApiV1CrewPartyCheckTest {
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
-	private CrewFacade crewFacade;
+	private CrewInviteCommand crewInviteCommand;
+	@Autowired
+	private CrewManageCommand crewManageCommand;
 	@Autowired
 	private MemberRepository memberRepository;
 	@Autowired
@@ -99,9 +102,9 @@ class ApiV1CrewPartyCheckTest {
 		managerId = joinMember();
 		memberId = joinMember();
 		outsiderId = joinMember();
-		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
-		crewFacade.join(managerId, crewFacade.createInvite(leaderId, crewId).inviteToken());
-		crewFacade.join(memberId, crewFacade.createInvite(leaderId, crewId).inviteToken());
+		crewId = crewManageCommand.createCrew(leaderId, "새벽한강크루").crewId();
+		crewInviteCommand.join(managerId, crewInviteCommand.createInvite(leaderId, crewId).inviteToken());
+		crewInviteCommand.join(memberId, crewInviteCommand.createInvite(leaderId, crewId).inviteToken());
 		jdbcTemplate.update("update member_crew_member set role = 'MANAGER' where member_id = ?", managerId);
 		outboxBefore = memberOutboxEventRepository.count();
 	}
@@ -231,7 +234,7 @@ class ApiV1CrewPartyCheckTest {
 	@Test
 	@DisplayName("다른 크루의 크루장이 우리 크루원을 내보내려 해도 주문 서비스를 부르지 않고 403이다")
 	void kickWithOtherCrewIdSkipsCheck() throws Exception {
-		long otherCrewId = crewFacade.createCrew(outsiderId, "판교점심런").crewId();
+		long otherCrewId = crewManageCommand.createCrew(outsiderId, "판교점심런").crewId();
 
 		// outsider는 다른 크루의 크루장이지만 이 크루(crewId)에서는 크루원이 아니다
 		remove(outsiderId, crewId, memberId)

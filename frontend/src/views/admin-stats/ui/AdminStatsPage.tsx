@@ -1,5 +1,6 @@
 'use client'
 
+import { format, parseISO } from 'date-fns'
 import { Fragment, useState } from 'react'
 
 import { CONSOLE_BOX, ConsolePage } from '@/widgets/console-page'
@@ -14,16 +15,9 @@ import {
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
 import { clientEnv } from '@/shared/config'
+import { DateTimeField } from '@/shared/date-picker'
 import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
-import {
-  Button,
-  buttonClassName,
-  DataTable,
-  Divider,
-  EmptyState,
-  Segmented,
-  TextField,
-} from '@/shared/ui'
+import { Button, buttonClassName, DataTable, Divider, EmptyState, Segmented } from '@/shared/ui'
 
 import { useRealtimeStats } from '../model/use-usage-stats'
 import { FunnelSection } from './FunnelSection'
@@ -115,7 +109,8 @@ function PeriodPicker({
   )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
-  const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)
+  const customQuery = statsPeriodQuerySchema.safeParse({ period: 'custom', ...custom })
+  const customValid = customQuery.success && custom.start <= custom.end
 
   const choose = (next: StatsPeriodKind) => {
     setKind(next)
@@ -138,24 +133,30 @@ function PeriodPicker({
       )}
       {kind === 'custom' && (
         <div className="flex items-end gap-2">
-          <TextField
+          <DateTimeField
+            mode="single"
+            withTime={false}
             label="시작 날짜"
-            type="date"
-            max={today}
-            value={custom.start}
-            onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
+            className="w-52"
+            defaultValue={custom.start ? parseISO(custom.start) : undefined}
+            endMonth={parseISO(today)}
+            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+            onValueChange={(start) => setCustom((c) => ({ ...c, start }))}
           />
-          <TextField
+          <DateTimeField
+            mode="single"
+            withTime={false}
             label="끝 날짜"
-            type="date"
-            max={today}
-            value={custom.end}
-            onChange={(e) => setCustom((c) => ({ ...c, end: e.target.value }))}
+            className="w-52"
+            defaultValue={custom.end ? parseISO(custom.end) : undefined}
+            endMonth={parseISO(today)}
+            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+            onValueChange={(end) => setCustom((c) => ({ ...c, end }))}
           />
           <Button
             variant="secondary"
             disabled={!customValid}
-            onClick={() => onChange({ period: 'custom', ...custom })}
+            onClick={() => customQuery.success && onChange(customQuery.data)}
           >
             적용
           </Button>

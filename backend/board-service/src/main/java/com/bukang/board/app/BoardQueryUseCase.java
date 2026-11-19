@@ -1,9 +1,7 @@
 package com.bukang.board.app;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -51,9 +49,8 @@ public class BoardQueryUseCase {
 		Map<Long, List<BoardComment>> repliesByParent = comments.stream()
 			.filter(comment -> comment.getParentId() != null && comment.isVisible())
 			.collect(Collectors.groupingBy(BoardComment::getParentId));
-		Set<Long> writerIds = comments.stream().map(BoardComment::getMemberId).collect(Collectors.toSet());
-		Map<Long, BoardMember> writers = new HashMap<>();
-		boardMemberRepository.findAllById(writerIds).forEach(member -> writers.put(member.getId(), member));
+		Map<Long, BoardMember> writers = boardMemberRepository
+			.writersOf(comments.stream().map(BoardComment::getMemberId).toList());
 
 		return comments.stream()
 			.filter(comment -> comment.getParentId() == null)

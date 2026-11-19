@@ -71,7 +71,9 @@ class CrewMemberLeftOutboxTest {
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
-	private CrewFacade crewFacade;
+	private CrewInviteCommand crewInviteCommand;
+	@Autowired
+	private CrewManageCommand crewManageCommand;
 	@Autowired
 	private MemberOutboxEventRepository memberOutboxEventRepository;
 	@Autowired
@@ -106,7 +108,7 @@ class CrewMemberLeftOutboxTest {
 		given(clock.instant()).willReturn(JOINED);
 		leaderId = joinMember();
 		memberId = joinMember();
-		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
+		crewId = crewManageCommand.createCrew(leaderId, "새벽한강크루").crewId();
 		joinCrew(crewId, leaderId, memberId);
 		// 가입 이벤트 행은 이 테스트가 보는 것이 아니므로 비우고 시작한다
 		memberOutboxEventRepository.deleteAll();
@@ -127,7 +129,7 @@ class CrewMemberLeftOutboxTest {
 	@Test
 	@DisplayName("크루원이 떠나면 크루원 이탈 토픽 행이 보낼 차례로 하나 남고, 대상은 크루, 이유는 LEFT, 시각은 지운 시각이다")
 	void leaveAppendsRow() {
-		crewFacade.leave(memberId, crewId);
+		crewManageCommand.leave(memberId, crewId);
 
 		List<MemberOutboxEvent> rows = crewLeftRows();
 		assertThat(rows).hasSize(1);
@@ -147,7 +149,7 @@ class CrewMemberLeftOutboxTest {
 	@Test
 	@DisplayName("본문에는 이벤트 ID, 크루 ID, 회원 ID, 이유, 가입 시각, 지운 시각만 있고 이메일·이름·휴대폰은 없다")
 	void bodyHasNoPersonalData() {
-		crewFacade.leave(memberId, crewId);
+		crewManageCommand.leave(memberId, crewId);
 
 		Map<?, ?> body = jsonConverter.fromJson(crewLeftRows().get(0).getPayload(), Map.class);
 		assertThat(body.keySet().stream().map(String::valueOf).toList())
@@ -157,7 +159,7 @@ class CrewMemberLeftOutboxTest {
 	@Test
 	@DisplayName("크루장이 내보내면 내보낸 크루원의 행이 이유 REMOVED, 그 크루원의 가입 시각으로 하나 남는다")
 	void removeAppendsRow() {
-		crewFacade.removeMember(leaderId, crewId, memberId);
+		crewManageCommand.removeMember(leaderId, crewId, memberId);
 
 		List<MemberOutboxEvent> rows = crewLeftRows();
 		assertThat(rows).hasSize(1);
@@ -170,10 +172,10 @@ class CrewMemberLeftOutboxTest {
 	@Test
 	@DisplayName("크루장 혼자 남은 크루를 없애면 크루장의 행이 이유 DISBANDED, 크루장의 가입 시각으로 하나 남는다")
 	void disbandAppendsLeaderRow() {
-		crewFacade.removeMember(leaderId, crewId, memberId);
+		crewManageCommand.removeMember(leaderId, crewId, memberId);
 		memberOutboxEventRepository.deleteAll();
 
-		crewFacade.disband(leaderId, crewId);
+		crewManageCommand.disband(leaderId, crewId);
 
 		List<MemberOutboxEvent> rows = crewLeftRows();
 		assertThat(rows).hasSize(1);
@@ -189,7 +191,7 @@ class CrewMemberLeftOutboxTest {
 	void withdrawAppendsRowPerCrew() {
 		Instant otherJoined = Instant.parse("2026-11-02T03:00:00Z");
 		given(clock.instant()).willReturn(otherJoined);
-		long otherCrewId = crewFacade.createCrew(leaderId, "저녁한강크루").crewId();
+		long otherCrewId = crewManageCommand.createCrew(leaderId, "저녁한강크루").crewId();
 		joinCrew(otherCrewId, leaderId, memberId);
 		memberOutboxEventRepository.deleteAll();
 		given(clock.instant()).willReturn(NOW);
@@ -244,10 +246,10 @@ class CrewMemberLeftOutboxTest {
 	@Test
 	@DisplayName("크루장이 떠나려 하거나, 없는 크루원을 내보내거나, 다른 크루원이 있는데 없애려 하면 행이 남지 않는다")
 	void failedRequestsAppendNothing() {
-		assertThatThrownBy(() -> crewFacade.leave(leaderId, crewId)).isInstanceOf(RuntimeException.class);
-		assertThatThrownBy(() -> crewFacade.removeMember(leaderId, crewId, memberId + 999))
+		assertThatThrownBy(() -> crewManageCommand.leave(leaderId, crewId)).isInstanceOf(RuntimeException.class);
+		assertThatThrownBy(() -> crewManageCommand.removeMember(leaderId, crewId, memberId + 999))
 			.isInstanceOf(RuntimeException.class);
-		assertThatThrownBy(() -> crewFacade.disband(leaderId, crewId)).isInstanceOf(RuntimeException.class);
+		assertThatThrownBy(() -> crewManageCommand.disband(leaderId, crewId)).isInstanceOf(RuntimeException.class);
 
 		assertThat(crewLeftRows()).isEmpty();
 	}
@@ -256,7 +258,7 @@ class CrewMemberLeftOutboxTest {
 	@DisplayName("내보내기와 그 크루원의 회원 탈퇴가 동시에 와도 그 크루원의 행은 하나만 남는다")
 	void concurrentRemoveAndWithdrawAppendsOnce() throws Exception {
 		atOnce(
-			() -> crewFacade.removeMember(leaderId, crewId, memberId),
+			() -> crewManageCommand.removeMember(leaderId, crewId, memberId),
 			() -> memberFacade.withdrawMe(memberId));
 
 		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, memberId)).isFalse();
@@ -267,8 +269,8 @@ class CrewMemberLeftOutboxTest {
 	@DisplayName("떠나기와 내보내기가 동시에 와도 그 크루원의 행은 하나만 남는다")
 	void concurrentLeaveAndRemoveAppendsOnce() throws Exception {
 		atOnce(
-			() -> crewFacade.leave(memberId, crewId),
-			() -> crewFacade.removeMember(leaderId, crewId, memberId));
+			() -> crewManageCommand.leave(memberId, crewId),
+			() -> crewManageCommand.removeMember(leaderId, crewId, memberId));
 
 		assertThat(crewLeftRows()).hasSize(1);
 	}
@@ -283,7 +285,7 @@ class CrewMemberLeftOutboxTest {
 
 	// 초대를 만들어 그 링크로 가입시킨다
 	private void joinCrew(long targetCrewId, long senderId, long joinerId) {
-		crewFacade.join(joinerId, crewFacade.createInvite(senderId, targetCrewId).inviteToken());
+		crewInviteCommand.join(joinerId, crewInviteCommand.createInvite(senderId, targetCrewId).inviteToken());
 	}
 
 	private List<MemberOutboxEvent> crewLeftRows() {

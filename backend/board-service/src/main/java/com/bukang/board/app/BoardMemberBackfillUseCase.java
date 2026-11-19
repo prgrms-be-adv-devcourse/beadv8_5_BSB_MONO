@@ -40,12 +40,8 @@ public class BoardMemberBackfillUseCase {
 		int received = 0;
 		try {
 			MemberReplicaPage page = fetchFirstPage();
-			while (true) {
-				boardMemberSyncUseCase.insertMissing(page.members());
-				received += page.members().size();
-				if (!page.hasNext()) {
-					break;
-				}
+			received += insertPage(page);
+			while (page.hasNext()) {
 				if (page.nextAfterId() <= afterId) {
 					// 받는 쪽이 같은 쪽을 계속 받게 되므로 계약이 어긋난 것으로 보고 멈춘다
 					log.error("회원 복사본 채우기를 멈춥니다. 다음 afterId가 늘지 않았습니다. afterId={}, nextAfterId={}",
@@ -54,6 +50,7 @@ public class BoardMemberBackfillUseCase {
 				}
 				afterId = page.nextAfterId();
 				page = memberReplicaPort.fetch(afterId, PAGE_SIZE);
+				received += insertPage(page);
 			}
 			log.info("회원 복사본 채우기를 마쳤습니다. 받은 회원={}명", received);
 		} catch (RuntimeException exception) {
@@ -63,6 +60,12 @@ public class BoardMemberBackfillUseCase {
 			Thread.currentThread().interrupt();
 			log.warn("회원 복사본 채우기가 중단됐습니다. 다음 기동 때 다시 채웁니다.");
 		}
+	}
+
+	// 넣은 쪽의 회원 수를 돌려준다
+	private int insertPage(MemberReplicaPage page) {
+		boardMemberSyncUseCase.insertMissing(page.members());
+		return page.members().size();
 	}
 
 	private MemberReplicaPage fetchFirstPage() throws InterruptedException {

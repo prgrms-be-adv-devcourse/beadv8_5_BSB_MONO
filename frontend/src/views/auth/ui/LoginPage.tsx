@@ -84,7 +84,7 @@ export function LoginPage({
         <div className="flex-1" />
         <form
           id="login-form"
-          className="flex flex-col items-center px-4"
+          className="flex flex-col items-center px-5"
           noValidate
           onSubmit={handleSubmit((values) =>
             login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
@@ -159,9 +159,6 @@ export function LoginPage({
               { href: '/me/support', label: '고객센터' },
             ]}
           />
-          <p className="text-caption-regular text-text-tertiary">
-            크루런은 통신판매중개자이며 거래 당사자가 아니에요.
-          </p>
         </footer>
       </main>
       <BottomCta
