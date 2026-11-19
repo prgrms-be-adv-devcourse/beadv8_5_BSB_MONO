@@ -1,0 +1,56 @@
+name: pr-auto-approve
+
+# 동작을 바꾸지 않는 타입(docs·chore·style·test) PR은 사람 승인 없이 머지할 수 있게, github-actions 봇이 자동으로 승인 리뷰를 단다.
+# dev 보호 ruleset의 "승인 1개" 요구를 이 봇 승인으로 채운다. CI 필수 체크는 그대로 통과해야 머지된다.
+# 제목을 자동 승인 대상에서 다른 타입으로 바꾸면(edited) 봇 승인을 거둬, 리뷰 없이 머지되는 구멍을 막는다.
+# linear-sync처럼 pull_request_target이라 기본 브랜치(main)의 이 파일로 돈다. 적용하려면 main에 들어가야 한다.
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize]
+    branches: [dev]
+
+# PR 본문 코드를 체크아웃하거나 실행하지 않고, 제목만 읽어 리뷰 API를 부른다 (pull_request_target 주입 위험 없음).
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: pr-auto-approve-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            // 승인 없이 머지할 타입. 동작을 바꾸지 않는 것만 둔다 (perf·refactor·build·ci·revert 등은 사람 리뷰 유지).
+            const AUTO = ['docs', 'chore', 'style', 'test'];
+
+            // Conventional Commits 제목에서 타입만 뽑는다: <type>(scope)!: ...  (제목 형식은 pr-title이 따로 검사한다)
+            const match = pr.title.match(/^(\w+)(\([^)]*\))?!?:/);
+            const type = match ? match[1] : null;
+            const eligible = AUTO.includes(type);
+
+            // 이 워크플로가 앞서 단 봇 승인을 찾는다 (제목이 바뀌면 거둬들이기 위해).
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number,
+            });
+            const botApproval = reviews.find(
+              r => r.user && r.user.login === 'github-actions[bot]' && r.state === 'APPROVED');
+
+            if (eligible && !botApproval) {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number,
+                event: 'APPROVE',
+                body: `\`${type}\` 타입이라 자동 승인했습니다. 사람 리뷰 없이 머지할 수 있습니다.`,
+              });
+            } else if (!eligible && botApproval) {
+              // 제목 타입이 자동 승인 대상에서 벗어났다. 리뷰 없이 머지되지 않도록 봇 승인을 거둔다.
+              await github.rest.pulls.dismissReview({
+                owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number,
+                review_id: botApproval.id,
+                message: '제목 타입이 자동 승인 대상이 아니라 자동 승인을 거둬들였습니다. 사람 리뷰가 필요합니다.',
+              });
+            }
