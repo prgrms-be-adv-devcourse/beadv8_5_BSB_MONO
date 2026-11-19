@@ -359,6 +359,9 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 <span id="min-age-label" className="text-body2-medium">
                   참가 가능 나이
                 </span>
+                <p className="text-caption-regular text-text-tertiary">
+                  만 14세는 연령 제한 없음 · 만 19세는 성인만
+                </p>
                 <div className="flex gap-2">
                   {([NO_LIMIT_MIN_AGE, ADULT_MIN_AGE] as const).map((age) => (
                     <Chip
