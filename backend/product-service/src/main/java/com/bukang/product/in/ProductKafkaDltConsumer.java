@@ -39,33 +39,33 @@ public class ProductKafkaDltConsumer {
 
 	@KafkaListener(topics = MEMBER_JOINED_DLT, groupId = GROUP_ID)
 	public void handleMemberJoinedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 회원가입 메시지: {}", record.value());
+		log.error("처리하지 못한 회원가입 메시지. key={}", record.key());
 		record(record);
 	}
 
 	@KafkaListener(topics = MEMBER_MODIFIED_DLT, groupId = GROUP_ID)
 	public void handleMemberModifiedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 회원 변경 메시지: {}", record.value());
+		log.error("처리하지 못한 회원 변경 메시지. key={}", record.key());
 		record(record);
 	}
 
 	@KafkaListener(topics = SELLER_CHANGED_DLT, groupId = GROUP_ID)
 	public void handleSellerChangedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 판매자 메시지: {}", record.value());
+		log.error("처리하지 못한 판매자 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 해제하지 못한 자리는 결제 대기로 남아 남은 자리가 그만큼 적게 보인다. 원인을 고친 뒤 메시지를 다시 보내야 한다
 	@KafkaListener(topics = HOLD_CANCEL_DLT, groupId = GROUP_ID)
 	public void handleHoldCancelDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 임시 확보 해제 메시지: {}", record.value());
+		log.error("처리하지 못한 임시 확보 해제 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 되돌리지 못한 자리는 판매된 채 남아 정원보다 덜 팔린다. 원인을 고친 뒤 메시지를 다시 보내야 한다
 	@KafkaListener(topics = HOLD_RESTORE_DLT, groupId = GROUP_ID)
 	public void handleHoldRestoreDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 판매 자리 복구 메시지: {}", record.value());
+		log.error("처리하지 못한 판매 자리 복구 메시지. key={}", record.key());
 		record(record);
 	}
 

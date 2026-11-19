@@ -11,7 +11,6 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -48,8 +47,8 @@ public class HttpKitOptionAdapter implements KitOptionPort {
 			if (exception.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
 				return Optional.empty();
 			}
-			log.error("상품 서비스가 키트 옵션 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceId={}, body={}",
-				exception.getStatusCode(), raceId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+			log.error("상품 서비스가 키트 옵션 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceId={}",
+				exception.getStatusCode(), raceId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		} catch (RestClientException exception) {
 			log.warn("상품 서비스에 키트 옵션을 묻지 못했습니다. raceId={}, cause={}", raceId, exception.toString());
@@ -57,7 +56,7 @@ public class HttpKitOptionAdapter implements KitOptionPort {
 		}
 		Body body = response == null ? null : response.data();
 		if (body == null || !body.isComplete()) {
-			log.error("상품 서비스의 키트 옵션 응답 형식이 계약과 다릅니다. raceId={}, response={}", raceId, response);
+			log.error("상품 서비스의 키트 옵션 응답 형식이 계약과 다릅니다. raceId={}", raceId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return Optional.of(body.kitOptions().stream()

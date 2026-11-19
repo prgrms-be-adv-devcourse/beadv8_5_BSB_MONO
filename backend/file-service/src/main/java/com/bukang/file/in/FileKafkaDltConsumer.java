@@ -33,7 +33,7 @@ public class FileKafkaDltConsumer {
 	// 연결되지 않은 파일은 하루 뒤 정리 배치가 지우므로, 다시 보내려면 그 전에 보내야 한다
 	@KafkaListener(topics = FILE_LINK_REQUESTED_DLT, groupId = GROUP_ID)
 	public void handleFileLinkRequestedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 파일 연결 메시지: {}", record.value());
+		log.error("처리하지 못한 파일 연결 메시지. key={}", record.key());
 		record(record);
 	}
 

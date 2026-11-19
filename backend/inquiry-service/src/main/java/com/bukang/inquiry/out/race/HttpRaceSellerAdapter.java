@@ -41,7 +41,7 @@ public class HttpRaceSellerAdapter implements RaceSellerPort {
 		return InternalHttpClients.getData(restClient, ENDPOINT, RESPONSE_TYPE, PATH, raceId)
 			.map(data -> {
 				if (data.sellerMemberId() == null) {
-					log.error("상품 서비스의 대회 판매자 응답에 값이 없습니다. raceId={}, data={}", raceId, data);
+					log.error("상품 서비스의 대회 판매자 응답에 값이 없습니다. raceId={}", raceId);
 					throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 				}
 				return data.sellerMemberId();

@@ -50,8 +50,8 @@ class TossPaymentConfirmClient {
 			// Toss는 거절 시 {code, message} 형태로 응답한다
 			ErrorResponse error = TossErrorCodeReader.read(exception);
 			String pgCode = error == null ? null : error.code();
-			log.error("Toss 결제 승인이 거절됐습니다. paymentKey={}, orderId={}, status={}, code={}, body={}",
-				paymentKey, orderId, exception.getStatusCode(), pgCode, exception.getResponseBodyAsString());
+			log.error("Toss 결제 승인이 거절됐습니다. orderId={}, status={}, code={}",
+				orderId, exception.getStatusCode(), pgCode);
 
 			// 5xx는 Toss 내부 오류라, 코드를 못 읽은 응답은 무슨 뜻인지 몰라 승인 여부를 단정할 수 없다
 			boolean resultUnknown = exception.getStatusCode().is5xxServerError()
@@ -61,17 +61,16 @@ class TossPaymentConfirmClient {
 			throw new PaymentApprovalFailedException(userMessage(error), pgCode, resultUnknown);
 
 		} catch (RestClientException exception) {
-			log.error("Toss 결제 승인 서버에 연결하지 못했습니다. paymentKey={}, orderId={}", paymentKey, orderId, exception);
+			log.error("Toss 결제 승인 서버에 연결하지 못했습니다. orderId={}", orderId, exception);
 			throw new PaymentApprovalFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.");
 		}
 		if (response == null) {
-			log.error("Toss 결제 승인 응답이 비어 있습니다. paymentKey={}, orderId={}", paymentKey, orderId);
+			log.error("Toss 결제 승인 응답이 비어 있습니다. orderId={}", orderId);
 			throw new PaymentApprovalFailedException("PG 서버 응답이 올바르지 않습니다.");
 		}
 		// 200이어도 승인 완료가 아닐 수 있다(가상계좌 입금 대기 등). 충전하지 않고 결과 모름으로 넘겨 재조회·재확인 배치가 맞춘다
 		if (TossPaymentStatus.from(response.status()) != TossPaymentStatus.DONE) {
-			log.error("Toss 결제 승인 응답이 승인 완료가 아닙니다. paymentKey={}, orderId={}, status={}",
-				paymentKey, orderId, response.status());
+			log.error("Toss 결제 승인 응답이 승인 완료가 아닙니다. orderId={}, status={}", orderId, response.status());
 			throw new PaymentApprovalFailedException("결제 승인을 확인하지 못했습니다. 잠시 후 다시 확인해주세요.");
 		}
 		return new PaymentApprovalResult(response.totalAmount(), response.paymentKey(), response.approvedAtInKorea());
@@ -91,8 +90,8 @@ class TossPaymentConfirmClient {
 				// Toss가 이 주문번호의 결제를 모른다 — 승인된 적이 없다
 				return PaymentLookupResult.notCompleted();
 			}
-			log.error("Toss 결제 조회가 거절됐습니다. orderId={}, status={}, body={}",
-				orderId, exception.getStatusCode(), exception.getResponseBodyAsString());
+			log.error("Toss 결제 조회가 거절됐습니다. orderId={}, status={}, code={}",
+				orderId, exception.getStatusCode(), TossErrorCodeReader.readCode(exception));
 			throw new PaymentLookupFailedException("Toss 결제 조회가 거절됐습니다. orderId=" + orderId, exception);
 		} catch (RestClientException exception) {
 			// 조회 자체가 실패하면 승인 여부를 확인할 수 없다 — "아직 안 끝남"으로 단정하지 않고 알린다

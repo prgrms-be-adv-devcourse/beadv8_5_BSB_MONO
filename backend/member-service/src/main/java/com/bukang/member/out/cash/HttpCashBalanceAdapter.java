@@ -40,7 +40,7 @@ public class HttpCashBalanceAdapter implements CashBalancePort {
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().balance() == null) {
-			log.error("예치금 서비스의 잔액 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
+			log.error("예치금 서비스의 잔액 응답에 값이 없습니다. memberId={}", memberId);
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		return response.data().balance();

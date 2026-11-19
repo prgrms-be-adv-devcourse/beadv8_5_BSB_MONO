@@ -281,18 +281,6 @@ class HttpWalletAdapterTest {
 		}
 	}
 
-	@Test
-	@DisplayName("오류 본문은 로그에 앞부분만 남긴다 (D의 dev 오류 응답은 스택 트레이스를 통째로 담는다)")
-	void abbreviateBody() {
-		String longBody = "x".repeat(HttpWalletAdapter.LOGGED_BODY_LIMIT + 50);
-
-		assertThat(HttpWalletAdapter.abbreviate("짧은 본문")).isEqualTo("짧은 본문");
-		assertThat(HttpWalletAdapter.abbreviate(null)).isNull();
-		assertThat(HttpWalletAdapter.abbreviate(longBody))
-			.startsWith("x".repeat(HttpWalletAdapter.LOGGED_BODY_LIMIT))
-			.endsWith("…(" + longBody.length() + "자)");
-	}
-
 	// 예치금 서비스 InternalV1CashController가 실제로 돌려주는 모양 (data = CashPaymentDto)
 	private String payResponse(String outcome, long shortage) {
 		return """

@@ -58,12 +58,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class PayoutClaimUseCase {
-	// 판매자가 돈을 보낼 은행별 입금 계좌 (목업). 청구마다 같은 계좌를 알린다
-	static final List<String> RECOVERY_ACCOUNTS = List.of(
-		"국민은행 000000-00-000000 크루런(목업)",
-		"신한은행 000-000-000000 크루런(목업)",
-		"우리은행 0000-000-000000 크루런(목업)");
-
 	private final PayoutRepository payoutRepository;
 	private final PayoutItemRepository payoutItemRepository;
 	private final PayoutRecoveryRepository payoutRecoveryRepository;
@@ -183,8 +177,8 @@ public class PayoutClaimUseCase {
 		}
 		boolean seller = claim.markSellerNotice(today);
 		if (seller) {
-			log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
-				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount(), accountsOf(claim));
+			log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}",
+				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount());
 		}
 		boolean admin = claim.markAdminNotice(today, now);
 		if (admin) {
@@ -193,14 +187,6 @@ public class PayoutClaimUseCase {
 				claim.getRaceId(), claim.getId(), claim.getAmount(), claim.getStartDate());
 		}
 		return new Notices(seller, admin);
-	}
-
-	// 판매자에게 알릴 입금 계좌: 청구 전용 가상계좌, 아직 발급 전이면 목업 계좌 (관리자가 입금을 확인한다)
-	static List<String> accountsOf(PayoutClaim claim) {
-		if (claim.getVirtualAccountNumber() == null) {
-			return RECOVERY_ACCOUNTS;
-		}
-		return List.of(claim.getVirtualBankName() + " " + claim.getVirtualAccountNumber());
 	}
 
 	private record Notices(boolean seller, boolean admin) {
