@@ -137,8 +137,8 @@ public class PayoutItem extends BaseIdAndTime {
 	// 정산 내역(payout)은 먼저 저장돼 ID가 있으므로 줄을 저장하기 직전에 키를 만든다
 	@PrePersist
 	void assignBundleKey() {
-		if (orderItemId != null || recordType == PayoutRecordType.회수_상계
-			|| recordType == PayoutRecordType.회수_상계_취소) {
+		// 참가권 줄은 (order_item_id, record_type) 유일 제약으로, 상계 줄은 키 없이(usesBundleKey=false) 막는다
+		if (orderItemId != null || !recordType.usesBundleKey()) {
 			return;
 		}
 		// 1차 정산금은 코스마다 한 줄이라 코스가 있으면 키에 넣는다 (예: P1:선금:C3)

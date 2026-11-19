@@ -48,4 +48,15 @@ public enum PayoutRecordType {
 			default -> throw new IllegalStateException("되돌릴 수 없는 원장 줄입니다. recordType=%s".formatted(this));
 		};
 	}
+
+	// 참가권 없는 줄의 중복 방지 키(bundle_key)를 쓰는 종류인지 (PayoutItem.assignBundleKey)
+	// 상계 줄은 잔고로 다시 계산해 0원이면 안 생기므로 키를 두지 않는다. 참가권 있는 줄은 (order_item_id, record_type)로 막는다
+	// 종류를 새로 더하면 여기서 쓰임을 정해야 컴파일된다 (default 없음)
+	public boolean usesBundleKey() {
+		return switch (this) {
+			case 회수_상계, 회수_상계_취소 -> false;
+			case 선금, 판매, 수수료, 선지급_차감, 회수_요청, 갚을_돈_추가, 회수_입금,
+				선금_취소, 판매_취소, 수수료_취소, 선지급_차감_취소, 회수_요청_취소, 갚을_돈_추가_취소 -> true;
+		};
+	}
 }
