@@ -29,7 +29,7 @@ bundle() {
 	case $1 in
 		jihoon) echo member cash order product inquiry board ;;
 		dawit) echo member product queue order cash ;;
-		youngho) echo member product order cash payout ;;
+		youngho) echo member product file order cash payout ;;
 		sohee) echo member cash order product ;;
 		hobin) echo member product file queue order ;;
 		*) return 1 ;;
@@ -98,6 +98,9 @@ start_app() {
 	case $name in
 		inquiry) extra="INQUIRY_CLIENTS_MEMBER_MODE=http INQUIRY_CLIENTS_PRODUCT_MODE=http INQUIRY_CLIENTS_ORDER_MODE=http" ;;
 		board) extra="BOARD_CLIENTS_MEMBER_MODE=http" ;;
+		# youngho 번들(payout 포함)만 order가 실제 내부 API로 cash·product·payout을 부르게 한다.
+		# 37 자동 환불이 지갑을 실제로 움직이고(cash), 41 배치가 실제 판매자(product)로 정산을 만들게 한다. queue는 번들에 없어 fake로 둔다
+		order) case " $apps " in *" payout "*) extra="ORDER_CLIENTS_CASH_MODE=http ORDER_CLIENTS_PRODUCT_MODE=http ORDER_CLIENTS_PAYOUT_MODE=http" ;; esac ;;
 	esac
 	: >"$STATE/logs/$name.log"
 	# backend/에서 띄운다. 앱이 이 폴더의 .env를 읽는다
@@ -209,7 +212,7 @@ case $cmd in
 			[ "$total" -ge 10000 ] || fail "WSL 메모리가 ${total}MB예요. %UserProfile%\\.wslconfig에 [wsl2]와 memory=12GB를 넣고 PowerShell에서 wsl --shutdown 뒤 다시 열어 주세요"
 		fi
 		mem=$(free_gb)
-		[ "${mem:-0}" -ge 3 ] || fail "빈 메모리가 ${mem}GB예요. 3GB 이상 필요해요. 브라우저 탭·다른 앱을 닫아 주세요"
+		[ "${mem:-0}" -ge 2 ] || fail "빈 메모리가 ${mem}GB예요. 3GB 이상 필요해요. 브라우저 탭·다른 앱을 닫아 주세요"
 		say "빈 메모리 약 ${mem}GB"
 
 		say "2/7 .env · 앱 파일"
@@ -258,6 +261,10 @@ case $cmd in
 		# 더미 대회 판매 시작을 지금으로 당긴다. 판매 상태 배치(5분 주기)가 본 테스트 전에 판매 중으로 바꾼다
 		echo " $apps " | grep -q ' product ' &&
 			sql "update race set sale_open_date = curdate(), individual_open_at = now() - interval 1 minute where title like '[더미]%'"
+		# youngho 정산(41): 시드 판매자(7)를 정산 계좌 등록 상태로 둔다(회원 서비스의 registered = payout_account_verified_at != null).
+		# 없으면 payout 배치가 '정산 계좌 미등록'으로 지급보류해 정산이 완결되지 않는다
+		echo " $apps " | grep -q ' payout ' &&
+			sql "update member_seller set payout_account_verified_at = now() where seller_id = 7 and payout_account_verified_at is null"
 
 		say "6/7 프론트를 실제 백엔드 모드로 띄우기 (localhost:$FRONT_PORT → 게이트웨이 8000)"
 		(cd "$FRONT" || exit 1
