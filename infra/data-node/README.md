@@ -81,6 +81,28 @@ k3s agent로 묶지 않은 이유: 데이터는 자주 바뀌지 않고, 앱을 
    ```
 4. 확인: 이 서버에서 `curl -s -o /dev/null -w '%{http_code}\n' http://10.0.2.222:8000/actuator/health` → 200. Grafana 「크루런 · JVM」에서 gateway의 지표가 두 줄(pod `bukang-gateway…`, `bukang-gateway2`)로 보입니다.
 
+### 비밀값을 바꿨을 때
+
+`.env`의 세 값은 Parameter Store 값을 옮겨 둔 사본입니다(이 서버에는 AWS CLI가 없어 직접 읽지 않음). 원본을 바꾸면 이 서버 `.env`도 다시 맞춥니다.
+
+| `.env` | 원본 | 안 맞추면 |
+|---|---|---|
+| `JWT_SECRET` | `/crewrun/prod/JWT_SECRET` | 게이트웨이 2로 간 요청만 토큰 오류(401) |
+| `GHCR_USER`·`GHCR_TOKEN` | `/crewrun/registry/GHCR_AUTH` ("아이디:토큰"의 base64) | 게이트웨이 2 배포가 이미지 받기에서 실패 |
+
+메인 EC2에서 실행하면 화면에 값을 띄우지 않고 옮깁니다(같은 이름의 줄은 지우고 새로 씀).
+
+```bash
+J=$(aws ssm get-parameter --region ap-northeast-2 --name /crewrun/prod/JWT_SECRET --with-decryption --query Parameter.Value --output text)
+A=$(aws ssm get-parameter --region ap-northeast-2 --name /crewrun/registry/GHCR_AUTH --with-decryption --query Parameter.Value --output text | base64 -d)
+printf 'JWT_SECRET=%s\nGHCR_USER=%s\nGHCR_TOKEN=%s\n' "$J" "${A%%:*}" "${A#*:}" \
+  | ssh -i ~/team05-bukang-EC2-private-key-pair.pem ubuntu@10.0.2.222 \
+    'sudo bash -c "f=/opt/crewrun/infra/data-node/.env; sed -i -E \"/^(JWT_SECRET|GHCR_USER|GHCR_TOKEN)=/d\" \$f; cat >> \$f"'
+unset J A
+```
+
+`JWT_SECRET`을 바꿨다면 옮긴 뒤 `sudo bash /opt/crewrun/infra/data-node/deploy.sh main gateway`로 게이트웨이 2를 다시 띄웁니다.
+
 ### 끄려면
 
 메인 nginx에서 먼저 빼야 요청이 끊기지 않습니다. `k8s/overlays/aws/nginx-upstreams.conf`에서 `10.0.2.222:8000` 줄을 지우고 배포한 뒤 `docker rm -f bukang-gateway2`.
