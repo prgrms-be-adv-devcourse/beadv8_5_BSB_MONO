@@ -454,7 +454,7 @@ function PartyMoreMenu({ onLeave }: { onLeave: () => void }) {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={-4} className="z-50 outline-none">
-          <Menu.Popup className="w-40 rounded-md bg-bg-surface py-1.5 shadow-md outline-none">
+          <Menu.Popup className="w-40 rounded-md bg-bg-surface py-2 shadow-md outline-none">
             <Menu.Item
               onClick={onLeave}
               className={`flex w-full cursor-pointer items-center px-4 py-3 text-body1-medium text-text-danger data-highlighted:bg-bg-subtle ${FOCUS_RING}`}
@@ -490,7 +490,7 @@ function PartyDetailSkeleton() {
       <div className="mt-12 flex flex-col gap-5">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex gap-3">
-            <Skeleton shape="circle" className="mt-0.5 size-8 shrink-0" />
+            <Skeleton shape="circle" className="mt-1 size-8 shrink-0" />
             <div className="flex flex-1 flex-col gap-3">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="w-3/4" />

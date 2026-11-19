@@ -8,7 +8,7 @@ import { FOCUS_RING, Icon, IconButton, Logo, type IconName } from '@/shared/ui'
 export function AuthIntro({ title, size = 'm' }: { title: string; size?: 's' | 'm' }) {
   return (
     <div className="flex flex-col items-center gap-1 pb-3">
-      <Logo className="h-11 w-[150px]" />
+      <Logo className="h-11 w-38" />
       <div className="h-2" />
       <p className={size === 's' ? 'text-body1-bold' : 'text-title3'}>{title}</p>
     </div>

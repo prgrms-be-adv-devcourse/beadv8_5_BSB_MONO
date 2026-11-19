@@ -77,7 +77,7 @@ export function MyPage() {
           data-clarity-mask="true"
         >
           <Avatar size="xl" name={member.nickname} />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="truncate text-title3">
               {member.nickname}
               <span> 님</span>
@@ -186,7 +186,7 @@ function MyPageSkeleton() {
         <section key={g} className="flex flex-col px-4 pt-8">
           <Skeleton className="h-4 w-48" />
           {icons.map((icon) => (
-            <div key={icon} className="flex items-center gap-3 py-3.5">
+            <div key={icon} className="flex items-center gap-3 py-4">
               <Icon name={icon} className="size-6 shrink-0" />
               <Skeleton className="h-3 flex-1" />
               <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />

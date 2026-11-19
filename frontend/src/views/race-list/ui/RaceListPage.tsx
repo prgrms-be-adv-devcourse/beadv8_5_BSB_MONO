@@ -163,7 +163,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               <Icon name="ChevronLeft" />
             </IconButton>
           )}
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-surface p-3.5 shadow-sm inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
+          <label className="flex h-13 min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-surface px-4 shadow-sm inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
             <Icon name="Search" className="size-5" />
             <input
               ref={inputRef}
