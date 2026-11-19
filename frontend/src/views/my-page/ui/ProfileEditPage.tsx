@@ -30,7 +30,7 @@ export function ProfileEditPage() {
         <ProfileForm member={me.data} />
       ) : (
         <>
-          <AppHeader type="sub" title="프로필 수정" backHref="/me/settings" />
+          <AppHeader type="sub" title="프로필 수정" backHref="/me" />
           {me.isError && (
             <p role="alert" className="px-4 py-6 text-body2-regular text-text-danger">
               회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
@@ -93,7 +93,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
           }
         }}
       >
-        <AppHeader type="sub" title="프로필 수정" backHref="/me/settings" />
+        <AppHeader type="sub" title="프로필 수정" backHref="/me" />
       </div>
       <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-6">
         <div className="flex justify-center" data-clarity-mask="true">

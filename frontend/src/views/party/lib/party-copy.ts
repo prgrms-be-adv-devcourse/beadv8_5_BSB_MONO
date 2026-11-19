@@ -45,14 +45,14 @@ export const JOIN_FAILURE: Record<Exclude<PartyFailure, 'INDIVIDUAL_EXISTS'>, Fa
   },
   JOINED_LATE: {
     title: '크루 가입이 늦어 합류할 수 없어요',
-    description: '크루 예매 시작 7일 전까지 가입한 크루원만 나갈 수 있어요',
+    description: '크루 예매 시작 7일 전까지 가입한 크루원만 합류할 수 있어요',
     action: 'crew',
   },
 }
 
 export const CREATE_JOINED_LATE: FailureCopy = {
   title: '크루 가입이 늦어 이 대회를 정할 수 없어요',
-  description: '크루 예매 시작 7일 전까지 가입한 크루원만 나갈 수 있어요',
+  description: '크루 예매 시작 7일 전까지 가입한 크루원만 합류할 수 있어요',
   action: 'races',
 }
 
