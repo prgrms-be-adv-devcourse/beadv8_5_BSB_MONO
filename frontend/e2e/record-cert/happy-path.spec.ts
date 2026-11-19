@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { expect, test } from '@playwright/test'
 
 import {
@@ -8,26 +7,18 @@ import {
   freshBuyer,
   pullSaleToNow,
   registerRace,
-  sql,
   uiLogin,
   USERS,
   waitStatus,
 } from '../lunch/support'
-
-// 합성 기록증(실제 기록증 아님). 10km · 넷타임 01:00:01 · 대회일 2024-05-03 · 배번 A-8592
-const CERT = path.join(__dirname, 'fixtures', 'synthetic-s-006.png')
-
-type MySubmission = { submissionId: number; orderItemId: number; status: string; reasons: string[] }
+import { addCertRule, CERT, RECORD_CERTS, SELLER, type MySubmission } from './support'
 
 test('시나리오 1 · 기록증 정상 흐름: 화면 업로드 → 브라우저 OCR → 제출 → 서버 확인 → 승인', async ({
   page,
 }) => {
   const seller = await apiLogin(USERS.seller)
   const race = await registerRace(seller, `[E2E] 기록증 ${Date.now()}`)
-  // 기록증 규칙: 2024-01-01 이후 10km 기록, 넷타임 2시간 이내. 등록 API의 규칙 칸 대신 DB에 바로 넣는다(규칙 조회만 본다)
-  sql(`update race_course set record_recognized_since = '2024-01-01', record_max_net_seconds = 7200
-    where race_course_id = ${race.courseId};
-    insert into product_record_cert_course_type (race_course_id, course_type) values (${race.courseId}, 'KM_10');`)
+  addCertRule(race.courseId)
   pullSaleToNow(race.raceId)
   await waitStatus(race.raceId, 'ON_SALE')
 
@@ -110,7 +101,7 @@ test('시나리오 1 · 기록증 정상 흐름: 화면 업로드 → 브라우�
 
   // 서버 확인(ai-service, Kafka)이 끝나면 확인 중을 벗어난다
   const mine = async () => {
-    const res = await buyer.call<MySubmission[]>('GET', '/api/v1/member/record-certs')
+    const res = await buyer.call<MySubmission[]>('GET', RECORD_CERTS)
     return res.data?.find((s) => s.orderItemId === itemId)
   }
   const checked = (await eventually(async () => {
@@ -122,14 +113,11 @@ test('시나리오 1 · 기록증 정상 흐름: 화면 업로드 → 브라우�
 
   // 심사 필요면 판매자가 승인한다
   if (checked.status === 'NEEDS_REVIEW') {
-    const list = await seller.call<unknown[]>(
-      'GET',
-      `/api/v1/member/seller/races/${race.raceId}/record-certs`,
-    )
+    const list = await seller.call<unknown[]>('GET', `${SELLER}/races/${race.raceId}/record-certs`)
     expect(list.status, JSON.stringify(list.raw)).toBe(200)
     const approve = await seller.call(
       'POST',
-      `/api/v1/member/seller/record-certs/${checked.submissionId}/approve`,
+      `${SELLER}/record-certs/${checked.submissionId}/approve`,
     )
     expect(approve.status, JSON.stringify(approve.raw)).toBe(200)
     expect((await mine())?.status).toBe('APPROVED')
