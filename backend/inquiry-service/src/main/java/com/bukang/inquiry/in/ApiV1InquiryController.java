@@ -14,8 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
-import com.bukang.inquiry.app.InquiryFacade;
-import com.bukang.inquiry.app.InquiryUseCase;
+import com.bukang.inquiry.app.InquiryCommandUseCase;
+import com.bukang.inquiry.app.InquiryCreateFacade;
+import com.bukang.inquiry.app.InquiryManageFacade;
+import com.bukang.inquiry.app.InquiryQuery;
 import com.bukang.inquiry.domain.InquiryAssignee;
 import com.bukang.inquiry.domain.InquiryStatus;
 import com.bukang.inquiry.dto.InquiryAnswerRequestDto;
@@ -45,8 +47,10 @@ import lombok.RequiredArgsConstructor;
 public class ApiV1InquiryController {
 	private static final int MAX_PAGE_SIZE = 100;
 
-	private final InquiryFacade inquiryFacade;
-	private final InquiryUseCase inquiryUseCase;
+	private final InquiryCreateFacade inquiryCreateFacade;
+	private final InquiryManageFacade inquiryManageFacade;
+	private final InquiryQuery inquiryQuery;
+	private final InquiryCommandUseCase inquiryCommandUseCase;
 
 	@PostMapping("/inquiries")
 	@Operation(summary = "문의 남기기",
@@ -82,7 +86,7 @@ public class ApiV1InquiryController {
 	public ResponseEntity<RsData<InquiryDto>> create(@LoginMemberId long memberId,
 		@Valid @RequestBody InquiryCreateRequestDto request) {
 		return ResponseEntity.status(HttpStatus.CREATED)
-			.body(RsData.of(HttpStatus.CREATED, "문의를 남겼습니다.", inquiryFacade.create(memberId, request)));
+			.body(RsData.of(HttpStatus.CREATED, "문의를 남겼습니다.", inquiryCreateFacade.create(memberId, request)));
 	}
 
 	@GetMapping("/inquiries/me")
@@ -105,9 +109,9 @@ public class ApiV1InquiryController {
 		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
 		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
-		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
+		@Max(value = MAX_PAGE_SIZE, message = "한 번에 " + MAX_PAGE_SIZE + "개까지 조회할 수 있습니다.") int size
 	) {
-		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryUseCase.findMine(memberId, page, size));
+		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryQuery.findMine(memberId, page, size));
 	}
 
 	@GetMapping("/inquiries/{inquiryId}")
@@ -129,7 +133,7 @@ public class ApiV1InquiryController {
 	})
 	public RsData<InquiryDto> findOne(@LoginMemberId long memberId,
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId) {
-		return RsData.of(HttpStatus.OK, "문의를 조회했습니다.", inquiryUseCase.findMineOne(memberId, inquiryId));
+		return RsData.of(HttpStatus.OK, "문의를 조회했습니다.", inquiryQuery.findMineOne(memberId, inquiryId));
 	}
 
 	@GetMapping("/seller/inquiries")
@@ -155,9 +159,10 @@ public class ApiV1InquiryController {
 		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
 		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
-		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
+		@Max(value = MAX_PAGE_SIZE, message = "한 번에 " + MAX_PAGE_SIZE + "개까지 조회할 수 있습니다.") int size
 	) {
-		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.", inquiryFacade.findForSeller(memberId, status, page, size));
+		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.",
+			inquiryManageFacade.findForSeller(memberId, status, page, size));
 	}
 
 	@PostMapping("/seller/inquiries/{inquiryId}/answer")
@@ -186,7 +191,7 @@ public class ApiV1InquiryController {
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId,
 		@Valid @RequestBody InquiryAnswerRequestDto request) {
 		return RsData.of(HttpStatus.OK, "답변을 남겼습니다.",
-			inquiryUseCase.answerBySeller(memberId, inquiryId, request.content()));
+			inquiryCommandUseCase.answerBySeller(memberId, inquiryId, request.content()));
 	}
 
 	@GetMapping("/admin/inquiries")
@@ -224,10 +229,10 @@ public class ApiV1InquiryController {
 		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
 		@RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
-		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
+		@Max(value = MAX_PAGE_SIZE, message = "한 번에 " + MAX_PAGE_SIZE + "개까지 조회할 수 있습니다.") int size
 	) {
 		return RsData.of(HttpStatus.OK, "문의 목록을 조회했습니다.",
-			inquiryFacade.findForAdmin(memberId, assignee, status, page, size));
+			inquiryManageFacade.findForAdmin(memberId, assignee, status, page, size));
 	}
 
 	@PostMapping("/admin/inquiries/{inquiryId}/answer")
@@ -262,7 +267,7 @@ public class ApiV1InquiryController {
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId,
 		@Valid @RequestBody InquiryAnswerRequestDto request) {
 		return RsData.of(HttpStatus.OK, "답변을 남겼습니다.",
-			inquiryFacade.answerByAdmin(memberId, inquiryId, request.content()));
+			inquiryManageFacade.answerByAdmin(memberId, inquiryId, request.content()));
 	}
 
 	@PatchMapping("/inquiries/{inquiryId}")
@@ -291,7 +296,7 @@ public class ApiV1InquiryController {
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId,
 		@Valid @RequestBody InquiryEditRequestDto request) {
 		return RsData.of(HttpStatus.OK, "문의를 고쳤습니다.",
-			inquiryUseCase.edit(memberId, inquiryId, request.title(), request.body()));
+			inquiryCommandUseCase.edit(memberId, inquiryId, request.title(), request.body()));
 	}
 
 	@DeleteMapping("/inquiries/{inquiryId}")
@@ -317,7 +322,7 @@ public class ApiV1InquiryController {
 	})
 	public RsData<Void> delete(@LoginMemberId long memberId,
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId) {
-		inquiryUseCase.delete(memberId, inquiryId);
+		inquiryCommandUseCase.delete(memberId, inquiryId);
 		return RsData.of(HttpStatus.OK, "문의를 지웠습니다.", null);
 	}
 
@@ -342,7 +347,7 @@ public class ApiV1InquiryController {
 	})
 	public RsData<InquiryDto> findSellerDetail(@LoginMemberId long memberId,
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId) {
-		return RsData.of(HttpStatus.OK, "문의를 조회했습니다.", inquiryFacade.findSellerDetail(memberId, inquiryId));
+		return RsData.of(HttpStatus.OK, "문의를 조회했습니다.", inquiryManageFacade.findSellerDetail(memberId, inquiryId));
 	}
 
 	@GetMapping("/admin/inquiries/{inquiryId}")
@@ -371,6 +376,6 @@ public class ApiV1InquiryController {
 	})
 	public RsData<InquiryDto> findAdminDetail(@LoginMemberId long memberId,
 		@Parameter(description = "문의 ID", example = "12") @PathVariable long inquiryId) {
-		return RsData.of(HttpStatus.OK, "문의를 조회했습니다.", inquiryFacade.findAdminDetail(memberId, inquiryId));
+		return RsData.of(HttpStatus.OK, "문의를 조회했습니다.", inquiryManageFacade.findAdminDetail(memberId, inquiryId));
 	}
 }
