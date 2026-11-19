@@ -16,6 +16,7 @@ import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyMember;
 import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.CrewNotFoundException;
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.PartyAccessDeniedException;
 import com.bukang.order.domain.exception.PartyNotFoundException;
 import com.bukang.order.dto.PartyDetailDto;
@@ -29,17 +30,22 @@ import com.bukang.order.out.crew.CrewPort.CrewMembership;
 import com.bukang.order.out.member.MemberNicknamesPort;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 파티 조회 (BUK-39): 상세, 내 파티, 참가 링크 미리 보기, 크루 홈 진행 중인 파티
  * 인원은 저장하지 않고 파티원 줄과 신청서에서 센다 (11/02 결정 ⑨). 결제한 사람 = 신청서가 참가 확정
  * 트랜잭션을 걸지 않는다. 회원 서비스(닉네임·크루원)를 기다리는 동안 DB 연결을 잡지 않으려고, 저장소 조회마다 짧게 읽는다
+ * 크루원 확인은 권한이라 실패하면 503이지만, 닉네임은 실패해도 「크루원」으로 보여 주고 목록은 돌려준다
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PartyQueryFacade {
 	// 크루 홈 「진행 중」 = 모집 중 + 결제 진행 중 (11/05 P7 A: 크루원에게 모두 보여 주고 합류는 링크로만)
 	static final List<PartyStatus> ACTIVE_STATUSES = List.of(PartyStatus.RECRUITING, PartyStatus.PAYING);
+	// 회원 서비스가 닉네임을 주지 못했을 때 보여 줄 이름. 추천값(미확정) (CRU-74)
+	static final String UNKNOWN_NICKNAME = "크루원";
 
 	private final PartyRepository partyRepository;
 	private final PartyMemberRepository partyMemberRepository;
@@ -56,7 +62,7 @@ public class PartyQueryFacade {
 		if (members.stream().noneMatch(member -> member.getMemberId() == memberId)) {
 			throw PartyAccessDeniedException.notMember();
 		}
-		Map<Long, String> nicknames = memberNicknamesPort.findNicknames(
+		Map<Long, String> nicknames = findNicknames(
 			members.stream().map(PartyMember::getMemberId).toList());
 		List<PartyDetailDto.Member> memberDtos = members.stream().map(member -> {
 			ParticipationStatus status = rows.latestStatus(partyId, member.getMemberId());
@@ -88,7 +94,7 @@ public class PartyQueryFacade {
 			.orElseThrow(() -> new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요."));
 		int memberCount = partyMemberRepository.findByPartyIdInAndLeftAtIsNullOrderByJoinedAtAscIdAsc(
 			List.of(party.getId())).size();
-		String leaderNickname = nickname(memberNicknamesPort.findNicknames(List.of(party.getLeaderMemberId())),
+		String leaderNickname = nickname(findNicknames(List.of(party.getLeaderMemberId())),
 			party.getLeaderMemberId());
 		return new PartyPreviewDto(party.getId(), party.getCrewId(), party.getRaceId(), party.getRaceCourseId(),
 			party.getStatus(), leaderNickname, memberCount, party.getJoinTokenExpiresAt(),
@@ -110,7 +116,7 @@ public class PartyQueryFacade {
 			return List.of();
 		}
 		Rows rows = load(parties);
-		Map<Long, String> nicknames = memberNicknamesPort.findNicknames(
+		Map<Long, String> nicknames = findNicknames(
 			parties.stream().map(Party::getLeaderMemberId).toList());
 		return parties.stream().map(party -> {
 			List<PartyMember> members = rows.members(party.getId());
@@ -121,7 +127,20 @@ public class PartyQueryFacade {
 		}).toList();
 	}
 
+	// 닉네임은 보여 주기만 하므로 회원 서비스가 응답하지 않아도 파티 조회를 막지 않는다 (CRU-74). null이면 못 받은 것
+	private Map<Long, String> findNicknames(Collection<Long> memberIds) {
+		try {
+			return memberNicknamesPort.findNicknames(memberIds);
+		} catch (ExternalServiceUnavailableException exception) {
+			log.warn("회원 서비스가 닉네임을 주지 않아 「{}」로 보여 줍니다. 회원 {}명", UNKNOWN_NICKNAME, memberIds.size());
+			return null;
+		}
+	}
+
 	private static String nickname(Map<Long, String> nicknames, long memberId) {
+		if (nicknames == null) {
+			return UNKNOWN_NICKNAME;
+		}
 		return nicknames.getOrDefault(memberId, MemberNicknamesPort.WITHDRAWN_NICKNAME);
 	}
 
