@@ -40,6 +40,18 @@ describe('AdminSettlementsPage', () => {
   })
 
   describe('지급보류 칩', () => {
+    it('정산 내역 번호에 글자를 치면 값은 그대로이고 숫자만 쓸 수 있다고 알린다', async () => {
+      search = 'tab=지급보류'
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByRole('textbox', { name: '정산 내역 번호' })
+      await user.type(input, 'ab')
+
+      expect(input).toHaveValue('')
+      expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
+    })
+
     it('정산 내역 번호와 사유로 보류를 건다', async () => {
       search = 'tab=지급보류'
       let request: { path: string; body: unknown } | null = null
@@ -76,7 +88,7 @@ describe('AdminSettlementsPage', () => {
       const user = userEvent.setup()
       renderPage()
 
-      await user.type(screen.getByRole('textbox', { name: '정산 내역 번호' }), 'ST-20261120-3F02')
+      await user.type(screen.getByRole('textbox', { name: '정산 내역 번호' }), 'ST-')
       await user.click(screen.getByRole('button', { name: '보류 걸기' }))
 
       expect(await screen.findByText('정산 내역 번호를 숫자로 넣어 주세요.')).toBeInTheDocument()

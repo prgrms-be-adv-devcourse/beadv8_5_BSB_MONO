@@ -210,13 +210,10 @@ describe('AdminStatsPage', () => {
     const seller = await screen.findByRole('region', { name: '판매자 단계' })
     const alert = await within(seller).findByRole('alert', {}, SLOW)
     expect(alert).toHaveTextContent('판매자 단계를 불러오지 못했어요')
-    expect(alert).toHaveTextContent('잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요.')
-    // 빈 상태 그림은 회색 아이콘이다(피그마 v2/EmptyState)
-    expect(alert.parentElement?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
 
     fail = false
     requests.length = 0
-    await user.click(within(seller).getByRole('button', { name: '다시 시도' }))
+    await user.click(within(seller).getByRole('button', { name: '다시 시도하기' }))
 
     expect(await within(seller).findByText('48명')).toBeInTheDocument()
     expect(requests.every((r) => r.startsWith('section=seller'))).toBe(true)

@@ -67,12 +67,11 @@ describe('AdminMembersPage 탭', () => {
     )
   })
 
-  it('전체 회원 탭에는 기존 화면이 보인다', () => {
+  it('전체 회원 탭에는 회원 목록이 보인다', () => {
     renderPage()
 
-    expect(screen.getByText('개인정보를 조회하면 기록이 남아요')).toBeInTheDocument()
-    expect(screen.getByRole('table', { name: '회원 주문' })).toBeInTheDocument()
-    expect(screen.getByText('회원 상세')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: '전체 회원' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '닉네임·주문번호로 찾기' })).toBeInTheDocument()
   })
 })
 
@@ -148,7 +147,7 @@ describe('AdminMembersPage 고액 충전 확인', () => {
 })
 
 describe('AdminMembersPage 확인이 필요한 계정', () => {
-  it('묶음마다 표를 만들고 CI 있음·없음 배지를 보인다', async () => {
+  it('묶음마다 표를 만들고 본인인증 함·안 함를 보인다', async () => {
     server.use(
       http.get(IDENTITY, () => identityPage([{ members: [member(12, false), member(13, true)] }])),
     )
@@ -165,9 +164,9 @@ describe('AdminMembersPage 확인이 필요한 계정', () => {
     expect(within(rows[1]).getByText('홍*동')).toBeInTheDocument()
     expect(within(rows[1]).getByText('010-****-5678')).toBeInTheDocument()
     expect(within(rows[1]).getByText('ho***@crewrun.com')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('CI 없음')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('안 함')).toBeInTheDocument()
     expect(within(rows[1]).getByText('2026. 11. 02 09:00')).toBeInTheDocument()
-    expect(within(rows[2]).getByText('CI 있음')).toBeInTheDocument()
+    expect(within(rows[2]).getByText('함')).toBeInTheDocument()
   })
 
   it('비어 있으면 빈 화면 문구를 보인다', async () => {

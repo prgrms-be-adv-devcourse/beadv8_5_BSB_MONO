@@ -94,7 +94,7 @@ describe('AdminClaimsPage', () => {
     const row = await screen.findByRole('row', { name: /RC-20261215-0002/ })
     expect(within(row).getByText('춘천러닝클럽')).toBeInTheDocument()
     expect(within(row).getByText('₩105,500')).toBeInTheDocument()
-    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /청구 중/ })).toHaveTextContent('1')
     expect(screen.getByText('국민은행 12345678901234')).toBeInTheDocument()
     expect(queries[0].get('status')).toBe('청구_중')
   })

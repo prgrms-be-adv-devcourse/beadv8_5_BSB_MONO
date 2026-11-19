@@ -8,7 +8,7 @@ import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { usePlaceHold } from '@/features/payout-hold'
 import { HOLD_REASON_ITEMS } from '@/entities/payout'
 import { useSearchParamsState } from '@/shared/lib'
-import { Button, Chip, EmptyState, Select, TextField } from '@/shared/ui'
+import { Button, Chip, digitsOnly, EmptyState, Select, TextField } from '@/shared/ui'
 
 import { holdFormSchema } from '../model/hold-form'
 
@@ -67,6 +67,8 @@ function PlaceHoldCard() {
           label="정산 내역 번호"
           helper="정산 ID(ST-…)로 찾는 기능은 아직 없어 번호를 직접 넣어요"
           inputMode="numeric"
+          filter={digitsOnly}
+          filterMessage="숫자만 입력할 수 있어요"
           error={errors.payoutId?.message}
           {...register('payoutId')}
         />

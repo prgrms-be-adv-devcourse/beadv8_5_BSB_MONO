@@ -44,6 +44,6 @@ describe('AdminSettingsPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('불러오지 못했어요')).toBeInTheDocument()
+    expect(await screen.findByText('설정을 불러오지 못했어요')).toBeInTheDocument()
   })
 })

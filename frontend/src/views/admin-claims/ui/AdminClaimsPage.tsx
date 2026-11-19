@@ -4,21 +4,19 @@ import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
 
-import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { CONSOLE_BOX, ConsoleCard, ConsoleMessage, ConsolePage } from '@/widgets/console-page'
 import { formatMonthDay } from '@/entities/payout'
 import { ApiError, memberApi, payoutApi, unwrapData, type payoutModel } from '@/shared/api'
-import { cn, formatNumber, formatWon, useSearchParamsState } from '@/shared/lib'
+import { cn, formatWon, useSearchParamsState } from '@/shared/lib'
 import {
-  Alert,
   Button,
+  Chip,
   DataTable,
   Dialog,
-  EmptyState,
+  Icon,
   KeyValue,
   Pagination,
-  Segmented,
   Skeleton,
-  StatTile,
   TextField,
   useToast,
 } from '@/shared/ui'
@@ -101,50 +99,44 @@ export function AdminClaimsPage() {
 
   const summary = claims.data?.summary
   return (
-    <ConsolePage
-      title="회수 관리"
-      description="판매자가 청구 금액을 회사 계좌로 보내면, 입금을 확인한 뒤 회수 완료로 바꿔요."
-    >
-      <div className="flex gap-4">
-        {summary ? (
-          <>
-            <StatTile label="청구 중" value={formatNumber(summary.claimingCount)} unit="건" />
-            <StatTile label="회수할 금액" value={formatWon(summary.claimingAmount)} />
-            <StatTile
-              label="이번 달 입금 확인"
-              value={formatNumber(summary.confirmedThisMonthCount)}
-              unit="건"
-            />
-          </>
-        ) : (
-          <Skeleton className="h-24 flex-1" />
-        )}
-      </div>
-
-      <Segmented
-        label="청구 상태"
-        layout="hug"
-        value={status}
-        onChange={changeStatus}
-        items={[
-          { value: '청구_중', label: '청구 중', count: summary?.claimingCount },
-          { value: '입금_확인', label: '입금 확인' },
-        ]}
-      />
-
-      <ConsoleCard title={code ? `청구 ID ${code}` : `${STATUS_LABEL[status]} 청구`}>
+    <ConsolePage title="회수 관리">
+      <div className="flex items-center gap-2">
+        <div role="tablist" aria-label="청구 상태" className="flex items-center gap-2">
+          {(
+            [
+              { value: '청구_중', label: '청구 중', count: summary?.claimingCount },
+              { value: '입금_확인', label: '입금 확인', count: undefined },
+            ] as { value: Status; label: string; count?: number }[]
+          ).map((t) => (
+            <Chip
+              key={t.value}
+              role="tab"
+              aria-pressed={undefined}
+              aria-selected={status === t.value}
+              selected={status === t.value}
+              onClick={() => changeStatus(t.value)}
+            >
+              {t.label}
+              {t.count !== undefined && <span className="tabular-nums">{t.count}</span>}
+            </Chip>
+          ))}
+        </div>
+        <div className="flex-1" />
         <form
-          className="flex items-end gap-2"
+          className="flex items-start gap-2"
           onSubmit={(e) => {
             e.preventDefault()
             search()
           }}
         >
           <TextField
-            label="청구 ID"
-            placeholder="RC-20261215-0001"
+            compact
+            leading={<Icon name="Search" />}
+            aria-label="청구 ID"
+            placeholder="청구 ID로 찾기"
             value={codeText}
             error={codeError}
+            className="w-70"
             onChange={(e) => setCodeText(e.target.value)}
           />
           <Button type="submit" variant="secondary">
@@ -156,21 +148,23 @@ export function AdminClaimsPage() {
             </Button>
           )}
         </form>
+      </div>
 
+      <div className="flex flex-col gap-4">
         {claims.isError ? (
-          <Alert
-            tone="danger"
-            title="청구 목록을 불러오지 못했어요"
-            description={errorText(claims.error)}
-          />
+          <ConsoleMessage
+            kind="error"
+            onRetry={() => void claims.refetch()}
+            retrying={claims.isFetching}
+          >
+            청구 목록을 불러오지 못했어요
+          </ConsoleMessage>
         ) : !claims.data ? (
           <Skeleton className="h-40 w-full" />
         ) : rows.length === 0 ? (
-          <EmptyState
-            title={
-              code ? '이 청구 ID로 찾은 청구가 없어요' : `${STATUS_LABEL[status]}인 건이 없어요`
-            }
-          />
+          <ConsoleMessage kind="empty">
+            {code ? `「${code}」로 찾은 청구가 없어요` : `${STATUS_LABEL[status]}인 건이 없어요`}
+          </ConsoleMessage>
         ) : (
           <>
             <DataTable
@@ -218,7 +212,7 @@ export function AdminClaimsPage() {
             )}
           </>
         )}
-      </ConsoleCard>
+      </div>
 
       {selected && <ClaimPanel claim={selected} sellerName={sellerName(selected)} />}
     </ConsolePage>
