@@ -1,7 +1,6 @@
 package com.bukang.payout.global.in;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -12,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
+import com.bukang.payout.app.PayoutRefundEligibilityUseCase;
 import com.bukang.payout.dto.RefundEligibilityDto;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 서비스끼리 부르는 내부 API. 게이트웨이에 라우팅하지 않는다(/internal/** 경로)
@@ -30,9 +31,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "PayoutInternal", description = "참가권 환불 가능 여부 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequestMapping("/internal/v1/payout")
+@RequiredArgsConstructor
 public class InternalV1PayoutRefundController {
-	// 서버 시간대와 상관없이 한국 날짜로 판단한다 (정산 생성일 배치와 같은 기준)
-	private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+	private final PayoutRefundEligibilityUseCase payoutRefundEligibilityUseCase;
 
 	@GetMapping("/refund-eligibility")
 	@Operation(summary = "참가권 환불 가능 여부 조회",
@@ -55,7 +56,7 @@ public class InternalV1PayoutRefundController {
 		@Parameter(description = "참가권의 대회일 (yyyy-MM-dd)", example = "2026-09-25")
 		@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate raceDate
 	) {
-		RefundEligibilityDto eligibility = RefundEligibilityDto.of(raceDate, LocalDate.now(ZONE));
+		RefundEligibilityDto eligibility = payoutRefundEligibilityUseCase.eligibility(raceDate);
 		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "환불 가능 여부를 조회했습니다.", eligibility));
 	}
 }
