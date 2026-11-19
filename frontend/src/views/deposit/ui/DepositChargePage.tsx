@@ -7,6 +7,7 @@ import { AppHeader } from '@/widgets/app-header'
 import {
   ChargeHeldAlert,
   chargeLimitMessage,
+  MAX_CHARGE,
   MIN_CHARGE,
   requestCharge,
   takeChargeNotice,
@@ -15,7 +16,7 @@ import {
 import { useMyBalance } from '@/entities/wallet'
 import { cashApi } from '@/shared/api'
 import { useGoBack } from '@/shared/lib'
-import { Alert, BottomCta, Button, Dialog, KeyValue, NUMERIC_NOTICE } from '@/shared/ui'
+import { Alert, Button, Dialog, KeyValue, NUMERIC_NOTICE, useToast } from '@/shared/ui'
 
 const STEPS = [10_000, 50_000, 100_000]
 const won = (n: number) => n.toLocaleString('ko-KR')
@@ -26,6 +27,7 @@ const won = (n: number) => n.toLocaleString('ko-KR')
 export function DepositChargePage() {
   const { balance, loggedIn } = useMyBalance()
   const todayCharged = useTodayCharged(loggedIn)
+  const showToast = useToast()
   const queryClient = useQueryClient()
   const goBack = useGoBack()
   const [amount, setAmount] = useState(MIN_CHARGE)
@@ -37,6 +39,15 @@ export function DepositChargePage() {
   /** 결제창에서 돌아와 알릴 거절 사유. undefined면 모달을 닫은 상태 */
   const [rejected, setRejected] = useState<string>()
   const limitMessage = chargeLimitMessage(amount, todayCharged)
+
+  // 한 번에 낼 수 있는 상한을 넘기면 상한으로 맞추고 토스트로 알린다
+  const changeAmount = (next: number) => {
+    if (next > MAX_CHARGE) {
+      showToast({ message: '한 번에 30만원까지 충전할 수 있어요.' })
+      next = MAX_CHARGE
+    }
+    setAmount(next)
+  }
 
   // 결제창에서 기록을 거슬러 돌아오면 이 화면이 다시 보인다. 브라우저가 떠나기 전 화면을 그대로 되살리면(bfcache)
   // 버튼이 「결제창으로 떠나는 중」으로 막혀 있으므로 풀고, 충전 결과 화면이 남긴 결과를 알린다.
@@ -98,16 +109,16 @@ export function DepositChargePage() {
           <label htmlFor="charge-amount" className="text-caption-regular text-text-tertiary">
             충전할 금액
           </label>
-          <div className="flex items-baseline justify-end gap-1 border-b-2 border-text-primary px-1 py-3">
+          <div className="flex items-baseline justify-center gap-1 border-b-2 border-text-primary px-1 py-3">
             <input
               id="charge-amount"
               inputMode="numeric"
               value={won(amount)}
               onChange={(e) => {
                 setBlocked(/[^\d,]/.test(e.target.value))
-                setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)
+                changeAmount(Number(e.target.value.replace(/\D/g, '')) || 0)
               }}
-              className="w-full bg-transparent text-right font-display text-number-s outline-none"
+              className="w-full bg-transparent text-center font-display text-number-s outline-none"
             />
             <span className="text-body2-medium">원</span>
           </div>
@@ -116,7 +127,8 @@ export function DepositChargePage() {
               {NUMERIC_NOTICE}
             </p>
           )}
-          {limitMessage && (
+          {/* 1만 원 미만·30만 원 초과 안내는 두지 않는다(30만 원은 토스트). 하루 한도 안내만 남긴다 */}
+          {amount >= MIN_CHARGE && limitMessage && (
             <p className="text-caption-regular text-text-tertiary">{limitMessage}</p>
           )}
           <div className="flex gap-2">
@@ -125,7 +137,7 @@ export function DepositChargePage() {
                 key={step}
                 variant="ghost"
                 className="flex-1"
-                onClick={() => setAmount((a) => a + step)}
+                onClick={() => changeAmount(amount + step)}
               >
                 +{step / 10_000}만
               </Button>
@@ -152,6 +164,14 @@ export function DepositChargePage() {
             />
           </div>
         </section>
+        <Button
+          size="l"
+          className="w-full"
+          disabled={limitMessage !== null || charging}
+          onClick={charge}
+        >
+          {won(amount)}원 충전하기
+        </Button>
       </main>
       {/* 서버가 확정 전에 거절한 충전(일일 · 보유 한도, 잦은 시도 등)과 카드 승인 거절. 카드에서 돈은 빠지지 않았다 */}
       <Dialog
@@ -168,14 +188,6 @@ export function DepositChargePage() {
         }
         confirmLabel="확인"
         onConfirm={() => setRejected(undefined)}
-      />
-      <BottomCta
-        className="sticky bottom-0 z-10"
-        primary={
-          <Button size="l" disabled={limitMessage !== null || charging} onClick={charge}>
-            {won(amount)}원 충전하기
-          </Button>
-        }
       />
     </>
   )
