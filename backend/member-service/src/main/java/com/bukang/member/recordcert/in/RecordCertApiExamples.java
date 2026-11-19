@@ -21,6 +21,7 @@ final class RecordCertApiExamples {
 					"status": "CHECKING",
 					"reasons": [],
 					"denyReason": null,
+					"denyMemo": null,
 					"submittedAt": "2026-11-18T10:00:00"
 				},
 				{
@@ -29,6 +30,7 @@ final class RecordCertApiExamples {
 					"status": "DENIED",
 					"reasons": ["TOO_FAST"],
 					"denyReason": "NAME_MISMATCH",
+					"denyMemo": "사진 속 이름이 참가자와 달라요",
 					"submittedAt": "2026-11-17T10:00:00"
 				}
 			]
