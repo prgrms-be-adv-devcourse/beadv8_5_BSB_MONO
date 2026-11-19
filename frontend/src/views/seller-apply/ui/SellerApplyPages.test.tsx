@@ -122,6 +122,36 @@ describe('SellerApplyPage 신청 폼 검사', () => {
   })
 })
 
+describe('SellerApplyPage 막은 입력 안내', () => {
+  it('사업자등록번호 칸에 숫자와 -가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    const field = screen.getByLabelText('사업자등록번호')
+    await user.type(field, '12a')
+    expect(field).toHaveValue('12')
+    expect(screen.getAllByText('숫자와 -만 입력할 수 있어요').length).toBeGreaterThan(0)
+  })
+
+  it('계좌번호 칸에 숫자와 -가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    const field = screen.getByLabelText('계좌번호')
+    await user.type(field, '11x')
+    expect(field).toHaveValue('11')
+    expect(screen.getAllByText('숫자와 -만 입력할 수 있어요').length).toBeGreaterThan(0)
+  })
+
+  it('연락처 칸에 숫자와 -가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    await user.click(screen.getByRole('radio', { name: '사업자가 아니에요' }))
+    const field = screen.getByLabelText('연락처')
+    await user.type(field, '01z')
+    expect(field).toHaveValue('01')
+    expect(screen.getAllByText('숫자와 -만 입력할 수 있어요').length).toBeGreaterThan(0)
+  })
+})
+
 describe('SellerApplyPage 신청 보내기', () => {
   it('사업자는 판매자 정보와 정산 계좌를 보내고 결과 화면으로 간다', async () => {
     let body: unknown
@@ -269,7 +299,7 @@ describe('SellerApplyResultPage 상태별 카드', () => {
   it('심사 중 배지는 Neutral 톤이다', async () => {
     server.use(memberMock.getFindMineMockHandler(sellerResponse({ status: 'PENDING' })))
     renderWithClient(<SellerApplyResultPage />)
-    expect((await screen.findByText('심사 중')).className).toContain('bg-bg-badge-neutral')
+    expect((await screen.findByText('심사 중')).className).toContain('text-text-badge-default')
   })
 
   it('404 SELLER_NOT_FOUND는 오류가 아니라 신청하러 가도록 안내한다', async () => {

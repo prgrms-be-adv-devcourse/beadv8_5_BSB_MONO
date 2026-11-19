@@ -4,13 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 
 import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
-import {
-  formatDDay,
-  formatRaceDateTime,
-  myRacesQueryOptions,
-  raceQueryOptions,
-  toSellerRaceRow,
-} from '@/entities/race'
+import { formatRaceDate, myRacesQueryOptions, raceQueryOptions, SaleRateBar } from '@/entities/race'
 import { ApiError, type productModel } from '@/shared/api'
 import { formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
@@ -20,6 +14,8 @@ import {
   EmptyState,
   Select,
   Skeleton,
+  StatStrip,
+  StatTile,
   TextField,
 } from '@/shared/ui'
 
@@ -71,40 +67,32 @@ export function SellerSalesPage() {
   if (!race || race.raceId === undefined) {
     return (
       <ConsolePage title="판매 현황">
-        <EmptyState
-          title="등록한 대회가 없어요"
-          description="대회를 등록하면 여기에서 판매 현황을 볼 수 있어요"
-          action={
-            <Link
-              href="/seller/races/new?from=sales"
-              className={buttonClassName({ variant: 'secondary' })}
-            >
-              대회 등록
-            </Link>
-          }
-        />
+        <ConsoleCard>
+          <EmptyState
+            icon={null}
+            title="등록한 대회가 없어요"
+            action={
+              <Link href="/seller/races/new?from=sales" className={buttonClassName({ size: 's' })}>
+                대회 등록하기
+              </Link>
+            }
+          />
+        </ConsoleCard>
       </ConsolePage>
     )
   }
 
-  const row = toSellerRaceRow(race)
   return (
     <ConsolePage
-      title={row.title}
-      description={`${row.badge.label} · ${row.period}`}
+      title="판매 현황"
       actions={
-        <>
-          <a href="#download" className={buttonClassName({ variant: 'secondary' })}>
-            명단 내려받기
-          </a>
-          <Link href="/seller/races" className={buttonClassName({ variant: 'secondary' })}>
-            대회 수정
-          </Link>
-        </>
+        <a href="#download" className={buttonClassName({ variant: 'secondary' })}>
+          명단 내려받기
+        </a>
       }
     >
       <Select
-        label="대회"
+        aria-label="대회"
         className="w-100"
         items={list.map((r) => ({ value: String(r.raceId), label: r.title ?? '' }))}
         value={String(race.raceId)}
@@ -115,6 +103,12 @@ export function SellerSalesPage() {
   )
 }
 
+function soldRate(sold: number, quota: number) {
+  return quota > 0 ? Math.round((sold / quota) * 100) : 0
+}
+
+const CARD = 'rounded-md border border-border-default shadow-sm'
+
 function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId: number }) {
   const detail = useQuery(raceQueryOptions(raceId))
   const seats = seatsOf(race)
@@ -122,44 +116,87 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
 
   return (
     <>
-      <div
-        role="group"
-        aria-label="판매 숫자"
-        className="flex divide-x divide-border-default rounded-md border border-border-default py-6"
-      >
-        <Figure
-          label="전체 판매"
-          value={`${formatNumber(seats.sold)} / ${formatNumber(seats.quota)}명`}
-        />
-        <Figure label="결제 대기" value={`${formatNumber(seats.reserved)}명`} />
-        <Figure label="남은 자리" value={`${formatNumber(seats.remaining)}명`} />
-        <Figure
-          label="접수 마감"
-          value={race.applicationCloseAt ? formatDDay(race.applicationCloseAt) : '-'}
-          sub={race.applicationCloseAt && formatRaceDateTime(race.applicationCloseAt)}
-        />
-        <Figure
-          label="환불 기한"
-          value={refundDeadline ? formatDDay(refundDeadline) : '-'}
-          loading={detail.isPending}
-          sub={refundDeadline && formatRaceDateTime(refundDeadline)}
-        />
+      <div role="group" aria-label="판매 숫자">
+        <StatStrip>
+          <StatTile
+            layout="cell"
+            label="판매"
+            value={formatNumber(seats.sold)}
+            unit={`/ ${formatNumber(seats.quota)}명`}
+          />
+          <StatTile
+            layout="cell"
+            label="결제 대기"
+            value={formatNumber(seats.reserved)}
+            unit="명"
+          />
+          <StatTile
+            layout="cell"
+            label="남은 자리"
+            value={formatNumber(seats.remaining)}
+            unit="자리"
+          />
+          <StatTile
+            layout="cell"
+            label="환불 기한"
+            value={
+              detail.isPending ? (
+                <Skeleton className="h-9 w-24" />
+              ) : refundDeadline ? (
+                formatRaceDate(refundDeadline)
+              ) : (
+                '-'
+              )
+            }
+          />
+        </StatStrip>
       </div>
 
-      {/* TODO(api): 판매자용 대회별 참가자(주문) 목록 API가 없다. 생기면 시안 S03의 표로 바꾼다 */}
-      <ConsoleCard
-        className="rounded-md border border-border-default shadow-none"
-        title={`참가자 ${formatNumber(seats.sold)}명`}
-      >
+      <ConsoleCard title="종목별 판매" className={CARD}>
+        <table aria-label="종목별 판매" className="w-full table-fixed text-body1-regular">
+          <thead>
+            <tr className="border-b border-border-default text-caption-medium text-text-secondary">
+              <th className="h-10 w-40 px-3 text-left font-medium">종목</th>
+              <th className="h-10 px-3 text-left font-medium">판매 / 정원</th>
+              <th className="h-10 w-40 px-3 text-right font-medium">결제 대기</th>
+              <th className="h-10 w-40 px-3 text-right font-medium">남은 자리</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(race.courses ?? []).map((c) => {
+              const sold = c.sold ?? 0
+              const quota = c.quota ?? 0
+              const reserved = c.reserved ?? 0
+              return (
+                <tr key={c.raceCourseId} className="h-14 border-b border-border-default">
+                  <td className="truncate px-3 text-body1-medium">{c.name}</td>
+                  <td className="px-3">
+                    <SaleRateBar
+                      aria-label={`${c.name} 판매율`}
+                      barClassName="w-60"
+                      percent={soldRate(sold, quota)}
+                      label={`${formatNumber(sold)} / ${formatNumber(quota)}명`}
+                    />
+                  </td>
+                  <td className="px-3 text-right tabular-nums">{formatNumber(reserved)}명</td>
+                  <td className="px-3 text-right tabular-nums">
+                    {formatNumber(Math.max(quota - sold - reserved, 0))}자리
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </ConsoleCard>
+
+      {/* TODO(api): 판매자용 대회별 참가자(주문) 목록 API가 없다. 생기면 시안의 참가자·파티별 표로 바꾼다 */}
+      <ConsoleCard className={CARD} title={`참가자 ${formatNumber(seats.sold)}명`}>
         <EmptyState title="참가자 목록은 준비 중이에요" />
       </ConsoleCard>
 
       <div id="download">
         {/* TODO(api): 명단 파일 API가 생기면 사유를 남기고 엑셀 파일을 받는다 */}
-        <ConsoleCard
-          className="rounded-md border border-border-default shadow-none"
-          title="명단 내려받기"
-        >
+        <ConsoleCard className={CARD} title="명단 내려받기">
           <Alert
             className={CONSOLE_BOX}
             title="엑셀 내려받기는 준비 중이에요"
@@ -188,26 +225,5 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
         </ConsoleCard>
       </div>
     </>
-  )
-}
-
-// 숫자 요약: 이름 14 보조, 숫자 24 굵게. 칸 사이는 세로 1px 선
-function Figure({
-  label,
-  value,
-  sub,
-  loading,
-}: {
-  label: string
-  value: string
-  sub?: string | null
-  loading?: boolean
-}) {
-  return (
-    <div className="flex flex-1 flex-col gap-1 px-6">
-      <p className="text-body2-regular text-text-secondary">{label}</p>
-      {loading ? <Skeleton className="h-8 w-24" /> : <p className="text-title2">{value}</p>}
-      {sub && <p className="text-body2-regular text-text-secondary">{sub}</p>}
-    </div>
   )
 }

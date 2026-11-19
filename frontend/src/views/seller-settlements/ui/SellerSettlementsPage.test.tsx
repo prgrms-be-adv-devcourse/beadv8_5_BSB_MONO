@@ -31,7 +31,9 @@ describe('SellerSettlementsPage', () => {
     renderPage()
 
     expect(await screen.findByText('94,500')).toBeInTheDocument()
-    expect(screen.getByText('(화)')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: '정산 요약' })).getByText('10/20 (화)'),
+    ).toBeInTheDocument()
     expect(await screen.findByText('ST-20260926-0002')).toBeInTheDocument()
     expect(months).toMatch(/^\d{4}-\d{2}~\d{4}-\d{2}$/)
   })
@@ -48,7 +50,7 @@ describe('SellerSettlementsPage', () => {
     )
     renderPage()
 
-    const tile = (await screen.findByText('다음 정산일')).parentElement as HTMLElement
+    const tile = (await screen.findByText('다음 지급일')).parentElement as HTMLElement
     expect(within(tile).getByText('-')).toBeInTheDocument()
   })
 
@@ -57,15 +59,15 @@ describe('SellerSettlementsPage', () => {
 
     const finalRow = (await screen.findByText('ST-20260926-0002')).closest('tr')!
     expect(within(finalRow).getByText('최종 · 9월')).toBeInTheDocument()
-    expect(within(finalRow).getByText('₩5,500')).toBeInTheDocument()
-    expect(within(finalRow).getByText('₩40,000')).toBeInTheDocument()
-    expect(within(finalRow).getByText('₩54,500')).toBeInTheDocument()
+    expect(within(finalRow).getByText('5,500')).toBeInTheDocument()
+    expect(within(finalRow).getByText('40,000')).toBeInTheDocument()
+    expect(within(finalRow).getByText('54,500')).toBeInTheDocument()
     expect(within(finalRow).getByText('지급 예정')).toBeInTheDocument()
 
     const firstRow = screen.getByText('ST-20260916-0001').closest('tr')!
     expect(within(firstRow).getByText('1차 · 9월')).toBeInTheDocument()
     expect(within(firstRow).getAllByText('–')).toHaveLength(2)
-    expect(within(firstRow).getByText('₩40,000')).toBeInTheDocument()
+    expect(within(firstRow).getByText('40,000')).toBeInTheDocument()
     expect(within(firstRow).getByText('지급 예정')).toBeInTheDocument()
   })
 
@@ -172,7 +174,7 @@ describe('SellerSettlementsPage', () => {
 
     expect(await screen.findByText('HD-20261012-0001')).toBeInTheDocument()
     expect(screen.getByText('정산 계좌 미등록')).toBeInTheDocument()
-    expect(screen.getByText('10/12')).toBeInTheDocument()
+    expect(screen.getByText('10/12 (월)')).toBeInTheDocument()
   })
 
   it('조회가 400이면 서버 문구를 보여 준다', async () => {
