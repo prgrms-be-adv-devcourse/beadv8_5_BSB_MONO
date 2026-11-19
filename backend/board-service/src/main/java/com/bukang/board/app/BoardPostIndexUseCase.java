@@ -1,12 +1,11 @@
 package com.bukang.board.app;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.bukang.board.domain.BoardPostStatus;
-import com.bukang.board.out.BoardPostRepository;
 import com.bukang.board.out.search.BoardPostSearchPort;
 import com.bukang.common.shared.kafka.KafkaTopics;
 
@@ -22,16 +21,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BoardPostIndexUseCase {
 	private final BoardInboxUseCase boardInboxUseCase;
-	private final BoardPostRepository boardPostRepository;
+	private final BoardPostFinder boardPostFinder;
 	private final BoardPostSearchPort boardPostSearchPort;
+	private final Clock clock;
 
 	@Transactional
 	public void apply(String messageId, long postId) {
-		if (!boardInboxUseCase.tryRecord(messageId, KafkaTopics.BOARD_POST_CHANGED, LocalDateTime.now())) {
+		if (!boardInboxUseCase.tryRecord(messageId, KafkaTopics.BOARD_POST_CHANGED, LocalDateTime.now(clock))) {
 			return;
 		}
-		boardPostRepository.findById(postId)
-			.filter(post -> post.getStatus() == BoardPostStatus.VISIBLE)
+		boardPostFinder.findVisible(postId)
 			.ifPresentOrElse(
 				post -> boardPostSearchPort.index(
 					new BoardPostSearchPort.Document(post.getId(), post.getTitle(), post.getContent())),

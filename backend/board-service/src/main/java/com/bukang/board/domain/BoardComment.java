@@ -71,10 +71,6 @@ public class BoardComment extends BaseIdAndTime {
 		return this.memberId == memberId;
 	}
 
-	public boolean isDeleted() {
-		return status == BoardCommentStatus.DELETED;
-	}
-
 	// 지우지도 숨기지도 않은 댓글
 	public boolean isVisible() {
 		return status == BoardCommentStatus.VISIBLE;

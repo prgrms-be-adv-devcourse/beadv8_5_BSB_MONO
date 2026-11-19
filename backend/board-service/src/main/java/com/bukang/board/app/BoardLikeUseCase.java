@@ -1,5 +1,6 @@
 package com.bukang.board.app;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
@@ -22,13 +23,14 @@ public class BoardLikeUseCase {
 	private final BoardPostLikeRepository boardPostLikeRepository;
 	private final BoardPostFinder boardPostFinder;
 	private final BoardWriterGuard boardWriterGuard;
+	private final Clock clock;
 
 	@Transactional
 	public LikeDto like(long memberId, long postId) {
 		boardWriterGuard.checkNotWithdrawn(memberId);
 		boardPostFinder.findViewable(postId, memberId);
 		// 이미 눌렀으면 0행이라 수를 올리지 않는다. 동시에 온 같은 요청은 유니크 제약 때문에 하나만 1행이 된다
-		if (boardPostLikeRepository.insertIgnore(postId, memberId, LocalDateTime.now()) == 1) {
+		if (boardPostLikeRepository.insertIgnore(postId, memberId, LocalDateTime.now(clock)) == 1) {
 			boardPostRepository.increaseLikeCount(postId);
 		}
 		return new LikeDto(boardPostRepository.findLikeCount(postId), true);
