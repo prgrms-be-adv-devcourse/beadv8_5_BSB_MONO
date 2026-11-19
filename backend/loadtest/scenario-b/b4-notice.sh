@@ -16,7 +16,7 @@ CASH_URL="${CASH_URL:-http://localhost:8081}"
 METRIC='tasks_scheduled_execution_seconds_(count|sum)\{.*code_function="notifyDeadlines".*outcome="SUCCESS"'
 
 read_metric() {
-	curl -sf "${CASH_URL}/actuator/prometheus" | grep -E "$METRIC" | grep "_$1{" | awk '{print $NF}' || true
+	curl -sf "${CASH_METRICS_URL:-$CASH_URL}/actuator/prometheus" | grep -E "$METRIC" | grep "_$1{" | awk '{print $NF}' || true
 }
 
 ./seed-notice.sh "$N"

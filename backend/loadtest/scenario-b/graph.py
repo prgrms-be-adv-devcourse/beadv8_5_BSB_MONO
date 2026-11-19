@@ -44,7 +44,8 @@ CHARGE = APP + ',uri="/api/v1/cash/charges/confirm"'
 REFUND = APP + ',uri="/internal/v1/cash/payments/{orderId}/refund"'
 BALANCE = APP + ',uri="/api/v1/cash/wallets/balance"'
 # 바쁜 요청 쓰레드 수 (server.tomcat.mbeanregistry.enabled, compose.load.yml)
-BUSY_THREADS = f"sum(tomcat_threads_busy_threads{{{APP}}})"
+# 지표 포트(8091)도 자기 쓰레드가 있어서 요청 포트(8081)만 센다
+BUSY_THREADS = f'sum(tomcat_threads_busy_threads{{{APP},name="http-nio-8081"}})'
 ROW_LOCK_WAITS = f"rate(mysql_global_status_innodb_row_lock_waits[{W}])"
 DB_ACTIVE = f"hikaricp_connections_active{{{APP}}}"
 DB_PENDING = f"hikaricp_connections_pending{{{APP}}}"
@@ -161,7 +162,9 @@ def b0(start_text, out):
 
 
 def b1(start_text, out):
-    timeline(start_text, [0, 30, 150, 270, 390, 510, 630], ["워밍업", "초당 20", "50", "100", "200", "400"], [
+    # b1-payment-ramp.js: 예열 30초 뒤 단계마다 STAGE_SEC (QUICK은 15초)
+    stage = int(os.environ.get("STAGE_SEC", 120))
+    timeline(start_text, [0] + [30 + stage * i for i in range(6)], ["워밍업", "초당 20", "50", "100", "200", "400"], [
         ("결제 처리 (초당)", [(rate(PAY), "처리")]),
         ("서버 결제 응답 p95 (ms, 로그)", [(quantile(PAY, 0.95), "p95")]),
         ("DB 연결 (개)", [(DB_ACTIVE, "사용 중"), (DB_PENDING, "기다리는 요청")]),

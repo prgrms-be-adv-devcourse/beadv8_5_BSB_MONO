@@ -38,6 +38,8 @@ TOXI_URL="http://127.0.0.1:${TOXI_PORT:-18474}"
 
 # 시드·확인·B-3·B-4 스크립트가 이 컨테이너와 주소를 쓴다 (db.sh, verify.sh, seed-*.sh, b4-notice.sh)
 export LABEL DB_CONTAINER=cashload-mysql CASH_URL="http://127.0.0.1:${CASH_PORT:-18181}"
+# 예치금 지표는 따로 연 포트로 받는다 (compose.load.yml MANAGEMENT_SERVER_PORT). b4-notice.sh가 쓴다
+export CASH_METRICS_URL="http://127.0.0.1:${CASH_METRICS_PORT:-18191}"
 export PROM_URL="http://127.0.0.1:${PROMETHEUS_PORT:-19095}" PROM_WINDOW=5s
 export STAGE_SEC PHASE_SEC DURATION_SEC EXT_STAGE_SEC
 # 예치금 JVM이 JFR·GC 로그를 여기에 쓴다 (compose.load.yml). 앱 계정(spring)이 쓸 수 있게 연다
