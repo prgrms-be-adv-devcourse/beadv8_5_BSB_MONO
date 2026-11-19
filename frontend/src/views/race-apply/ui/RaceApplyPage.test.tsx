@@ -628,8 +628,9 @@ describe('참가 신청 v3 배치', () => {
     expect(document.querySelector('[aria-current="step"]')).toBeNull()
     expect(screen.getByRole('link', { name: '변경' })).toHaveAttribute('href', `/races/${RACE.id}`)
     expect(screen.getByRole('heading', { level: 2, name: '회원 정보' })).toBeInTheDocument()
-    // v4 시안: 회원 정보 묶음에는 바꾸기 링크가 없다
-    expect(screen.queryByRole('link', { name: '회원 정보에서 바꾸기' })).not.toBeInTheDocument()
+    // v4 시안: 회원 정보 제목 오른쪽의 「변경」은 회원 정보 수정으로 간다
+    expect(screen.getByRole('link', { name: '회원 정보 변경' })).toHaveAttribute('href', '/me/edit')
+    expect(screen.getByRole('link', { name: '회원 정보 변경' })).toHaveTextContent('변경')
   })
 
   it('개인정보 제3자 제공은 카드 없이 받는 곳 · 목적 · 항목 · 보유 기간 줄이고, 시안에 없는 양도 안내는 없다', async () => {
@@ -658,7 +659,8 @@ describe('참가 신청 v3 배치', () => {
     expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: '기념 티셔츠' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: '양말' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '회원 정보에서 바꾸기' })).not.toBeInTheDocument()
+    // 키트 옵션 단계에는 회원 정보 묶음이 없다
+    expect(screen.queryByRole('link', { name: '회원 정보 변경' })).not.toBeInTheDocument()
   })
 })
 

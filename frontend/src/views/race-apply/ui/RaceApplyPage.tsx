@@ -413,7 +413,15 @@ function ParticipantForm({
           </Section>
         ) : (
           <>
-            <Section title="회원 정보" className="gap-3 pb-0">
+            <Section
+              title="회원 정보"
+              aside={
+                <Link href="/me/edit" aria-label="회원 정보 변경" className={CHANGE_BUTTON}>
+                  변경
+                </Link>
+              }
+              className="gap-3 pb-0"
+            >
               {memberFailed ? (
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-body2-regular text-text-danger">
