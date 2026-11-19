@@ -34,7 +34,8 @@ export function StepIntro({
   )
 }
 
-// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (옆 16 · 위 24 또는 32, 묶음 사이 12)
+// 회원 화면 본문 판 (옆 16 · 위 24 또는 32, 묶음 사이 12). center면 위 여백을 화면 높이의 10%로 둔다.
+// 버튼은 내용 바로 아래에 붙으므로 세로 가운데 정렬은 하지 않는다(CRU-77).
 export function CenterBody({
   children,
   center = true,
@@ -46,8 +47,10 @@ export function CenterBody({
   top?: 6 | 8
 }) {
   return (
-    <main className={center ? 'flex flex-1 flex-col justify-center' : 'flex flex-1 flex-col'}>
-      <div className={cn('flex flex-col gap-3 px-4 pb-6', top === 8 ? 'pt-8' : 'pt-6')}>
+    <main className={cn('flex flex-1 flex-col', center && 'pt-(--layout-content-start)')}>
+      <div
+        className={cn('flex flex-col gap-3 px-4 pb-6', !center && (top === 8 ? 'pt-8' : 'pt-6'))}
+      >
         {children}
       </div>
     </main>
@@ -192,7 +195,7 @@ export function StatusScreen({
   description?: string
 }) {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+    <main className="flex flex-1 flex-col items-center gap-4 px-6 pt-(--layout-content-start) pb-6 text-center">
       <span className="flex size-18 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
         <Icon name={icon} className="size-6" />
       </span>

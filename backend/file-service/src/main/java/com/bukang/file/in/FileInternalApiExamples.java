@@ -117,6 +117,18 @@ final class FileInternalApiExamples {
 		}
 		""";
 
+	static final String UPLOADER_SUCCESS = """
+		{
+			"status": 200,
+			"message": "파일을 올린 회원을 조회했습니다.",
+			"data": {
+				"memberId": 3,
+				"fileType": "RECORD_CERT",
+				"status": "UPLOADED"
+			}
+		}
+		""";
+
 	static final String DELETE_SUCCESS = """
 		{ "status": 200, "message": "파일을 지웠습니다.", "data": null }
 		""";

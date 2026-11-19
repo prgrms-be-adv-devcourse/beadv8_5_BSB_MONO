@@ -6,6 +6,7 @@ import { orderZod } from '@/shared/api-zod'
 // 파티 만들기 · 합류의 내 참가 정보. 규칙은 서버(ParticipantInfoRequestDto)와 같다.
 // 키트가 든 종목은 서버가 키트 배송지를 검사하므로 배송지를 함께 받는다(participantSchemaFor).
 // 키트 옵션은 결제 전 「키트 고르기」에서 받는 시안(11/9)이라 여기서 받지 않는다.
+// 티셔츠 사이즈는 서버가 신청서를 만들 때 검사하므로 티셔츠를 주는 종목이면 여기서 받는다(CRU-74, 없으면 400).
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/
 const phone = z.string().trim().regex(PHONE, '휴대폰 번호를 010-1234-5678처럼 입력해 주세요.')
@@ -28,6 +29,8 @@ export const participantSchema = z.object({
   phone,
   emergencyContactName: name,
   emergencyContactPhone: phone,
+  // 티셔츠가 없는 종목은 비워 두고 보내지 않는다
+  tshirtSize: z.string(),
   // 키트가 없는 종목은 비워 두고 보내지 않는다
   zipcode: z.string(),
   address: z.string(),
@@ -35,10 +38,19 @@ export const participantSchema = z.object({
   consent: z.literal(true, { message: '개인정보 제3자 제공에 동의해 주세요.' }),
 })
 
-/** 키트가 든 종목은 배송지를 꼭 받는다. 받는 사람은 보낼 때 참가자 본인으로 채운다. */
-export function participantSchemaFor(kit: boolean) {
-  if (!kit) return participantSchema
-  return participantSchema.extend({
+/**
+ * 키트가 든 종목은 배송지를, 티셔츠를 주는 종목은 사이즈를 꼭 받는다.
+ * 받는 사람은 보낼 때 참가자 본인으로 채운다.
+ */
+export function participantSchemaFor(kit: boolean, sizes: readonly string[] = []) {
+  const withShirt =
+    sizes.length > 0
+      ? participantSchema.extend({
+          tshirtSize: z.string().refine((v) => sizes.includes(v), '티셔츠 사이즈를 골라 주세요.'),
+        })
+      : participantSchema
+  if (!kit) return withShirt
+  return withShirt.extend({
     zipcode: z
       .string()
       .trim()
@@ -70,6 +82,7 @@ export const EMPTY_PARTICIPANT: ParticipantValues = {
   phone: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
+  tshirtSize: '',
   zipcode: '',
   address: '',
   addressDetail: '',
@@ -80,11 +93,12 @@ export function toParticipantRequest(
   values: z.output<typeof participantSchema>,
   kit: boolean,
 ): orderModel.ParticipantInfoRequestDto {
-  const { consent, zipcode, address, addressDetail, ...rest } = values
+  const { consent, tshirtSize, zipcode, address, addressDetail, ...rest } = values
   void consent
   const detail = addressDetail.trim()
   return {
     ...rest,
+    ...(tshirtSize ? { tshirtSize } : {}),
     ...(kit
       ? {
           shippingAddress: {

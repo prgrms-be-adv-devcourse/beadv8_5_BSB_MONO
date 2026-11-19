@@ -73,7 +73,7 @@ class RecordCertSubmissionTest {
 	}
 
 	private static RecordCertSubmission newSubmission() {
-		return RecordCertSubmission.submit(1L, 10L, 100L, 1000L, 2000L, NOW);
+		return RecordCertSubmission.submit(1L, 10L, 100L, 1000L, 2000L, 9L, NOW);
 	}
 
 	private static ServerCheck serverCheck(FieldCheck all) {

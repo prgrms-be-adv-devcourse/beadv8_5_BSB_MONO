@@ -20,6 +20,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -36,7 +37,8 @@ import lombok.NoArgsConstructor;
 	indexes = {
 		@Index(name = "idx_record_cert_submission_status", columnList = "status, created_at"),
 		@Index(name = "idx_record_cert_submission_order_item", columnList = "order_item_id"),
-		@Index(name = "idx_record_cert_submission_race", columnList = "race_id, status")
+		@Index(name = "idx_record_cert_submission_race", columnList = "race_id, status"),
+		@Index(name = "idx_record_cert_submission_member", columnList = "member_id")
 	}
 )
 public class RecordCertSubmission {
@@ -60,6 +62,10 @@ public class RecordCertSubmission {
 
 	@Column(name = "race_course_id", nullable = false)
 	private long raceCourseId;
+
+	// 대회 판매자의 회원 ID. 제출 때 종목 규칙 조회가 돌려준 값으로, 판매자 심사(BUK-276)가 소유 확인 · 건수에 쓴다
+	@Column(name = "seller_member_id", nullable = false)
+	private long sellerMemberId;
 
 	@Enumerated(STRING)
 	@Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
@@ -85,6 +91,11 @@ public class RecordCertSubmission {
 	@Column(name = "course_check", columnDefinition = "varchar(12)")
 	private FieldCheck courseCheck;
 
+	// 낙관적 잠금 (judgement-spec 3장, 11/18). 결과 반영 · 판매자 심사 · 환불 닫기가 같은 제출을 동시에 바꾸면 늦게 저장한 쪽이 실패한다
+	@Version
+	@Column(name = "version", nullable = false)
+	private long version;
+
 	@Column(name = "created_at", nullable = false)
 	private LocalDateTime createdAt;
 
@@ -92,20 +103,21 @@ public class RecordCertSubmission {
 	private LocalDateTime updatedAt;
 
 	private RecordCertSubmission(long recordCertId, long memberId, long orderItemId, long raceId, long raceCourseId,
-		LocalDateTime now) {
+		long sellerMemberId, LocalDateTime now) {
 		this.recordCertId = recordCertId;
 		this.memberId = memberId;
 		this.orderItemId = orderItemId;
 		this.raceId = raceId;
 		this.raceCourseId = raceCourseId;
+		this.sellerMemberId = sellerMemberId;
 		this.status = SubmissionStatus.CHECKING;
 		this.createdAt = now;
 		this.updatedAt = now;
 	}
 
 	public static RecordCertSubmission submit(long recordCertId, long memberId, long orderItemId, long raceId,
-		long raceCourseId, LocalDateTime now) {
-		return new RecordCertSubmission(recordCertId, memberId, orderItemId, raceId, raceCourseId, now);
+		long raceCourseId, long sellerMemberId, LocalDateTime now) {
+		return new RecordCertSubmission(recordCertId, memberId, orderItemId, raceId, raceCourseId, sellerMemberId, now);
 	}
 
 	// 반려는 서버 확인과 상관없이 반려, 통과는 서버 확인이 모두 맞을 때만 자동 승인 (T1~T4)
