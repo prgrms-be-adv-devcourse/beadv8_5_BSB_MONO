@@ -45,4 +45,11 @@ class PayoutStatusTest {
 		assertThat(EnumSet.allOf(PayoutStatus.class).stream().filter(PayoutStatus::isAwaitingPayResult))
 			.containsExactlyInAnyOrder(PayoutStatus.지급_중, PayoutStatus.지급_확인_필요);
 	}
+
+	@Test
+	@DisplayName("사람이 확인해야 멈춘 상태는 지급 불일치 · 지급 확인 필요다 (BUK-62, BUK-166)")
+	void needsManualCheckIsMismatchAndCheckRequired() {
+		assertThat(EnumSet.allOf(PayoutStatus.class).stream().filter(PayoutStatus::needsManualCheck))
+			.containsExactlyInAnyOrder(PayoutStatus.지급_불일치, PayoutStatus.지급_확인_필요);
+	}
 }

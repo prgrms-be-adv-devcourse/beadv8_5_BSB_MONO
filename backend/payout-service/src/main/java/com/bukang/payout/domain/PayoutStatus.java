@@ -32,11 +32,20 @@ public enum PayoutStatus {
 	// 지급 결과를 기다림: 돈이 나갔는지 모른다. 대회 취소는 표시만 남기고 회수를 결과가 나올 때까지 미룬다 (PRO-253, BUK-166)
 	public static final Set<PayoutStatus> AWAITING_PAY_RESULT = Collections.unmodifiableSet(EnumSet.of(지급_중, 지급_확인_필요));
 
+	// 사람이 캐시 서비스에서 결과를 확인해 닫아야 멈춰 있는 상태 (BUK-62, BUK-166)
+	// 지급 배치가 고르지 않고, 이 1차를 기다리는 최종은 사람이 풀 때까지 계속 미뤄진다
+	public static final Set<PayoutStatus> NEEDS_MANUAL_CHECK =
+		Collections.unmodifiableSet(EnumSet.of(지급_불일치, 지급_확인_필요));
+
 	public boolean isBeforePayment() {
 		return BEFORE_PAYMENT.contains(this);
 	}
 
 	public boolean isAwaitingPayResult() {
 		return AWAITING_PAY_RESULT.contains(this);
+	}
+
+	public boolean needsManualCheck() {
+		return NEEDS_MANUAL_CHECK.contains(this);
 	}
 }

@@ -45,6 +45,13 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	Optional<Payout> findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(long sellerId, long raceId,
 		PayoutStage payoutStage);
 
+	// 대회 취소로 닫히지 않은(취소가 아닌) 그 단계의 정산 내역. 만든 순서로 1차가 먼저다
+	// 지급 · 청구 · 상계 판단이 같은 "살아 있는 정산" 기준을 쓰도록 한곳에 둔다 (CRU-10)
+	default Optional<Payout> findLiveStage(long sellerId, long raceId, PayoutStage stage) {
+		return findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
+			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
+	}
+
 	// 회수 상계: 같은 판매자 × 대회의 지급 전 정산 내역을 잠가서 읽는다 (만든 순서대로, 1차가 먼저)
 	// 회수 요청 · 최종 생성 · 지급 배치가 같은 정산 내역 금액을 동시에 바꾸지 않게 한다 (PRO-214)
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -97,10 +104,11 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	// 엔티티 대신 ID만 읽고, 한 건씩 새 트랜잭션에서 다시 읽어 그 사이 바뀐 상태(보류 등)를 보고 처리한다
 	@Query("""
 		select p.id from Payout p
-		where (p.status = :calculated and p.scheduledPayDate <= :today) or p.status = :paying
+		where (p.status = com.bukang.payout.domain.PayoutStatus.지급_예정 and p.scheduledPayDate <= :today)
+			or p.status = com.bukang.payout.domain.PayoutStatus.지급_중
 		order by p.id
 		""")
-	List<Long> findPayTargetIds(LocalDate today, PayoutStatus calculated, PayoutStatus paying);
+	List<Long> findPayTargetIds(LocalDate today);
 
 	// 판매자 정산 내역 조회: 정산 월(YYYY-MM)은 문자열이어도 자릿수가 같아 사전순 비교가 달 순서와 같다
 	// 유일 조건 (seller_id, race_id, payout_month, payout_stage)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
@@ -112,15 +120,16 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	// (PRO-188, PayoutPayStepUseCase.findWaitingFirst와 같은 기준. 1차가 없거나 취소됐으면 기다리지 않는다)
 	@Query("""
 		select p from Payout p
-		where p.sellerId = :sellerId and p.status = :calculated
-		and not (p.payoutStage = :finalStage and exists (
+		where p.sellerId = :sellerId and p.status = com.bukang.payout.domain.PayoutStatus.지급_예정
+		and not (p.payoutStage = com.bukang.payout.domain.PayoutStage.최종_정산 and exists (
 			select f.id from Payout f
-			where f.sellerId = p.sellerId and f.raceId = p.raceId and f.payoutStage = :firstStage
-			and f.status <> :paid and f.status <> :canceled))
+			where f.sellerId = p.sellerId and f.raceId = p.raceId
+			and f.payoutStage = com.bukang.payout.domain.PayoutStage.일차_정산
+			and f.status <> com.bukang.payout.domain.PayoutStatus.지급_완료
+			and f.status <> com.bukang.payout.domain.PayoutStatus.취소))
 		order by p.scheduledPayDate, p.id
 		""")
-	List<Payout> findPayableForSummary(long sellerId, PayoutStatus calculated, PayoutStage finalStage,
-		PayoutStage firstStage, PayoutStatus paid, PayoutStatus canceled);
+	List<Payout> findPayableForSummary(long sellerId);
 
 	// 판매자 요약: 지급보류 중인 정산 내역 수. 보류가 여러 개 걸린 정산 내역도 한 건으로 센다 (BUK-67 H3)
 	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
