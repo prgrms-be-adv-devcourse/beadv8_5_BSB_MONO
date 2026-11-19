@@ -9,6 +9,7 @@ team05(운영 dev, 2 vCPU·7.6GB, k3s)에서 예매 오픈 몰림(대기열→�
 guide.md     일반 가이드 + 시나리오 템플릿 + "읽은 AI에게" (먼저 읽기)
 runbook.md   예매 funnel 재현 단계별
 results.md   계획 + 실측 수치·병목 분석
+data/        수집 자료 원본(요약·원시 CSV 압축·TPS 계산·Prometheus 시계열) + data/README.md(스크립트 흐름·부하 방식·파일 구조, AI가 읽기 좋게)
 k6/
   funnel.js         기준선(대기자·구매자 분리, 조회를 일정하게 유지하는 최악 가정). STAGE: smoke/s1/s2/s3/buystress
   rush.js           실제 흐름: N명이 한 대회에 줄 서서 차례로 신청→주문→결제. STAGE: r30/r300/r600/r990

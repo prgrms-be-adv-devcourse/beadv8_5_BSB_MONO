@@ -1,0 +1,1 @@
+stage=s1 script=funnel.js grafana_testid=1119-eve-main-68f0336-s1 start_utc=2026-11-19T10:51:11Z end_utc=2026-11-19T10:54:44Z k6_exit=0 buy_race=80 buy_course=200 wait_race=81 wait_course=201
