@@ -209,6 +209,7 @@ function ChangeContent({
                 showCounter
                 maxLength={200}
                 readOnly
+                helper={`${n(sold)}명에게 앱 알림과 문자로 보내요`}
                 value={rescheduleNotice(title, currentRaceDate, nextRaceDate)}
               />
             </form>
@@ -230,6 +231,7 @@ function ChangeContent({
               showCounter
               maxLength={200}
               readOnly
+              helper={`${n(sold)}명에게 앱 알림과 문자로 보내요`}
               value={`[${title}] 대회가 취소됐어요. 결제하신 참가비는 예치금으로 모두 돌려드려요.`}
             />
           </ConsoleCard>
