@@ -388,7 +388,7 @@ function PartyDetailBody({
       </section>
       {recruiting && isLeader && (
         <BottomCta
-          className="sticky bottom-0 z-10 mt-auto border-t border-border-default px-4"
+          className="sticky bottom-0 z-10 border-t border-border-default px-4"
           primary={
             <Link
               href={`/parties/${party.id}/apply`}

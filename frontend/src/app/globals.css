@@ -64,3 +64,11 @@
     cursor: pointer;
   }
 }
+
+/* 하단 버튼(BottomCta)은 내용 바로 아래에 붙는다. 앞 형제가 남은 높이를 채우면 버튼이 화면 맨 아래로 밀려서 막는다.
+   내용이 화면보다 길면 버튼의 sticky bottom-0이 화면 아래에 붙여 둔다. Tailwind 층보다 앞서도록 층 밖에 둔다. */
+:has(~ [data-bottom-cta]),
+.contents:has(~ [data-bottom-cta]) > * {
+  /* 폼을 contents로 감싼 화면은 폼 안의 본문이 실제 형제다 */
+  flex-grow: 0;
+}

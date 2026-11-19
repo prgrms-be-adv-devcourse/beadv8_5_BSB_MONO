@@ -417,7 +417,7 @@ export function DepositRefundDonePage() {
         close
         backHref="/me/deposit"
       />
-      <main className="flex flex-1 flex-col justify-center-safe gap-8 px-4 pt-6 pb-8">
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-(--layout-content-start) pb-8">
         <h2 className="text-title2">
           {done
             ? withdrawal.cardAmount > 0

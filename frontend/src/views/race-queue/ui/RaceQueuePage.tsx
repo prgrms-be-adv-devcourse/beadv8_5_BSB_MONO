@@ -114,7 +114,7 @@ export function RaceQueuePage({
         </>
       ) : queue.failed && remaining === null ? (
         <>
-          <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
+          <main className="flex flex-1 flex-col items-center gap-8 px-4 pt-(--layout-content-start) pb-6">
             <h1 className="text-center text-title2 text-text-primary">
               대기열에서 자리를 잃었어요
               <br />
@@ -143,7 +143,7 @@ export function RaceQueuePage({
         </>
       ) : admitted ? (
         <>
-          <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
+          <main className="flex flex-1 flex-col items-center gap-8 px-4 pt-(--layout-content-start) pb-6">
             <h1 className="text-center text-title2 text-text-primary">
               내 차례예요
               <br />
@@ -185,7 +185,7 @@ export function RaceQueuePage({
               <Icon name="X" />
             </IconButton>
           </header>
-          <main className="flex flex-1 flex-col items-center justify-center gap-2 px-6 pt-6 pb-26 text-center">
+          <main className="flex flex-1 flex-col items-center gap-2 px-6 pt-(--layout-content-start) pb-26 text-center">
             <h1 className="text-title2 text-text-primary">
               신청하는 분이 많아
               <br />

@@ -47,7 +47,7 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
   return (
     <>
       <AppHeader type="sub" title="참가 확정" close backHref="/" />
-      <main className="flex flex-1 flex-col justify-center pb-8">
+      <main className="flex flex-1 flex-col pt-(--layout-content-start) pb-8">
         {order.data ? (
           <>
             <div className="flex flex-col gap-2 px-4 pt-4 pb-6">

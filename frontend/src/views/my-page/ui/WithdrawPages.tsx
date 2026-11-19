@@ -212,7 +212,7 @@ export function WithdrawDonePage() {
     <>
       <AppHeader type="sub" title="탈퇴 완료" close backHref="/" />
       {/* TODO(asset): 시안의 마스코트 그림 파일이 레포에 없어 글만 둔다 */}
-      <main className="flex flex-1 flex-col items-center justify-center-safe gap-2 px-4 pt-6 pb-8 text-center">
+      <main className="flex flex-1 flex-col items-center gap-2 px-4 pt-(--layout-content-start) pb-8 text-center">
         <h2 className="text-title2">탈퇴가 완료됐습니다.</h2>
         <p className="text-body1-regular text-text-secondary">또 만나기를 기대할게요!</p>
       </main>

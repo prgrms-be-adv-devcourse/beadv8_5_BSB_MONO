@@ -99,7 +99,7 @@ function RaceFlow({ raceId }: { raceId: number }) {
   return (
     <>
       <AppHeader type="sub" title="문의하기" />
-      <main className="flex flex-1 flex-col gap-3 px-4 pt-4">
+      <main className="flex flex-1 flex-col gap-3 px-4 pt-4 pb-6">
         {raceName && <p className="text-caption-regular text-text-tertiary">{raceName}</p>}
         {TYPE_CHOICES.map((choice) => (
           <button
@@ -155,7 +155,7 @@ function PaymentFlow() {
   return (
     <>
       <AppHeader type="sub" title="참가 · 결제 문의하기" />
-      <main className="flex flex-1 flex-col gap-3 px-4 pt-4">
+      <main className="flex flex-1 flex-col gap-3 px-4 pt-4 pb-6">
         <h2 className="text-title3">어떤 참가권에 대한 문의인가요?</h2>
         {list === undefined ? (
           <div role="status" aria-label="불러오는 중" className="flex flex-col gap-3">
@@ -236,7 +236,7 @@ function WriteStep({
   return (
     <>
       <AppHeader type="sub" title={title} />
-      <main className="flex flex-1 flex-col gap-4 px-4 pt-4">
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-6">
         {subtitle && <p className="text-caption-regular text-text-tertiary">{subtitle}</p>}
         <TextField
           label="제목"

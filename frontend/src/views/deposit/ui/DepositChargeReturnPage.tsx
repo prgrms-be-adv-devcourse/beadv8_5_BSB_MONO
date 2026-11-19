@@ -105,7 +105,7 @@ function ChargeResult({ result }: { result: ShownResult }) {
   return (
     <>
       <AppHeader type="sub" title="예치금 충전" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6">
+      <main className="flex flex-1 flex-col px-4 pt-(--layout-content-start) pb-6">
         {result.kind === 'uncertain' ? (
           <EmptyState
             icon={null}
