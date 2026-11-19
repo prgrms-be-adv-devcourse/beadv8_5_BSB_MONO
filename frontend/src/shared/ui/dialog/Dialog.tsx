@@ -43,6 +43,27 @@ export function Dialog({
   stacked = false,
   confirmClassName,
 }: DialogProps) {
+  const cancel =
+    type !== 'alert' ? (
+      <AlertDialog.Close
+        key="cancel"
+        render={<Button variant="secondary" className="flex-1" />}
+        onClick={onCancel}
+      >
+        {cancelLabel}
+      </AlertDialog.Close>
+    ) : null
+  const confirm = (
+    <Button
+      key="confirm"
+      variant={type === 'danger' ? 'danger' : 'primary'}
+      loading={confirming}
+      onClick={onConfirm}
+      className={cn('flex-1', confirmClassName)}
+    >
+      {confirmLabel}
+    </Button>
+  )
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
@@ -66,23 +87,9 @@ export function Dialog({
               </AlertDialog.Description>
             )}
           </div>
-          <div className={cn('flex', stacked ? 'flex-col-reverse gap-2' : 'gap-6')}>
-            {type !== 'alert' && (
-              <AlertDialog.Close
-                render={<Button variant="secondary" className="flex-1" />}
-                onClick={onCancel}
-              >
-                {cancelLabel}
-              </AlertDialog.Close>
-            )}
-            <Button
-              variant={type === 'danger' ? 'danger' : 'primary'}
-              loading={confirming}
-              onClick={onConfirm}
-              className={cn('flex-1', confirmClassName)}
-            >
-              {confirmLabel}
-            </Button>
+          <div className={cn('flex', stacked ? 'flex-col gap-2' : 'gap-6')}>
+            {/* 쌓으면 확인이 위, 취소가 아래. 화면 순서와 키보드 · 읽기 순서가 같도록 DOM 순서를 맞춘다 */}
+            {stacked ? [confirm, cancel] : [cancel, confirm]}
           </div>
         </AlertDialog.Popup>
       </AlertDialog.Portal>
