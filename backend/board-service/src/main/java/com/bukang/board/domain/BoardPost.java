@@ -83,6 +83,10 @@ public class BoardPost extends BaseIdAndTime {
 		return this.memberId == memberId;
 	}
 
+	public boolean isVisible() {
+		return status == BoardPostStatus.VISIBLE;
+	}
+
 	public boolean isHidden() {
 		return status == BoardPostStatus.HIDDEN;
 	}

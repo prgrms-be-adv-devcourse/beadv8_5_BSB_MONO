@@ -2,6 +2,8 @@ package com.bukang.member.crew.dto;
 
 import java.time.LocalDateTime;
 
+import com.bukang.member.crew.domain.CrewInvite;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "아직 쓸 수 있는 초대")
@@ -14,4 +16,12 @@ public record CrewInviteDto(
 	LocalDateTime createdAt,
 	LocalDateTime expiresAt
 ) {
+	public static CrewInviteDto of(CrewInvite invite, String senderNickname) {
+		return new CrewInviteDto(
+			invite.getId(),
+			invite.getInviteToken(),
+			new CrewInviteSenderDto(invite.getCreatedBy(), senderNickname),
+			invite.getCreatedAt(),
+			invite.getExpiresAt());
+	}
 }

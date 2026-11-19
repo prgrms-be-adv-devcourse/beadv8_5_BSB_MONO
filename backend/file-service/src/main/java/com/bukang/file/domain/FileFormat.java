@@ -85,6 +85,17 @@ public enum FileFormat {
 		};
 	}
 
+	// 이미지의 가로·세로. 이미지가 아니거나 머리 부분이 깨졌으면 빈 값
+	// JPEG는 사진 정보(EXIF) 뒤에 크기가 있어 앞부분 몇 바이트로는 부족하다. 파일 전체를 넘긴다
+	public Optional<ImageSize> readSize(byte[] bytes) {
+		return switch (this) {
+			case JPEG -> ImageSizeReader.jpeg(bytes);
+			case PNG -> ImageSizeReader.png(bytes);
+			case WEBP -> ImageSizeReader.webp(bytes);
+			case MP4, MOV, XLSX, XLS -> Optional.empty();
+		};
+	}
+
 	// ftyp 바로 뒤 4바이트(주 브랜드). 앞부분이 짧으면 빈 문자열
 	private static String brandOf(byte[] head) {
 		if (head.length < BRAND_OFFSET + BRAND_LENGTH) {

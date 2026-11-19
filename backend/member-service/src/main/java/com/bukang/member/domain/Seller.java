@@ -164,9 +164,7 @@ public class Seller extends BaseEntity {
 	// 신청자가 탈퇴하면 대기 중 신청을 반려한다. 심사한 관리자는 없어 reviewedBy는 비워 둔다 (PRO-217)
 	// 반려 이벤트로 다른 서비스 사본도 반려 상태가 된다
 	public void rejectByWithdrawal(LocalDateTime now) {
-		if (status != SellerStatus.PENDING) {
-			throw new SellerAlreadyReviewedException("이미 심사한 판매자 신청입니다.");
-		}
+		requirePending();
 		this.reviewedAt = now;
 		this.status = SellerStatus.REJECTED;
 		this.rejectReason = WITHDRAWN_REJECT_REASON;
@@ -183,10 +181,14 @@ public class Seller extends BaseEntity {
 		}
 	}
 
-	private void review(long adminId, LocalDateTime now) {
+	private void requirePending() {
 		if (status != SellerStatus.PENDING) {
 			throw new SellerAlreadyReviewedException("이미 심사한 판매자 신청입니다.");
 		}
+	}
+
+	private void review(long adminId, LocalDateTime now) {
+		requirePending();
 		this.reviewedAt = now;
 		this.reviewedBy = adminId;
 	}

@@ -23,7 +23,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewInviteCommand;
+import com.bukang.member.crew.app.CrewManageCommand;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
@@ -51,7 +52,9 @@ class InternalV1CrewTest {
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
-	private CrewFacade crewFacade;
+	private CrewInviteCommand crewInviteCommand;
+	@Autowired
+	private CrewManageCommand crewManageCommand;
 	@Autowired
 	private MemberRepository memberRepository;
 	@Autowired
@@ -75,9 +78,9 @@ class InternalV1CrewTest {
 		leaderId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 		memberId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
 		outsiderId = memberFacade.join(MemberFixture.joinRequest().build(identityStore)).getId();
-		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
-		String token = crewFacade.createInvite(leaderId, crewId).inviteToken();
-		crewFacade.join(memberId, token);
+		crewId = crewManageCommand.createCrew(leaderId, "새벽한강크루").crewId();
+		String token = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
+		crewInviteCommand.join(memberId, token);
 	}
 
 	@AfterEach

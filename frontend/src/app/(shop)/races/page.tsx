@@ -21,9 +21,9 @@ export const metadata: Metadata = {
   },
 }
 
-const STATES: RaceListState[] = ['loading', 'empty', 'menu', 'sort']
+const STATES: RaceListState[] = ['loading', 'empty', 'sort']
 
-// ?preview=loading|empty|menu|sort 로 M18의 로딩 · 결과 없음 · 더보기 메뉴 · 정렬 열림을 볼 수 있다
+// ?preview=loading|empty|sort 로 M18의 로딩 · 결과 없음 · 정렬 열림을 볼 수 있다
 // 첫 페이지는 RSC에서 받아 두고, 검색 · 정렬 · 더 보기는 브라우저에서 TanStack Query로 부른다.
 export default async function Page({ searchParams }: PageProps<'/races'>) {
   const { preview } = await searchParams

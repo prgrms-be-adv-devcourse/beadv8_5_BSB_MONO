@@ -238,6 +238,36 @@ describe('문의 쓰기', () => {
     })
   })
 
+  it('공백만 쓰면 보낼 수 없고, 앞뒤 공백은 빼고 보낸다', async () => {
+    const user = userEvent.setup()
+    let sent: { title?: string; body?: string } = {}
+    server.use(
+      http.post('*/api/v1/inquiry/inquiries', async ({ request }) => {
+        sent = (await request.json()) as typeof sent
+        return HttpResponse.json(
+          { status: 201, message: '문의를 남겼습니다.', data: { id: 9 } },
+          { status: 201 },
+        )
+      }),
+    )
+    renderUi(<InquiryComposePage raceId={1} />)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    const send = screen.getByRole('button', { name: '문의 보내기' })
+
+    await user.type(screen.getByRole('textbox', { name: '제목' }), '   ')
+    await user.type(screen.getByRole('textbox', { name: '문의 내용' }), '   ')
+    expect(send).toBeDisabled()
+
+    await user.clear(screen.getByRole('textbox', { name: '제목' }))
+    await user.type(screen.getByRole('textbox', { name: '제목' }), ' 사이즈 문의 ')
+    await user.clear(screen.getByRole('textbox', { name: '문의 내용' }))
+    await user.type(screen.getByRole('textbox', { name: '문의 내용' }), ' 문의해요 ')
+    await user.click(send)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/inquiries?sent=1'))
+    expect(sent).toMatchObject({ title: '사이즈 문의', body: '문의해요' })
+  })
+
   it('고객센터에서 오고 참가권이 없으면 바로 쓰기 화면이다', async () => {
     server.use(
       http.get('*/api/v1/order/orders', () =>

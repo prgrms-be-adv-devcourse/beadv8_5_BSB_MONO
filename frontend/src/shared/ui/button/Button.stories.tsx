@@ -11,7 +11,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'inline-radio',
-      options: ['primary', 'secondary', 'ghost', 'danger', 'accent'],
+      options: ['primary', 'secondary', 'ghost', 'danger'],
     },
     size: { control: 'inline-radio', options: ['s', 'm', 'l'] },
   },
@@ -72,15 +72,3 @@ export const Disabled: Story = { args: { disabled: true } }
 
 /** 요청 중에는 색을 유지한 채 Spinner를 붙이고 클릭을 막는다. */
 export const Loading: Story = { args: { loading: true, children: '결제 중' } }
-
-/** Accent(라임)는 네이비 Hero 안에서만 쓴다. */
-export const AccentOnHero: Story = {
-  args: { variant: 'accent', children: '크루로 신청하기' },
-  decorators: [
-    (Story) => (
-      <div className="w-fit rounded-lg bg-bg-hero p-6">
-        <Story />
-      </div>
-    ),
-  ],
-}

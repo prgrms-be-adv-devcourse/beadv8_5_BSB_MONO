@@ -1,6 +1,7 @@
 package com.bukang.member.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,12 +27,17 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.common.shared.seller.domain.SellerStatus;
+import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.SellerFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.PayoutAccountHolderType;
 import com.bukang.member.domain.Seller;
+import com.bukang.member.domain.TermsAgreement;
+import com.bukang.member.domain.TermsType;
+import com.bukang.member.domain.exception.RequiredTermsNotAgreedException;
+import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.TermsAgreementRepository;
@@ -356,6 +362,61 @@ class ApiV1SellerTest {
 		memberRepository.saveAndFlush(member);
 	}
 
+	@Test
+	@DisplayName("판매자 약관 동의 칸이 없거나 false면 400이고 신청도 동의 기록도 남기지 않는다")
+	void applyFailsWithoutSellerTerms() throws Exception {
+		// 칸이 없는 경우는 모르는 칸으로 바꿔 만든다 (모르는 칸은 무시된다)
+		for (String agreedField : List.of("\"other\": 1", "\"sellerTermsAgreed\": false",
+			"\"sellerTermsAgreed\": null")) {
+			mockMvc.perform(post(SELLERS)
+					.header(MemberIdHeader.NAME, memberId)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(body("INDIVIDUAL", null, null, "김러너")
+						.replace("\"sellerTermsAgreed\": true", agreedField)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+		}
+
+		assertThat(sellerRepository.count()).isZero();
+		assertThat(sellerTermsRecords(memberId)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("동의하고 신청하면 판매자 약관 동의 기록이 같이 남는다")
+	void applyRecordsSellerTermsAgreement() throws Exception {
+		apply(memberId, "INDIVIDUAL", null, null, "김러너").andExpect(status().isCreated());
+
+		List<TermsAgreement> records = sellerTermsRecords(memberId);
+		assertThat(records).hasSize(1);
+		assertThat(records.getFirst().isAgreed()).isTrue();
+	}
+
+	@Test
+	@DisplayName("이미 신청이 있어 409가 되면 동의 기록은 새로 쌓이지 않는다")
+	void duplicateApplyDoesNotAppendAgreement() throws Exception {
+		apply(memberId, "INDIVIDUAL", null, null, "김러너").andExpect(status().isCreated());
+		apply(memberId, "INDIVIDUAL", null, null, "김러너").andExpect(status().isConflict());
+
+		assertThat(sellerTermsRecords(memberId)).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("서비스로 직접 불러도 동의가 false면 거부하고 신청을 남기지 않는다 (요청 검사 우회)")
+	void facadeRejectsWithoutAgreement() {
+		SellerApplyRequestDto request = new SellerApplyRequestDto(SellerType.INDIVIDUAL, null, null, "김러너",
+			"004", "1101230000678", PayoutAccountHolderType.PERSONAL, false);
+
+		assertThatThrownBy(() -> sellerFacade.apply(memberId, request))
+			.isInstanceOf(RequiredTermsNotAgreedException.class);
+		assertThat(sellerRepository.count()).isZero();
+	}
+
+	private List<TermsAgreement> sellerTermsRecords(long id) {
+		return termsAgreementRepository.findByMemberId(id).stream()
+			.filter(agreement -> agreement.getTerms().getType() == TermsType.SELLER)
+			.toList();
+	}
+
 	private ResultActions apply(long id, String sellerType, String businessName, String businessNumber,
 		String representativeName) throws Exception {
 		return mockMvc.perform(post(SELLERS)
@@ -373,7 +434,8 @@ class ApiV1SellerTest {
 				"representativeName": %s,
 				"bankCode": "004",
 				"accountNumber": "1101230000678",
-				"accountHolderType": "PERSONAL"
+				"accountHolderType": "PERSONAL",
+				"sellerTermsAgreed": true
 			}
 			""".formatted(json(sellerType), json(businessName), json(businessNumber), json(representativeName));
 	}

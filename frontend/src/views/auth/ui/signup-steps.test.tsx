@@ -230,7 +230,7 @@ describe('회원가입 단계', () => {
       email: 'runner@crewrun.kr',
       password: 'password1234',
       nickname: '달리는곰',
-      agreedTerms: ['SERVICE', 'PRIVACY', 'MARKETING'],
+      agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14', 'MARKETING'],
       verificationToken: 'mock-verification.token',
     })
     expect(getAuthStatus()).toBe('authenticated')
@@ -621,7 +621,7 @@ describe('약관 동의 전송 (PRO-208)', () => {
     await submitWith({ service: true, privacy: true, age: true, marketing: false })
 
     expect(await screen.findByText('가입을 마쳤어요')).toBeInTheDocument()
-    expect(sent.agreedTerms).toEqual(['SERVICE', 'PRIVACY'])
+    expect(sent.agreedTerms).toEqual(['SERVICE', 'PRIVACY', 'AGE_OVER_14'])
   })
 
   it('필수 약관 미동의(400 MEMBER_REQUIRED_TERMS_NOT_AGREED)는 약관 안내를 보여 준다', async () => {

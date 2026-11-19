@@ -140,13 +140,17 @@ public class Race extends BaseIdAndTime {
 	@OneToMany(mappedBy = "race", cascade = {PERSIST, REMOVE}, orphanRemoval = true)
 	private List<RaceCourse> courses = new ArrayList<>();
 
-	public Race(ProductSeller seller, RaceSaveRequestDto request, String idempotencyKey, LocalDateTime now) {
+	// sameDaySaleEnabled: 테스트용 당일 판매 설정 (RaceSaleProperties, CRU-36). 켜면 판매 시작일을 오늘부터 받는다
+	public Race(ProductSeller seller, RaceSaveRequestDto request, String idempotencyKey, LocalDateTime now,
+		boolean sameDaySaleEnabled) {
 		this.seller = seller;
 		this.idempotencyKey = idempotencyKey;
 		apply(request);
-		// 등록하면 판매 예정이고, 판매 시작일 0시에 상태 배치(RaceSaleStatusScheduler)가 판매 중으로 바꾼다
-		checkSaleOpenDate(saleOpenDate, now);
-		this.saleStatus = RaceSaleStatus.SCHEDULED;
+		checkSaleOpenDate(saleOpenDate, now, sameDaySaleEnabled ? 0 : SALE_OPEN_MIN_DAYS);
+		// 판매 시작일이 이미 됐으면 판매 중, 아니면 판매 예정이다 (상태 배치 RaceSaleStatusScheduler와 같은 기준)
+		// 평소에는 판매 시작일이 이틀 뒤부터라 늘 판매 예정이고, 판매 시작일 0시에 상태 배치가 판매 중으로 바꾼다
+		// 당일 판매를 켜고 오늘 판매 시작으로 등록하면 배치를 기다리지 않고 판매 중으로 저장한다
+		this.saleStatus = isSaleStarted(now) ? RaceSaleStatus.ON_SALE : RaceSaleStatus.SCHEDULED;
 	}
 
 	public void update(RaceSaveRequestDto request, boolean saleStarted, LocalDateTime now) {
@@ -180,21 +184,24 @@ public class Race extends BaseIdAndTime {
 		if (saleStarted && (!request.getRaceDate().equals(raceDate) || isPlaceChanged(request))) {
 			this.scheduleChangedAt = now;
 		}
-		// 판매 시작 전 수정으로 판매 시작일이 바뀌면 등록과 같은 기준으로 본다
+		// 판매 시작 전 수정으로 판매 시작일이 바뀌면 등록과 같은 기준(오늘로부터 이틀 뒤부터)으로 본다
+		// 테스트용 당일 판매 설정은 등록에만 적용하므로 수정은 늘 이틀 뒤부터다 (CRU-36)
 		LocalDate requestedSaleOpenDate = saleOpenDateOf(request.getCrewSaleStartAt(), request.getIndividualOpenAt());
 		if (!requestedSaleOpenDate.equals(saleOpenDate)) {
-			checkSaleOpenDate(requestedSaleOpenDate, now);
+			checkSaleOpenDate(requestedSaleOpenDate, now, SALE_OPEN_MIN_DAYS);
 		}
 		apply(request);
 	}
 
 	// 판매 예정으로 하루 이상 두도록, 판매 시작일은 오늘로부터 이틀 뒤부터 정할 수 있다
 	//   예: 10/14 등록 → 판매 시작일(크루 예매 시작·개인 예매 오픈 중 이른 날짜)이 10/16 이후
-	private static void checkSaleOpenDate(LocalDate openDate, LocalDateTime now) {
-		LocalDate earliest = now.toLocalDate().plusDays(SALE_OPEN_MIN_DAYS);
+	// 테스트용 당일 판매를 켠 등록만 minDays가 0이라 오늘부터 된다 (CRU-36)
+	private static void checkSaleOpenDate(LocalDate openDate, LocalDateTime now, int minDays) {
+		LocalDate earliest = now.toLocalDate().plusDays(minDays);
 		if (openDate.isBefore(earliest)) {
-			throw new InvalidRaceException(("판매 시작일은 오늘로부터 이틀 뒤(%s)부터 정할 수 있습니다. "
-				+ "크루 예매 시작·개인 예매 오픈 일시를 확인해주세요.").formatted(earliest.format(MESSAGE_DATE)));
+			String from = minDays == 0 ? "오늘" : "오늘로부터 이틀 뒤";
+			throw new InvalidRaceException(("판매 시작일은 %s(%s)부터 정할 수 있습니다. "
+				+ "크루 예매 시작·개인 예매 오픈 일시를 확인해주세요.").formatted(from, earliest.format(MESSAGE_DATE)));
 		}
 	}
 
@@ -314,6 +321,36 @@ public class Race extends BaseIdAndTime {
 		if (!now.isBefore(applicationCloseAt)) {
 			throw new RaceChangeNotAllowedException("접수 마감이 지난 대회는 판매를 멈출 수 없습니다.");
 		}
+	}
+
+	// 판매 예정 대회를 바로 열 수 있는지 (CRU-44): 판매 예정이고, 접수 마감 전이고, 당길 판매 시작 일정이 아직 오지 않았을 때만
+	// 판매 시작 일정이 이미 지났으면 판매 시작일 0시 상태 배치가 늦은 것이라, 일정을 건드리지 않고 배치에 맡긴다
+	public void checkOpenable(LocalDateTime now) {
+		switch (saleStatus) {
+			case SCHEDULED -> {
+			}
+			case ON_SALE -> throw new RaceChangeNotAllowedException("이미 판매 중인 대회입니다.");
+			case STOPPED -> throw new RaceChangeNotAllowedException("판매를 멈춘 대회는 판매 다시 열기로 열어 주세요.");
+			case CLOSED -> throw new RaceChangeNotAllowedException("판매가 끝난 대회입니다.");
+			case CANCELED -> throw new RaceChangeNotAllowedException("취소된 대회입니다.");
+		}
+		// 판매 예정이면 접수 마감은 늘 판매 시작 일정보다 뒤라, 마감을 먼저 봐야 마감 문구가 나온다
+		if (!now.isBefore(applicationCloseAt)) {
+			throw new RaceChangeNotAllowedException("접수 마감이 지난 대회는 판매를 시작할 수 없습니다.");
+		}
+		if (!saleOpenAt().isAfter(now)) {
+			throw new RaceChangeNotAllowedException("판매 시작 시각이 이미 지났습니다. 잠시 뒤 판매 중으로 바뀝니다.");
+		}
+	}
+
+	// 판매 시작일을 정하는 일정: 크루 예매가 있으면 크루 예매 시작(개인 예매 오픈보다 늘 이르다), 없으면 개인 예매 오픈
+	// 바로 열기는 이 일정만 지금으로 당긴다
+	public boolean hasCrewSale() {
+		return crewSaleStartAt != null;
+	}
+
+	private LocalDateTime saleOpenAt() {
+		return hasCrewSale() ? crewSaleStartAt : individualOpenAt;
 	}
 
 	// 키트 옵션을 등록하거나 바꿀 수 있는지: 대회 수정과 같이 취소된 대회와 판매가 끝난 대회만 막는다 (BUK-137)

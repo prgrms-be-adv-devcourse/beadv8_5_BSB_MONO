@@ -41,6 +41,6 @@ class RaceStopSaleTest {
 			.applicationCloseAt(LocalDateTime.of(2026, 11, 20, 18, 0))
 			.raceDate(LocalDateTime.of(2026, 11, 25, 8, 0))
 			.refundDeadline(LocalDate.of(2026, 11, 20))
-			.build(), "registered-key", REGISTERED_AT);
+			.build(), "registered-key", REGISTERED_AT, false);
 	}
 }

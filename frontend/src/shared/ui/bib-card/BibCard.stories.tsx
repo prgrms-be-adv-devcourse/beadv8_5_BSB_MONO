@@ -24,7 +24,7 @@ export const Ticket: Story = {
   args: {
     type: 'ticket',
     eyebrow: 'SEOUL MARATHON 2026',
-    status: <Badge tone="live">참가 확정</Badge>,
+    status: <Badge tone="brand">참가 확정</Badge>,
     unit: 'No.',
     number: '21047',
     title: '하프 코스 · 21.0975km',
@@ -37,7 +37,7 @@ export const Crew: Story = {
   args: {
     type: 'crew',
     eyebrow: 'CREW · 한강러닝크루',
-    status: <Badge tone="live">결제 중</Badge>,
+    status: <Badge tone="brand">결제 중</Badge>,
     number: '5',
     unit: '/ 8명',
     title: '크루원 결제 현황',

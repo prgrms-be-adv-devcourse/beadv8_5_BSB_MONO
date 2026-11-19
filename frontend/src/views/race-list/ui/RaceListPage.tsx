@@ -7,7 +7,6 @@ import { useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
-import { RaceShareSheet } from '@/widgets/race-share-sheet'
 import {
   DEFAULT_RACE_SORT,
   raceListQueryOptions,
@@ -15,7 +14,6 @@ import {
   RaceSort,
   raceSuggestionsQueryOptions,
   toRaceListItem,
-  type RaceListItem,
   type RaceSearchFilters,
 } from '@/entities/race'
 import { productModel } from '@/shared/api'
@@ -46,7 +44,7 @@ import { useDebouncedValue } from '../model/use-debounced-value'
 import { CategoryScreen } from './CategoryScreen'
 import { RecentSearches } from './RecentSearches'
 
-export type RaceListState = 'loading' | 'empty' | 'menu' | 'sort'
+export type RaceListState = 'loading' | 'empty' | 'sort'
 
 const SORTS = [
   { value: RaceSort.DEADLINE, label: '마감 임박순' },
@@ -97,12 +95,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
     'view_item_list',
     state || loading ? null : { hasKeyword: keyword.trim() !== '', resultCount: total },
   )
-  // 'preview': ?preview=menu로 첫 대회의 더보기 메뉴를 열어 둔다
-  const [menuRace, setMenuRace] = useState<RaceListItem | 'preview' | null>(
-    state === 'menu' ? 'preview' : null,
-  )
   const firstImageId = races.find((race) => race.image)?.id
-  const menuTarget = menuRace === 'preview' ? (races[0] ?? null) : menuRace
   const suggestionItems = [
     ...(suggestions.data?.races ?? []).map((r) => ({
       key: `race-${r.raceId}`,
@@ -120,8 +113,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
   function submitSearch(term: string) {
-    setUrl({ q: term.trim() })
-    setRecent(addRecentSearch(term))
+    const trimmed = term.trim()
+    setUrl({ q: trimmed })
+    setRecent(addRecentSearch(trimmed))
     inputRef.current?.blur()
   }
 
@@ -149,8 +143,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   return (
     <>
       {!focused && <AppHeader />}
-      <main className="flex flex-1 flex-col gap-4 px-4 pt-8 pb-8">
-        {!focused && <h1 className="text-title1">대회 찾기</h1>}
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-2 pb-4">
+        {/* v3 시안에는 큰 제목이 없다. 화면 읽기 프로그램용으로만 남긴다 */}
+        {!focused && <h1 className="sr-only">대회 찾기</h1>}
         <form
           className="relative flex items-center"
           onSubmit={(e) => {
@@ -167,7 +162,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               <Icon name="ChevronLeft" />
             </IconButton>
           )}
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-4 focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-surface p-3.5 shadow-sm inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
             <Icon name="Search" className="size-5" />
             <input
               ref={inputRef}
@@ -223,7 +218,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           />
         )}
         {!focused && (
-          <div className="flex flex-wrap gap-2">
+          <div className="-mt-1 flex flex-wrap gap-2 pb-1">
             <Chip
               selected={category.courseType !== undefined || category.surface !== undefined}
               onClick={() => setCategoryOpen(true)}
@@ -242,11 +237,11 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           </div>
         )}
         {!focused && (
-          <div className="flex items-center justify-between">
+          <div className="mt-2 flex items-center justify-between pt-1">
             {loading ? (
               <Skeleton className="w-12" />
             ) : (
-              <p className="text-body2-medium text-text-secondary">대회 {formatNumber(total)}개</p>
+              <p className="text-body1-bold">{`대회 ${formatNumber(total)}개`}</p>
             )}
             <SortSelect
               items={[...SORTS]}
@@ -288,50 +283,47 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           </div>
         )}
         {!focused && !loading && races.length > 0 && (
-          <ul className="flex flex-col">
+          <ul className="flex flex-col gap-5 pt-2">
             {races.map((race) => (
-              <li key={race.id} className="relative">
+              <li key={race.id}>
                 <Link
                   href={`/races/${race.id}`}
-                  className={cn(
-                    'flex gap-3 border border-border-default bg-bg-surface py-4 pr-12',
-                    FOCUS_RING,
-                  )}
+                  className={cn('flex items-center gap-4 rounded-md', FOCUS_RING)}
                 >
-                  {race.image ? (
-                    <Image
-                      src={race.image}
-                      alt=""
-                      width={96}
-                      height={96}
-                      // 사진이 있는 첫 카드의 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
-                      loading={race.id === firstImageId ? 'eager' : undefined}
-                      fetchPriority={race.id === firstImageId ? 'high' : undefined}
-                      className="size-24 shrink-0 rounded-md object-cover"
-                    />
-                  ) : (
-                    <RacePoster
-                      seed={race.id}
-                      title=""
-                      label={race.posterLabel}
-                      className="size-24 shrink-0 rounded-md"
-                    />
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                    <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
-                    <p className="text-body1-bold">{race.title}</p>
-                    <p className="text-body2-regular text-text-secondary">{race.meta}</p>
-                    <span className="pt-1 text-body2-medium">{race.price}</span>
-                  </div>
+                  <span className="relative block h-18 w-24 shrink-0">
+                    {race.image ? (
+                      <Image
+                        src={race.image}
+                        alt=""
+                        width={96}
+                        height={72}
+                        // 사진이 있는 첫 카드의 썸네일이 목록 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다
+                        loading={race.id === firstImageId ? 'eager' : undefined}
+                        fetchPriority={race.id === firstImageId ? 'high' : undefined}
+                        className="h-18 w-24 rounded-md object-cover"
+                      />
+                    ) : (
+                      <RacePoster
+                        seed={race.id}
+                        title=""
+                        label={race.posterLabel}
+                        className="h-18 w-24 rounded-md"
+                      />
+                    )}
+                    {race.badge && (
+                      <Badge tone={race.badge.tone} className="absolute top-2 left-2">
+                        {race.badge.label}
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate text-body1-bold">{race.title}</span>
+                    <span className="truncate text-caption-regular text-text-secondary">
+                      {race.meta}
+                    </span>
+                    <span className="text-body2-medium">{race.price}</span>
+                  </span>
                 </Link>
-                <IconButton
-                  size="s"
-                  aria-label={`${race.title} 더보기`}
-                  className="absolute top-2.5 right-2"
-                  onClick={() => setMenuRace(race)}
-                >
-                  <Icon name="MoreVertical" />
-                </IconButton>
               </li>
             ))}
           </ul>
@@ -347,12 +339,6 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         )}
       </main>
       {!focused && <BottomNav />}
-      <RaceShareSheet
-        open={menuTarget !== null}
-        onOpenChange={(open) => !open && setMenuRace(null)}
-        title={menuTarget?.title ?? ''}
-        url={`${typeof window === 'undefined' ? '' : window.location.origin}/races/${menuTarget?.id ?? ''}`}
-      />
     </>
   )
 }
@@ -393,21 +379,34 @@ function monthRange(now: Date) {
   }
 }
 
+/**
+ * 라우트 로딩(loading.tsx) 화면. 목록 요청(useInfiniteQuery)을 만들지 않는다.
+ * 요청을 먼저 만들면 서버가 미리 받은 첫 페이지가 서버 렌더에 쓰이지 않아 hydration mismatch가 난다.
+ */
+export function RaceListLoading() {
+  return (
+    <>
+      <AppHeader />
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-2 pb-4">
+        <h1 className="sr-only">대회 찾기</h1>
+        <ListSkeleton />
+      </main>
+      <BottomNav />
+    </>
+  )
+}
+
 // 피그마 M18 · 로딩: 실제 목록 줄과 같은 평평한 줄 4개
 function ListSkeleton() {
   return (
-    <div role="status" aria-label="불러오는 중" className="flex flex-col">
+    <div role="status" aria-label="불러오는 중" className="flex flex-col gap-5 pt-2">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex gap-3 border border-border-default bg-bg-surface py-4 pr-12">
-          <Skeleton shape="rect" className="size-24 shrink-0" />
-          <div className="flex flex-1 flex-col items-start gap-2">
-            <Skeleton shape="rect" className="h-4 w-12" />
+        <div key={i} className="flex items-center gap-4">
+          <Skeleton shape="rect" className="h-18 w-24 shrink-0" />
+          <div className="flex flex-1 flex-col gap-2">
             <Skeleton className="w-11/12" />
             <Skeleton className="w-4/5" />
-            <div className="flex w-full justify-between pt-1">
-              <Skeleton className="w-10" />
-              <Skeleton className="w-14" />
-            </div>
+            <Skeleton className="w-14" />
           </div>
         </div>
       ))}

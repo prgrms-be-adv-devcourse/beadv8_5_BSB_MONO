@@ -80,6 +80,7 @@ public class ApiV1FileController {
 	@Operation(summary = "대상별 파일 목록 조회",
 		description = "대상(대회 등)에 연결된 파일을 용도(fileType: 대표 이미지 → 소개 이미지 → 코스 → 키트 → 소개 영상 → 명단) → "
 			+ "노출 순서(sortNo) 순으로 돌려준다. "
+			+ "기록증은 올린 회원에게만 목록에 보인다. "
 			+ "이미지 URL은 30분 뒤 만료되는 presigned GET URL이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -91,18 +92,22 @@ public class ApiV1FileController {
 			}))
 	})
 	public ResponseEntity<RsData<List<FileDto>>> findByRef(
+		@Parameter(in = ParameterIn.HEADER, name = MemberIdHeader.NAME,
+			description = "요청한 회원 ID (본인이 올린 기록증을 볼 때 필요)", example = "1")
+		@LoginMemberId(required = false) @Nullable Long memberId,
 		@Parameter(description = "대상 종류 (대상 엔티티 클래스 이름)", example = "Race")
 		@RequestParam String refType,
 		@Parameter(description = "대상 ID", example = "1")
 		@RequestParam long refId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "파일 목록을 조회했습니다.", fileFacade.findByRef(refType, refId)));
+			.body(RsData.of(HttpStatus.OK, "파일 목록을 조회했습니다.", fileFacade.findByRef(refType, refId, memberId)));
 	}
 
 	@GetMapping("/{fileId}")
 	@Operation(summary = "파일 조회",
 		description = "파일 정보와 이미지 URL을 돌려준다. 대상에 연결된 파일은 누구나, 연결 전 파일은 올린 회원만 볼 수 있다. "
+			+ "기록증은 연결돼도 올린 회원만 볼 수 있다. "
 			+ "업로드를 확인하기 전 파일은 URL이 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
@@ -112,9 +117,11 @@ public class ApiV1FileController {
 				@ExampleObject(name = "파일 ID·회원 ID 형식 오류", value = FileApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = FileApiExamples.INVALID_MEMBER_ID)
 			})),
-		@ApiResponse(responseCode = "403", description = "다른 회원이 올린, 연결 전 파일",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = FileApiExamples.NOT_LINKED))),
+		@ApiResponse(responseCode = "403", description = "다른 회원이 올린, 연결 전 파일 또는 다른 회원의 기록증",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "연결 전 파일", value = FileApiExamples.NOT_LINKED),
+				@ExampleObject(name = "다른 회원의 기록증", value = FileApiExamples.NOT_CERT_OWNER)
+			})),
 		@ApiResponse(responseCode = "404", description = "없거나 삭제된 파일",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = FileApiExamples.FILE_NOT_FOUND)))
@@ -133,15 +140,20 @@ public class ApiV1FileController {
 	@PostMapping("/{fileId}/complete")
 	@Operation(summary = "업로드 완료 확인",
 		description = "S3에 올라간 파일의 크기와 앞부분(매직 바이트)이 발급 때 신고한 크기·형식과 같은지 확인해 업로드 완료로 바꾸고, "
-			+ "이미지를 볼 수 있는 presigned GET URL(30분)을 돌려준다. 다르면 올라간 파일을 지운다. 이미 확인한 파일은 같은 결과를 돌려준다.")
+			+ "이미지를 볼 수 있는 presigned GET URL(30분)을 돌려준다. 이미지는 가로·세로 4000px 이하, "
+			+ "대회 소개 이미지(DETAIL)는 가로 1080px 이상인지도 본다(사진 회전 정보는 반영하지 않는다). "
+			+ "맞지 않으면 올라간 파일을 지운다. 이미 확인한 파일은 같은 결과를 돌려준다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "확인 성공",
 			content = @Content(examples = @ExampleObject(value = FileApiExamples.COMPLETE_SUCCESS))),
 		@ApiResponse(responseCode = "400",
-			description = "업로드 안 됨, 신고한 형식·크기와 다름, 파일 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			description = "업로드 안 됨, 신고한 형식·크기와 다름, 이미지 규격(가로·세로)에 어긋남, 파일 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "업로드 안 됨", value = FileApiExamples.NOT_UPLOADED),
 				@ExampleObject(name = "신고한 형식·크기와 다름", value = FileApiExamples.CONTENT_MISMATCH),
+				@ExampleObject(name = "가로·세로 4000px 초과", value = FileApiExamples.IMAGE_TOO_LARGE),
+				@ExampleObject(name = "소개 이미지 가로 1080px 미만", value = FileApiExamples.IMAGE_TOO_NARROW),
+				@ExampleObject(name = "이미지 크기를 읽지 못함", value = FileApiExamples.IMAGE_UNREADABLE),
 				@ExampleObject(name = "파일 ID·회원 ID 형식 오류", value = FileApiExamples.INVALID_VALUE_TYPE),
 				@ExampleObject(name = "회원 ID가 0 이하", value = FileApiExamples.INVALID_MEMBER_ID)
 			})),

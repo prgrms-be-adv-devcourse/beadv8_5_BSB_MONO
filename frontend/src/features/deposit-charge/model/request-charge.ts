@@ -1,13 +1,8 @@
 import { clientEnv } from '@/shared/config'
 import { trackEvent } from '@/shared/lib'
 
+import { MAX_CHARGE, MIN_CHARGE } from '../lib/charge-limit'
 import { readPendingCharge, savePendingCharge } from '../lib/pending-charge'
-
-/** 정책 4장 예치금-1: 충전 최소 금액 */
-export const MIN_CHARGE = 10_000
-
-/** 정책 4장 2차 2-1: 1회 충전 한도. 넘으면 서버가 충전 전체를 거절한다 */
-export const MAX_CHARGE = 300_000
 
 /**
  * 결제 중 모자란 금액으로 충전할 금액. 1만 원보다 적게 모자라면 1만 원을 충전한다.
@@ -43,13 +38,26 @@ type Env = {
   mocking: boolean
   clientKey: string | undefined
   origin: string
+  historyLength: number
   navigate: (url: string) => void
+}
+
+// history.length에는 앞으로 가기로 갈 수 있는 기록도 들어 있지만, 결제창으로 떠나는 순간 브라우저가 그 기록을 지운다.
+// Navigation API가 있으면 그만큼 빼서 지금 화면까지의 길이를 적는다.
+// shortcut: 없는 브라우저(사파리 일부)는 앞쪽 기록을 셀 수 없어 그대로 적는다. 덜 거슬러 갈 수 있다.
+function historyLengthUpToHere() {
+  const nav = (
+    window as { navigation?: { entries(): unknown[]; currentEntry: { index: number } | null } }
+  ).navigation
+  const forward = nav?.currentEntry ? nav.entries().length - 1 - nav.currentEntry.index : 0
+  return window.history.length - Math.max(0, forward)
 }
 
 const browserEnv = (): Env => ({
   mocking: clientEnv.NEXT_PUBLIC_API_MOCKING === 'on',
   clientKey: clientEnv.NEXT_PUBLIC_TOSS_CLIENT_KEY,
   origin: window.location.origin,
+  historyLength: historyLengthUpToHere(),
   navigate: (url) => window.location.assign(url),
 })
 
@@ -73,7 +81,7 @@ export async function requestCharge(
   if (uncertainAt !== undefined && Date.now() - uncertainAt < UNCERTAIN_HOLD_MS) return 'held'
   trackEvent('deposit_charge_start', { amount, duringCheckout: returnOrderId !== undefined })
   const orderId = `charge-${crypto.randomUUID()}`
-  savePendingCharge({ orderId, amount, returnOrderId })
+  savePendingCharge({ orderId, amount, returnOrderId, historyLength: env.historyLength })
   const successUrl = returnUrl(env.origin, 'success')
   const failUrl = returnUrl(env.origin, 'fail')
 

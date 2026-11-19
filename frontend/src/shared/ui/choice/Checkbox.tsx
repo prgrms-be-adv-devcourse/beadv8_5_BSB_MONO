@@ -25,8 +25,8 @@ export function Checkbox({ label, className, ...props }: CheckboxProps) {
     >
       <BaseCheckbox.Root
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-sm bg-bg-surface text-text-on-brand inset-ring-[1.5px] inset-ring-border-strong',
-          'data-checked:bg-bg-brand data-checked:inset-ring-0 data-indeterminate:bg-bg-brand data-indeterminate:inset-ring-0',
+          'flex size-5 shrink-0 items-center justify-center rounded-full bg-bg-surface text-text-inverse inset-ring-[1.5px] inset-ring-border-strong',
+          'data-checked:bg-bg-inverse data-checked:inset-ring-0 data-indeterminate:bg-bg-inverse data-indeterminate:inset-ring-0',
           'data-disabled:bg-bg-disabled data-disabled:text-text-disabled data-disabled:inset-ring-border-disabled',
           FOCUS_RING,
         )}

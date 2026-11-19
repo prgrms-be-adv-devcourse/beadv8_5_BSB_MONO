@@ -15,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.MemberStatus;
+import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.dto.MemberNicknameDto;
 import com.bukang.member.dto.MemberReplicaDto;
 
@@ -43,6 +44,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select m from Member m where m.id = :id")
 	Optional<Member> findByIdForUpdate(@Param("id") long id);
+
+	// 잠그고 읽는다. 탈퇴한 회원이나 없는 회원이면 MemberNotFoundException(404)
+	default Member getActiveForUpdate(long id) {
+		return findByIdForUpdate(id)
+			.filter(found -> !found.isWithdrawn())
+			.orElseThrow(MemberNotFoundException::new);
+	}
 
 	boolean existsByEmail(String email);
 

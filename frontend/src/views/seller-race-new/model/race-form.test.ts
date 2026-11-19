@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest'
 import {
   COURSE_DRAFT_DEFAULTS,
   COURSE_FORM_ERRORS,
+  courseDraftSchema,
   createRaceFormSchema,
   KIT_OPTION_ERRORS,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
   raceFormSchema,
   saleOpenTooEarlyMessage,
-  toCourseInput,
+  toCourseInputFromParsed,
   toKitOptionsRequest,
   toRaceSaveRequest,
 } from './race-form'
@@ -95,7 +96,7 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
 
 describe('toRaceSaveRequest 기본 시각', () => {
   it('대회·접수 시작은 00:00, 접수 마감은 23:59:59를 붙이고 환불 기한은 날짜만 보낸다', () => {
-    const request = toRaceSaveRequest(base, [])
+    const request = toRaceSaveRequest(base, [], [])
     expect(request.raceDate).toBe('2026-10-29T00:00:00')
     expect(request.individualOpenAt).toBe('2026-10-23T00:00:00')
     expect(request.applicationCloseAt).toBe('2026-10-28T23:59:59')
@@ -103,7 +104,7 @@ describe('toRaceSaveRequest 기본 시각', () => {
   })
 })
 
-describe('toCourseInput 종목 추가 창', () => {
+describe('courseDraftSchema 종목 추가 창', () => {
   const draft = {
     ...COURSE_DRAFT_DEFAULTS,
     name: '하프',
@@ -112,61 +113,76 @@ describe('toCourseInput 종목 추가 창', () => {
     timeLimitMinutes: '180',
     price: '55000',
     individualQuota: '500',
-    minAge: '18',
+    adultOnly: false,
+  }
+
+  // 칸별 첫 오류 문구
+  function errorsOf(input: Record<string, unknown>) {
+    const result = courseDraftSchema.safeParse(input)
+    if (result.success) throw new Error('오류가 나야 한다')
+    const errors: Record<string, string> = {}
+    for (const issue of result.error.issues) errors[String(issue.path[0])] ??= issue.message
+    return errors
   }
 
   it('칸이 맞으면 종목 한 줄을 만들고, 등록 요청의 종목 목록에 그대로 들어간다', () => {
-    const result = toCourseInput(draft)
-    if (!('course' in result)) throw new Error('종목이 만들어져야 한다')
-    expect(result.course).toMatchObject({
+    const result = courseDraftSchema.safeParse(draft)
+    if (!result.success) throw new Error('종목이 만들어져야 한다')
+    const course = toCourseInputFromParsed(result.data)
+    expect(course).toMatchObject({
       name: '하프',
       courseType: 'HALF',
       distanceKm: 21.1,
       timeLimitMinutes: 180,
       price: 55000,
       individualQuota: 500,
-      minAge: 18,
-      maxAge: undefined,
+      minAge: 14,
       crewQuota: 0,
     })
+    expect(course).not.toHaveProperty('maxAge')
+    expect(course).not.toHaveProperty('adultOnly')
 
-    const request = toRaceSaveRequest({ ...base, courses: [...base.courses, result.course] }, [
+    const request = toRaceSaveRequest(
+      { ...base, courses: [...base.courses, course] },
       [],
-      [],
-      [],
-    ])
+      [[], [], []],
+    )
     expect(request.courses.map((c) => c.name)).toEqual(['10K', '5K', '하프'])
   })
 
   it('빈 칸 · 숫자가 아닌 값은 칸별 오류로 돌려준다', () => {
-    const result = toCourseInput({ ...COURSE_DRAFT_DEFAULTS, price: '5만원' })
-    if (!('errors' in result)) throw new Error('오류가 나야 한다')
-    expect(result.errors).toMatchObject({
+    expect(errorsOf({ ...COURSE_DRAFT_DEFAULTS, price: '5만원' })).toMatchObject({
       name: COURSE_FORM_ERRORS.nameRequired,
       courseType: COURSE_FORM_ERRORS.courseTypeRequired,
       price: COURSE_FORM_ERRORS.number,
     })
   })
 
-  it('최대 나이가 최소 나이보다 작으면 막는다', () => {
-    const result = toCourseInput({ ...draft, minAge: '20', maxAge: '19' })
-    expect(result).toEqual({ errors: { maxAge: COURSE_FORM_ERRORS.maxAgeOrder } })
+  it('성인만 받기를 체크하면 최소 나이 19, 안 하면 14로 만들고 최대 나이는 만들지 않는다', () => {
+    for (const [adultOnly, minAge] of [
+      [true, 19],
+      [false, 14],
+    ] as const) {
+      const result = courseDraftSchema.safeParse({ ...draft, adultOnly })
+      if (!result.success) throw new Error('종목이 만들어져야 한다')
+      const course = toCourseInputFromParsed(result.data)
+      expect(course.minAge).toBe(minAge)
+      expect(course).not.toHaveProperty('maxAge')
+    }
+  })
+
+  it('새 종목의 기본값은 성인만 받기 해제(최소 나이 14)다', () => {
+    expect(COURSE_DRAFT_DEFAULTS.adultOnly).toBe(false)
   })
 
   it('참가비 · 정원 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
-    const result = toCourseInput({
-      ...draft,
-      price: '0',
-      individualQuota: '0',
-      timeLimitMinutes: '0',
-    })
-    expect(result).toEqual({
-      errors: {
+    expect(errorsOf({ ...draft, price: '0', individualQuota: '0', timeLimitMinutes: '0' })).toEqual(
+      {
         price: COURSE_FORM_ERRORS.pricePositive,
         individualQuota: COURSE_FORM_ERRORS.quotaPositive,
         timeLimitMinutes: COURSE_FORM_ERRORS.timeLimitPositive,
       },
-    })
+    )
   })
 })
 
@@ -218,8 +234,56 @@ describe('키트 옵션 칸 (서버 RaceRequestValidator.validateKitOptions와 �
   })
 
   it('대회 등록 요청에는 키트 옵션을 넣지 않는다 (키트 옵션은 따로 등록한다)', () => {
-    const request = toRaceSaveRequest(base, [])
+    const request = toRaceSaveRequest(base, [], [])
     expect(request).not.toHaveProperty('kitOptions')
     for (const course of request.courses) expect(course).not.toHaveProperty('tshirtSizeOption')
+  })
+})
+
+describe('대회 소개 칸', () => {
+  it('2,000자를 넘기면 막고, 비어 있으면 요청에 보내지 않는다', () => {
+    const tooLong = createRaceFormSchema().safeParse({ ...base, description: 'a'.repeat(2001) })
+    expect(tooLong.success).toBe(false)
+    expect(toRaceSaveRequest(base, [], []).description).toBeUndefined()
+  })
+
+  it('앞뒤 공백을 지워 보낸다', () => {
+    expect(toRaceSaveRequest({ ...base, description: '  가을 러닝  ' }, [], []).description).toBe(
+      '가을 러닝',
+    )
+  })
+})
+
+describe('상세 주소 칸', () => {
+  it('도로명 주소 뒤에 상세 주소를 붙여 장소로 보낸다', () => {
+    const request = toRaceSaveRequest(
+      { ...base, location: '서울특별시 성동구 뚝섬로 273', locationDetail: ' 서울숲 1번 출구 ' },
+      [],
+      [],
+    )
+    expect(request.location).toBe('서울특별시 성동구 뚝섬로 273 서울숲 1번 출구')
+  })
+
+  it('상세 주소가 비어 있으면 주소만 보낸다', () => {
+    expect(toRaceSaveRequest(base, [], []).location).toBe('서울숲 일대')
+  })
+
+  it('상세 주소가 100자를 넘으면 막는다', () => {
+    const result = createRaceFormSchema().safeParse({ ...base, locationDetail: 'a'.repeat(101) })
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('기본 종목의 나이', () => {
+  it('화면에 없는 최대 나이를 보내지 않고, 최소 나이는 고를 수 있는 값(14 · 19)이다', () => {
+    const request = toRaceSaveRequest(
+      RACE_FORM_DEFAULTS,
+      [],
+      RACE_FORM_DEFAULTS.courses.map(() => []),
+    )
+    for (const course of request.courses) {
+      expect(JSON.parse(JSON.stringify(course))).not.toHaveProperty('maxAge')
+      expect([14, 19]).toContain(course.minAge)
+    }
   })
 })

@@ -78,10 +78,10 @@ const ADMIN_ANSWERS: { match: string; answer: unknown }[] = [
       answer: '지급보류 중인 정산은 2건이고, 보류 금액은 모두 ₩3,260,000이에요.',
       sources: [
         {
-          screen: '정산 · 환급 처리 · 지급보류',
+          screen: '정산 관리 · 지급보류',
           asOf: '2026-11-03T14:03:00',
-          buttonLabel: '지급보류 관리에서 보기',
-          path: '/admin/holds',
+          buttonLabel: '정산 관리에서 보기',
+          path: '/admin/settlements?tab=지급보류',
         },
       ],
       list: null,

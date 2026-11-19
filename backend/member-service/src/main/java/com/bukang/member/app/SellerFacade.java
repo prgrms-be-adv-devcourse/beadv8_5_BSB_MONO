@@ -1,6 +1,6 @@
 package com.bukang.member.app;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -28,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class SellerFacade {
+	private final Clock clock;
 	private final SellerApplyUseCase sellerApplyUseCase;
 	private final PayoutAccountVerifyUseCase payoutAccountVerifyUseCase;
 	private final SellerReviewUseCase sellerReviewUseCase;
@@ -39,7 +40,8 @@ public class SellerFacade {
 	// 정산 계좌 확인(오픈뱅킹)은 트랜잭션 밖에서 하고, 저장만 SellerApplyUseCase의 트랜잭션에서 한다 (BUK-50)
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public SellerDto apply(long memberId, SellerApplyRequestDto request) {
-		VerifiedPayoutAccount payoutAccount = payoutAccountVerifyUseCase.verify(memberId, request, LocalDateTime.now());
+		VerifiedPayoutAccount payoutAccount = payoutAccountVerifyUseCase.verify(memberId, request,
+			ClockTimes.now(clock));
 		return SellerDto.from(sellerApplyUseCase.apply(
 			memberId,
 			request.getSellerType(),
@@ -47,7 +49,8 @@ public class SellerFacade {
 			request.getBusinessNumber(),
 			request.getRepresentativeName(),
 			payoutAccount,
-			LocalDateTime.now()
+			Boolean.TRUE.equals(request.getSellerTermsAgreed()),
+			ClockTimes.now(clock)
 		));
 	}
 
@@ -59,14 +62,14 @@ public class SellerFacade {
 
 	@Transactional
 	public SellerDto checkMyResult(long memberId) {
-		return SellerDto.from(sellerResultCheckUseCase.check(memberId, LocalDateTime.now()));
+		return SellerDto.from(sellerResultCheckUseCase.check(memberId, ClockTimes.now(clock)));
 	}
 
 	// 다른 서비스(정산)가 회원 ID로 판매자 ID를 찾는다. 탈퇴했거나 없는 회원은 404, 신청이 없으면 빈 칸으로 돌려준다
 	// 대기·승인 신청이 있으면 다시 신청할 수 없으므로(SellerApplyUseCase) 승인된 신청이 있으면 가장 최근 신청이 그것이다
 	public MemberSellerDto findSellerOfMember(long memberId) {
 		memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 		return sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
 			.map(MemberSellerDto::from)
 			.orElse(MemberSellerDto.NONE);
@@ -98,12 +101,12 @@ public class SellerFacade {
 	@Transactional
 	public SellerDto approve(long adminId, long sellerId) {
 		adminVerifyUseCase.verify(adminId);
-		return SellerDto.from(sellerReviewUseCase.approve(adminId, sellerId, LocalDateTime.now()));
+		return SellerDto.from(sellerReviewUseCase.approve(adminId, sellerId, ClockTimes.now(clock)));
 	}
 
 	@Transactional
 	public SellerDto reject(long adminId, long sellerId, String reason) {
 		adminVerifyUseCase.verify(adminId);
-		return SellerDto.from(sellerReviewUseCase.reject(adminId, sellerId, reason, LocalDateTime.now()));
+		return SellerDto.from(sellerReviewUseCase.reject(adminId, sellerId, reason, ClockTimes.now(clock)));
 	}
 }

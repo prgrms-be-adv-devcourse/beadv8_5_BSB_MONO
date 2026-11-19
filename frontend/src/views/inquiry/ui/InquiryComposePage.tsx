@@ -11,6 +11,7 @@ import {
   ASSIGNEE_OF,
   BODY_MAX,
   inquiryErrorMessage,
+  inquiryFormSchema,
   TITLE_MAX,
   TYPE_CHOICES,
   TYPE_LABEL,
@@ -218,16 +219,19 @@ function WriteStep({
   const create = useCreateInquiry()
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const ready = subject.trim() !== '' && body.trim() !== ''
+  const form = inquiryFormSchema.safeParse({ title: subject, body })
+  const ready = form.success
 
-  const send = () =>
+  const send = () => {
+    if (!form.success) return
     create.mutate(
-      { ...target, type, title: subject.trim(), body: body.trim() },
+      { ...target, type, ...form.data },
       {
         onSuccess: () => router.replace('/me/inquiries?sent=1'),
         onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
       },
     )
+  }
 
   return (
     <>

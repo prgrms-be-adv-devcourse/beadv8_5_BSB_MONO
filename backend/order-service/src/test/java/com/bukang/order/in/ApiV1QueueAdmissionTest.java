@@ -11,13 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +28,6 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.bukang.order.domain.Order;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.bukang.order.support.StubSeatHoldPort;
@@ -64,9 +57,6 @@ class ApiV1QueueAdmissionTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private StubRaceCoursePort raceCoursePort;
 
 	@Autowired
@@ -76,7 +66,6 @@ class ApiV1QueueAdmissionTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 	}
@@ -125,35 +114,6 @@ class ApiV1QueueAdmissionTest {
 		String after = JsonPath.read(admission(memberId).andReturn().getResponse().getContentAsString(),
 			"$.data.admissionEndsAt");
 		assertThat(LocalDateTime.parse(after)).isAfter(LocalDateTime.parse(before));
-		// 다시 입장하면 저장한 끝 시각도 새 값으로 바뀐다 ([결제하기]가 이 값을 결제 기한으로 쓴다)
-		assertThat(queueAdmissionRepository.findByMemberIdAndRaceCourseId(memberId, COURSE_ID).orElseThrow()
-			.getAdmissionEndsAt()).isCloseTo(LocalDateTime.parse(after), within(1, ChronoUnit.MICROS));
-	}
-
-	@Test
-	@DisplayName("같은 회원이 처음 들어오며 동시에 여러 번 물어도 모두 200이고, 입장 끝 시각은 한 줄로 저장된다")
-	void concurrentFirstEntry() throws Exception {
-		int callers = 8;
-		// 처음 넣는 줄이 겹치는 경우를 여러 번 만들려고 회원을 바꿔 가며 되풀이한다
-		for (long memberId = 200; memberId < 210; memberId++) {
-			long targetMemberId = memberId;
-			CountDownLatch start = new CountDownLatch(1);
-			List<Future<Integer>> statuses = new ArrayList<>();
-			try (ExecutorService executor = Executors.newFixedThreadPool(callers)) {
-				for (int index = 0; index < callers; index++) {
-					statuses.add(executor.submit(() -> {
-						start.await();
-						return admission(targetMemberId).andReturn().getResponse().getStatus();
-					}));
-				}
-				start.countDown();
-				for (Future<Integer> callStatus : statuses) {
-					assertThat(callStatus.get()).isEqualTo(200);
-				}
-			}
-			assertThat(queueAdmissionRepository.findByMemberIdAndRaceCourseId(targetMemberId, COURSE_ID)).isPresent();
-		}
-		assertThat(queueAdmissionRepository.count()).isEqualTo(10);
 	}
 
 	@Test

@@ -133,6 +133,55 @@ describe('MyPage 회원 정보', () => {
     expect(document.querySelector('a[href="/me/edit"]')).toBeNull()
   })
 
+  it('v3 시안: 예치금 상자에서 충전하기 · 돌려받기로 가고, 머리말에 검색 아이콘은 없다', async () => {
+    setAccessToken('access-token')
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPage />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByRole('link', { name: '충전하기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/charge',
+    )
+    expect(screen.getByRole('link', { name: '돌려받기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/refund',
+    )
+    expect(screen.queryByRole('link', { name: '대회 찾기' })).not.toBeInTheDocument()
+  })
+
+  it('v3 시안: 나의 참가 · 문의 · 설정 · 판매 묶음에 메뉴가 있고, 주문 · 배송 내역은 API가 없어 없다', async () => {
+    setAccessToken('access-token')
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MyPage />
+      </QueryClientProvider>,
+    )
+
+    for (const title of ['나의 참가', '문의', '설정', '판매']) {
+      expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
+    }
+    const hrefs: [string, string][] = [
+      ['내 참가권', '/tickets'],
+      ['예치금 내역', '/me/deposit'],
+      ['내 크루', '/crews'],
+      ['내 문의', '/me/inquiries'],
+      ['참가 · 결제 문의하기', '/me/inquiries/new'],
+      ['고객센터', '/me/support'],
+      ['알림 설정', '/me/notification-settings'],
+      ['연결된 계정', '/me/accounts'],
+      ['약관 · 정책', '/me/settings/terms'],
+    ]
+    for (const [name, href] of hrefs) {
+      expect(
+        within(screen.getByRole('main')).getByRole('link', { name: new RegExp(name) }),
+      ).toHaveAttribute('href', href)
+    }
+    expect(screen.queryByRole('link', { name: /주문 · 배송 내역/ })).not.toBeInTheDocument()
+  })
+
   it('내 정보를 불러오는 동안에는 회색 상자 화면을 보여 준다', () => {
     setAccessToken('access-token')
     render(
@@ -361,5 +410,55 @@ describe('MyPage 판매자 메뉴', () => {
 
     await vi.waitFor(() => expect(called).toBe(true))
     expect(await sellerLink(/판매자 등록 신청/)).toHaveAttribute('href', '/seller-apply/result')
+  })
+})
+
+describe('MyPage 관리자 메뉴', () => {
+  const renderPage = () => {
+    setAccessToken('access-token')
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MyPage />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('관리자 전용 API가 응답하면 관리자 센터 줄이 관리자 홈으로 간다', async () => {
+    server.use(
+      http.get('*/api/v1/member/admin/sellers', () =>
+        HttpResponse.json({ status: 200, message: '조회했습니다.', data: [] }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /관리자 센터/ })).toHaveAttribute(
+      'href',
+      '/admin',
+    )
+  })
+
+  it('관리자가 아니면(403 MEMBER_NOT_ADMIN) 관리자 센터 줄을 보여 주지 않는다', async () => {
+    let called = false
+    server.use(
+      http.get('*/api/v1/member/admin/sellers', () => {
+        called = true
+        return HttpResponse.json(
+          {
+            status: 403,
+            code: 'MEMBER_NOT_ADMIN',
+            message: '관리자만 이용할 수 있습니다.',
+            data: null,
+          },
+          { status: 403 },
+        )
+      }),
+    )
+    renderPage()
+
+    await screen.findByRole('link', { name: /판매자/ })
+    await vi.waitFor(() => expect(called).toBe(true))
+    expect(screen.queryByRole('link', { name: /관리자 센터/ })).not.toBeInTheDocument()
   })
 })

@@ -1,30 +1,41 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { BODY_MAX, inquiryErrorMessage, TITLE_MAX, useCreateInquiry } from '@/entities/inquiry'
-import { useGoBack } from '@/shared/lib'
+import {
+  BODY_MAX,
+  inquiryErrorMessage,
+  inquiryFormSchema,
+  TITLE_MAX,
+  useCreateInquiry,
+} from '@/entities/inquiry'
 import { Button, Textarea, TextField, useToast } from '@/shared/ui'
 
 // 피그마 S14 크루런에 문의하기: 승인된 판매자가 대회 · 주문 없이 관리자에게 보낸다
 export function SellerNewInquiry() {
-  const goBack = useGoBack()
+  const router = useRouter()
   const toast = useToast()
   const create = useCreateInquiry()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
 
-  const send = () =>
+  const form = inquiryFormSchema.safeParse({ title, body })
+
+  const send = () => {
+    if (!form.success) return
     create.mutate(
-      { type: 'SELLER_SUPPORT', title: title.trim(), body: body.trim() },
+      { type: 'SELLER_SUPPORT', ...form.data },
       {
         onSuccess: () => {
           toast({ message: '문의를 보냈어요' })
-          goBack('/seller/inquiries')
+          // 방금 보낸 문의가 보이는 보낸 문의 탭으로 간다
+          router.replace('/seller/inquiries?filter=SENT')
         },
         onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
       },
     )
+  }
 
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-bg-surface p-6 inset-ring inset-ring-border-default">
@@ -44,7 +55,7 @@ export function SellerNewInquiry() {
       />
       <Button
         className="self-end"
-        disabled={title.trim() === '' || body.trim() === ''}
+        disabled={!form.success}
         loading={create.isPending}
         onClick={send}
       >

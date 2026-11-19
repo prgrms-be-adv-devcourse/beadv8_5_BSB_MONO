@@ -13,16 +13,16 @@ export type RaceImages = {
   intro: File[]
 }
 
-/** 한 종목에 붙일 이미지를 올리고 파일 ID 목록을 만든다. */
-async function uploadCourseImages(images: RaceImages): Promise<productModel.RaceImageRequestDto[]> {
-  const [cover, ...intro] = await Promise.all([
-    uploadFile(images.cover, FileType.THUMBNAIL),
-    ...images.intro.map((file) => uploadFile(file, FileType.DETAIL)),
-  ])
-  return [
-    { fileId: cover.fileId, fileType: FileType.THUMBNAIL, sortNo: 0 },
-    ...intro.map((file, i) => ({ fileId: file.fileId, fileType: FileType.DETAIL, sortNo: i })),
-  ]
+/** 대표 이미지를 올려 대회 이미지 목록을 만든다. 대표 이미지는 대회마다 1장이고 종목이 아니라 대회에 붙는다 (CRU-6) */
+async function uploadRaceImages(cover: File): Promise<productModel.RaceImageRequestDto[]> {
+  const uploaded = await uploadFile(cover, FileType.THUMBNAIL)
+  return [{ fileId: uploaded.fileId, fileType: FileType.THUMBNAIL, sortNo: 0 }]
+}
+
+/** 한 종목에 붙일 소개 이미지를 올리고 파일 ID 목록을 만든다. */
+async function uploadCourseImages(intro: File[]): Promise<productModel.RaceImageRequestDto[]> {
+  const uploaded = await Promise.all(intro.map((file) => uploadFile(file, FileType.DETAIL)))
+  return uploaded.map((file, i) => ({ fileId: file.fileId, fileType: FileType.DETAIL, sortNo: i }))
 }
 
 /** 같은 파일인지 알아볼 값. File은 JSON으로 바꾸면 내용이 비어서 이름 · 크기 · 수정 시각으로 대신한다. */
@@ -50,7 +50,7 @@ async function saveKitOptions(raceId: number, body: productModel.KitOptionsSaveR
 
 /**
  * 대회 등록: 사진을 올린 뒤 대회를 등록하고, 받은 대회 ID로 키트 옵션을 따로 등록한다.
- * 이미지는 종목마다 붙고 한 파일은 한 종목에만 연결되므로, 화면에서 고른 사진을 종목마다 따로 올린다.
+ * 대표 이미지는 대회에 한 번 올린다. 소개 이미지는 종목마다 붙고 한 파일은 한 대상에만 연결되므로 종목마다 따로 올린다.
  *
  * 같은 입력으로 다시 누르면(두 번 클릭 · 실패 뒤 재시도) 같은 Idempotency-Key를 보내 대회가 한 번만 등록된다.
  * 키트 옵션은 키에 넣지 않는다. 옵션 저장만 실패했을 때 옵션을 고쳐 다시 눌러도 같은 대회에 붙는다.
@@ -78,9 +78,14 @@ export function useRegisterRace() {
         cover: fileSignature(images.cover),
         intro: images.intro.map(fileSignature),
       })
-      const courseImages = await Promise.all(values.courses.map(() => uploadCourseImages(images)))
+      const [raceImages, courseImages] = await Promise.all([
+        uploadRaceImages(images.cover),
+        Promise.all(values.courses.map(() => uploadCourseImages(images.intro))),
+      ])
       const saved = unwrapData(
-        await productApi.register(toRaceSaveRequest(values, courseImages), { idempotencyKey }),
+        await productApi.register(toRaceSaveRequest(values, raceImages, courseImages), {
+          idempotencyKey,
+        }),
       )
       if (kitOptions.length > 0) {
         await saveKitOptions(saved.raceId, toKitOptionsRequest(kitOptions)).catch((error) => {
