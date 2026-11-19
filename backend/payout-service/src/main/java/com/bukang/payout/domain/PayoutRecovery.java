@@ -91,18 +91,22 @@ public class PayoutRecovery extends BaseIdAndTime {
 		this.status = PayoutRecoveryStatus.회수_요청;
 	}
 
+	// 환불된 참가권 한 장의 회수. 사유(일정 변경 · 대회 취소)만 다르고 나머지는 같아 한 팩토리로 만든다
+	public static PayoutRecovery of(long sellerId, long raceId, long orderItemId, PayoutRecoveryReason reason,
+		long amount, LocalDateTime requestedAt) {
+		return new PayoutRecovery(sellerId, raceId, orderItemId, reason, amount, requestedAt);
+	}
+
 	// 일정 변경으로 환불된 참가권 한 장의 회수
 	public static PayoutRecovery scheduleChanged(long sellerId, long raceId, long orderItemId, long amount,
 		LocalDateTime requestedAt) {
-		return new PayoutRecovery(sellerId, raceId, orderItemId, PayoutRecoveryReason.일정_변경, amount,
-			requestedAt);
+		return of(sellerId, raceId, orderItemId, PayoutRecoveryReason.일정_변경, amount, requestedAt);
 	}
 
 	// 대회 취소로 환불된 참가권 한 장의 회수 (BUK-76)
 	public static PayoutRecovery raceCanceled(long sellerId, long raceId, long orderItemId, long amount,
 		LocalDateTime requestedAt) {
-		return new PayoutRecovery(sellerId, raceId, orderItemId, PayoutRecoveryReason.대회_취소, amount,
-			requestedAt);
+		return of(sellerId, raceId, orderItemId, PayoutRecoveryReason.대회_취소, amount, requestedAt);
 	}
 
 	private static String recoveryKeyOf(long raceId, Long orderItemId, PayoutRecoveryReason reasonType) {

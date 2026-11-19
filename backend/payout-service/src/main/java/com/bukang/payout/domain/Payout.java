@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -197,10 +198,7 @@ public class Payout extends BaseIdAndTime {
 				"한 코스의 참가권 가격이 하나가 아닙니다. raceId=%d, raceCourseId=%d, priceSum=%d, entryCount=%d"
 					.formatted(raceId, raceCourseId, priceSum, entryCount));
 		}
-		boolean alreadyRecorded = items.stream()
-			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선금
-				&& Long.valueOf(raceCourseId).equals(item.getRaceCourseId()));
-		if (alreadyRecorded) {
+		if (hasLine(PayoutRecordType.선금, raceCourseId)) {
 			throw new IllegalStateException(
 				"선금 줄은 코스마다 하나만 씁니다. raceId=%d, raceCourseId=%d".formatted(raceId, raceCourseId));
 		}
@@ -262,9 +260,7 @@ public class Payout extends BaseIdAndTime {
 		if (payoutStage != PayoutStage.최종_정산) {
 			throw new IllegalStateException("1차 정산금 차감은 최종 정산에만 씁니다. payoutStage=%s".formatted(payoutStage));
 		}
-		boolean alreadyDeducted = items.stream()
-			.anyMatch(item -> item.getRecordType() == PayoutRecordType.선지급_차감);
-		if (alreadyDeducted) {
+		if (hasLine(PayoutRecordType.선지급_차감, null)) {
 			throw new IllegalStateException("1차 정산금 차감 줄은 하나만 씁니다. raceId=%d".formatted(raceId));
 		}
 		this.advanceDeductionAmount = amount;
@@ -300,6 +296,12 @@ public class Payout extends BaseIdAndTime {
 		return item;
 	}
 
+	// 같은 종류 · 코스의 원장 줄이 이미 있는지. 선지급_차감처럼 코스가 없는 줄은 raceCourseId를 null로 넘긴다
+	private boolean hasLine(PayoutRecordType recordType, Long raceCourseId) {
+		return items.stream().anyMatch(item -> item.getRecordType() == recordType
+			&& Objects.equals(raceCourseId, item.getRaceCourseId()));
+	}
+
 	// 저장해서 ID를 받은 뒤 부른다. 하루 65,536건을 넘지 않는 한 같은 날 같은 코드가 나오지 않는다
 	public void assignPayoutCode() {
 		this.payoutCode = "ST-%s-%04X".formatted(settledAt.format(CODE_DATE), getId() & 0xFFFF);
@@ -311,10 +313,7 @@ public class Payout extends BaseIdAndTime {
 	 * 배치 두 개가 같은 정산 내역을 동시에 고르면 낙관적 락(@Version) 때문에 늦게 커밋한 쪽이 실패해 한쪽만 요청한다
 	 */
 	public void startPaying(LocalDateTime startedAt) {
-		if (status != PayoutStatus.지급_예정) {
-			throw new IllegalStateException("정산 예정 상태가 아니라 지급을 시작할 수 없습니다. payoutId=%d, status=%s"
-				.formatted(getId(), status));
-		}
+		requireStatus("정산 예정 상태가 아니라 지급을 시작할 수 없습니다", PayoutStatus.지급_예정);
 		changeStatus(PayoutStatus.지급_중, PayoutHold.SYSTEM_MEMBER_ID, startedAt, null);
 	}
 
@@ -323,14 +322,10 @@ public class Payout extends BaseIdAndTime {
 	 * 지급 예정일은 그대로 두므로 다음 실행에서 다시 지급한다. 결과를 모를 때(타임아웃 · 5xx)는 되돌리지 않고 지급_중으로 둔다
 	 */
 	public void revertPaying(LocalDateTime revertedAt, String reason) {
-		if (status != PayoutStatus.지급_중) {
-			throw new IllegalStateException("지급 중 상태가 아니라 되돌릴 수 없습니다. payoutId=%d, status=%s"
-				.formatted(getId(), status));
-		}
+		requireStatus("지급 중 상태가 아니라 되돌릴 수 없습니다", PayoutStatus.지급_중);
 		changeStatus(PayoutStatus.지급_예정, PayoutHold.SYSTEM_MEMBER_ID, revertedAt, reason);
 		// 거절은 돈이 안 나간 것이 확실한 결과다. 다음 지급은 결과 모름을 처음부터 다시 센다 (PR #427 리뷰, 11/12 결정)
-		unknownPayCount = 0;
-		lastUnknownPayDate = null;
+		resetUnknownPay();
 	}
 
 	/**
@@ -340,10 +335,7 @@ public class Payout extends BaseIdAndTime {
 	 * @return 이번에 지급_확인_필요로 바뀌었으면 true
 	 */
 	public boolean recordUnknownPay(LocalDate runDate, LocalDateTime recordedAt) {
-		if (status != PayoutStatus.지급_중) {
-			throw new IllegalStateException("지급 중 상태가 아니라 결과 모름을 셀 수 없습니다. payoutId=%d, status=%s"
-				.formatted(getId(), status));
-		}
+		requireStatus("지급 중 상태가 아니라 결과 모름을 셀 수 없습니다", PayoutStatus.지급_중);
 		if (runDate.equals(lastUnknownPayDate)) {
 			return false;
 		}
@@ -360,10 +352,7 @@ public class Payout extends BaseIdAndTime {
 	// 지급 불일치: 캐시 서비스가 같은 정산 ID를 이미 다른 판매자 · 금액으로 처리했다고 답했다(409, BUK-62)
 	// 돈은 캐시 서비스에 저장된 금액으로 나갔다. 정산 예정으로 되돌리면 매일 다시 요청하므로 따로 멈춘다
 	public void markPayMismatch(LocalDateTime markedAt, String reason) {
-		if (status != PayoutStatus.지급_중) {
-			throw new IllegalStateException("지급 중 상태가 아니라 지급 불일치로 바꿀 수 없습니다. payoutId=%d, status=%s"
-				.formatted(getId(), status));
-		}
+		requireStatus("지급 중 상태가 아니라 지급 불일치로 바꿀 수 없습니다", PayoutStatus.지급_중);
 		changeStatus(PayoutStatus.지급_불일치, PayoutHold.SYSTEM_MEMBER_ID, markedAt, reason);
 	}
 
@@ -371,10 +360,7 @@ public class Payout extends BaseIdAndTime {
 	// 옮길 돈이 0원인 정산 내역은 캐시 서비스를 부르지 않으므로 정산 예정에서 바로 바꾼다
 	// 보류된 정산 내역은 지급 완료로 바꿀 수 없다. 배치가 지급보류를 고르지 않지만, 잘못 불려도 여기서 막는다
 	public void pay(LocalDateTime paidAt) {
-		if (status != PayoutStatus.지급_예정 && status != PayoutStatus.지급_중) {
-			throw new IllegalStateException("정산 예정 · 지급 중 상태가 아니라 지급할 수 없습니다. payoutId=%d, status=%s"
-				.formatted(getId(), status));
-		}
+		requireStatus("정산 예정 · 지급 중 상태가 아니라 지급할 수 없습니다", PayoutStatus.지급_예정, PayoutStatus.지급_중);
 		// 지급은 지급 배치가 한다
 		changeStatus(PayoutStatus.지급_완료, PayoutHold.SYSTEM_MEMBER_ID, paidAt, null);
 		this.paidAt = paidAt;
@@ -388,23 +374,10 @@ public class Payout extends BaseIdAndTime {
 	// 지급보류 걸기: 지급 예정 · 지급보류일 때 건다. 사유가 다르면 여러 개 걸 수 있다 (BUK-67 H1)
 	// 같은 사유가 이미 걸려 있으면 막는다. 보류 기록(PayoutHold)은 여기서만 만든다. 저장은 호출한 쪽이 한다
 	public PayoutHold hold(PayoutHoldReason reasonType, String reason, long heldBy, LocalDateTime heldAt) {
-		// 캐시 서비스에 돈을 옮겨 달라고 요청한 뒤라 돈이 이미 나갔을 수 있다 (PRO-252)
-		if (status == PayoutStatus.지급_중) {
-			throw new PayoutHoldConflictException("지급 중인 정산 내역입니다.");
-		}
-		if (status == PayoutStatus.지급_완료) {
-			throw new PayoutHoldConflictException("이미 지급 완료된 정산 내역입니다.");
-		}
-		// 돈은 이미 나갔다. 보류했다가 풀면 정산 예정으로 돌아가 다시 지급 요청을 하게 된다 (BUK-62)
-		if (status == PayoutStatus.지급_불일치) {
-			throw new PayoutHoldConflictException("지급 금액이 맞지 않아 확인 중인 정산 내역입니다.");
-		}
-		// 돈이 나갔는지 모른다. 지급 중과 같다 (BUK-166)
-		if (status == PayoutStatus.지급_확인_필요) {
-			throw new PayoutHoldConflictException("지급 결과를 확인 중인 정산 내역입니다.");
-		}
-		if (status == PayoutStatus.취소) {
-			throw new PayoutHoldConflictException("취소된 정산 내역입니다.");
+		// 걸 수 있는 건 지급 전(지급 예정 · 지급보류)뿐이다. 그 밖은 상태별 문구로 막는다
+		// 상태를 새로 더해도 지급 전이 아닌 한 보류가 기본으로 막힌다 (CRU-11)
+		if (!status.isBeforePayment()) {
+			throw new PayoutHoldConflictException(holdBlockReason());
 		}
 		if (isHeldFor(reasonType)) {
 			throw new PayoutHoldConflictException("이미 같은 사유로 지급보류 중인 정산 내역입니다.");
@@ -416,6 +389,22 @@ public class Payout extends BaseIdAndTime {
 		PayoutHold hold = new PayoutHold(this, reasonType, reason, heldBy, heldAt);
 		holds.add(hold);
 		return hold;
+	}
+
+	// 지급 전이 아니라 보류를 막을 때의 안내 문구. 상태마다 돈이 나간 정도가 달라 문구가 다르다
+	private String holdBlockReason() {
+		return switch (status) {
+			// 캐시 서비스에 돈을 옮겨 달라고 요청한 뒤라 돈이 이미 나갔을 수 있다 (PRO-252)
+			case 지급_중 -> "지급 중인 정산 내역입니다.";
+			case 지급_완료 -> "이미 지급 완료된 정산 내역입니다.";
+			// 돈은 이미 나갔다. 보류했다 풀면 정산 예정으로 돌아가 다시 지급 요청을 한다 (BUK-62)
+			case 지급_불일치 -> "지급 금액이 맞지 않아 확인 중인 정산 내역입니다.";
+			// 돈이 나갔는지 모른다. 지급 중과 같다 (BUK-166)
+			case 지급_확인_필요 -> "지급 결과를 확인 중인 정산 내역입니다.";
+			case 취소 -> "취소된 정산 내역입니다.";
+			// 지급 전(지급 예정 · 지급보류)은 호출 전에 걸러져 여기 오지 않는다
+			default -> throw new IllegalStateException("지급 전 상태는 보류를 막지 않습니다. status=%s".formatted(status));
+		};
 	}
 
 	// 이 사유의 보류가 걸려 있는지 (같은 사유는 두 번 걸 수 없다)
@@ -540,6 +529,11 @@ public class Payout extends BaseIdAndTime {
 			return;
 		}
 		changeStatus(PayoutStatus.지급_예정, confirmedBy, confirmedAt, memo);
+		resetUnknownPay();
+	}
+
+	// 지급 결과 모름 횟수와 기준일을 처음으로 되돌린다. 거절 · 미지급 확인처럼 돈이 안 나간 것이 확실할 때 부른다
+	private void resetUnknownPay() {
 		unknownPayCount = 0;
 		lastUnknownPayDate = null;
 	}
@@ -558,6 +552,16 @@ public class Payout extends BaseIdAndTime {
 			item.getRaceCourseId(), -item.getAmount(), item.getFeeRate(), item.getPayoutCreateDate()));
 		activeHolds().toList().forEach(hold -> hold.markCanceled(canceledBy, canceledAt));
 		changeStatus(PayoutStatus.취소, canceledBy, canceledAt, reason);
+	}
+
+	// 기대 상태가 아니면 그 동작을 막는다. 문구는 "<동작 설명>. payoutId=%d, status=%s"로 상태별 검사와 같다
+	private void requireStatus(String blockMessage, PayoutStatus... allowed) {
+		for (PayoutStatus candidate : allowed) {
+			if (status == candidate) {
+				return;
+			}
+		}
+		throw new IllegalStateException("%s. payoutId=%d, status=%s".formatted(blockMessage, getId(), status));
 	}
 
 	private void changeStatus(PayoutStatus to, long changedBy, LocalDateTime changedAt, String reason) {
