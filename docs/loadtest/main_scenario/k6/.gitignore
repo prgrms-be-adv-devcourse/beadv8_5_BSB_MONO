@@ -3,6 +3,7 @@
 *.log
 *-metrics.txt
 results/
+.password
 .prom-rw-password.txt
 race.json
 runs/

@@ -67,7 +67,7 @@ k6 run -e STAGE=buystress --summary-export buy.json funnel.js   # buy 15/s
 
 ## 셋업 현황 (운영에 넣고 검증 완료, 2026-11-18)
 
-- **loadtest 회원 1,000명 준비·검증 완료**: loadtest1~1000 전원 존재, 비밀번호 `Loadtest!2026` DB 통일(`password_hash` BCrypt `$2a$10$`), 예치금 각 100만(`cash_wallet.balance`). 검증: members 1~1000=1000, 지갑 100만=1000(누락 0), 로그인 1·500·1000 모두 200.
+- **loadtest 회원 1,000명 준비·검증 완료**: loadtest1~1000 전원 존재, 비밀번호 DB 통일(값은 커밋하지 않음 — prod-run\.password, `password_hash` BCrypt `$2a$10$`), 예치금 각 100만(`cash_wallet.balance`). 검증: members 1~1000=1000, 지갑 100만=1000(누락 0), 로그인 1·500·1000 모두 200.
 - **발생기 스크립트 준비 완료**: 미니 PC `C:\Users\user\loadtest\prod-run\`에 `login-prod.js`·`funnel.js`, k6 `k6bin\...\k6.exe`. 실행 명령은 "실행 명령" 절.
 - 판매자: `admin@crewrun.com`(member 8) → `product_seller` id 1005 등록 완료.
 - 테스트 대회: race 9(구매, 코스 16 정원 5000, kit_included=0)·race 10(대기)을 판매자 1005로 열고 ON_SALE 전환 확인.

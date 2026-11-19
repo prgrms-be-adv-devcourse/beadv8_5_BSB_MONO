@@ -9,8 +9,9 @@ $k6 = 'C:\Users\user\loadtest\k6bin\k6-v0.54.0-windows-amd64\k6.exe'
 $dir = "runs\$Tag"
 New-Item -ItemType Directory -Force $dir | Out-Null
 
-# 비밀번호는 run-login.ps1에 적어 둔 값을 그대로 읽는다 (한 곳에서만 관리)
-$env:LOADTEST_PASSWORD = ([regex]::Match((Get-Content 'run-login.ps1' -Raw), "LOADTEST_PASSWORD = '([^']+)'")).Groups[1].Value
+# 비밀번호는 커밋하지 않는 .password 파일에서 읽는다 (prod-run\.password, 한 줄)
+if (-not (Test-Path '.password')) { throw '.password 파일이 없습니다. prod-run\.password에 loadtest 비번 한 줄을 넣으세요' }
+$env:LOADTEST_PASSWORD = (Get-Content '.password' -Raw).Trim()
 & $k6 run -q -e LABEL=$Stage prepare-race.js *> "$dir\$Stage.prepare.log"
 if ($LASTEXITCODE -ne 0) { Get-Content "$dir\$Stage.prepare.log" -Tail 15; exit 1 }
 Copy-Item race.json "$dir\$Stage.race.json" -Force
