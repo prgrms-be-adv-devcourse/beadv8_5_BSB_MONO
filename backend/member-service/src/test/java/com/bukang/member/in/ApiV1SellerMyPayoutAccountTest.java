@@ -388,6 +388,47 @@ class ApiV1SellerMyPayoutAccountTest {
 		assertThat(saved.getPayoutAccountNumber()).isIn(NEW_NUMBER, "3332000100456");
 	}
 
+	@Test
+	@DisplayName("탈퇴한 회원이 남은 토큰으로 조회·수정하면 404이고 은행을 부르지 않는다")
+	void withdrawnMemberIsNotFound() throws Exception {
+		approve();
+		jdbcTemplate.update("update member_member set status = 'WITHDRAWN' where member_id = ?", memberId);
+
+		mockMvc.perform(get(MY_ACCOUNT).header(MemberIdHeader.NAME, memberId))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("MEMBER_NOT_FOUND"));
+		modify(memberId, "088", NEW_NUMBER, "PERSONAL")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("MEMBER_NOT_FOUND"));
+
+		assertThat(verifier.inquiries()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("예금주 확인이 끝난 뒤 저장 전에 탈퇴하면 저장은 404로 끝나고 기존 계좌를 그대로 둔다")
+	void withdrawnBetweenVerifyAndSave() throws Exception {
+		approve();
+		verifier.answer(inquiry -> {
+			jdbcTemplate.update("update member_member set status = 'WITHDRAWN' where member_id = ?", memberId);
+			return inquiry.applicantName();
+		});
+
+		modify(memberId, "088", NEW_NUMBER, "PERSONAL").andExpect(status().isNotFound());
+
+		assertOldAccountKept();
+	}
+
+	@Test
+	@DisplayName("사업자 판매자도 본인 명의 계좌로 바꿀 수 있고, 예금주 이름이 다르면 400이다")
+	void businessSellerPersonalHolder() throws Exception {
+		approve();
+		verifier.answer(inquiry -> "박러너");
+
+		modify(memberId, "088", NEW_NUMBER, "PERSONAL").andExpect(status().isBadRequest());
+
+		assertOldAccountKept();
+	}
+
 	private void assertOldAccountKept() {
 		Seller seller = sellerRepository.findById(sellerId).orElseThrow();
 		assertThat(seller.getPayoutBankCode()).isEqualTo("004");
