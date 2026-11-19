@@ -2,6 +2,7 @@ package com.bukang.payout.app;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -14,6 +15,8 @@ final class PayoutExportCsv {
 	private static final String BOM = "﻿";
 	// 엑셀이 수식으로 실행하는 첫 글자. 값이 수식으로 실행되지 않게 앞에 '를 붙인다 (CSV 수식 주입)
 	private static final String FORMULA_STARTS = "=+-@\t\r";
+	// 숫자(음수 포함)는 수식이 아니라 앞의 '를 붙이지 않는다. 안 그러면 음수 금액이 엑셀에서 '-1000 글자로 보인다
+	private static final Pattern NUMBER = Pattern.compile("-?\\d+(\\.\\d+)?");
 
 	private PayoutExportCsv() {
 	}
@@ -32,7 +35,8 @@ final class PayoutExportCsv {
 		if (value == null || value.isEmpty()) {
 			return "";
 		}
-		String safe = FORMULA_STARTS.indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
+		boolean formula = !NUMBER.matcher(value).matches() && FORMULA_STARTS.indexOf(value.charAt(0)) >= 0;
+		String safe = formula ? "'" + value : value;
 		if (safe.contains(",") || safe.contains("\"") || safe.contains("\n") || safe.contains("\r")) {
 			return "\"" + safe.replace("\"", "\"\"") + "\"";
 		}
