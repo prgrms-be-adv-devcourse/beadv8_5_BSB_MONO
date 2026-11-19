@@ -33,9 +33,9 @@ public class SellerOrderFacade {
 	private final KitTrackingLink kitTrackingLink;
 
 	public SellerOrderPageDto findOrders(long memberId, Long raceId, Long raceCourseId, OrderItemStatus status,
-		Long partyId, LocalDate from, LocalDate to, int page, int size) {
+		Long partyId, LocalDate from, LocalDate to, String keyword, int page, int size) {
 		return sellerOrderQueryUseCase.findOrders(sellerIdOf(memberId), raceId, raceCourseId, status, partyId, from,
-			to, page, size);
+			to, keyword, page, size);
 	}
 
 	public SellerOrderDetailDto findOrder(long memberId, long orderItemId) {
