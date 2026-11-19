@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 
 import { server } from '@/shared/testing'
 
@@ -11,10 +11,13 @@ import { ConfirmForm } from './RecordCertFlow'
 
 it('제출이 실패하면 알리고, 다시 누르면 사진을 다시 올리지 않고 같은 파일로 낸다', async () => {
   const sent: number[] = []
+  const dates: string[] = []
   let fail = true
   server.use(
     http.post(`*${RECORD_CERTS_PATH}`, async ({ request }) => {
-      sent.push(((await request.json()) as { fileId: number }).fileId)
+      const body = (await request.json()) as { fileId: number; raceDate: string }
+      sent.push(body.fileId)
+      dates.push(body.raceDate)
       if (fail) {
         fail = false
         return HttpResponse.json(
@@ -61,4 +64,46 @@ it('제출이 실패하면 알리고, 다시 누르면 사진을 다시 올리�
   await vi.waitFor(() => expect(onDone).toHaveBeenCalledOnce())
   expect(uploadPhoto).toHaveBeenCalledOnce()
   expect(sent).toEqual([77, 77])
+  // 대회일은 입력 형식 그대로 YYYY-MM-DD로 보낸다
+  expect(dates).toEqual(['2023-04-12', '2023-04-12'])
+})
+
+afterEach(() => vi.useRealTimers())
+
+it('대회일은 오늘까지 고를 수 있고 내일부터는 고를 수 없다', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-11-02T03:00:00Z'))
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ConfirmForm
+        photo={{
+          file: new File(['x'], 'c.png'),
+          url: '',
+          image: { width: 10, height: 10 } as ImageData,
+        }}
+        roi={{ x: 0, y: 0, width: 10, height: 10 }}
+        read={{
+          values: { netTime: '1:30:05', raceDate: '2023-04-12', courseClass: 'HALF', bib: '' },
+          boxes: {},
+          recSha256: null,
+          manual: null,
+        }}
+        orderItemId={1}
+        uploadPhoto={vi.fn()}
+        onRetry={() => {}}
+        onDone={() => {}}
+      />
+    </QueryClientProvider>,
+  )
+  const user = userEvent.setup()
+
+  await user.click(screen.getByRole('button', { name: /^대회일/ }))
+  const popup = await screen.findByRole('dialog', { name: '날짜 고르기' })
+  await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+  await user.click(within(popup).getByRole('option', { name: '2026년' }))
+  await user.click(within(popup).getByRole('option', { name: '11월' }))
+  await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+
+  expect(within(popup).getByRole('button', { name: /2026년 11월 2일/ })).toBeEnabled()
+  expect(within(popup).getByRole('button', { name: /2026년 11월 3일/ })).toBeDisabled()
 })

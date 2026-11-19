@@ -146,7 +146,7 @@ export function CommunityPostPage({ postId }: { postId: number }) {
             신고로 숨겨진 글이에요
           </p>
         )}
-        <article className="flex flex-col gap-4 px-4 pt-5 pb-6">
+        <article className="flex flex-col gap-4 px-5 pt-6 pb-6">
           <div className="flex flex-col gap-1">
             <span className="text-caption-medium text-text-secondary">{p.categoryLabel}</span>
             <h1 className="text-title2 break-words">{p.title}</h1>
@@ -204,7 +204,6 @@ export function CommunityPostPage({ postId }: { postId: number }) {
             </span>
           </div>
         </article>
-        <div className="h-2 bg-bg-subtle" />
         <CommentSection postId={postId} authenticated={authenticated} locked={hidden} next={next} />
       </main>
 

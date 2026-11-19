@@ -141,4 +141,26 @@ describe('AiChat', () => {
     expect(await screen.findByRole('heading', { name: '안녕하세요, 판매자님' })).toBeInTheDocument()
     expect(cleared).toBe(true)
   })
+
+  it('공백만 쓴 질문은 보낼 수 없고, 앞뒤 공백은 빼고 보낸다', async () => {
+    let body: unknown
+    server.use(
+      http.post('*/api/v1/ai/seller/chat', async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json({ status: 200, message: '답변했습니다.', data: ANSWER })
+      }),
+    )
+    const user = userEvent.setup()
+    renderChat()
+
+    await user.type(screen.getByLabelText('질문'), '   ')
+    expect(screen.getByRole('button', { name: '보내기' })).toBeDisabled()
+
+    await user.clear(screen.getByLabelText('질문'))
+    await user.type(screen.getByLabelText('질문'), '  키트는 몇 개예요?  ')
+    await user.click(screen.getByRole('button', { name: '보내기' }))
+
+    expect(await screen.findByText('송장 입력 대기 키트는 2건이에요.')).toBeInTheDocument()
+    expect(body).toEqual({ message: '키트는 몇 개예요?' })
+  })
 })

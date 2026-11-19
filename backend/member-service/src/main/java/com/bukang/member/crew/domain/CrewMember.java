@@ -6,6 +6,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.UUID;
 
 import com.bukang.common.shared.crew.event.CrewMemberJoinedEvent;
@@ -40,6 +41,11 @@ import lombok.NoArgsConstructor;
 	}
 )
 public class CrewMember {
+	// 크루 홈 정렬: 크루장 → 운영진 → 크루원, 같은 역할은 먼저 가입한 순서
+	public static final Comparator<CrewMember> HOME_ORDER = Comparator.comparing(CrewMember::getRole)
+		.thenComparing(CrewMember::getJoinedAt)
+		.thenComparing(CrewMember::getId);
+
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "crew_member_id")
@@ -100,6 +106,10 @@ public class CrewMember {
 	public CrewMemberJoinedEvent joinedEvent() {
 		return new CrewMemberJoinedEvent(UUID.randomUUID().toString(), crewId, memberId,
 			joinedAt.truncatedTo(ChronoUnit.MICROS));
+	}
+
+	public boolean isLeader() {
+		return role == CrewRole.LEADER;
 	}
 
 	// 크루장 넘기기. 가입 시각은 바꾸지 않는다

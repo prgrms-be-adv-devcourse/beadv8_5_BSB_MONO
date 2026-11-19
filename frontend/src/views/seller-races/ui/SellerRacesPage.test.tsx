@@ -4,11 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
-import { SALE_CHANGE_ERRORS } from '../model/sale-change-form'
 import { SellerRacesPage } from './SellerRacesPage'
 
 function renderPage(registeredRaceId?: string) {
@@ -21,8 +19,6 @@ function renderPage(registeredRaceId?: string) {
     </QueryClientProvider>,
   )
 }
-
-const saveButton = () => screen.findByRole('button', { name: '변경 저장' })
 
 describe('SellerRacesPage', () => {
   it('등록 알림의 링크 복사가 막히면 실패를 알린다', async () => {
@@ -43,10 +39,30 @@ describe('SellerRacesPage', () => {
 
   it('내 대회 목록을 판매 수 · 정원 · 판매 상태와 함께 보여 준다', async () => {
     renderPage()
-    expect(await screen.findByText('대회 1개')).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '15 / 600' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '전체 1' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: /15 \/ 600/ })).toBeInTheDocument()
     expect(screen.getAllByText('판매 중').length).toBeGreaterThan(0)
     expect(screen.queryByText('작성 중')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /쿠키RUN/ })[0]).toHaveAttribute(
+      'href',
+      '/seller/races/1',
+    )
+  })
+
+  it('상태 칩으로 걸러 결과가 없으면 빈 상태를 보여 준다', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: '취소됨 0' }))
+
+    expect(await screen.findByText('해당하는 대회가 없어요')).toBeInTheDocument()
+  })
+
+  it('대회 이름으로 찾으면 맞는 대회만 남기고, 종목은 하프 · 10K처럼 이어 보여 준다', async () => {
+    renderPage()
+    await screen.findByRole('table', { name: '내 대회' })
+    expect(screen.getByText('10K')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('대회 이름으로 찾기'), '없는대회')
+
+    expect(await screen.findByText('해당하는 대회가 없어요')).toBeInTheDocument()
   })
 
   it('승인되지 않은 판매자면(403) 서버 문구를 보여 준다', async () => {
@@ -62,59 +78,5 @@ describe('SellerRacesPage', () => {
     expect(
       await screen.findByText('승인된 판매자만 대회를 등록·수정할 수 있습니다.'),
     ).toBeInTheDocument()
-  })
-
-  it('판매가 시작된 대회의 참가비를 바꾸려 하면 막는 문구를 보여 준다', async () => {
-    renderPage()
-    const price = await screen.findByLabelText('참가비 (10K)')
-    await userEvent.clear(price)
-    await userEvent.type(price, '40000')
-    expect(await screen.findByText(SALE_CHANGE_ERRORS.priceChanged)).toBeInTheDocument()
-  })
-
-  it('정원을 늘려 저장하면 대회 전체(이미지 포함)를 PUT 한다', async () => {
-    let body: productModel.RaceSaveRequestDto | undefined
-    server.use(
-      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
-        body = (await request.json()) as productModel.RaceSaveRequestDto
-        return HttpResponse.json({
-          status: 200,
-          message: '대회를 수정했습니다.',
-          data: { raceId: 1, saleStatus: 'ON_SALE', saleOpenDate: '2026-10-20', courseIds: [1] },
-        })
-      }),
-    )
-    renderPage()
-    const quota = await screen.findByLabelText('모집 정원 (10K)')
-    await userEvent.clear(quota)
-    await userEvent.type(quota, '700')
-    await userEvent.click(await saveButton())
-
-    expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
-    expect(body?.courses[0]).toMatchObject({ courseId: 1, individualQuota: 700, price: 45000 })
-    // 대표 이미지는 대회 쪽에, 소개 이미지는 종목 쪽에 그대로 다시 보낸다 (CRU-6)
-    expect(body?.images.map((i) => i.fileType)).toEqual(['THUMBNAIL'])
-    expect(body?.courses[0].images.map((i) => i.fileType)).toEqual(['DETAIL'])
-    expect(body).toMatchObject({
-      title: '2026 용감한 쿠키RUN in 서울',
-      refundDeadline: '2026-10-31',
-    })
-  })
-
-  it('서버가 막으면(409) 그 문구를 보여 준다', async () => {
-    server.use(
-      http.put('*/api/v1/product/races/:raceId', () =>
-        HttpResponse.json(
-          { status: 409, message: '판매가 끝난 대회는 수정할 수 없습니다.', data: null },
-          { status: 409 },
-        ),
-      ),
-    )
-    renderPage()
-    const quota = await screen.findByLabelText('모집 정원 (10K)')
-    await userEvent.clear(quota)
-    await userEvent.type(quota, '700')
-    await userEvent.click(await saveButton())
-    expect(await screen.findByText('판매가 끝난 대회는 수정할 수 없습니다.')).toBeInTheDocument()
   })
 })

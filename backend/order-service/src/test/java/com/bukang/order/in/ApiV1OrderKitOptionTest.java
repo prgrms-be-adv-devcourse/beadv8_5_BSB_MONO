@@ -46,7 +46,6 @@ import com.bukang.order.out.KitOptionSaleRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.ShipmentRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
@@ -88,9 +87,6 @@ class ApiV1OrderKitOptionTest {
 
 	@Autowired
 	private ParticipationRepository participationRepository;
-
-	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	private ShipmentRepository shipmentRepository;
@@ -146,7 +142,6 @@ class ApiV1OrderKitOptionTest {
 		shipmentRepository.deleteAll();
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		participationKitOptionRepository.deleteAll();
 		kitOptionSaleRepository.deleteAll();
 		raceCoursePort.clear();

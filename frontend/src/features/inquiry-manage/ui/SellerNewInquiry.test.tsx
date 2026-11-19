@@ -36,3 +36,19 @@ it('문의를 보내면 방금 보낸 문의가 보이는 보낸 문의 탭으�
 
   await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/seller/inquiries?filter=SENT'))
 })
+
+it('공백만 쓰면 보낼 수 없다', async () => {
+  const user = userEvent.setup()
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ToastProvider>
+        <SellerNewInquiry />
+      </ToastProvider>
+    </QueryClientProvider>,
+  )
+
+  await user.type(screen.getByRole('textbox', { name: '제목' }), '   ')
+  await user.type(screen.getByRole('textbox', { name: '문의 내용' }), '   ')
+
+  expect(screen.getByRole('button', { name: '문의 보내기' })).toBeDisabled()
+})

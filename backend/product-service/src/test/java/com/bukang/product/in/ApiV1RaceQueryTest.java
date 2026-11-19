@@ -74,7 +74,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.course(
 				course(),
 				course().name("하프").type(CourseType.HALF).distanceKm("21.1").timeLimitMinutes(180).price(60_000)
-					.kit(5_000).age(19, 70).quota(0, 50))
+					.kit(5_000).age(19, null).quota(0, 50))
 			.build();
 		RegisteredRace registered = registerOnSale(request);
 		long tenKmId = registered.courseIds().get(0);
@@ -121,7 +121,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.courses[1].distanceKm").value(21.1))
 			.andExpect(jsonPath("$.data.courses[1].timeLimitMinutes").value(180))
 			.andExpect(jsonPath("$.data.courses[1].minAge").value(19))
-			.andExpect(jsonPath("$.data.courses[1].maxAge").value(70))
+			.andExpect(jsonPath("$.data.courses[1].maxAge", nullValue()))
 			.andExpect(jsonPath("$.data.courses[1].price").value(60_000))
 			.andExpect(jsonPath("$.data.courses[1].kitIncluded").value(true))
 			.andExpect(jsonPath("$.data.courses[1].kitPrice").value(5_000))
@@ -387,7 +387,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.applicationCloseAt(now.plusDays(18))
 			.refundDeadline(refundDeadline)
 			.course(course().name("하프").type(CourseType.HALF).distanceKm("21.1").price(60_000)
-				.kit(5_000).age(19, 70).quota(10, 90))
+				.kit(5_000).age(19, null).quota(10, 90))
 			.build();
 		RegisteredRace registered = registerOnSale(request);
 		holdSeat(registered.courseId(), 4001);
@@ -399,7 +399,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.raceCourseId").value(registered.courseId()))
 			.andExpect(jsonPath("$.data.raceId").value(registered.raceId()))
 			.andExpect(jsonPath("$.data.minAge").value(19))
-			.andExpect(jsonPath("$.data.maxAge").value(70))
+			.andExpect(jsonPath("$.data.maxAge", nullValue()))
 			.andExpect(jsonPath("$.data.sellerId").value(SELLER_ID))
 			.andExpect(jsonPath("$.data.courseName").value("2026 춘천 가을 마라톤 하프"))
 			// price가 참가권 한 장 값이고 kitPrice는 그 안에 포함된 키트 금액이다 (더하지 않는다)

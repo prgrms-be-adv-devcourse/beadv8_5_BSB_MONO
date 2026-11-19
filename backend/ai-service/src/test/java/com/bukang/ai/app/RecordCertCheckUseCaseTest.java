@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -78,6 +79,25 @@ class RecordCertCheckUseCaseTest {
 		assertThat(sent.texts()).containsExactly(Map.entry("NET_TIME", "01:30:05"));
 		assertThat(sent.failReason()).isNull();
 		verify(slackNotifier, never()).send(anyString());
+	}
+
+	@Test
+	@DisplayName("상자에 null이 섞여 와도 예외 없이 그 칸을 null 상자로 넘겨 확인 결과를 보낸다 (리뷰 #645)")
+	void nullBoxesAreReadAsUnreadable() {
+		Map<String, double[][]> boxes = new HashMap<>();
+		boxes.put("NET_TIME", null);
+		boxes.put("COURSE", new double[][] {{1, 2}, null, {3, 4}, {1, 4}});
+		RecordCertCheckRequestedEvent request = new RecordCertCheckRequestedEvent("e-2", SUBMISSION_ID, FILE_ID,
+			boxes, "1", "sha");
+		given(certImagePort.download(FILE_ID)).willReturn(IMAGE);
+		given(certReader.read(eq(IMAGE), any(), eq("1"), eq("sha"))).willReturn(new EnumMap<>(CertField.class));
+
+		useCase.check(request);
+
+		ArgumentCaptor<Map<CertField, float[][]>> passed = ArgumentCaptor.captor();
+		verify(certReader).read(eq(IMAGE), passed.capture(), eq("1"), eq("sha"));
+		assertThat(passed.getValue()).containsEntry(CertField.NET_TIME, null).containsEntry(CertField.COURSE, null);
+		assertThat(sent().failReason()).isNull();
 	}
 
 	@Test

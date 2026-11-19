@@ -1176,9 +1176,9 @@ export const getStopUrl = (raceId: number,) => {
  * 본인이 등록한 판매 중인 대회의 판매를 멈춘다(판매 중지). 접수 마감 전까지만 멈출 수 있고, 판매 시작 전(판매 예정)에는 멈추지 않고 대회 수정으로 일정을 바꾼다. 멈춘 대회는 검색·상세에는 그대로 나오지만 대기열 입장과 새 자리 확보가 막힌다. 이미 잡은 결제 대기 자리는 결제 기한 안에 결제하면 참가 확정이다. 멈춘 동안 수정은 판매 중과 같은 규칙이다. 다시 열기 전에 대회일이 지나면 대회일 다음 날 0시에 판매 종료로 바뀐다.
  * @summary 판매 중지
  */
-export const stop = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+export const stop = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
 
-  return customFetch<unknown>(getStopUrl(raceId),
+  return customFetch<RsDataRaceSaveDto>(getStopUrl(raceId),
   {
     ...options,
     method: 'POST'
@@ -1251,9 +1251,9 @@ export const getResumeUrl = (raceId: number,) => {
  * 본인이 멈춘 대회의 판매를 다시 연다(판매 중). 접수 마감 전까지만 열 수 있다. 다시 열면 대기열 입장과 자리 확보가 다시 된다.
  * @summary 판매 다시 열기
  */
-export const resume = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+export const resume = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
 
-  return customFetch<unknown>(getResumeUrl(raceId),
+  return customFetch<RsDataRaceSaveDto>(getResumeUrl(raceId),
   {
     ...options,
     method: 'POST'
@@ -2028,4 +2028,406 @@ export function useFindMine<TData = Awaited<ReturnType<typeof findMine>>, TError
 
 
 
+
+export const getOpenUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/races/${raceId}/open`
+}
+
+/**
+ * 본인이 등록한 판매 예정 대회의 판매를 지금 시작한다(판매 중). 크루 예매가 있으면 크루 예매 시작을, 없으면 개인 예매 오픈을 지금(분 단위)으로 당기고, 판매 시작일을 오늘로 바꾼다. 나머지 일정은 그대로다. 당길 일정이 이미 지났거나 접수 마감이 지났으면 열 수 없다.
+ * @summary 판매 바로 시작
+ */
+export const open = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
+
+  return customFetch<RsDataRaceSaveDto>(getOpenUrl(raceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpenMutationKey = () => ['open'] as const;
+
+export const getOpenMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof open>>, TError,OpenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof open>>, TError,OpenMutationVariables, TContext> => {
+
+const mutationKey = getOpenMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof open>>, OpenMutationVariables> = (props) => {
+          const {raceId} = props ?? {};
+
+          return  open(raceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpenMutationResult = NonNullable<Awaited<ReturnType<typeof open>>>
+
+    export type OpenMutationError = RsData
+    export type OpenMutationVariables = {raceId: number}
+
+    /**
+ * @summary 판매 바로 시작
+ */
+export const useOpen = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof open>>, TError,OpenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof open>>,
+        TError,
+        OpenMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpenMutationOptions(options), queryClient);
+    }
+
+export const getFindAdminRacesUrl = () => {
+
+
+
+
+  return `/api/v1/product/admin/races`
+}
+
+/**
+ * 모든 판매자의 대회를 최근 등록 순으로 모두 돌려준다(취소된 대회 포함). 판매자 이름, 판매 상태, 종목별 정원·결제 대기·판매 수, 대회일, 접수 기간, 환불 기준일을 함께 준다.
+ * @summary 관리자 대회 목록
+ */
+export const findAdminRaces = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataListSellerRaceDto> => {
+
+  return customFetch<RsDataListSellerRaceDto>(getFindAdminRacesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindAdminRacesQueryKey = () => {
+    return [
+    `/api/v1/product/admin/races`
+    ] as const;
+    }
+
+
+export const getFindAdminRacesQueryOptions = <TData = Awaited<ReturnType<typeof findAdminRaces>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminRaces>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindAdminRacesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findAdminRaces>>> = ({ signal }) => findAdminRaces({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findAdminRaces>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindAdminRacesQueryResult = NonNullable<Awaited<ReturnType<typeof findAdminRaces>>>
+export type FindAdminRacesQueryError = RsData
+
+
+export function useFindAdminRaces<TData = Awaited<ReturnType<typeof findAdminRaces>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminRaces>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findAdminRaces>>,
+          TError,
+          Awaited<ReturnType<typeof findAdminRaces>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindAdminRaces<TData = Awaited<ReturnType<typeof findAdminRaces>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminRaces>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findAdminRaces>>,
+          TError,
+          Awaited<ReturnType<typeof findAdminRaces>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindAdminRaces<TData = Awaited<ReturnType<typeof findAdminRaces>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminRaces>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 관리자 대회 목록
+ */
+
+export function useFindAdminRaces<TData = Awaited<ReturnType<typeof findAdminRaces>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminRaces>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindAdminRacesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getOpenByAdminUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/admin/races/${raceId}/open`
+}
+
+/**
+ * 판매 예정 대회의 판매를 지금 시작한다(판매 중). 판매자 API와 같은 규칙으로 판매 시작 일정을 지금으로 당기고 판매 시작일을 오늘로 바꾼다.
+ * @summary 관리자 판매 바로 시작
+ */
+export const openByAdmin = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
+
+  return customFetch<RsDataRaceSaveDto>(getOpenByAdminUrl(raceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpenByAdminMutationKey = () => ['openByAdmin'] as const;
+
+export const getOpenByAdminMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openByAdmin>>, TError,OpenByAdminMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof openByAdmin>>, TError,OpenByAdminMutationVariables, TContext> => {
+
+const mutationKey = getOpenByAdminMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof openByAdmin>>, OpenByAdminMutationVariables> = (props) => {
+          const {raceId} = props ?? {};
+
+          return  openByAdmin(raceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpenByAdminMutationResult = NonNullable<Awaited<ReturnType<typeof openByAdmin>>>
+
+    export type OpenByAdminMutationError = RsData
+    export type OpenByAdminMutationVariables = {raceId: number}
+
+    /**
+ * @summary 관리자 판매 바로 시작
+ */
+export const useOpenByAdmin = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openByAdmin>>, TError,OpenByAdminMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof openByAdmin>>,
+        TError,
+        OpenByAdminMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpenByAdminMutationOptions(options), queryClient);
+    }
+
+export const getStopByAdminUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/admin/races/${raceId}/stop`
+}
+
+/**
+ * 판매 중인 대회의 판매를 멈춘다(판매 중지). 판매자 API와 같이 접수 마감 전까지만 멈출 수 있다.
+ * @summary 관리자 판매 중지
+ */
+export const stopByAdmin = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
+
+  return customFetch<RsDataRaceSaveDto>(getStopByAdminUrl(raceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStopByAdminMutationKey = () => ['stopByAdmin'] as const;
+
+export const getStopByAdminMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopByAdmin>>, TError,StopByAdminMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof stopByAdmin>>, TError,StopByAdminMutationVariables, TContext> => {
+
+const mutationKey = getStopByAdminMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stopByAdmin>>, StopByAdminMutationVariables> = (props) => {
+          const {raceId} = props ?? {};
+
+          return  stopByAdmin(raceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StopByAdminMutationResult = NonNullable<Awaited<ReturnType<typeof stopByAdmin>>>
+
+    export type StopByAdminMutationError = RsData
+    export type StopByAdminMutationVariables = {raceId: number}
+
+    /**
+ * @summary 관리자 판매 중지
+ */
+export const useStopByAdmin = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopByAdmin>>, TError,StopByAdminMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof stopByAdmin>>,
+        TError,
+        StopByAdminMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStopByAdminMutationOptions(options), queryClient);
+    }
+
+export const getResumeByAdminUrl = (raceId: number,) => {
+
+
+
+
+  return `/api/v1/product/admin/races/${raceId}/resume`
+}
+
+/**
+ * 판매 중지 대회의 판매를 다시 연다(판매 중). 판매자 API와 같이 접수 마감 전까지만 열 수 있다.
+ * @summary 관리자 판매 다시 열기
+ */
+export const resumeByAdmin = async (raceId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataRaceSaveDto> => {
+
+  return customFetch<RsDataRaceSaveDto>(getResumeByAdminUrl(raceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeByAdminMutationKey = () => ['resumeByAdmin'] as const;
+
+export const getResumeByAdminMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeByAdmin>>, TError,ResumeByAdminMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeByAdmin>>, TError,ResumeByAdminMutationVariables, TContext> => {
+
+const mutationKey = getResumeByAdminMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeByAdmin>>, ResumeByAdminMutationVariables> = (props) => {
+          const {raceId} = props ?? {};
+
+          return  resumeByAdmin(raceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeByAdminMutationResult = NonNullable<Awaited<ReturnType<typeof resumeByAdmin>>>
+
+    export type ResumeByAdminMutationError = RsData
+    export type ResumeByAdminMutationVariables = {raceId: number}
+
+    /**
+ * @summary 관리자 판매 다시 열기
+ */
+export const useResumeByAdmin = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeByAdmin>>, TError,ResumeByAdminMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof resumeByAdmin>>,
+        TError,
+        ResumeByAdminMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResumeByAdminMutationOptions(options), queryClient);
+    }
 

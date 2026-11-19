@@ -60,7 +60,9 @@ import com.bukang.member.out.cash.HttpCashBalanceAdapter;
 import com.bukang.member.out.identity.InMemoryIdentityVerificationStore;
 import com.bukang.member.out.order.ActiveTicketPort;
 import com.bukang.member.out.order.HttpActiveTicketAdapter;
+import com.bukang.member.out.payout.UnpaidPayoutPort;
 import com.bukang.member.out.payoutaccount.InMemoryPayoutAccountVerifyLimiter;
+import com.bukang.member.out.product.SellerRacePort;
 import com.bukang.member.support.MemberFixture;
 
 // 예치금·주문 서비스와 Redis는 띄우지 않으므로 포트와 Refresh Token 저장소를 목으로 바꾼다
@@ -109,6 +111,12 @@ class ApiV1MemberWithdrawTest {
 
 	@MockitoBean
 	private ActiveTicketPort activeTicketPort;
+
+	@MockitoBean
+	private SellerRacePort sellerRacePort;
+
+	@MockitoBean
+	private UnpaidPayoutPort unpaidPayoutPort;
 
 	@MockitoBean
 	private RefreshTokenRepository refreshTokenRepository;
@@ -319,6 +327,110 @@ class ApiV1MemberWithdrawTest {
 		assertThat(applicationEvents.stream(SellerChangedEvent.class))
 			.extracting(SellerChangedEvent::status)
 			.containsExactly(SellerStatus.PENDING, SellerStatus.REJECTED);
+	}
+
+	@Test
+	@DisplayName("판매자가 아닌 회원은 판매 대회·정산금을 다른 서비스에 묻지 않고 탈퇴한다")
+	void nonSellerDoesNotAskSellerChecks() throws Exception {
+		withdraw(memberId).andExpect(status().isOk());
+
+		verify(sellerRacePort, never()).hasOnSaleRace(anyLong());
+		verify(unpaidPayoutPort, never()).hasUnpaidPayout(anyLong());
+	}
+
+	@Test
+	@DisplayName("승인 대기 중인 판매자 신청자는 판매 대회·정산금을 묻지 않고 탈퇴한다")
+	void pendingSellerDoesNotAskSellerChecks() throws Exception {
+		sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest());
+
+		withdraw(memberId).andExpect(status().isOk());
+
+		verify(sellerRacePort, never()).hasOnSaleRace(anyLong());
+		verify(unpaidPayoutPort, never()).hasUnpaidPayout(anyLong());
+	}
+
+	@Test
+	@DisplayName("승인된 판매자라도 판매 중인 대회와 지급 안 된 정산금이 없으면 탈퇴한다")
+	void approvedSellerWithNothingLeftWithdraws() throws Exception {
+		long sellerId = approveSeller();
+
+		withdraw(memberId).andExpect(status().isOk());
+
+		verify(sellerRacePort).hasOnSaleRace(memberId);
+		verify(unpaidPayoutPort).hasUnpaidPayout(sellerId);
+	}
+
+	@Test
+	@DisplayName("판매 중인 대회가 있는 승인 판매자는 409 MEMBER_WITHDRAW_RACE_LEFT이고, 정산금은 묻지 않으며 아무것도 바뀌지 않는다")
+	void approvedSellerWithOnSaleRaceFails() throws Exception {
+		approveSeller();
+		given(sellerRacePort.hasOnSaleRace(memberId)).willReturn(true);
+
+		withdraw(memberId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_WITHDRAW_RACE_LEFT"));
+
+		verify(unpaidPayoutPort, never()).hasUnpaidPayout(anyLong());
+		assertNothingChanged();
+	}
+
+	@Test
+	@DisplayName("지급 안 된 정산금이 있는 승인 판매자는 409 MEMBER_WITHDRAW_PAYOUT_LEFT이고 아무것도 바뀌지 않는다")
+	void approvedSellerWithUnpaidPayoutFails() throws Exception {
+		long sellerId = approveSeller();
+		given(unpaidPayoutPort.hasUnpaidPayout(sellerId)).willReturn(true);
+
+		withdraw(memberId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_WITHDRAW_PAYOUT_LEFT"));
+
+		assertNothingChanged();
+	}
+
+	@Test
+	@DisplayName("예치금이 남은 승인 판매자는 예치금으로 먼저 막히고, 판매 대회·정산금은 묻지 않는다")
+	void cashLeftBlocksBeforeSellerChecks() throws Exception {
+		approveSeller();
+		given(cashBalancePort.findBalance(memberId)).willReturn(1_000L);
+
+		withdraw(memberId)
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("MEMBER_WITHDRAW_CASH_LEFT"));
+
+		verify(sellerRacePort, never()).hasOnSaleRace(anyLong());
+		verify(unpaidPayoutPort, never()).hasUnpaidPayout(anyLong());
+		assertNothingChanged();
+	}
+
+	@Test
+	@DisplayName("판매 대회나 정산금을 확인하지 못하면 503 MEMBER_WITHDRAW_CHECK_FAILED이고 아무것도 바뀌지 않는다")
+	void sellerCheckFailureFailsClosed() throws Exception {
+		long sellerId = approveSeller();
+		willThrow(new WithdrawCheckFailedException("대회를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.given(sellerRacePort).hasOnSaleRace(memberId);
+
+		withdraw(memberId)
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("MEMBER_WITHDRAW_CHECK_FAILED"));
+		assertNothingChanged();
+
+		willReturn(false).given(sellerRacePort).hasOnSaleRace(memberId);
+		willThrow(new WithdrawCheckFailedException("정산금을 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요."))
+			.given(unpaidPayoutPort).hasUnpaidPayout(sellerId);
+
+		withdraw(memberId)
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("MEMBER_WITHDRAW_CHECK_FAILED"));
+		assertNothingChanged();
+	}
+
+	private long approveSeller() {
+		long adminId = memberFacade.join(MemberFixture.joinRequest()
+			.email("admin@crewrun.com").build(identityStore)).getId();
+		memberFacade.grantAdmin("admin@crewrun.com");
+		long sellerId = sellerFacade.apply(memberId, MemberFixture.sellerApplyRequest()).getId();
+		sellerFacade.approve(adminId, sellerId);
+		return sellerId;
 	}
 
 	private List<MemberModifiedEvent> modifiedEvents() {

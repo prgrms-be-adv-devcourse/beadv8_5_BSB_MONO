@@ -3,9 +3,7 @@ package com.bukang.inquiry.out.race;
 import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.inquiry.domain.exception.InquiryExternalServiceUnavailableException;
@@ -33,33 +31,21 @@ public class HttpRaceSellerAdapter implements RaceSellerPort {
 		new ParameterizedTypeReference<>() {
 		};
 
+	private static final InternalHttpClients.Endpoint ENDPOINT = new InternalHttpClients.Endpoint("상품 서비스",
+		"대회 판매자 요청", RACE_NOT_FOUND_CODE, UNAVAILABLE_MESSAGE);
+
 	private final RestClient restClient;
 
 	@Override
 	public Optional<Long> findSellerMemberId(long raceId) {
-		RsData<SellerMemberResponse> response;
-		try {
-			response = restClient.get().uri(PATH, raceId).retrieve().body(RESPONSE_TYPE);
-		} catch (HttpClientErrorException.NotFound exception) {
-			if (InternalHttpClients.hasErrorCode(exception, RACE_NOT_FOUND_CODE)) {
-				return Optional.empty();
-			}
-			log.error("상품 서비스가 대회 판매자 요청에 대회 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. raceId={}, body={}",
-				raceId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()), exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		} catch (HttpClientErrorException exception) {
-			log.error("상품 서비스가 대회 판매자 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceId={}",
-				exception.getStatusCode(), raceId, exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		} catch (RestClientException exception) {
-			log.error("상품 서비스에 대회 판매자를 묻지 못했습니다. raceId={}", raceId, exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		}
-		if (response == null || response.data() == null || response.data().sellerMemberId() == null) {
-			log.error("상품 서비스의 대회 판매자 응답에 값이 없습니다. raceId={}, response={}", raceId, response);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		}
-		return Optional.of(response.data().sellerMemberId());
+		return InternalHttpClients.getData(restClient, ENDPOINT, RESPONSE_TYPE, PATH, raceId)
+			.map(data -> {
+				if (data.sellerMemberId() == null) {
+					log.error("상품 서비스의 대회 판매자 응답에 값이 없습니다. raceId={}, data={}", raceId, data);
+					throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
+				}
+				return data.sellerMemberId();
+			});
 	}
 
 	// 상품 서비스 응답의 data (product RaceSellerMemberDto). 빈 응답을 구분하려고 Long으로 받는다

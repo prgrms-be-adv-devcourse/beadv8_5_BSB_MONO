@@ -34,12 +34,8 @@ public class BoardPostReindexUseCase {
 		long afterId = 0;
 		int indexed = 0;
 		try {
-			while (true) {
-				List<BoardPost> posts = boardPostRepository
-					.findByStatusAndIdGreaterThanOrderByIdAsc(BoardPostStatus.VISIBLE, afterId, Limit.of(BATCH_SIZE));
-				if (posts.isEmpty()) {
-					break;
-				}
+			List<BoardPost> posts = nextBatch(afterId);
+			while (!posts.isEmpty()) {
 				boardPostSearchPort.indexAll(posts.stream()
 					.map(post -> new BoardPostSearchPort.Document(post.getId(), post.getTitle(), post.getContent()))
 					.toList());
@@ -48,6 +44,7 @@ public class BoardPostReindexUseCase {
 				if (posts.size() < BATCH_SIZE) {
 					break;
 				}
+				posts = nextBatch(afterId);
 			}
 			log.info("글 검색 인덱스 채우기를 마쳤습니다. 넣은 글={}개", indexed);
 		} catch (RuntimeException exception) {
@@ -55,5 +52,10 @@ public class BoardPostReindexUseCase {
 				afterId, indexed, exception);
 		}
 		return indexed;
+	}
+
+	private List<BoardPost> nextBatch(long afterId) {
+		return boardPostRepository.findByStatusAndIdGreaterThanOrderByIdAsc(BoardPostStatus.VISIBLE, afterId,
+			Limit.of(BATCH_SIZE));
 	}
 }

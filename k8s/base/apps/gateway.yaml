@@ -28,12 +28,20 @@ spec:
         app.kubernetes.io/name: gateway
         app.kubernetes.io/component: spring
     spec:
+      # 아래 preStop 5초 + Spring의 graceful shutdown(처리 중인 요청 끝내기, 최대 30초)이 들어가도록 기본 30초에서 늘린다
+      terminationGracePeriodSeconds: 40
       containers:
         - name: app
           image: bukang-gateway
           ports:
             - name: http
               containerPort: 8000
+          # 끄기 전에 5초 기다린다. 새 연결은 새 Pod로 가고, nginx가 열어 둔 연결(keep-alive)은 끌 때까지 이 Pod가 처리한다
+          # 끄는 순간 그 연결로 보낸 POST는 502가 날 수 있어(nginx는 POST를 다시 보내지 않는다) 기다려서 확률을 줄인다. 없애지는 못한다 (CRU-58)
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
 ---
 # 다른 앱은 compose 때와 같은 이름(bukang-gateway:8000)으로 부른다 (각 서비스의 application-prod.yaml)
 apiVersion: v1

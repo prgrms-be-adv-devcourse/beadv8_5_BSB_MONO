@@ -3,28 +3,9 @@
 import { ConsoleCard } from '@/widgets/console-page'
 import { formatMonthDay, PAYOUT_STAGE } from '@/entities/payout'
 import { ApiError } from '@/shared/api'
-import { formatNumber } from '@/shared/lib'
-import { Alert, DataTable, EmptyState, Skeleton, StatTile } from '@/shared/ui'
+import { Alert, DataTable, EmptyState, Skeleton } from '@/shared/ui'
 
 import { PAY_CHECK_PAGE_SIZE, usePayCheckRequired } from '../model/use-pay-check-required'
-
-export function PayCheckRequiredTile() {
-  const failures = usePayCheckRequired()
-  // 요청이 실패하면 data가 비어 있어 스켈레톤이 끝없이 남으므로 값 자리에 -를 보인다 (PR 571 리뷰)
-  if (failures.isError) {
-    return <StatTile label="지급 확인 필요 (최근 1개월)" value="-" />
-  }
-  if (!failures.data) {
-    return <Skeleton className="h-24 flex-1" />
-  }
-  return (
-    <StatTile
-      label="지급 확인 필요 (최근 1개월)"
-      value={formatNumber(failures.data.records.totalElements)}
-      unit="건"
-    />
-  )
-}
 
 export function PayCheckRequiredCard() {
   const failures = usePayCheckRequired()

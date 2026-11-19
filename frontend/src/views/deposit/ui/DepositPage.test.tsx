@@ -171,6 +171,41 @@ describe('DepositPage 내역', () => {
     )
   })
 
+  it('보유 예치금 옆에 「돌려받는 방법」 버튼이 있고, 눌러야 짧은 안내가 펼쳐진다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const label = await screen.findByText('보유 예치금')
+    const amount = label.parentElement as HTMLElement
+    const toggle = within(amount.parentElement as HTMLElement).getByRole('button', {
+      name: '돌려받는 방법',
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(/결제한 카드로 먼저 돌려드려요/)).not.toBeInTheDocument()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const note = screen.getByText(/결제한 카드로 먼저 돌려드려요/)
+    expect(note).toHaveTextContent('카드 취소 기한이 지난 몫만 환급으로 계좌에 보내요.')
+    expect(note).not.toHaveTextContent('환불')
+    expect(toggle).toHaveAttribute('aria-controls', note.id)
+
+    await user.click(toggle)
+    expect(screen.queryByText(/결제한 카드로 먼저 돌려드려요/)).not.toBeInTheDocument()
+  })
+
+  it('잔액을 불러오지 못해도 돌려받는 방법 버튼은 남는다', async () => {
+    server.use(
+      http.get('*/api/v1/cash/wallets/balance', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByText('잔액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '돌려받는 방법' })).toBeInTheDocument()
+  })
+
   it('내역이 없으면 빈 목록 안내를 보여 준다', async () => {
     server.use(http.get('*/api/v1/cash/wallets/ledgers', () => ledgerPage([], 0, 0)))
     renderPage()

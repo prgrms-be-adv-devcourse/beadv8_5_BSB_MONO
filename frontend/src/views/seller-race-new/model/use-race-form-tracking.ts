@@ -13,8 +13,10 @@ import type { RaceFormValues } from './race-form'
 // 입력 칸 → 화면의 항목 묶음(ConsoleCard 제목). 어느 묶음에서 막히는지 보려고 묶음 이름만 보낸다
 const SECTION_OF: Record<keyof RaceFormValues, string> = {
   title: '기본 정보',
+  description: '기본 정보',
   raceDate: '기본 정보',
   location: '기본 정보',
+  locationDetail: '기본 정보',
   regionSido: '기본 정보',
   regionSigungu: '기본 정보',
   individualOpenAt: '기본 정보',

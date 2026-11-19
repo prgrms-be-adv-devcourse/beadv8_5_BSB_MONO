@@ -60,6 +60,8 @@ member:
       base-url: http://bukang-order-service:8084
     product:
       base-url: http://bukang-product-service:8085
+    payout:
+      base-url: http://bukang-payout-service:8082
     file:
       base-url: http://bukang-file-service:8083
 
