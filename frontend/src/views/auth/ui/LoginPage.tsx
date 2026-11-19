@@ -86,7 +86,7 @@ export function LoginPage({
     <>
       <AppHeader type="sub" title="로그인" />
       <main className="flex flex-1 flex-col bg-bg-surface">
-        <div className="h-[86px] shrink-0" />
+        <div className="h-22 shrink-0" />
         <form
           id="login-form"
           className="flex flex-col items-center px-4"
@@ -95,7 +95,7 @@ export function LoginPage({
             login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
           )}
         >
-          <Logo className="h-11 w-[142.5px]" />
+          <Logo className="h-11 w-36" />
           <div className="mt-12 flex w-full flex-col gap-3">
             <TextField
               aria-label="이메일"

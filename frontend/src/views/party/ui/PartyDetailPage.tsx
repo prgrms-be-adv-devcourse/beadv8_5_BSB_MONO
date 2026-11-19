@@ -473,14 +473,14 @@ function PartyDetailSkeleton() {
   return (
     <div role="status" aria-label="파티를 불러오는 중" className="flex flex-col px-4 pt-5 pb-4">
       <Skeleton className="h-4 w-full" />
-      <Skeleton className="mt-3.5 h-5 w-85" />
+      <Skeleton className="mt-4 h-5 w-85" />
       <Skeleton className="mt-3 w-85" />
       <Skeleton className="mt-11 w-full" />
-      <Skeleton className="mt-3.5 h-5 w-85" />
-      <div className="mt-5 flex flex-col gap-2.5 rounded-md border border-border-default bg-bg-surface p-4 pt-4.5">
+      <Skeleton className="mt-4 h-5 w-85" />
+      <div className="mt-5 flex flex-col gap-3 rounded-md border border-border-default bg-bg-surface p-4 pt-4">
         <Skeleton className="w-full" />
         <Skeleton className="h-4 w-80" />
-        <div className="mt-3.5 flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2">
           <Skeleton shape="rect" className="h-8 w-40 rounded-full" />
           <Skeleton shape="rect" className="h-10 w-48" />
           <Skeleton shape="rect" className="h-8 flex-1 rounded-full" />
@@ -491,7 +491,7 @@ function PartyDetailSkeleton() {
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex gap-3">
             <Skeleton shape="circle" className="mt-0.5 size-8 shrink-0" />
-            <div className="flex flex-1 flex-col gap-2.5">
+            <div className="flex flex-1 flex-col gap-3">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="w-3/4" />
             </div>

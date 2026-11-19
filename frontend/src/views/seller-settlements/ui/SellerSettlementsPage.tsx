@@ -358,7 +358,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
               {
                 key: 'heldAt',
                 header: '보류일',
-                width: 'w-32',
+                width: 'w-33',
                 render: (r) => dayWithWeekday(r.heldAt),
               },
               {

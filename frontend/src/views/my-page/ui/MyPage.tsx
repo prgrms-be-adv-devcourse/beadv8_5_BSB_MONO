@@ -181,7 +181,7 @@ function MyPageSkeleton() {
         </div>
         <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
       </div>
-      <Skeleton shape="rect" className="mx-4 mt-8 h-33.5" />
+      <Skeleton shape="rect" className="mx-4 mt-8 h-34" />
       {SKELETON_GROUPS.map((icons, g) => (
         <section key={g} className="flex flex-col px-4 pt-8">
           <Skeleton className="h-4 w-48" />

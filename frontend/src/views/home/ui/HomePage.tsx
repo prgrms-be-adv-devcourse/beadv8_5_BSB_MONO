@@ -112,7 +112,7 @@ function HomeSkeleton() {
           <Skeleton shape="rect" className="size-16 shrink-0 rounded-md" />
           <div className="flex flex-1 flex-col gap-1">
             <Skeleton className="h-3 w-60 max-w-full" />
-            <Skeleton className="h-3.5 w-60 max-w-full" />
+            <Skeleton className="h-4 w-60 max-w-full" />
             <Skeleton className="h-3 w-60 max-w-full" />
           </div>
         </div>
@@ -131,10 +131,10 @@ function HomeSkeleton() {
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex gap-4 border-b border-border-default py-4 last:border-b-0">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <Skeleton className="h-2.5 w-12" />
-                <Skeleton className="h-3.5 w-60 max-w-full" />
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-4 w-60 max-w-full" />
                 <Skeleton className="h-3 w-60 max-w-full" />
-                <Skeleton className="mt-1 h-2.5 w-40" />
+                <Skeleton className="mt-1 h-3 w-40" />
               </div>
               {i < 2 && <Skeleton shape="rect" className="size-18 shrink-0 rounded-sm" />}
             </div>

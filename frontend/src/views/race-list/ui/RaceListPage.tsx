@@ -238,7 +238,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           </div>
         )}
         {!focused && (loading || races.length > 0) && !listFailed && (
-          <div className="mt-2 flex items-center justify-between pt-2">
+          <div className="mt-2 flex items-center justify-between pt-3">
             {loading ? (
               <div className="flex h-6 items-center gap-1">
                 <Skeleton className="h-4 w-24" />

@@ -73,7 +73,7 @@ export function ProgressBar({
         aria-valuenow={indeterminate ? undefined : percent}
         className={cn(
           'w-full overflow-hidden rounded-full',
-          size === 's' ? 'h-1' : 'h-1.5',
+          size === 's' ? 'h-1' : 'h-2',
           // 대기열 시안(2070:33340)은 회색 바탕 줄 없이 파란 막대만 지나간다
           indeterminate ? 'bg-transparent' : colors.track,
         )}
