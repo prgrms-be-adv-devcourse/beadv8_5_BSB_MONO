@@ -1,0 +1,100 @@
+time="2026-11-19T01:14:56Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T01:15:32Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T01:16:01Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T01:16:15Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T01:17:24Z" level=warning msg="Insufficient VUs, reached 900 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=charge_3
+time="2026-11-19T01:18:20Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T01:18:33Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T01:18:35Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{api:balance,stage:1}
+    ✗ 'p(99)<1000' p(99)=2.65s
+
+    http_req_duration{api:balance,stage:2}
+    ✗ 'p(99)<1000' p(99)=5.56s
+
+    http_req_duration{api:balance,stage:3}
+    ✗ 'p(99)<1000' p(99)=15.24s
+
+    http_req_duration{api:charge_dup}
+    ✗ 'med<3200' med=8.46s
+
+    http_req_duration{api:charge,stage:1}
+    ✗ 'p(99)<10000' p(99)=10.6s
+
+    http_req_duration{api:charge,stage:2}
+    ✓ 'p(99)<10000' p(99)=9.57s
+
+    http_req_duration{api:charge,stage:3}
+    ✗ 'p(99)<10000' p(99)=19.24s
+
+    http_req_duration{api:pay,stage:1}
+    ✓ 'p(95)<2000' p(95)=498ms
+    ✗ 'p(99)<1000' p(99)=1.21s
+
+    http_req_duration{api:pay,stage:2}
+    ✗ 'p(95)<2000' p(95)=4.36s
+    ✗ 'p(99)<1000' p(99)=5.37s
+
+    http_req_duration{api:pay,stage:3}
+    ✗ 'p(95)<2000' p(95)=15.12s
+    ✗ 'p(99)<1000' p(99)=15.23s
+
+    http_req_failed{api:charge,stage:1}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:charge,stage:2}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:charge,stage:3}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 32031  57.319778/s
+    checks_succeeded...................: 99.97% 32024 out of 32031
+    checks_failed......................: 0.02%  7 out of 32031
+
+    ✓ 결제 200·결제됨
+    ✓ 잔액 조회 200
+    ✓ 충전 200·완료
+    ✗ 같은 충전 두 번째 200·완료
+      ↳  99% — ✓ 1095 / ✗ 7
+
+    HTTP
+    http_req_duration.......................................................: avg=8.73s    med=7.04s    p(95)=18.99s p(99)=19.19s max=19.33s
+      { api:balance,stage:1 }...............................................: avg=229.05ms med=57.99ms  p(95)=1.25s  p(99)=2.65s  max=4.16s 
+      { api:balance,stage:2 }...............................................: avg=2.94s    med=3.09s    p(95)=5.36s  p(99)=5.56s  max=5.78s 
+      { api:balance,stage:3 }...............................................: avg=13.51s   med=14.78s   p(95)=15.16s p(99)=15.24s max=15.28s
+      { api:charge_dup }....................................................: avg=10.65s   med=8.46s    p(95)=18.99s p(99)=19.15s max=19.21s
+      { api:charge,stage:1 }................................................: avg=4.65s    med=4.22s    p(95)=6.79s  p(99)=10.6s  max=13.73s
+      { api:charge,stage:2 }................................................: avg=7.04s    med=7.19s    p(95)=9.37s  p(99)=9.57s  max=9.78s 
+      { api:charge,stage:3 }................................................: avg=17.33s   med=18.77s   p(95)=19.17s p(99)=19.24s max=19.33s
+      { api:pay,stage:1 }...................................................: avg=241.31ms med=195.06ms p(95)=498ms  p(99)=1.21s  max=4.8s  
+      { api:pay,stage:2 }...................................................: avg=1.14s    med=382.89ms p(95)=4.36s  p(99)=5.37s  max=5.62s 
+      { api:pay,stage:3 }...................................................: avg=12.23s   med=14.68s   p(95)=15.12s p(99)=15.23s max=15.24s
+      { expected_response:true }............................................: avg=8.73s    med=7.04s    p(95)=18.99s p(99)=19.19s max=19.33s
+    http_req_failed.........................................................: 0.02%  7 out of 32031
+      { api:charge,stage:1 }................................................: 0.00%  0 out of 4382
+      { api:charge,stage:2 }................................................: 0.00%  0 out of 8634
+      { api:charge,stage:3 }................................................: 0.00%  0 out of 8994
+    http_reqs...............................................................: 32031  57.319778/s
+
+    EXECUTION
+    dropped_iterations......................................................: 5135   9.189131/s
+    iteration_duration......................................................: avg=8.66s    med=6.97s    p(95)=18.99s p(99)=19.19s max=19.33s
+    iterations..............................................................: 30929  55.347739/s
+    vus.....................................................................: 1      min=1          max=1054
+    vus_max.................................................................: 1642   min=264        max=1642
+
+    NETWORK
+    data_received...........................................................: 6.9 MB 12 kB/s
+    data_sent...............................................................: 7.0 MB 13 kB/s
+
+
+
+time="2026-11-19T01:20:00Z" level=error msg="thresholds on metrics 'http_req_duration{api:balance,stage:1}, http_req_duration{api:balance,stage:2}, http_req_duration{api:balance,stage:3}, http_req_duration{api:charge,stage:1}, http_req_duration{api:charge,stage:3}, http_req_duration{api:charge_dup}, http_req_duration{api:pay,stage:1}, http_req_duration{api:pay,stage:2}, http_req_duration{api:pay,stage:3}' have been crossed"
