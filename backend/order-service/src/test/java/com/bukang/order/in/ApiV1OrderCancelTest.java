@@ -412,9 +412,9 @@ class ApiV1OrderCancelTest {
 			Participation participation = participationRepository.findById(paid.participationId()).orElseThrow();
 			assertThat(participation.getStatus()).isEqualTo(ParticipationStatus.CANCELED);
 			assertThat(participation.getActiveFlag()).isNull();
-			// 정보 수정이 성공했으면 고친 이름도 남아 있어야 한다 (취소가 옛 값으로 덮지 않음)
+			// 정보 수정이 성공했으면 고친 비상 연락처 이름도 남아 있어야 한다 (취소가 옛 값으로 덮지 않음)
 			if (statuses.get(1) == 200) {
-				assertThat(participation.getParticipant().getName()).isEqualTo("박러너");
+				assertThat(participation.getParticipant().getEmergencyContactName()).isEqualTo("박러너");
 			}
 		}
 	}
@@ -795,8 +795,8 @@ class ApiV1OrderCancelTest {
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "name": "%s", "birth": "1994-06-25", "gender": "MALE", "phone": "010-1234-5678",
-					"emergencyContactName": "김가족", "emergencyContactPhone": "010-9876-5432", "tshirtSize": "L",
+				{ "gender": "MALE", "emergencyContactName": "%s", "emergencyContactPhone": "010-9876-5432",
+					"tshirtSize": "L",
 						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } }
 				""".formatted(name)));

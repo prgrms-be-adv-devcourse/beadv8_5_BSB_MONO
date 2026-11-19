@@ -56,7 +56,8 @@ public class ApiV1ParticipationController {
 			+ "종목의 접수 기간, 대회 당일 만 나이 제한, 같은 대회에 살아 있는 신청이 있는지(한 사람 한 대회 1건)를 확인한다. "
 			+ "같은 대회에 결제 전(PENDING) 신청서가 남아 있으면 그 신청서를 취소하고 새로 저장한다(다른 종목이어도). "
 			+ "결제 대기·결제 완료 신청이 있으면 409다. "
-			+ "키트가 있는 종목은 배송 주소가 필수이고, 키트가 없는 종목은 배송 주소를 저장하지 않는다.")
+			+ "키트가 있는 종목은 배송 주소가 필수이고, 키트가 없는 종목은 배송 주소를 저장하지 않는다. "
+			+ "참가자 이름·생년월일·휴대폰은 요청 값이 아니라 회원 본인인증 값으로 저장한다(보내도 무시, 비어 있으면 409).")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "저장 성공",
 			content = @Content(examples = @ExampleObject(value = ParticipationApiExamples.APPLY_SUCCESS))),
@@ -84,13 +85,17 @@ public class ApiV1ParticipationController {
 				examples = @ExampleObject(value = ParticipationApiExamples.COURSE_NOT_FOUND))),
 		@ApiResponse(responseCode = "409", description = "같은 대회에 결제 대기·결제 완료 신청이 있음, "
 			+ "같은 대회 파티에 들어가 있음(data에 파티 번호·상태, 파티를 나간 뒤 신청), 접수 기간이 아님, "
-			+ "남은 결제 전 신청서를 [결제하기]가 처리 중이라 잠시 뒤 다시 시도",
+			+ "남은 결제 전 신청서를 [결제하기]가 처리 중이라 잠시 뒤 다시 시도, 본인인증 값이 빈 회원",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "이미 신청함", value = ParticipationApiExamples.DUPLICATE_PARTICIPATION),
 				@ExampleObject(name = "파티에 들어가 있음", value = ParticipationApiExamples.PARTY_PARTICIPATION_EXISTS),
 				@ExampleObject(name = "접수 기간 아님", value = ParticipationApiExamples.NOT_ACCEPTING),
-				@ExampleObject(name = "잠시 뒤 다시 시도", value = ParticipationApiExamples.APPLY_RETRY)
-			}))
+				@ExampleObject(name = "잠시 뒤 다시 시도", value = ParticipationApiExamples.APPLY_RETRY),
+				@ExampleObject(name = "본인인증 필요", value = ParticipationApiExamples.IDENTITY_VERIFICATION_REQUIRED)
+			})),
+		@ApiResponse(responseCode = "503", description = "회원 서비스에 연결하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.MEMBER_SERVICE_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> apply(
 		@LoginMemberId long memberId,
@@ -239,7 +244,8 @@ public class ApiV1ParticipationController {
 
 	@PutMapping("/{participationId}/participant")
 	@Operation(summary = "참가자 정보 수정",
-		description = "접수 마감 전까지 본인 참가 신청의 참가자 정보를 통째로 바꾼다. 생년월일이 바뀔 수 있어 나이 제한을 다시 확인한다. "
+		description = "접수 마감 전까지 본인 참가 신청의 참가자 정보를 통째로 바꾼다. "
+			+ "이름·생년월일·휴대폰은 회원 본인인증 값으로 다시 채우고(보내도 무시), 생년월일이 바뀔 수 있어 나이 제한을 다시 확인한다. "
 			+ "키트가 있는 종목은 배송 주소가 필수이고, 키트가 없는 종목은 배송 주소를 저장하지 않는다. "
 			+ "결제한 참가권은 티셔츠 사이즈를 바꿀 수 없어 기존 사이즈를 그대로 보내야 한다(다르면 400, 기존 사이즈가 없으면 고를 수 있다). "
 			+ "취소·미결제 해제·확보 실패한 신청은 고칠 수 없다.")
@@ -271,12 +277,17 @@ public class ApiV1ParticipationController {
 				@ExampleObject(name = "없는 참가 신청", value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = ParticipationApiExamples.COURSE_NOT_FOUND)
 			})),
-		@ApiResponse(responseCode = "409", description = "접수 마감 뒤, 고칠 수 없는 상태 또는 수정 중 주문이 만들어짐(다시 시도)",
+		@ApiResponse(responseCode = "409", description = "접수 마감 뒤, 고칠 수 없는 상태, "
+			+ "수정 중 주문이 만들어짐(다시 시도) 또는 본인인증 값이 빈 회원",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "접수 마감 뒤", value = ParticipationApiExamples.APPLICATION_CLOSED),
 				@ExampleObject(name = "고칠 수 없는 상태", value = ParticipationApiExamples.NOT_EDITABLE),
-				@ExampleObject(name = "수정 중 주문이 만들어짐", value = ParticipationApiExamples.CHANGE_RETRY)
-			}))
+				@ExampleObject(name = "수정 중 주문이 만들어짐", value = ParticipationApiExamples.CHANGE_RETRY),
+				@ExampleObject(name = "본인인증 필요", value = ParticipationApiExamples.IDENTITY_VERIFICATION_REQUIRED)
+			})),
+		@ApiResponse(responseCode = "503", description = "회원 서비스에 연결하지 못함",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = ParticipationApiExamples.MEMBER_SERVICE_UNAVAILABLE)))
 	})
 	public ResponseEntity<RsData<ParticipationDto>> changeParticipant(
 		@LoginMemberId long memberId,
