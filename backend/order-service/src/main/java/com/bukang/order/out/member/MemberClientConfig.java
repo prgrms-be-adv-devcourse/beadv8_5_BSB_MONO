@@ -31,4 +31,12 @@ public class MemberClientConfig {
 	) {
 		return new HttpMemberNicknamesAdapter(InternalHttpClients.create(baseUrl, timeout));
 	}
+
+	@Bean
+	public HttpMemberIdentityAdapter httpMemberIdentityAdapter(
+		@Value("${order.clients.member.base-url}") String baseUrl,
+		@Value("${order.clients.timeout}") Duration timeout
+	) {
+		return new HttpMemberIdentityAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
 }

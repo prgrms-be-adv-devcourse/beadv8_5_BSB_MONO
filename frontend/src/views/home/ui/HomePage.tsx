@@ -33,7 +33,7 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
         <>
           <AppHeader search={false} loginWhenGuest className="border-b-0" />
           <main className="flex-1">
-            <Carousel label="접수 중인 대회" className="pt-1 pb-2">
+            <Carousel label="접수 중인 대회" showDots={false} className="pt-1 pb-2">
               {RACE_BANNERS.map((banner, i) => (
                 <CarouselSlide
                   key={banner.id}
@@ -58,7 +58,7 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
 
             <NextRaceCard />
 
-            <section aria-labelledby="closing-soon" className="flex flex-col gap-3.5 px-4 py-7">
+            <section aria-labelledby="closing-soon" className="flex flex-col gap-4 px-4 py-6">
               <h2 id="closing-soon" className="text-title3">
                 <Link
                   href="/races"
@@ -95,7 +95,7 @@ function EmptyRow({ children }: { children: string }) {
   return <p className="py-6 text-center text-body2-regular text-text-tertiary">{children}</p>
 }
 
-// 홈 로딩: 02 홈과 같은 배치(배너 · 곧 마감 2열 4장)의 회색 틀.
+// 홈 로딩(피그마 V4 · 홈 · 로딩): 홈과 같은 배치(배너 · 다음 대회 · 곧 마감 2열 4장 · 러너 이야기 글 3줄)의 회색 틀.
 // 0.3초 안에 끝나면 보이지 않는다(animate-delayed-show).
 function HomeSkeleton() {
   return (
@@ -104,14 +104,40 @@ function HomeSkeleton() {
       aria-label="불러오는 중"
       className="flex flex-1 animate-delayed-show flex-col"
     >
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pt-1 pb-2">
         <Skeleton shape="rect" className="aspect-568/300 w-full rounded-lg" />
       </div>
-      <div className="flex flex-col gap-3.5 px-4 py-7">
+      <div className="px-4 pt-4">
+        <div className="flex items-center gap-4 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm">
+          <Skeleton shape="rect" className="size-16 shrink-0 rounded-md" />
+          <div className="flex flex-1 flex-col gap-1">
+            <Skeleton className="h-3 w-60 max-w-full" />
+            <Skeleton className="h-4 w-60 max-w-full" />
+            <Skeleton className="h-3 w-60 max-w-full" />
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 px-4 py-6">
         <SkeletonHead />
         <div className="grid grid-cols-2 gap-x-4 gap-y-6">
           {[0, 1, 2, 3].map((i) => (
             <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 px-4 pt-2 pb-6">
+        <Skeleton className="h-4 w-24" />
+        <div>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex gap-4 border-b border-border-default py-4 last:border-b-0">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-4 w-60 max-w-full" />
+                <Skeleton className="h-3 w-60 max-w-full" />
+                <Skeleton className="mt-1 h-3 w-40" />
+              </div>
+              {i < 2 && <Skeleton shape="rect" className="size-18 shrink-0 rounded-sm" />}
+            </div>
           ))}
         </div>
       </div>
@@ -121,21 +147,21 @@ function HomeSkeleton() {
 
 function SkeletonHead() {
   return (
-    <div className="flex h-7 items-center justify-between">
-      <Skeleton className="h-3.75 w-28" />
-      <Skeleton className="h-2.5 w-12" />
+    <div className="flex items-center gap-1">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-4 w-10" />
     </div>
   )
 }
 
 function SkeletonCard() {
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-8">
       <Skeleton shape="rect" className="aspect-4/3 w-full" />
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-2.75 w-5/6" />
-        <Skeleton className="h-2.5 w-3/5" />
-        <Skeleton className="h-2.5 w-1/3" />
+        <Skeleton className="h-4 w-48 max-w-full" />
+        <Skeleton className="h-3 w-35 max-w-full" />
+        <Skeleton className="h-3 w-24 max-w-full" />
       </div>
     </div>
   )

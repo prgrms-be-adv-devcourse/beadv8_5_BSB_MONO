@@ -158,7 +158,7 @@ describe('MyTicketsPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('아직 참가 예정인 대회가 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('신청한 대회가 없어요')).toBeInTheDocument()
   })
 
   it('주문 목록을 못 불러오면(400) 안내를 보여 준다', async () => {
@@ -172,7 +172,7 @@ describe('MyTicketsPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('정보를 불러오지 못했어요')).toBeInTheDocument()
+    expect(await screen.findByText('참가권을 불러오지 못했어요')).toBeInTheDocument()
   })
 
   it('불러오지 못했을 때 다시 시도하기를 누르면 다시 불러온다', async () => {
@@ -186,7 +186,7 @@ describe('MyTicketsPage', () => {
     const user = userEvent.setup({ advanceTimers: () => {} })
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: '다시 시도하기' }))
+    await user.click(await screen.findByRole('button', { name: '다시 불러오기' }))
 
     await vi.waitFor(() => expect(calls).toBe(2))
   })

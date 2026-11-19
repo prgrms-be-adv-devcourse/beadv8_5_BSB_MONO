@@ -1,6 +1,7 @@
 'use client'
 
 import type { Route } from 'next'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
@@ -13,7 +14,16 @@ import {
   useRegisterPartyQueue,
 } from '@/entities/party'
 import { ApiError, memberApi, productApi, unwrapData } from '@/shared/api'
-import { Alert, BottomCta, Button, Divider, KeyValue, ProgressBar, Skeleton } from '@/shared/ui'
+import {
+  Alert,
+  BottomCta,
+  Button,
+  buttonClassName,
+  Divider,
+  KeyValue,
+  ProgressBar,
+  Skeleton,
+} from '@/shared/ui'
 
 import { PartyLoadError } from './PartyFailureScreen'
 
@@ -80,31 +90,32 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
     body = (
       <section role="alert" className="flex flex-col gap-7 px-5 pt-6 pb-6">
         <div className="flex flex-col gap-2">
-          <p className="text-body2-medium text-text-danger">신청 안 됨</p>
+          <p className="text-caption-medium text-text-danger">신청 안 됨</p>
           {race.isPending ? (
             <Skeleton className="h-8 w-2/3" />
           ) : (
-            race.data && <h2 className="text-title1">{race.data.title}</h2>
+            race.data && <h2 className="text-title2">{race.data.title}</h2>
           )}
         </div>
         <div className="flex flex-col gap-4 rounded-md border border-border-default p-4">
           <div className="flex flex-col gap-1">
-            <p className="text-body1-bold">
+            <p className="text-title3">
               크루 전용 자리가 {Math.max(shortage.needed - shortage.remaining, 0)}자리 모자랐어요
             </p>
             <p className="text-body2-regular text-text-secondary">
-              아무도 신청되지 않았고 결제한 돈도 없어요.
+              자리가 모자라면 파티 전체가 신청되지 않아요
             </p>
           </div>
           <div className="flex flex-col gap-3 border-t border-border-default pt-4">
             <KeyValue label="신청 인원" value={`파티원 ${shortage.needed}명`} />
             <KeyValue label="남은 크루 전용 자리" value={`${shortage.remaining}자리`} />
             <KeyValue label="결제" value="청구된 금액 없음" />
+            <KeyValue
+              label="다시 신청"
+              value={<span className="text-text-danger">같은 대회에는 다시 신청할 수 없어요</span>}
+            />
           </div>
         </div>
-        <p className="text-body2-medium text-text-danger">
-          이 파티는 같은 대회에 다시 신청할 수 없어요.
-        </p>
       </section>
     )
   } else if (party.isPending) {
@@ -159,6 +170,19 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
     <>
       <AppHeader type="sub" title="파티 신청" />
       <main className="flex flex-1 flex-col">{body}</main>
+      {data && shortage && (
+        <BottomCta
+          className="sticky bottom-0 z-10"
+          primary={
+            <Link
+              href={`/crews/${data.crewId}` as Route}
+              className={buttonClassName({ size: 'l' })}
+            >
+              크루 홈으로 가기
+            </Link>
+          }
+        />
+      )}
       {data && !shortage && (
         <BottomCta
           className="sticky bottom-0 z-10"

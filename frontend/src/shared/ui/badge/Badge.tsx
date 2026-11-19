@@ -12,7 +12,7 @@ const TONE: Record<BadgeTone, string> = {
   success: 'bg-bg-badge-success text-text-badge-success',
   warning: 'bg-bg-badge-warning text-text-badge-warning',
   danger: 'bg-bg-badge-danger text-text-badge-danger',
-  neutral: 'bg-bg-badge-neutral text-text-badge-default',
+  neutral: 'bg-bg-surface text-text-badge-default inset-ring inset-ring-border-default',
 }
 
 export type BadgeProps = HTMLAttributes<HTMLSpanElement> & { tone?: BadgeTone }

@@ -21,7 +21,7 @@ export function TicketCanceledPage({ ticketId }: { ticketId: string }) {
   return (
     <>
       <AppHeader type="sub" title="취소 완료" close backHref="/tickets" />
-      <main className="flex flex-1 flex-col justify-center-safe gap-6 px-4 pt-6 pb-8">
+      <main className="flex flex-1 flex-col justify-center-safe gap-8 px-4 pt-6 pb-8">
         {viewState || !ticket || !order ? (
           <TicketStateView state={viewState ?? 'loading'} />
         ) : (
@@ -32,15 +32,21 @@ export function TicketCanceledPage({ ticketId }: { ticketId: string }) {
                 {race?.title && course?.name ? `${race.title} · ${course.name}` : ticket.itemName}
               </p>
             </div>
-            <div className="flex flex-col gap-3">
-              <KeyValue label="주문번호" value={ticket.orderNo} />
-              <KeyValue label="돌려받은 금액" value={`${formatNumber(ticket.amount)}원 (예치금)`} />
-              <KeyValue
-                label="지금 예치금"
-                value={wallet.balance === undefined ? '-' : `${formatNumber(wallet.balance)}원`}
-              />
-              {course?.kitIncluded && <KeyValue label="키트" value="함께 취소됨" />}
-            </div>
+            <section className="flex flex-col gap-4">
+              <h3 className="text-body1-bold">취소 내역</h3>
+              <div className="flex flex-col gap-3 rounded-md border border-border-default bg-bg-surface p-4">
+                <KeyValue label="주문번호" value={ticket.orderNo} />
+                <KeyValue
+                  label="돌려받은 금액"
+                  value={`${formatNumber(ticket.amount)}원 (예치금)`}
+                />
+                <KeyValue
+                  label="지금 예치금"
+                  value={wallet.balance === undefined ? '-' : `${formatNumber(wallet.balance)}원`}
+                />
+                {course?.kitIncluded && <KeyValue label="키트" value="함께 취소됨" />}
+              </div>
+            </section>
           </>
         )}
       </main>

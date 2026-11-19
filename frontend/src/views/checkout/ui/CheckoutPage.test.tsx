@@ -772,14 +772,12 @@ describe('결제 화면', () => {
     const headings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     const region = (name: string) => screen.getByRole('region', { name })
 
-    it('남은 시간은 헤더 오른쪽에만 있고 위쪽 안내 띠는 없다', async () => {
+    it('남은 시간은 헤더 아래 남은 시간 띠에 보인다', async () => {
       renderCheckout()
 
       await screen.findByRole('heading', { name: '결제 금액' })
-      expect(within(screen.getByRole('banner')).getByRole('timer')).toHaveTextContent(
-        /^(10:00|09:5\d)$/,
-      )
-      expect(screen.queryByText(/자리를 잡아 뒀어요/)).not.toBeInTheDocument()
+      expect(screen.getByRole('timer')).toHaveTextContent(/(10:00|09:5\d)/)
+      expect(screen.getByText(/자리를 잡아 뒀어요/)).toBeInTheDocument()
     })
 
     it('예치금이 모자라면 여섯 구역이 시안 순서로 보인다', async () => {

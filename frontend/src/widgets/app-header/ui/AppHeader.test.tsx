@@ -118,5 +118,15 @@ describe('AppHeader', () => {
       await userEvent.click(screen.getByRole('button', { name: '닫기' }))
       expect(router.back).toHaveBeenCalled()
     })
+
+    // 결과 화면 시안(2070:35486·38805 등) 다수는 제목이 닫기 아이콘 바로 오른쪽, 글쓰기 시안만 가운데
+    it('close 제목은 기본으로 왼쪽, titleAlign="center"일 때만 가운데', () => {
+      const { rerender } = render(withQuery(<AppHeader type="sub" title="취소 완료" close />))
+      expect(screen.getByRole('heading', { name: '취소 완료' }).className).not.toMatch(
+        /text-center/,
+      )
+      rerender(withQuery(<AppHeader type="sub" title="글쓰기" close titleAlign="center" />))
+      expect(screen.getByRole('heading', { name: '글쓰기' }).className).toMatch(/text-center/)
+    })
   })
 })

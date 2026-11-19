@@ -20,4 +20,18 @@ describe('Dialog', () => {
       node = node.parentElement
     }
   })
+
+  it('위아래로 쌓으면 보이는 순서와 같게 확인이 먼저, 취소가 나중에 온다', () => {
+    render(<Dialog {...open} title="나갈까요?" stacked />)
+    const names = screen.getAllByRole('button').map((b) => b.textContent)
+    expect(names).toEqual(['확인', '취소'])
+    expect(screen.getByRole('button', { name: '확인' }).parentElement?.className).not.toMatch(
+      /reverse/,
+    )
+  })
+
+  it('나란히 놓으면 취소가 왼쪽(먼저), 확인이 오른쪽이다', () => {
+    render(<Dialog {...open} title="나갈까요?" />)
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['취소', '확인'])
+  })
 })

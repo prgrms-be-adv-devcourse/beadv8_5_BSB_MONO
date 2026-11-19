@@ -15,3 +15,7 @@ export const rowKey = (orderItemId: number) => `k${orderItemId}`
 export function missingTracking(ids: number[], tracking: Record<string, string>): boolean {
   return ids.some((id) => !(tracking[rowKey(id)] ?? '').trim())
 }
+
+/** 송장 번호 칸이 받는 글자: 영문 · 숫자 · - (서버 스키마는 길이만 막는다) */
+export const trackingOnly = (value: string) => value.replace(/[^A-Za-z0-9-]/g, '')
+export const TRACKING_NOTICE = '영문, 숫자, -만 입력할 수 있어요'

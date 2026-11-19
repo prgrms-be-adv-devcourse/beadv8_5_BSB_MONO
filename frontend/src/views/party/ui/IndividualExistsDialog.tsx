@@ -1,22 +1,25 @@
 'use client'
 
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { ApiError, orderApi } from '@/shared/api'
-import { buttonClassName, Dialog } from '@/shared/ui'
+import { Dialog } from '@/shared/ui'
 
 // 같은 대회에 개인 신청이 남아 있을 때(피그마 파티 03 · 03-1 · 15).
 // 결제 전이면 취소하고 이어 가고, 이미 결제했으면 자동으로 취소하지 않고 내 참가권으로 보낸다(11/9).
 export function IndividualExistsDialog({
   participationId,
+  purpose = 'create',
   onClose,
   onCanceled,
 }: {
   participationId: number
+  purpose?: 'create' | 'join'
   onClose: () => void
   onCanceled: () => void
 }) {
+  const router = useRouter()
   const [paid, setPaid] = useState(false)
   const [canceling, setCanceling] = useState(false)
 
@@ -39,18 +42,17 @@ export function IndividualExistsDialog({
       <Dialog
         open
         onOpenChange={(open) => !open && onClose()}
-        title="이 대회에 이미 결제한 개인 신청이 있어요"
+        title="개인으로 이미 결제한 대회예요"
         body={
           <>
-            한 사람은 한 대회에 신청 하나만 가질 수 있어요. 참가 취소는 내 참가권에서 할 수 있어요.{' '}
-            <Link href="/tickets" className={buttonClassName({ variant: 'text', size: 's' })}>
-              내 참가권 보기
-            </Link>
+            한 대회에는 신청을 하나만 가질 수 있어요.
+            <br />
+            파티로 나가려면 내 참가권에서 참가를 취소해 주세요.
           </>
         }
-        type="alert"
-        confirmLabel="돌아가기"
-        onConfirm={onClose}
+        confirmLabel="내 참가권 보기"
+        cancelLabel="돌아가기"
+        onConfirm={() => router.push('/tickets')}
       />
     )
   }
@@ -59,8 +61,13 @@ export function IndividualExistsDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title="이 대회에 개인 신청이 있어요"
-      body="한 사람은 한 대회에 신청 하나만 가질 수 있어요. 개인 신청을 취소하면 파티에 참여할 수
-          있어요."
+      body={
+        <>
+          결제하기 전인 개인 신청서가 남아 있어요.
+          <br />
+          개인 신청을 취소해야 {purpose === 'join' ? '이 파티에 합류' : '파티를 만들'} 수 있어요.
+        </>
+      }
       confirmLabel="개인 신청 취소하기"
       cancelLabel="돌아가기"
       onConfirm={() => void cancel()}

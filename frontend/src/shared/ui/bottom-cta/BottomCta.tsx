@@ -9,16 +9,25 @@ export type BottomCtaProps = {
   secondary?: ReactNode
   /** 주요 버튼(Primary L). 남은 폭을 채운다. */
   primary: ReactNode
+  /** 위쪽 1px 선. 기본은 켬(마이 등). 선이 없는 인증 화면은 false */
+  bordered?: boolean
   className?: string
 }
 
 // 모바일·태블릿에서 화면 아래에 고정하는 주요 버튼 영역. 데스크톱에서는 고정하지 않고 요약 카드 안에 둔다.
 // 아이폰 홈 바 같은 기기 아래 안전 영역은 피그마에 없어서 코드에서 더한다.
-export function BottomCta({ price, secondary, primary, className }: BottomCtaProps) {
+export function BottomCta({
+  price,
+  secondary,
+  primary,
+  bordered = true,
+  className,
+}: BottomCtaProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-2 bg-bg-surface px-5 pt-3 pb-[calc(--spacing(3)+env(safe-area-inset-bottom))]',
+        'flex items-center gap-2 bg-bg-surface px-6 pt-3 pb-[calc(--spacing(3)+env(safe-area-inset-bottom))]',
+        bordered && 'border-t border-border-default',
         className,
       )}
     >

@@ -19,6 +19,7 @@ import { ApiError, payoutApi, unwrapData } from '@/shared/api'
 import { cn, formatNumber } from '@/shared/lib'
 import {
   Alert,
+  Button,
   buttonClassName,
   EmptyState,
   FOCUS_RING,
@@ -27,14 +28,14 @@ import {
   type IconName,
 } from '@/shared/ui'
 
-import { formatKoreanMonthDay, soldRate } from '../lib/dashboard'
+import { formatKoreanMonthDayWeekday, soldRate } from '../lib/dashboard'
 
 function errorText(error: unknown) {
   return (error instanceof ApiError && error.serverMessage) || '잠시 뒤 다시 시도해 주세요.'
 }
 
 // 구역: 흰 바탕 + 1px 선 상자(둥글기 12, 안쪽 24)
-const CARD = 'rounded-md border border-border-default shadow-none'
+const CARD = 'rounded-md border border-border-default shadow-sm'
 
 // 피그마 Final v3 · 판매자 · 대시보드: 처리할 일 → 다음 정산 → 대회별 판매
 export function SellerDashboardPage({ state }: { state?: 'loading' | 'offline' }) {
@@ -65,9 +66,25 @@ function DashboardBody() {
     select: (list) => list.map(toSellerRaceRow),
   })
 
+  // 첫 대회를 등록하기 전에는 처리할 일 · 정산 · 판매 표 없이 등록 안내만 보여 준다
+  if (races.data?.length === 0) {
+    return (
+      <ConsoleCard>
+        <EmptyState
+          title="등록한 대회가 없어요"
+          action={
+            <Link href="/seller/races/new?from=home" className={buttonClassName()}>
+              대회 등록하기
+            </Link>
+          }
+        />
+      </ConsoleCard>
+    )
+  }
+
   return (
     <>
-      <div className="grid grid-cols-[7fr_4fr] gap-6">
+      <div className="grid grid-cols-[1fr_400px] items-start gap-6">
         <TodoCard />
         <PayoutCard />
       </div>
@@ -93,18 +110,22 @@ function TodoCard() {
     <ConsoleCard
       title={
         <>
-          처리할 일{' '}
-          {total !== undefined && (
-            <span className="text-text-secondary">{formatNumber(total)}</span>
-          )}
+          <span className="flex items-center gap-2">
+            처리할 일
+            {total !== undefined && (
+              <span className="font-display text-number-s text-text-secondary">
+                {formatNumber(total)}
+              </span>
+            )}
+          </span>
         </>
       }
-      className={cn(CARD, 'gap-2')}
+      className={CARD}
     >
       {total === 0 ? (
         <p className="py-2 text-body2-regular text-text-secondary">처리할 일이 없어요</p>
       ) : (
-        <>
+        <div className="flex flex-col gap-2">
           {(shippable === undefined || shippable > 0) && (
             <TodoRow
               href="/seller/kits"
@@ -126,14 +147,14 @@ function TodoCard() {
           {(held === undefined || held > 0) && (
             <TodoRow
               href="/seller/settlements"
-              icon="TriangleAlert"
+              icon="CircleAlert"
               name="지급보류"
               count={countLabel(held, isFailing(summary))}
               menu="정산"
               danger
             />
           )}
-        </>
+        </div>
       )}
     </ConsoleCard>
   )
@@ -165,7 +186,7 @@ function TodoRow({
     <Link
       href={href}
       className={cn(
-        'flex h-12 items-center gap-3 rounded-sm text-body2-medium',
+        'flex items-center gap-3 rounded-sm bg-bg-surface py-3 pr-3 pl-4 text-body1-medium shadow-sm',
         danger && 'text-text-danger',
         FOCUS_RING,
       )}
@@ -174,7 +195,7 @@ function TodoRow({
       <span className="flex min-w-0 flex-1 items-center gap-3">
         <span>{name}</span> <span className="text-body1-bold">{count}</span>
       </span>
-      <span className="text-body2-regular text-text-secondary">{menu}</span>
+      <span className="text-caption-regular text-text-secondary">{menu}</span>
       <Icon name="ChevronRight" className="size-4 text-text-secondary" />
     </Link>
   )
@@ -189,39 +210,40 @@ function PayoutCard() {
       aside={
         <Link
           href="/seller/settlements"
-          className={cn('rounded-sm text-caption-regular text-text-secondary', FOCUS_RING)}
+          className={buttonClassName({ variant: 'ghost', size: 's' })}
         >
-          정산 ›
+          정산 보기
         </Link>
       }
       className={CARD}
     >
       {summary.data ? (
         <>
-          <p className="flex items-baseline gap-2">
+          <p className="flex items-baseline gap-1">
             <span className="font-display text-number-s">
               {formatNumber(summary.data.scheduledPayoutAmount)}
             </span>
-            <span className="text-body2-regular text-text-secondary">원</span>
+            <span className="text-body1-regular text-text-secondary">원</span>
           </p>
-          <p className="flex gap-4 text-body2-regular text-text-secondary">
-            {/* 지급 예정 정산이 없으면 다음 정산일이 null이다 */}
-            <span>
-              {summary.data.nextPayDate
-                ? `${formatKoreanMonthDay(summary.data.nextPayDate)} 지급 예정`
-                : '지급 예정 정산 없음'}
-            </span>
-            {summary.data.heldCount > 0 && (
-              <span className="text-text-danger">지급보류 {summary.data.heldCount}건</span>
-            )}
+          {/* 지급 예정 정산이 없으면 다음 정산일이 null이다 */}
+          <p className="text-caption-regular text-text-secondary">
+            {summary.data.nextPayDate
+              ? `${formatKoreanMonthDayWeekday(summary.data.nextPayDate)} 지급 예정`
+              : '지급 예정 정산 없음'}
           </p>
         </>
       ) : summary.isError ? (
-        <Alert
-          tone="danger"
-          title="정산 요약을 불러오지 못했어요"
-          description={errorText(summary.error)}
-        />
+        <>
+          <p className="text-caption-regular text-text-secondary">다음 정산을 불러오지 못했어요</p>
+          <Button
+            variant="secondary"
+            size="s"
+            className="self-start"
+            onClick={() => void summary.refetch()}
+          >
+            다시 시도하기
+          </Button>
+        </>
       ) : (
         <Skeleton className="h-16 w-full" />
       )}
@@ -249,32 +271,32 @@ function RaceSalesCard({ rows, error }: { rows: SellerRaceRow[] | undefined; err
           }
         />
       ) : (
-        <table aria-label="대회별 판매" className="w-full table-fixed text-body2-regular">
+        <table aria-label="대회별 판매" className="w-full table-fixed text-body1-regular">
           <thead>
-            <tr className="border-b border-border-default text-body2-medium text-text-secondary">
-              <th className="h-11 text-left font-medium">대회</th>
-              <th className="h-11 w-28 text-right font-medium">대회일</th>
-              <th className="h-11 w-36 text-right font-medium">판매 / 정원</th>
-              <th className="h-11 w-48 pl-6 text-left font-medium">판매율</th>
-              <th className="h-11 w-28 pl-4 text-left font-medium">상태</th>
+            <tr className="border-b border-border-default text-caption-medium text-text-secondary">
+              <th className="h-11 px-3 text-left font-medium">대회</th>
+              <th className="h-11 w-35 px-3 text-left font-medium">대회일</th>
+              <th className="h-11 w-40 px-3 text-right font-medium">판매 / 정원</th>
+              <th className="h-11 w-50 px-3 text-left font-medium">판매율</th>
+              <th className="h-11 w-30 px-3 text-left font-medium">상태</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="h-14 border-b border-border-default last:border-b-0">
-                <td className="truncate">
+              <tr key={row.id} className="h-14 border-b border-border-default">
+                <td className="truncate px-3">
                   <Link
                     href={`/seller/races/${row.id}`}
-                    className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
+                    className={cn('rounded-sm text-body1-medium', FOCUS_RING)}
                   >
                     {row.title}
                   </Link>
                 </td>
-                <td className="text-right tabular-nums">{row.date}</td>
-                <td className="text-right tabular-nums">
+                <td className="px-3 tabular-nums">{row.date}</td>
+                <td className="px-3 text-right tabular-nums">
                   {formatNumber(row.sold)} / {formatNumber(row.capacity)}
                 </td>
-                <td className="pl-6">
+                <td className="px-3">
                   <SaleRateBar
                     aria-label={`${row.title} 판매율`}
                     percent={soldRate(row.sold, row.capacity)}
@@ -283,7 +305,7 @@ function RaceSalesCard({ rows, error }: { rows: SellerRaceRow[] | undefined; err
                 </td>
                 <td
                   className={cn(
-                    'pl-4 text-body2-medium',
+                    'px-3 text-body1-medium',
                     row.saleStatus
                       ? SELLER_SALE_STATUS_TEXT[row.saleStatus]
                       : 'text-text-secondary',

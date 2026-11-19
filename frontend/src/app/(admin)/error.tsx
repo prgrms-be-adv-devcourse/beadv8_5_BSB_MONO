@@ -7,5 +7,11 @@ export default function AdminError(props: {
   error: Error & { digest?: string }
   retry: () => void
 }) {
-  return <RouteErrorScreen {...props} />
+  return (
+    <RouteErrorScreen
+      {...props}
+      title="화면을 불러오지 못했어요"
+      description="잠시 뒤 다시 시도해 주세요."
+    />
+  )
 }

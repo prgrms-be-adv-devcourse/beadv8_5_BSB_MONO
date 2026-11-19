@@ -9,28 +9,28 @@ import { Spinner } from '../icon/icons'
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'text' | 'danger'
 export type ButtonSize = 's' | 'm' | 'l'
 
-// 피그마 v2/Button. 보조(secondary)는 회색 바탕, 선(ghost)은 테두리만, 글자(text)는 바탕·테두리 없이 글자만이다.
+// 피그마 v2/Button(v4 화면 기준): 높이 L 48 · M 40 · S 32, 둥글기 12, 글자 16. 보조(secondary)는 회색 바탕, 선(ghost)은 테두리만, 글자(text)는 바탕·테두리 없이 글자만이다.
 // 테두리는 피그마처럼 안쪽 선(inset-ring)이라 크기가 바뀌지 않는다.
-const BRAND_DISABLED = 'disabled:bg-bg-brand-disabled disabled:text-text-on-brand'
+const BRAND_DISABLED = 'disabled:bg-bg-disabled disabled:text-text-disabled'
 
 const button = cva(
-  `inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed ${FOCUS_RING}`,
+  `inline-flex shrink-0 items-center justify-center rounded-md whitespace-nowrap select-none disabled:cursor-not-allowed ${FOCUS_RING}`,
   {
     variants: {
       variant: {
         primary: `bg-bg-brand text-text-on-brand enabled:hover:bg-bg-brand-hover ${BRAND_DISABLED}`,
         secondary:
-          'bg-bg-subtle text-text-primary enabled:hover:bg-bg-subtle-hover disabled:bg-bg-disabled disabled:text-text-disabled',
+          'bg-bg-surface text-text-primary inset-ring inset-ring-border-strong enabled:hover:bg-bg-subtle disabled:bg-bg-disabled disabled:text-text-disabled disabled:inset-ring-0',
         ghost:
-          'text-text-primary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle focus-visible:inset-ring-border-strong disabled:text-text-disabled disabled:inset-ring-border-disabled',
+          'text-text-primary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle focus-visible:inset-ring-border-strong disabled:bg-bg-disabled disabled:text-text-disabled disabled:inset-ring-0',
         text: 'text-text-secondary enabled:hover:bg-bg-subtle focus-visible:text-text-primary disabled:text-text-disabled',
         danger:
           'bg-bg-danger text-text-on-danger enabled:hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled',
       } satisfies Record<ButtonVariant, string>,
       size: {
-        s: 'gap-1 px-3 py-2 text-body2-medium',
-        m: 'gap-2 px-4 py-3 text-body2-medium',
-        l: 'h-13 gap-2 px-5 text-body1-medium',
+        s: 'gap-1 px-3 py-1 text-body1-medium',
+        m: 'gap-2 px-4 py-2 text-body1-medium',
+        l: 'gap-2 px-6 py-3 text-body1-medium',
       } satisfies Record<ButtonSize, string>,
     },
   },

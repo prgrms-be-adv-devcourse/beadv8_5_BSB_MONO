@@ -31,7 +31,9 @@ describe('SellerSettlementsPage', () => {
     renderPage()
 
     expect(await screen.findByText('94,500')).toBeInTheDocument()
-    expect(screen.getByText('(화)')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: '정산 요약' })).getByText('10/20 (화)'),
+    ).toBeInTheDocument()
     expect(await screen.findByText('ST-20260926-0002')).toBeInTheDocument()
     expect(months).toMatch(/^\d{4}-\d{2}~\d{4}-\d{2}$/)
   })
@@ -48,7 +50,7 @@ describe('SellerSettlementsPage', () => {
     )
     renderPage()
 
-    const tile = (await screen.findByText('다음 정산일')).parentElement as HTMLElement
+    const tile = (await screen.findByText('다음 지급일')).parentElement as HTMLElement
     expect(within(tile).getByText('-')).toBeInTheDocument()
   })
 
@@ -57,15 +59,15 @@ describe('SellerSettlementsPage', () => {
 
     const finalRow = (await screen.findByText('ST-20260926-0002')).closest('tr')!
     expect(within(finalRow).getByText('최종 · 9월')).toBeInTheDocument()
-    expect(within(finalRow).getByText('₩5,500')).toBeInTheDocument()
-    expect(within(finalRow).getByText('₩40,000')).toBeInTheDocument()
-    expect(within(finalRow).getByText('₩54,500')).toBeInTheDocument()
+    expect(within(finalRow).getByText('5,500')).toBeInTheDocument()
+    expect(within(finalRow).getByText('40,000')).toBeInTheDocument()
+    expect(within(finalRow).getByText('54,500')).toBeInTheDocument()
     expect(within(finalRow).getByText('지급 예정')).toBeInTheDocument()
 
     const firstRow = screen.getByText('ST-20260916-0001').closest('tr')!
     expect(within(firstRow).getByText('1차 · 9월')).toBeInTheDocument()
     expect(within(firstRow).getAllByText('–')).toHaveLength(2)
-    expect(within(firstRow).getByText('₩40,000')).toBeInTheDocument()
+    expect(within(firstRow).getByText('40,000')).toBeInTheDocument()
     expect(within(firstRow).getByText('지급 예정')).toBeInTheDocument()
   })
 
@@ -172,7 +174,7 @@ describe('SellerSettlementsPage', () => {
 
     expect(await screen.findByText('HD-20261012-0001')).toBeInTheDocument()
     expect(screen.getByText('정산 계좌 미등록')).toBeInTheDocument()
-    expect(screen.getByText('10/12')).toBeInTheDocument()
+    expect(screen.getByText('10/12 (월)')).toBeInTheDocument()
   })
 
   it('조회가 400이면 서버 문구를 보여 준다', async () => {
@@ -193,5 +195,47 @@ describe('SellerSettlementsPage', () => {
     expect(
       await screen.findByText('건별 정산·지급보류 내역은 최대 1개월까지 조회할 수 있습니다.'),
     ).toBeInTheDocument()
+  })
+
+  it('금액 열 이름에 단위(원)를 쓴다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '건별 정산' }))
+    expect(await screen.findByRole('columnheader', { name: '금액(원)' })).toBeInTheDocument()
+  })
+
+  it('지급보류 표의 금액 열 이름에도 단위(원)를 쓴다', async () => {
+    renderPage('holds')
+
+    expect(await screen.findByRole('columnheader', { name: '금액(원)' })).toBeInTheDocument()
+  })
+
+  it('대회별 정산은 기간 선택이 없으므로 빈 문구에 「이 기간에」를 쓰지 않는다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/payouts', () =>
+        HttpResponse.json({ status: 200, message: '', data: [] }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByText('정산 내역이 없어요')).toBeInTheDocument()
+  })
+
+  it('건별 정산은 기간 선택이 있으므로 빈 문구에 「이 기간에」를 쓴다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/payout-items', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '',
+          data: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 },
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '건별 정산' }))
+    expect(await screen.findByText('이 기간에 건별 정산이 없어요')).toBeInTheDocument()
   })
 })

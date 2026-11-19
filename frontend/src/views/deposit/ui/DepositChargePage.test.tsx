@@ -59,6 +59,20 @@ describe('예치금 충전 (M21)', () => {
     expect(screen.getByRole('button', { name: '9,000원 충전하기' })).toBeDisabled()
   })
 
+  it('숫자가 아닌 글자를 치면 값은 그대로이고 숫자만 입력할 수 있다는 안내가 보인다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const input = screen.getByLabelText('충전할 금액')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+    await user.type(input, 'a')
+
+    expect(input).toHaveValue('10,000')
+    expect(screen.getByText('숫자만 입력할 수 있어요')).toBeInTheDocument()
+    await user.type(input, '0')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+  })
+
   it('결제창을 띄우지 못하면 결제 실패 문구를 보이고 다시 누를 수 있다', async () => {
     requestCharge.mockRejectedValue(new Error('no client key'))
     const user = userEvent.setup()

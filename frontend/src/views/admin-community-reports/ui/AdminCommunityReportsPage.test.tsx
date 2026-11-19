@@ -34,9 +34,7 @@ describe('AdminCommunityReportsPage', () => {
   it('숫자 타일과 숨겨진 글·댓글 표, 처리할 항목의 신고 사유가 보인다', async () => {
     renderPage()
 
-    expect(await screen.findByText('숨겨진 글 · 댓글 3건')).toBeInTheDocument()
-    expect(screen.getByText('확인을 기다리는 신고')).toBeInTheDocument()
-    const table = screen.getByRole('table', { name: '숨겨진 글 · 댓글' })
+    const table = await screen.findByRole('table', { name: '숨겨진 글 · 댓글' })
     expect(within(table).getAllByText('숨김')).toHaveLength(2)
     expect(within(table).getByText('되살림')).toBeInTheDocument()
     expect(screen.getByText('광고 7')).toBeInTheDocument()
@@ -45,7 +43,7 @@ describe('AdminCommunityReportsPage', () => {
   it('줄을 고르고 되살리면 상태가 「되살림」으로 바뀌고 처리 버튼 대신 처리 결과가 보인다', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('숨겨진 글 · 댓글 3건')
+    await screen.findByRole('table', { name: '숨겨진 글 · 댓글' })
 
     await user.click(screen.getByText('달리자123'))
     expect(screen.getByText('욕설 · 비방 4 · 기타 1')).toBeInTheDocument()
@@ -61,7 +59,7 @@ describe('AdminCommunityReportsPage', () => {
   it('지우기를 누르면 상태가 「지움」으로 바뀐다', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('숨겨진 글 · 댓글 3건')
+    await screen.findByRole('table', { name: '숨겨진 글 · 댓글' })
 
     await user.click(screen.getByRole('button', { name: '지우기' }))
     await vi.waitFor(() => expect(screen.getByText('지움')).toBeInTheDocument())

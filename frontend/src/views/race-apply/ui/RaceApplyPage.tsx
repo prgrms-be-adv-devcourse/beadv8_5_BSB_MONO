@@ -25,16 +25,16 @@ import {
   useIdempotencyKey,
   type productModel,
 } from '@/shared/api'
-import { cn, formatWon, useTrackOnce } from '@/shared/lib'
+import { cn, formatNumber, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
   BottomCta,
   Button,
+  buttonClassName,
   Checkbox,
   Chip,
+  digitsOnly,
   EmptyState,
-  FOCUS_RING,
-  HeaderTimer,
   KeyValue,
   PhoneField,
   Radio,
@@ -43,6 +43,7 @@ import {
   Select,
   Skeleton,
   TextField,
+  TimerBar,
 } from '@/shared/ui'
 
 import {
@@ -55,8 +56,10 @@ import {
   type ParticipantFormValues,
 } from '../model/participant-form'
 
-// 피그마 v3: 밑줄 글자 링크 (변경 · 회원 정보에서 바꾸기)
-const LINK = cn('shrink-0 rounded-sm text-body2-medium text-text-secondary underline', FOCUS_RING)
+// 피그마 v4: 대회 요약 · 키트 배송지 옆 「변경」은 테두리 작은 버튼
+const CHANGE_BUTTON = buttonClassName({ variant: 'ghost', size: 's' })
+// 피그마 v4: 이름 칸 폭 88
+const KEY_VALUE_88 = '[&>span:first-child]:w-22'
 
 type KitGroup = productModel.KitOptionGroupDto
 
@@ -100,8 +103,13 @@ export function RaceApplyPage({
         type="sub"
         title="참가 신청"
         onBack={step === 1 && !kit.isError ? () => !saving && setStep(0) : undefined}
-        action={remaining !== null && <HeaderTimer remainingSeconds={remaining} />}
       />
+      {remaining !== null && (
+        <TimerBar
+          message="자리를 잡아 뒀어요. 시간 안에 결제해 주세요"
+          remainingSeconds={remaining}
+        />
+      )}
       {kit.isError ? (
         <main className="flex flex-1 items-center justify-center bg-bg-surface px-4 py-6">
           <EmptyState
@@ -219,6 +227,23 @@ function ParticipantForm({
     defaultValues: defaults,
   })
   const address = useWatch({ control, name: 'address' })
+  const addressDetail = useWatch({ control, name: 'addressDetail' })
+  const recipientName = useWatch({ control, name: 'recipientName' })
+  const recipientPhone = useWatch({ control, name: 'recipientPhone' })
+  // 처음 값(지난 신청 · 이번에 입력해 둔 값)에 받는 사람과 주소가 다 있으면 입력 칸 대신 요약으로 보여 준다
+  const [editingAddress, setEditingAddress] = useState(false)
+  // 배송지 칸에 검증 오류가 나면 요약에 가려지지 않게 입력 칸을 연다
+  const addressInvalid = !!(
+    errors.recipientName ||
+    errors.recipientPhone ||
+    errors.zipcode ||
+    errors.address ||
+    errors.addressDetail
+  )
+  const savedAddress =
+    !editingAddress &&
+    !addressInvalid &&
+    !!(defaults.recipientName && defaults.recipientPhone && defaults.zipcode && defaults.address)
   // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
   const [manualAddress, setManualAddress] = useState(false)
   const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
@@ -357,9 +382,9 @@ function ParticipantForm({
             image={race.images[0]}
             title={race.title}
             meta={`${race.startsAt} · ${race.place}`}
-            ticket={`${option.name} · ${formatWon(option.price)}`}
+            ticket={`${option.name} · ${formatNumber(option.price)}원`}
             action={
-              <Link href={`/races/${race.id}`} className={LINK}>
+              <Link href={`/races/${race.id}`} className={CHANGE_BUTTON}>
                 변경
               </Link>
             }
@@ -391,11 +416,11 @@ function ParticipantForm({
             <Section
               title="회원 정보"
               aside={
-                <Link href="/me/edit" className={LINK}>
-                  회원 정보에서 바꾸기
+                <Link href="/me/edit" aria-label="회원 정보 변경" className={CHANGE_BUTTON}>
+                  변경
                 </Link>
               }
-              className="gap-3"
+              className="gap-3 pb-0"
             >
               {memberFailed ? (
                 <div className="flex items-center justify-between gap-3">
@@ -407,16 +432,20 @@ function ParticipantForm({
                   </Button>
                 </div>
               ) : (
-                <>
-                  <KeyValue label="이름" value={defaults.name || '-'} />
-                  <KeyValue label="생년월일" value={formatBirth(defaults.birth)} />
-                </>
+                <div className="flex flex-col gap-2">
+                  <KeyValue label="이름" value={defaults.name || '-'} className={KEY_VALUE_88} />
+                  <KeyValue
+                    label="생년월일"
+                    value={formatBirth(defaults.birth)}
+                    className={KEY_VALUE_88}
+                  />
+                </div>
               )}
             </Section>
 
-            <Section className="gap-6 pt-2">
+            <Section className="gap-6 pt-6 pb-4">
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-body2-medium">성별</legend>
+                <legend className="mb-2 text-body1-medium">성별</legend>
                 <Controller
                   control={control}
                   name="gender"
@@ -468,63 +497,89 @@ function ParticipantForm({
               />
               {option.kitIncluded && (
                 <>
-                  <TextField
-                    label="받는 사람"
-                    placeholder="받는 사람 이름"
-                    error={errors.recipientName?.message}
-                    {...register('recipientName')}
-                  />
-                  <PhoneField
-                    label="받는 사람 연락처"
-                    error={errors.recipientPhone?.message}
-                    {...register('recipientPhone')}
-                  />
-                  <div className="flex flex-col gap-2">
-                    {!manualAddress && <span className="text-body2-medium">키트 배송 주소</span>}
-                    {manualAddress && (
-                      <TextField
-                        label="키트 배송 우편번호"
-                        inputMode="numeric"
-                        error={errors.zipcode?.message}
-                        {...register('zipcode')}
-                      />
-                    )}
-                    {manualAddress ? (
-                      <TextField
-                        label="키트 배송 주소"
-                        error={errors.address?.message}
-                        {...register('address')}
-                      />
-                    ) : null}
-                    {/* 우편번호는 주소 검색 결과로만 저장하고 화면에는 쓰지 않는다 */}
-                    <AddressSearch
-                      onSelect={pickAddress}
-                      onUnavailable={() => setManualAddress(true)}
-                      summary={address || undefined}
-                      label={address ? '다시 검색' : '주소 검색'}
-                      variant={address ? 'text' : 'secondary'}
-                    />
-                    {!manualAddress && errors.address?.message && (
-                      <p role="alert" className="text-caption-regular text-text-danger">
-                        {errors.address.message}
+                  {savedAddress ? (
+                    // 지난 신청에서 받은 배송지가 있으면 요약으로 보여 주고, 「변경」을 누르면 입력 칸을 연다
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between">
+                        <span className="text-body1-medium">키트 배송지</span>
+                        <Button size="s" variant="ghost" onClick={() => setEditingAddress(true)}>
+                          변경
+                        </Button>
+                      </div>
+                      <p className="text-body1-regular">
+                        {recipientName} · {recipientPhone}
                       </p>
-                    )}
-                    {address && (
+                      <p className="text-body1-regular">
+                        {[address, addressDetail].filter(Boolean).join(', ')}
+                      </p>
+                      <p className="text-caption-regular text-text-secondary">
+                        환불 기한({refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
                       <TextField
-                        label="상세 주소"
-                        error={errors.addressDetail?.message}
-                        {...register('addressDetail')}
+                        label="받는 사람"
+                        placeholder="받는 사람 이름"
+                        error={errors.recipientName?.message}
+                        {...register('recipientName')}
                       />
-                    )}
-                    <p className="text-caption-regular text-text-secondary">
-                      환불 기한({refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.
-                    </p>
-                  </div>
+                      <PhoneField
+                        label="받는 사람 연락처"
+                        error={errors.recipientPhone?.message}
+                        {...register('recipientPhone')}
+                      />
+                      <div className="flex flex-col gap-2">
+                        {!manualAddress && (
+                          <span className="text-body1-medium">키트 배송 주소</span>
+                        )}
+                        {manualAddress && (
+                          <TextField
+                            label="키트 배송 우편번호"
+                            inputMode="numeric"
+                            filter={digitsOnly}
+                            error={errors.zipcode?.message}
+                            {...register('zipcode')}
+                          />
+                        )}
+                        {manualAddress ? (
+                          <TextField
+                            label="키트 배송 주소"
+                            error={errors.address?.message}
+                            {...register('address')}
+                          />
+                        ) : null}
+                        {/* 우편번호는 주소 검색 결과로만 저장하고 화면에는 쓰지 않는다 */}
+                        <AddressSearch
+                          onSelect={pickAddress}
+                          onUnavailable={() => setManualAddress(true)}
+                          summary={address || undefined}
+                          label={address ? '다시 검색' : '주소 검색'}
+                          variant={address ? 'text' : 'secondary'}
+                        />
+                        {!manualAddress && errors.address?.message && (
+                          <p role="alert" className="text-caption-regular text-text-danger">
+                            {errors.address.message}
+                          </p>
+                        )}
+                        {address && (
+                          <TextField
+                            label="상세 주소"
+                            error={errors.addressDetail?.message}
+                            {...register('addressDetail')}
+                          />
+                        )}
+                        <p className="text-caption-regular text-text-secondary">
+                          환불 기한({refundDeadline})이 지난 뒤 이 주소로 키트를 보내요.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </Section>
 
-            <section className="flex flex-col gap-4 px-4 py-5">
+            <section className="flex flex-col gap-8 p-4 pb-8">
               <div className="flex flex-col">
                 <h3 className="text-body1-bold">개인정보 제3자 제공</h3>
                 {[
@@ -536,15 +591,15 @@ function ParticipantForm({
                   <div
                     key={label}
                     className={cn(
-                      'flex gap-3 py-3 text-body2-regular',
+                      'flex gap-3 py-3 text-body1-regular',
                       i === 0 ? 'pt-4' : 'border-t border-border-default',
                     )}
                   >
-                    <span className="w-18 shrink-0 text-text-secondary">{label}</span>
+                    <span className="w-22 shrink-0 text-text-secondary">{label}</span>
                     <span className="min-w-0 flex-1">{value}</span>
                   </div>
                 ))}
-                <p className="pt-2 text-body2-regular text-text-secondary">
+                <p className="pt-2 text-caption-regular text-text-secondary">
                   동의하지 않으면 신청할 수 없어요.
                 </p>
               </div>

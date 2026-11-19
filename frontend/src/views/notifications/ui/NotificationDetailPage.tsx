@@ -68,15 +68,13 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
             return (
               <Fragment key={notice.id}>
                 {(i === 0 || formatDayChip(items[i - 1].sentAt) !== day) && (
-                  <p className="self-center rounded-full bg-bg-subtle px-2.5 py-1 text-caption-regular text-text-secondary">
-                    {day}
-                  </p>
+                  <p className="self-center text-caption-regular text-text-secondary">{day}</p>
                 )}
                 <div className="flex items-start gap-2">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-bg-subtle">
                     <Icon name={meta.icon} className="size-4.5" />
                   </span>
-                  <div className="flex min-w-0 flex-col items-start gap-1">
+                  <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                     {meta.value === 'seller' ? (
                       // 시나리오 39 · 03-S 판매 소식: 회색 말풍선에 제목 · 내용 · 할 일 버튼
                       <div className="flex max-w-80 flex-col items-start gap-2 rounded-md bg-bg-subtle p-3">
@@ -96,21 +94,19 @@ export function NotificationDetailPage({ category }: { category: NoticeCategory 
                         )}
                       </div>
                     ) : (
-                      <div className="flex max-w-80 flex-col gap-2 rounded-md rounded-tl-[2px] bg-bg-surface p-3 inset-ring inset-ring-border-default">
-                        <p className="text-body2-regular whitespace-pre-line">{notice.body}</p>
+                      <div className="flex flex-col gap-3 rounded-md border border-border-default bg-bg-surface p-4 shadow-sm">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-caption-regular text-text-secondary">{notice.title}</p>
+                          <p className="text-body1-regular whitespace-pre-line">{notice.body}</p>
+                        </div>
                         {href && (
-                          <div className="flex justify-center rounded-sm bg-bg-brand-subtle py-2">
-                            <Link
-                              href={href}
-                              className={buttonClassName({ variant: 'text', size: 's' })}
-                            >
-                              {actionLabel(notice, meta)}
-                            </Link>
-                          </div>
+                          <Link href={href} className={buttonClassName({ variant: 'ghost' })}>
+                            {actionLabel(notice, meta)}
+                          </Link>
                         )}
                       </div>
                     )}
-                    <span className="text-caption-regular text-text-tertiary">
+                    <span className="text-caption-regular text-text-secondary">
                       {formatTime(notice.sentAt)}
                     </span>
                   </div>

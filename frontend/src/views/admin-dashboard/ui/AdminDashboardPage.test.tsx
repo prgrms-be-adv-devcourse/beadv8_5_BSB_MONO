@@ -52,8 +52,8 @@ describe('AdminDashboardPage 할 일', () => {
     renderPage()
 
     const row = (name: string) => screen.getByRole('link', { name: new RegExp(name) })
-    expect(await screen.findByRole('link', { name: /확인이 필요한 계정 묶음.*3건/ })).toBeVisible()
-    expect(row('숨겨진 신고 글·댓글')).toHaveTextContent('2건')
+    expect(await screen.findByRole('link', { name: /확인이 필요한 계정.*3건/ })).toBeVisible()
+    expect(row('숨겨진 신고 글')).toHaveTextContent('2건')
     expect(row('답변 대기 문의')).toHaveTextContent('5건')
   })
 
@@ -65,10 +65,27 @@ describe('AdminDashboardPage 할 일', () => {
     expect(await within(sellers).findByText('불러오지 못했어요')).toBeInTheDocument()
   })
 
-  it('지급 확인 필요 기록 카드를 할 일 아래에 둔다', async () => {
+  it('네 줄이 모두 실패하면 줄 대신 카드 하나로 알리고 다시 시도할 수 있다', async () => {
+    const fail = () =>
+      HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+    server.use(
+      http.get('*/api/v1/member/admin/sellers', fail),
+      http.get('*/api/v1/member/admin/members/identity-review', fail),
+      http.get('*/api/v1/board/admin/reports', fail),
+      http.get('*/api/v1/inquiry/admin/inquiries', fail),
+    )
+    renderPage()
+
+    expect(await screen.findByText('할 일을 불러오지 못했어요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 시도하기' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /판매자 승인 대기/ })).not.toBeInTheDocument()
+  })
+
+  it('지급 확인 필요 기록 표는 없다', async () => {
     mockLists()
     renderPage()
 
-    expect(await screen.findByText('지급 확인 필요 · 최근 1개월')).toBeInTheDocument()
+    await screen.findByRole('link', { name: /판매자 승인 대기/ })
+    expect(screen.queryByText('지급 확인 필요 · 최근 1개월')).not.toBeInTheDocument()
   })
 })

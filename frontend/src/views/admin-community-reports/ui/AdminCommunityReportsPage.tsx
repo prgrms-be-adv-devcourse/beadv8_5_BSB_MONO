@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsoleMessage, ConsolePage } from '@/widgets/console-page'
 import {
   useAdminReports,
   useHandleReport,
@@ -11,7 +11,7 @@ import {
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Button, DataTable, EmptyState, KeyValue, Skeleton, StatTile, useToast } from '@/shared/ui'
+import { Button, DataTable, EmptyState, KeyValue, Skeleton, useToast } from '@/shared/ui'
 
 // 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
 const STATUS_TEXT: Record<string, string> = {
@@ -76,78 +76,61 @@ export function AdminCommunityReportsPage() {
   }
 
   return (
-    <ConsolePage title="커뮤니티 신고" description="숨겨진 글과 댓글을 보고 되살리거나 지워요.">
+    <ConsolePage title="커뮤니티 신고">
       {reports.isPending ? (
         <div role="status" aria-label="불러오는 중" className="flex flex-col gap-4">
           <Skeleton shape="rect" className="h-24 rounded-lg" />
           <Skeleton shape="rect" className="h-48 rounded-lg" />
         </div>
       ) : reports.isError ? (
-        <EmptyState
-          role="alert"
-          icon="CircleAlert"
-          title="신고 목록을 불러오지 못했어요"
-          action={
-            <Button
-              variant="secondary"
-              loading={reports.isFetching}
-              onClick={() => void reports.refetch()}
-            >
-              다시 시도하기
-            </Button>
-          }
-        />
+        <ConsoleMessage
+          kind="error"
+          onRetry={() => void reports.refetch()}
+          retrying={reports.isFetching}
+        >
+          신고 목록을 불러오지 못했어요
+        </ConsoleMessage>
       ) : (
         <>
-          <div className="flex gap-4">
-            <StatTile label="숨겨진 글 · 댓글" value={reports.data.hiddenCount} unit="건" />
-            <StatTile label="확인을 기다리는 신고" value={reports.data.pendingReportCount} />
-            <StatTile label="오늘 처리" value={reports.data.handledTodayCount} unit="건" />
-          </div>
-
-          <ConsoleCard
-            title={`${reports.data.hiddenCount > 0 ? '숨겨진' : '신고된'} 글 · 댓글 ${items.length}건`}
-          >
-            {items.length === 0 ? (
-              <EmptyState title="숨겨진 글 · 댓글이 없어요" />
-            ) : (
-              <DataTable
-                label="숨겨진 글 · 댓글"
-                rows={items}
-                rowKey={rowKey}
-                selected={selected && rowKey(selected)}
-                onRowClick={(r) => setSelectedKey(rowKey(r))}
-                columns={[
-                  { key: 'kind', header: '종류', width: 'w-42.5', render: kind },
-                  {
-                    key: 'writer',
-                    header: '글쓴이',
-                    width: 'w-35',
-                    render: (r) => r.writerNickname,
-                  },
-                  { key: 'content', header: '내용', width: 'w-93', render: (r) => r.content },
-                  {
-                    key: 'count',
-                    header: '신고 수',
-                    align: 'right',
-                    width: 'w-29',
-                    render: (r) => r.reportCount,
-                  },
-                  { key: 'reason', header: '많이 고른 사유', render: topReason },
-                  {
-                    key: 'status',
-                    header: '상태',
-                    width: 'w-25',
-                    render: (r) => (
-                      <span className={statusText(STATUS[r.status].tone)}>
-                        {STATUS[r.status].label}
-                      </span>
-                    ),
-                  },
-                ]}
-              />
-            )}
-          </ConsoleCard>
+          {items.length === 0 ? (
+            <EmptyState title="숨겨진 글 · 댓글이 없어요" />
+          ) : (
+            <DataTable
+              label="숨겨진 글 · 댓글"
+              rows={items}
+              rowKey={rowKey}
+              selected={selected && rowKey(selected)}
+              onRowClick={(r) => setSelectedKey(rowKey(r))}
+              columns={[
+                { key: 'kind', header: '종류', width: 'w-42.5', render: kind },
+                {
+                  key: 'writer',
+                  header: '글쓴이',
+                  width: 'w-35',
+                  render: (r) => r.writerNickname,
+                },
+                { key: 'content', header: '내용', width: 'w-93', render: (r) => r.content },
+                {
+                  key: 'count',
+                  header: '신고',
+                  align: 'right',
+                  width: 'w-29',
+                  render: (r) => r.reportCount,
+                },
+                { key: 'reason', header: '많이 고른 사유', render: topReason },
+                {
+                  key: 'status',
+                  header: '상태',
+                  width: 'w-25',
+                  render: (r) => (
+                    <span className={statusText(STATUS[r.status].tone)}>
+                      {STATUS[r.status].label}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          )}
 
           {selected && (
             <ConsoleCard title="처리">

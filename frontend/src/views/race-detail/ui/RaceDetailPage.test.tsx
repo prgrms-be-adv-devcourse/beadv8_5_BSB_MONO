@@ -189,10 +189,10 @@ describe('RaceDetailPage 신청하기', () => {
     })
   })
 
-  it('이미 신청한 대회는 버튼을 끄고 안내를 보여 준다 (M02-1)', () => {
+  it('이미 신청한 대회는 버튼만 끈다 (M02-1, v4는 안내 상자 없음)', () => {
     renderPage({ alreadyApplied: true })
     expect(screen.getByRole('button', { name: '이미 신청한 대회예요' })).toBeDisabled()
-    expect(screen.getByText('이 대회에 이미 신청했어요')).toBeInTheDocument()
+    expect(screen.queryByText('이 대회에 이미 신청했어요')).not.toBeInTheDocument()
   })
 
   it('문의하기 링크는 이 대회의 문의 작성 화면으로 보낸다 (M02-7)', () => {
@@ -362,7 +362,7 @@ describe('RaceDetailPage 크루 전용 자리 (M02-3)', () => {
     act(() => setAccessToken('access-token'))
 
     expect(await screen.findByRole('button', { name: '파티로 신청 중이에요' })).toBeDisabled()
-    expect(screen.getByText('파티로 신청 중인 대회예요')).toBeInTheDocument()
+    expect(screen.queryByText('파티로 신청 중인 대회예요')).not.toBeInTheDocument()
   })
 })
 

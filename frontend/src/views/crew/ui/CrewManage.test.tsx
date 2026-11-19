@@ -260,7 +260,7 @@ describe('CrewManagePage (M28) 권한', () => {
       expect(await screen.findByText('크루장만 크루를 관리할 수 있어요')).toBeInTheDocument()
       expect(screen.getByRole('link', { name: '크루 홈으로' })).toHaveAttribute('href', '/crews/1')
       expect(screen.queryByRole('button', { name: '관리' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: '크루 없애기' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '크루 해체하기' })).not.toBeInTheDocument()
     },
   )
 
@@ -415,17 +415,17 @@ describe('CrewManagePage 초대 링크', () => {
   })
 })
 
-describe('CrewManagePage 크루 없애기', () => {
-  it('다른 크루원이 있으면 누르면 막힘 확인창이 뜨고 삭제 요청은 가지 않는다', async () => {
+describe('CrewManagePage 크루 해체', () => {
+  it('다른 크루원이 있으면 해체하기 버튼이 꺼지고 남은 인원을 알려 준다', async () => {
     mockCrew()
     const requests = capture('delete', '*/api/v1/member/crews/:crewId')
     const user = userEvent.setup()
     renderPage(<CrewManagePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 없애기' }))
-    const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText('크루원이 남아 있어 없앨 수 없어요')).toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: '확인' }))
-    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    const button = await screen.findByRole('button', { name: '크루 해체하기' })
+    expect(button).toBeDisabled()
+    expect(screen.getByText('크루원 2명이 남아 있어 해체할 수 없어요.')).toBeInTheDocument()
+    await user.click(button)
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(requests).toHaveLength(0)
     expect(replace).not.toHaveBeenCalled()
   })
@@ -435,14 +435,14 @@ describe('CrewManagePage 크루 없애기', () => {
     const requests = capture('delete', '*/api/v1/member/crews/:crewId')
     const user = userEvent.setup()
     renderPage(<CrewManagePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 없애기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 해체하기' }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText('새벽한강크루를 없앨까요?')).toBeInTheDocument()
+    expect(within(dialog).getByText('새벽한강크루 크루를 해체할까요?')).toBeInTheDocument()
     expect(requests).toHaveLength(0)
-    await user.click(within(dialog).getByRole('button', { name: '크루 없애기' }))
+    await user.click(within(dialog).getByRole('button', { name: '해체하기' }))
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/crews'))
     expect(requests.map((request) => request.url)).toEqual(['/api/v1/member/crews/1'])
-    expect(await screen.findByText('새벽한강크루를 없앴어요')).toBeInTheDocument()
+    expect(await screen.findByText('새벽한강크루 크루를 해체했어요')).toBeInTheDocument()
   })
 
   it('그사이 다른 크루원이 가입했으면(409) 없애지 못했다고 알리고 다시 불러온다', async () => {
@@ -452,9 +452,9 @@ describe('CrewManagePage 크루 없애기', () => {
     )
     const user = userEvent.setup()
     renderPage(<CrewManagePage crewId={1} />)
-    await user.click(await screen.findByRole('button', { name: '크루 없애기' }))
+    await user.click(await screen.findByRole('button', { name: '크루 해체하기' }))
     await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '크루 없애기' }),
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: '해체하기' }),
     )
     expect(
       await findErrorToast(
@@ -584,20 +584,18 @@ describe('크루원 목록 줄 맞춤', () => {
     )
   }
 
-  /** 줄마다 닉네임 칸에는 닉네임만 있고(말줄임 · 전체 이름 툴팁), 닉네임 칸이 남는 폭을 채워 뱃지가 오른쪽 끝(세 번째 칸)에 온다 */
+  /** 줄마다 닉네임에는 닉네임만 있고(말줄임 · 전체 이름 툴팁), 역할 글자는 닉네임 바로 옆(크루 관리) 또는 줄 오른쪽 끝(크루 홈)에 온다 */
   function expectAlignedRows(nicknames: string[]) {
     for (const nickname of nicknames) {
       const name = screen.getByText(nickname)
       expect(name).toHaveClass('truncate')
       expect(name).toHaveAttribute('title', nickname)
       const row = name.closest('li')!
-      expect(row.children[2]).toHaveTextContent(/^(크루장|운영진|크루원)$/)
-      // 줄마다 따로 칸을 나누면 줄 버튼이 없는 줄(크루장)만 배지가 오른쪽으로 밀린다. 목록 하나의 칸을 나눠 쓴다
-      expect(row).toHaveClass('grid-cols-subgrid')
+      expect(row).toHaveTextContent(new RegExp(`${nickname}(크루장|운영진|크루원)`))
     }
   }
 
-  it('크루 관리: 가장 긴 닉네임과 내 줄도 뱃지가 같은 칸에 있고, 내 표시는 없다', async () => {
+  it('크루 관리: 가장 긴 닉네임도 말줄임으로 자르고, 내 표시는 없다', async () => {
     mockLongNames()
     renderPage(<CrewManagePage crewId={1} />)
     await screen.findByText(LONGEST[1])
@@ -605,14 +603,14 @@ describe('크루원 목록 줄 맞춤', () => {
     expect(screen.queryByText(/^나$|\(나\)/)).not.toBeInTheDocument()
   })
 
-  it('크루 홈: 가장 긴 닉네임도 뱃지가 같은 칸에 있다', async () => {
+  it('크루 홈: 가장 긴 닉네임도 말줄임으로 자르고 역할 글자는 오른쪽 끝에 있다', async () => {
     mockLongNames()
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={1} />)
     await openMembersTab(user)
     await screen.findByText(LONGEST[1])
     expectAlignedRows(['곰돌', ...LONGEST])
-    // 줄 버튼이 없으면 뱃지가 줄의 마지막 칸이라 오른쪽 끝에 붙는다(빈 칸 · 남는 간격 없음)
+    // 줄 버튼이 없으면 역할 글자가 줄의 마지막이라 오른쪽 끝에 붙는다
     for (const nickname of ['곰돌', ...LONGEST]) {
       const row = screen.getByText(nickname).closest('li')!
       expect(row.lastElementChild).toHaveTextContent(/^(크루장|운영진|크루원)$/)

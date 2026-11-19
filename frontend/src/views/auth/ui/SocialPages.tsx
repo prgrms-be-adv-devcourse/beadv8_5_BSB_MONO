@@ -8,13 +8,7 @@ import { useForm, useWatch, type UseFormRegister } from 'react-hook-form'
 import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
-import {
-  safeNextPath,
-  SocialMark,
-  socialProviderOf,
-  useAuthStatus,
-  useSocialJoin,
-} from '@/features/auth'
+import { safeNextPath, socialProviderOf, useAuthStatus, useSocialJoin } from '@/features/auth'
 import {
   IdentityVerificationBand,
   LockedIdentityFields,
@@ -22,15 +16,7 @@ import {
   type RejoinInfo,
 } from '@/features/identity-verification'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import {
-  BottomCta,
-  Button,
-  buttonClassName,
-  Divider,
-  EmptyState,
-  Spinner,
-  TextField,
-} from '@/shared/ui'
+import { BottomCta, Button, buttonClassName, EmptyState, Spinner, TextField } from '@/shared/ui'
 
 import { joinErrorMessage } from '../model/join'
 import {
@@ -69,6 +55,7 @@ export function SocialCompletePage({ next }: { next?: string }) {
       <AppHeader type="sub" title="로그인" />
       <main className="flex flex-1 items-center justify-center bg-bg-surface">
         <EmptyState
+          icon={null}
           role="status"
           title="소셜 계정을 확인하고 있어요"
           description="잠시만 기다려 주세요. 확인이 끝나면 자동으로 이동해요."
@@ -114,6 +101,7 @@ function SocialSignupExpired() {
       <AppHeader type="sub" title="가입하기" />
       <main className="flex flex-1 items-center justify-center bg-bg-surface">
         <EmptyState
+          icon={null}
           role="alert"
           title="가입 시간이 지났어요"
           description="소셜 로그인으로 돌아온 뒤 15분 안에 가입을 마치지 못했어요. 처음부터 다시 시작해 주세요."
@@ -242,10 +230,7 @@ function SocialSignupForm({
     <>
       <form noValidate onSubmit={onFormSubmit} className="contents">
         <AppHeader type="sub" title="가입하기" />
-        <p className="flex items-center bg-bg-brand-subtle px-4 py-3">
-          <SocialMark id={socialProviderOf(provider)?.id ?? 'kakao'} />
-          <span className="sr-only">{providerLabel} 계정으로 가입하고 있어요</span>
-        </p>
+        <p className="sr-only">{providerLabel} 계정으로 가입하고 있어요</p>
         <CenterBody center={false}>
           <IdentityVerificationBand
             verification={verification}
@@ -270,8 +255,7 @@ function SocialSignupForm({
               if (draft.nickname) setValue('nickname', draft.nickname, { shouldValidate: true })
             }}
           />
-          <Divider type="section" className="-mx-4" />
-          <StepIntro title="회원 정보" />
+          <StepIntro title="회원 정보" compact />
           <LockedIdentityFields identity={verification} provider={{ name, label: providerLabel }} />
           {lockedEmail ? (
             <TextField
@@ -304,6 +288,7 @@ function SocialSignupForm({
           )}
         </CenterBody>
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Button

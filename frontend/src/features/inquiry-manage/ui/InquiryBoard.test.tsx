@@ -217,7 +217,7 @@ describe('판매자 문의', () => {
       ),
     )
     const { unmount } = renderBoard('seller')
-    expect(await screen.findByText('문의가 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('답변을 기다리는 문의가 없어요')).toBeInTheDocument()
     unmount()
 
     server.use(

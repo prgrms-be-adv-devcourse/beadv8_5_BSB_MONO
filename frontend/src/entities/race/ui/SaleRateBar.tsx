@@ -4,11 +4,14 @@ import { cn } from '@/shared/lib'
 export function SaleRateBar({
   percent,
   label,
+  barClassName,
   className,
   ...aria
 }: {
   percent: number
   label: string
+  /** 막대 길이. 시안이 표 칸마다 달라(96·240) 기본 w-30 */
+  barClassName?: string
   className?: string
   'aria-label': string
 }) {
@@ -21,11 +24,11 @@ export function SaleRateBar({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={value}
-        className="h-2 w-24 shrink-0 overflow-hidden rounded-full bg-bg-track"
+        className={cn('h-2 w-30 shrink-0 overflow-hidden rounded-full bg-bg-muted', barClassName)}
       >
         <div className="h-full rounded-full bg-bg-inverse" style={{ width: `${value}%` }} />
       </div>
-      <span className="text-body2-regular tabular-nums">{label}</span>
+      <span className="text-body1-medium tabular-nums">{label}</span>
     </div>
   )
 }
