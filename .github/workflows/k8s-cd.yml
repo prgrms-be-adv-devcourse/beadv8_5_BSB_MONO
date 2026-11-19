@@ -207,7 +207,9 @@ jobs:
   #   nginx는 게이트웨이 2가 응답하지 않으면 게이트웨이 1로만 보낸다
   gateway2:
     needs: deploy
-    if: needs.deploy.result == 'success'
+    # !cancelled()가 없으면 앞 단계(build·retag) 중 하나라도 건너뛰었을 때 이 job도 함께 건너뛴다
+    #   (바뀐 앱이 없어 build가 skipped인 배포에서 게이트웨이 2가 안 바뀌던 문제. deploy job과 같은 처리)
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
