@@ -45,6 +45,13 @@ function renderPage() {
 describe('ProfileEditPage', () => {
   beforeEach(() => server.use(memberMock.getFindMeMockHandler(ME)))
 
+  it('앱 안 기록이 없을 때 뒤로 가기는 마이 페이지(/me)로 간다', async () => {
+    renderPage()
+    await screen.findByLabelText('닉네임')
+    await userEvent.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/me')
+  })
+
   it('닉네임만 고칠 수 있고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 계정 설정으로 간다', async () => {
     let body: unknown
     const updated = { ...ME, data: { ...ME.data, nickname: '달리는곰' } }

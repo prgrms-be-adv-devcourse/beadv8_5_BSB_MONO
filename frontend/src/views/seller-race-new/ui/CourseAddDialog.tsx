@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 
-import { Checkbox, Dialog, Select, TextField } from '@/shared/ui'
+import { Checkbox, Dialog, digitsOnly, Select, TextField } from '@/shared/ui'
 
 import {
   COURSE_DRAFT_DEFAULTS,
@@ -14,6 +14,8 @@ import {
   type CourseDraftParsed,
   type RaceCourseInput,
 } from '../model/race-form'
+
+const decimalOnly = (value: string) => value.replace(/[^\d.]/g, '')
 
 // 종목 구분은 고르기 전까지 값이 없다
 const DEFAULTS = { ...COURSE_DRAFT_DEFAULTS, courseType: undefined }
@@ -60,7 +62,12 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
     <TextField
       label={label}
       error={errors[key]?.message}
-      inputMode={key === 'name' ? undefined : 'decimal'}
+      inputMode={key === 'name' ? undefined : key === 'distanceKm' ? 'decimal' : 'numeric'}
+      {...(key === 'name'
+        ? {}
+        : key === 'distanceKm'
+          ? { filter: decimalOnly, filterMessage: '숫자와 소수점만 입력할 수 있어요' }
+          : { filter: digitsOnly })}
       className="flex-1"
       {...register(key)}
     />
@@ -71,12 +78,12 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
       open={open}
       onOpenChange={close}
       title="종목 추가"
-      confirmLabel="추가"
+      confirmLabel="추가하기"
       onConfirm={() => void confirm()}
       body={
         <div className="flex flex-col gap-4 pt-2">
-          {field('name', '종목 이름')}
           <div className="flex gap-3">
+            {field('name', '종목 이름')}
             <Controller
               control={control}
               name="courseType"
@@ -92,13 +99,15 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
                 />
               )}
             />
+          </div>
+          <div className="flex gap-3">
             {field('distanceKm', '거리 (km)')}
+            {field('timeLimitMinutes', '제한 시간 (분)')}
           </div>
           <div className="flex gap-3">
             {field('price', '참가비 (원)')}
             {field('individualQuota', '모집 정원 (명)')}
           </div>
-          <div className="flex gap-3">{field('timeLimitMinutes', '제한 시간 (분)')}</div>
           <Controller
             control={control}
             name="adultOnly"

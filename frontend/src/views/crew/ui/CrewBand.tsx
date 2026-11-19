@@ -29,8 +29,8 @@ export function CrewIdentityBand({
       <div className="flex items-center gap-3">
         <Avatar size="xl" name={name} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 className="truncate text-title1">{name}</h2>
-          <p className="text-body2-regular text-text-secondary">{summary}</p>
+          <h2 className="truncate text-title2">{name}</h2>
+          <p className="text-caption-regular text-text-secondary">{summary}</p>
         </div>
       </div>
       {action && <div className="flex justify-end">{action}</div>}
@@ -42,6 +42,7 @@ export function CrewIdentityBand({
 export function CrewLoadError({ onRetry }: { onRetry: () => void }) {
   return (
     <EmptyState
+      icon={null}
       className="pt-26"
       title="정보를 불러오지 못했어요"
       description="연결이 잠시 끊겼어요. 네트워크를 확인한 뒤 다시 시도해 주세요."
@@ -64,7 +65,7 @@ export function retryCrewQuery(count: number, error: unknown): boolean {
 const CREW_HOME_FAILURE: Record<string, { title: string; description: string }> = {
   CREW_NOT_MEMBER: {
     title: '크루원만 볼 수 있어요',
-    description: '크루장이나 운영진에게 초대 링크를 받아 먼저 가입해 주세요.',
+    description: '초대 링크를 받아 가입해 주세요.',
   },
   CREW_NOT_FOUND: {
     title: '없는 크루예요',
@@ -78,6 +79,7 @@ export function CrewHomeError({ error, onRetry }: { error: unknown; onRetry: () 
   if (!failure) return <CrewLoadError onRetry={onRetry} />
   return (
     <EmptyState
+      icon={null}
       className="pt-26"
       title={failure.title}
       description={failure.description}

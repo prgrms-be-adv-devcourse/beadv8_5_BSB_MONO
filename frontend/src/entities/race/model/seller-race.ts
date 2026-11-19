@@ -22,8 +22,8 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
 
 /** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 파랑, 취소됨은 빨강, 그 밖은 보조 글자색 */
 export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
-  SCHEDULED: 'text-text-secondary',
-  ON_SALE: 'text-text-brand',
+  SCHEDULED: 'text-text-primary',
+  ON_SALE: 'text-text-primary',
   STOPPED: 'text-text-secondary',
   CLOSED: 'text-text-secondary',
   CANCELED: 'text-text-danger',
@@ -50,6 +50,8 @@ export type SellerRaceRow = {
   capacity: number
   /** 종목 이름을 「하프 · 10K」처럼 이은 글자 */
   courseNames: string
+  /** 판매 예정일 때 아래 줄에 붙이는 「12/1 열림」 */
+  saleOpenText: string
   saleStatus?: SellerSaleStatus
   badge: SellerRaceBadge
 }
@@ -76,6 +78,7 @@ export function toSellerRaceRow(race: productModel.SellerRaceDto): SellerRaceRow
       .join(' · '),
     sold: courses.reduce((sum, c) => sum + (c.sold ?? 0), 0),
     capacity: courses.reduce((sum, c) => sum + (c.quota ?? 0), 0),
+    saleOpenText: `${monthDay(race.saleOpenDate)} 열림`,
     saleStatus: race.saleStatus,
     badge: race.saleStatus ? SELLER_SALE_STATUS[race.saleStatus] : { label: '-', tone: 'neutral' },
   }

@@ -64,8 +64,8 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
               <div className="flex flex-col items-center gap-3 text-center">
                 <Avatar size="xl" name={crew.data.name} />
                 <div className="flex w-full flex-col gap-1">
-                  <h2 className="truncate text-title1">{crew.data.name}</h2>
-                  <p className="text-body2-regular text-text-secondary">
+                  <h2 className="truncate text-title2">{crew.data.name}</h2>
+                  <p className="text-caption-regular text-text-secondary">
                     나는 {CREW_ROLE_LABEL[crew.data.myRole]} · 크루원 {crew.data.memberCount}명
                   </p>
                 </div>
@@ -75,7 +75,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                   href={`/parties/new?crewId=${crewId}` as Route}
                   className={buttonClassName({
                     variant: 'primary',
-                    size: 'm',
+                    size: 'l',
                     className: 'flex-1',
                   })}
                 >
@@ -86,7 +86,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                     href={`/crews/${crewId}/invites` as Route}
                     className={buttonClassName({
                       variant: 'ghost',
-                      size: 'm',
+                      size: 'l',
                       className: 'flex-1',
                     })}
                   >
@@ -109,7 +109,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                   ) : parties.isError ? (
                     <CrewHomeError error={parties.error} onRetry={() => parties.refetch()} />
                   ) : parties.data.length === 0 ? (
-                    <EmptyState title="진행 중인 파티가 없어요" />
+                    <EmptyState icon={null} title="진행 중인 파티가 없어요" />
                   ) : (
                     parties.data.map((party) => <PartyCard key={party.id} party={party} />)
                   )}
@@ -168,22 +168,23 @@ function PartyCard({ party }: { party: PartySummary }) {
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-body2-medium text-text-brand">
+        <span className="text-body1-medium text-text-brand">
           {PARTY_STATUS_LABEL[party.status]}
         </span>
         {party.myParty ? (
           <Icon name="ChevronRight" className="size-5 text-text-secondary" />
         ) : (
-          <span className="text-body2-regular text-text-secondary">내가 없는 파티</span>
+          <span className="text-caption-regular text-text-secondary">내가 없는 파티</span>
         )}
       </div>
       <h3 className="text-body1-bold">{race.data?.title ?? <Skeleton className="w-2/3" />}</h3>
-      <p className="text-body2-regular text-text-secondary">
+      <p className="text-caption-regular text-text-secondary">
         파티장 {party.leaderNickname} · {party.memberCount}명{max ? ` / 최대 ${max}명` : ''}
       </p>
     </>
   )
-  const card = 'flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4'
+  const card =
+    'flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4 shadow-sm'
   return party.myParty ? (
     <Link href={`/parties/${party.id}` as Route} className={cn(card, 'rounded-md', FOCUS_RING)}>
       {body}
@@ -241,7 +242,7 @@ function LeaveCrew({
       <Button
         variant="ghost"
         size="m"
-        className="self-start"
+        className="self-start text-text-danger"
         onClick={() =>
           // 시안 11/5: 진행 중인 파티에 들어 있으면 요청 없이 막힘 안내만 띄운다
           setStep(joinedParty ? 'party' : crew.myRole === 'LEADER' ? 'leader' : 'confirm')
@@ -285,7 +286,7 @@ function LeaveCrew({
   )
 }
 
-// 시안에 없는 상태: 크루 홈 로딩. 프로필 · 버튼 줄 · 파티 카드 자리만 회색으로 잡는다.
+// 시안 2070:38057 · 크루 홈 로딩. 프로필 · 버튼 · 탭 · 파티 카드 자리를 회색으로 잡는다.
 function CrewHomeSkeleton() {
   return (
     <>
@@ -293,14 +294,24 @@ function CrewHomeSkeleton() {
         <span role="status" className="sr-only">
           크루를 불러오는 중
         </span>
-        <Skeleton shape="circle" className="size-14" />
-        <Skeleton className="w-1/3" />
-        <Skeleton className="w-1/2" />
+        <div className="flex flex-col items-center gap-2">
+          <Skeleton shape="circle" className="mb-1 size-14" />
+          <Skeleton shape="rect" className="h-7 w-30 rounded-full" />
+          <Skeleton shape="rect" className="h-4 w-40 rounded-full" />
+        </div>
         <Skeleton shape="rect" className="h-11 w-full" />
       </CrewBand>
+      <div aria-hidden inert>
+        <Tabs value="parties">
+          <TabBar>
+            <Tab value="parties">파티</Tab>
+            <Tab value="members">크루원</Tab>
+          </TabBar>
+        </Tabs>
+      </div>
       <CrewBand>
-        <Skeleton shape="rect" className="h-34 w-full" />
-        <Skeleton shape="rect" className="h-34 w-full" />
+        <Skeleton shape="rect" className="h-30 w-full" />
+        <Skeleton shape="rect" className="h-30 w-full" />
       </CrewBand>
     </>
   )

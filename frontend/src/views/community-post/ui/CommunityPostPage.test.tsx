@@ -154,6 +154,17 @@ describe('CommunityPostPage', () => {
     )
   })
 
+  it('등록 · 답글 달기 버튼은 누르는 영역이 24px 이상이다', async () => {
+    renderPage(1, true)
+    await screen.findByText('삭제된 댓글이에요')
+
+    expect(screen.getByRole('button', { name: '등록' })).toHaveClass('min-h-6', 'min-w-6')
+    expect(screen.getAllByRole('button', { name: '답글 달기' })[0]).toHaveClass(
+      'min-h-6',
+      'min-w-6',
+    )
+  })
+
   it('댓글을 쓰고 등록하면 목록에 보인다', async () => {
     const user = userEvent.setup()
     renderPage(1, true)

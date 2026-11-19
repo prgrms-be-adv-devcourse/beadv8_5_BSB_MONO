@@ -67,7 +67,12 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
           ))}
         </div>
       </div>
-      <SectionState result={result} name={COPY[kind].name} skeletonClassName="h-72">
+      <SectionState
+        result={result}
+        name={COPY[kind].name}
+        skeletonClassName="h-64"
+        errorClassName="min-h-120"
+      >
         {(data) => {
           const empty = data.points.every((p) => p.value === 0)
           return (

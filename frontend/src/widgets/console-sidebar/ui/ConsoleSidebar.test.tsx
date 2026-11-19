@@ -61,27 +61,32 @@ describe('ConsoleSidebar 로그아웃', () => {
 })
 
 describe('ConsoleSidebar 크루런 홈으로', () => {
-  it.each([
-    ['seller', '판매자 정보'],
-    ['admin', '설정'],
-  ] as const)(
-    '%s 콘솔의 %s와 로그아웃 사이에 크루런 홈(/)으로 가는 링크가 있다',
-    (role, settingsLabel) => {
-      render(
-        <QueryClientProvider client={new QueryClient()}>
-          <ConsoleSidebar role={role} />
-        </QueryClientProvider>,
-      )
+  it('판매자 콘솔의 판매자 정보와 로그아웃 사이에 크루런 홈(/)으로 가는 링크가 있다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="seller" />
+      </QueryClientProvider>,
+    )
 
-      const home = screen.getByRole('link', { name: '크루런 홈으로' })
-      expect(home).toHaveAttribute('href', '/')
-      expect(home).not.toHaveAttribute('aria-current')
-      const settings = screen.getByRole('link', { name: settingsLabel })
-      const logout = screen.getByRole('button', { name: '로그아웃' })
-      expect(settings.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    },
-  )
+    const home = screen.getByRole('link', { name: '크루런 홈으로' })
+    expect(home).toHaveAttribute('href', '/')
+    expect(home).not.toHaveAttribute('aria-current')
+    const settings = screen.getByRole('link', { name: '판매자 정보' })
+    const logout = screen.getByRole('button', { name: '로그아웃' })
+    expect(settings.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  // 관리자 시안(2070:11050)에는 이 줄이 없다
+  it('관리자 콘솔에는 크루런 홈으로 링크가 없다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="admin" />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByRole('link', { name: '크루런 홈으로' })).not.toBeInTheDocument()
+  })
 })
 
 describe('ConsoleSidebar 크루런 AI', () => {

@@ -53,13 +53,13 @@ function NavItem({ item, selected }: { item: Item; selected: boolean }) {
       href={item.href}
       aria-current={selected ? 'page' : undefined}
       className={cn(
-        'flex h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-caption-medium',
-        selected ? 'font-bold text-text-primary' : 'text-text-tertiary',
+        'flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-md text-caption-medium',
+        selected ? 'text-text-primary' : 'text-text-tertiary',
         FOCUS_RING,
       )}
     >
-      {/* 선택된 탭은 아이콘만 브랜드 색, 글자는 굵은 검정 (피그마 v2/BottomNav) */}
-      <Icon name={item.icon} className={selected ? 'text-text-brand' : undefined} />
+      {/* 선택된 탭은 아이콘·글자 모두 진한 색 (v4 시안) */}
+      <Icon name={item.icon} />
       {item.label}
     </Link>
   )

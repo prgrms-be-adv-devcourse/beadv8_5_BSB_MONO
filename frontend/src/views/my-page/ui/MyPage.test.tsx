@@ -115,7 +115,7 @@ describe('MyPage 회원 정보', () => {
     }
   })
 
-  it('마이는 보기만 한다: 수정 버튼 없이 계정 설정으로 들어가고, 탈퇴로 바로 가지 않는다', async () => {
+  it('프로필 줄은 프로필 수정으로, 계정 설정 줄은 계정 설정으로 가고, 탈퇴로 바로 가지 않는다', async () => {
     setAccessToken('access-token')
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -123,17 +123,16 @@ describe('MyPage 회원 정보', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByRole('link', { name: '계정 설정' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: '프로필 수정' })).toHaveAttribute(
       'href',
-      '/me/settings',
+      '/me/edit',
     )
-    expect(screen.queryByRole('link', { name: /수정/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '계정 설정' })).toHaveAttribute('href', '/me/settings')
     expect(screen.queryByText(/직접 고칠 수 있어요/)).not.toBeInTheDocument()
     expect(document.querySelector('a[href="/me/withdraw"]')).toBeNull()
-    expect(document.querySelector('a[href="/me/edit"]')).toBeNull()
   })
 
-  it('v3 시안: 예치금 상자에서 충전하기 · 돌려받기로 가고, 머리말에 검색 아이콘은 없다', async () => {
+  it('v3 시안: 예치금 상자에서 충전하기 · 환급받기로 가고, 머리말에 검색 아이콘은 없다', async () => {
     setAccessToken('access-token')
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -145,7 +144,7 @@ describe('MyPage 회원 정보', () => {
       'href',
       '/me/deposit/charge',
     )
-    expect(screen.getByRole('link', { name: '돌려받기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '환급받기' })).toHaveAttribute(
       'href',
       '/me/deposit/refund',
     )
@@ -170,6 +169,7 @@ describe('MyPage 회원 정보', () => {
       ['내 문의', '/me/inquiries'],
       ['참가 · 결제 문의하기', '/me/inquiries/new'],
       ['고객센터', '/me/support'],
+      ['계정 설정', '/me/settings'],
       ['알림 설정', '/me/notification-settings'],
       ['연결된 계정', '/me/accounts'],
       ['약관 · 정책', '/me/settings/terms'],

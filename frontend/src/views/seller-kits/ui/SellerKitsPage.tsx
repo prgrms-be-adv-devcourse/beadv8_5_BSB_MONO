@@ -27,7 +27,6 @@ import {
   Alert,
   Button,
   Checkbox,
-  EmptyState,
   FOCUS_RING,
   Icon,
   Select,
@@ -38,7 +37,14 @@ import {
   TextField,
 } from '@/shared/ui'
 
-import { missingTracking, rowKey, shipFormSchema, type ShipFormValues } from '../model/ship-form'
+import {
+  missingTracking,
+  rowKey,
+  shipFormSchema,
+  TRACKING_NOTICE,
+  trackingOnly,
+  type ShipFormValues,
+} from '../model/ship-form'
 
 type Kit = orderModel.SellerKitDto
 
@@ -86,7 +92,7 @@ function kitOption(kit: Kit) {
     .join(' · ')
 }
 
-const TH = 'h-11 text-left text-body2-medium font-medium text-text-secondary'
+const TH = 'h-11 px-3 text-left text-caption-medium font-medium text-text-secondary'
 
 // 피그마 Final v3 · 판매자 · 키트 배송: 대회 고르기 + 찾기, 카드 안에 탭 · 표 · 선택 막대
 export function SellerKitsPage() {
@@ -197,6 +203,8 @@ export function SellerKitsPage() {
           className="w-100"
         />
         <TextField
+          compact
+          leading={<Icon name="Search" />}
           aria-label="주문번호 · 이름으로 찾기"
           placeholder="주문번호 · 이름으로 찾기"
           className="w-80"
@@ -270,20 +278,38 @@ export function SellerKitsPage() {
         ) : !kits.data ? (
           <Skeleton className="h-40 w-full" />
         ) : rows.length === 0 ? (
-          <EmptyState title="키트 주문이 없어요" />
+          // 시안 2070:68001: 카드 안에 글 한 줄
+          <p className="py-13 text-center text-body1-regular text-text-secondary">
+            {TAB_LABEL[url.status as KitStatus]} 키트가 없어요
+          </p>
         ) : (
-          <table aria-label="키트 주문" className="w-full table-fixed text-body2-regular">
+          <table aria-label="키트 주문" className="w-full table-fixed text-body1-regular">
             <thead>
               <tr className="border-b border-border-default">
-                <th className={cn(TH, 'w-10')}>
-                  <span className="sr-only">고르기</span>
+                <th className={cn(TH, 'w-12')}>
+                  {preparing ? (
+                    <Checkbox
+                      aria-label="이 쪽 전체 고르기"
+                      checked={
+                        pageRows.length > 0 && pageRows.every((kit) => checked.includes(kitId(kit)))
+                      }
+                      onCheckedChange={(on) =>
+                        setChecked((prev) => [
+                          ...prev.filter((id) => !pageRows.some((kit) => kitId(kit) === id)),
+                          ...(on ? pageRows.map(kitId) : []),
+                        ])
+                      }
+                    />
+                  ) : (
+                    <span className="sr-only">고르기</span>
+                  )}
                 </th>
-                <th className={cn(TH, 'w-44 pl-3')}>주문번호</th>
-                <th className={cn(TH, 'w-28')}>참가자</th>
+                <th className={cn(TH, 'w-45')}>주문번호</th>
+                <th className={cn(TH, 'w-26')}>참가자</th>
                 <th className={TH}>대회 · 종목</th>
-                <th className={TH}>키트 옵션</th>
-                <th className={cn(TH, 'w-40')}>택배사</th>
-                <th className={cn(TH, 'w-44')}>송장 번호</th>
+                <th className={cn(TH, 'w-55')}>키트 옵션</th>
+                <th className={cn(TH, 'w-41')}>택배사</th>
+                <th className={cn(TH, 'w-51')}>송장 번호</th>
               </tr>
             </thead>
             <tbody>
@@ -292,23 +318,23 @@ export function SellerKitsPage() {
                 const editable = preparing && kit.kitDeliveryStatus === 'PREPARING'
                 return (
                   <tr key={id} className="h-14 border-b border-border-default last:border-b-0">
-                    <td>
+                    <td className="px-3">
                       <Checkbox
                         aria-label={`${kit.orderNo} 고르기`}
                         checked={checked.includes(id)}
                         onCheckedChange={(on) => toggle(id, on)}
                       />
                     </td>
-                    <td className="truncate pl-3">{kit.orderNo}</td>
+                    <td className="truncate px-3">{kit.orderNo}</td>
                     {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
-                    <td className="truncate" data-clarity-mask="true">
+                    <td className="truncate px-3" data-clarity-mask="true">
                       {kit.participantName}
                     </td>
-                    <td className="truncate pr-2">
+                    <td className="truncate px-3">
                       {[raceTitle(kit.raceId), kit.courseName].filter(Boolean).join(' · ')}
                     </td>
-                    <td className="truncate pr-2">{kitOption(kit)}</td>
-                    <td className="pr-2">
+                    <td className="truncate px-3">{kitOption(kit)}</td>
+                    <td className="px-3">
                       {editable ? (
                         <Controller
                           control={shipForm.control}
@@ -317,6 +343,7 @@ export function SellerKitsPage() {
                           render={({ field }) => (
                             <Select
                               aria-label={`${kit.orderNo} 택배사`}
+                              compact
                               items={CARRIERS}
                               value={field.value}
                               onValueChange={(value) => field.onChange(value ?? CARRIERS[0].value)}
@@ -327,12 +354,14 @@ export function SellerKitsPage() {
                         kit.kitCarrier
                       )}
                     </td>
-                    <td>
+                    <td className="px-3">
                       {editable ? (
                         <TextField
+                          compact
                           aria-label={`${kit.orderNo} 송장 번호`}
                           placeholder="송장 번호"
-                          inputMode="numeric"
+                          filter={trackingOnly}
+                          filterMessage={TRACKING_NOTICE}
                           {...shipForm.register(`tracking.${rowKey(id)}`)}
                         />
                       ) : (
@@ -347,15 +376,15 @@ export function SellerKitsPage() {
         )}
 
         {selected.length > 0 && url.status !== 'DELIVERED' && (
-          // 하나 이상 고르면 표 아래에 뜨는 막대: 검정 2px 테두리
+          // 하나 이상 고르면 표 아래에 뜨는 막대: 흰 바탕 + 1px 선 + 그림자
           <div
             role="region"
             aria-label="선택한 주문"
-            className="flex items-center gap-3 rounded-md px-5 py-3 inset-ring-2 inset-ring-text-primary"
+            className="flex items-center gap-3 rounded-md border border-border-default bg-bg-surface px-5 py-3 shadow-sm"
           >
             <p className="flex-1 text-body1-bold">{selected.length}건 선택</p>
             {blocker && <p className="text-body2-regular text-text-secondary">{blocker}</p>}
-            <Button variant="secondary" onClick={() => setChecked([])}>
+            <Button variant="ghost" onClick={() => setChecked([])}>
               선택 풀기
             </Button>
             <Button disabled={!canSubmit} loading={pending} onClick={submit}>

@@ -108,6 +108,7 @@ function ChargeResult({ result }: { result: ShownResult }) {
       <main className="flex flex-1 items-center justify-center px-4 py-6">
         {result.kind === 'uncertain' ? (
           <EmptyState
+            icon={null}
             title="충전 결과를 확인하고 있어요"
             description={
               <>
@@ -119,6 +120,7 @@ function ChargeResult({ result }: { result: ShownResult }) {
           />
         ) : (
           <EmptyState
+            icon={null}
             title="충전하지 못했어요"
             description={
               <>

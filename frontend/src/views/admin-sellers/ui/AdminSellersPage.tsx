@@ -6,11 +6,11 @@ import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 
-import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsoleMessage, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import { Alert, Button, DataTable, Dialog, Segmented, Textarea } from '@/shared/ui'
+import { Alert, Button, Chip, DataTable, Dialog, Textarea } from '@/shared/ui'
 
 import {
   loadErrorMessage,
@@ -114,31 +114,40 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
   })
 
   return (
-    <ConsolePage
-      title="판매자 승인"
-      description="승인하면 대회를 등록할 수 있어요. 반려할 때는 사유를 꼭 적어요."
-    >
-      <Segmented
-        label="신청 상태"
-        layout="hug"
-        size="l"
-        value={tab}
-        onChange={(next) => {
-          setUrl({ tab: next })
-          setSelectedId(undefined)
-          resetReviewInput()
-        }}
-        items={[
-          { value: 'pending', label: '승인 대기', count: pending.data?.length },
-          { value: 'approved', label: '승인' },
-          { value: 'rejected', label: '반려' },
-        ]}
-      />
-      {list.isError && <Alert tone="danger" title={loadErrorMessage(list.error)} />}
+    <ConsolePage title="판매자 관리">
+      <div role="group" aria-label="신청 상태" className="flex items-center gap-2">
+        {(
+          [
+            { value: 'pending', label: '승인 대기', count: pending.data?.length },
+            { value: 'approved', label: '승인' },
+            { value: 'rejected', label: '반려' },
+          ] as { value: Tab; label: string; count?: number }[]
+        ).map((t) => (
+          <Chip
+            key={t.value}
+            selected={tab === t.value}
+            onClick={() => {
+              setUrl({ tab: t.value })
+              setSelectedId(undefined)
+              resetReviewInput()
+            }}
+          >
+            {t.label}
+            {t.count !== undefined && <span className="tabular-nums">{t.count}</span>}
+          </Chip>
+        ))}
+      </div>
+      {list.isError && (
+        <ConsoleMessage kind="error" onRetry={() => void list.refetch()} retrying={list.isFetching}>
+          {loadErrorMessage(list.error)}
+        </ConsoleMessage>
+      )}
       <div className="flex flex-wrap items-start gap-6">
-        <ConsoleCard className="min-w-130 flex-1">
+        <div className="flex min-w-130 flex-1 flex-col gap-4">
           <DataTable
             label="판매자 신청"
+            framed
+            rowArrow
             rows={applications}
             rowKey={(a) => String(a.id)}
             selected={app ? String(app.id) : undefined}
@@ -165,7 +174,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
           {list.isSuccess && applications.length === 0 && (
             <p className="text-body2-regular text-text-tertiary">이 상태의 신청이 없어요.</p>
           )}
-        </ConsoleCard>
+        </div>
 
         {app && (
           <ConsoleCard title={sellerDisplayName(app)} className="w-100 shrink-0">

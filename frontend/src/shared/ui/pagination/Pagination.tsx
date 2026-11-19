@@ -32,7 +32,7 @@ export function pageSlots(page: number, totalPages: number): (number | 'ellipsis
   return [1, 'ellipsis', page - 1, page, page + 1, 'ellipsis', totalPages]
 }
 
-const ITEM = cn('flex size-9 items-center justify-center rounded-sm text-body2-medium', FOCUS_RING)
+const ITEM = cn('flex size-9 items-center justify-center rounded-sm text-body1-medium', FOCUS_RING)
 
 export function Pagination({ page, totalPages, onPageChange, className }: PaginationProps) {
   const slots = pageSlots(page, totalPages)

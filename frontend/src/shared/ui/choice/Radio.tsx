@@ -16,21 +16,26 @@ export function RadioGroup({ className, ...props }: BaseRadioGroup.Props) {
 export type RadioProps = Omit<BaseRadio.Root.Props, 'children' | 'className'> & {
   label?: ReactNode
   className?: string
+  /** brand(기본): 선택하면 브랜드색 테두리. inverse: 검정 테두리(신고 사유 시트 등) */
+  tone?: 'brand' | 'inverse'
 }
 
-// 원 20. 선택되면 두께 6의 브랜드 테두리로 가운데 점을 만든다. 테두리 1.5는 피그마 값 그대로다.
-export function Radio({ label, className, ...props }: RadioProps) {
+// 원 24. 선택되면 두께 7의 브랜드 테두리로 가운데 점을 만든다. 테두리 1.5는 피그마 값 그대로다.
+export function Radio({ label, className, tone = 'brand', ...props }: RadioProps) {
   return (
     <label
       className={cn(
-        'inline-flex items-center gap-2 text-body2-regular text-text-primary has-data-disabled:cursor-not-allowed has-data-disabled:text-text-disabled',
+        'inline-flex items-center gap-2 text-body1-regular text-text-primary has-data-disabled:cursor-not-allowed has-data-disabled:text-text-disabled',
         className,
       )}
     >
       <BaseRadio.Root
         className={cn(
-          'size-5 shrink-0 rounded-full bg-bg-surface inset-ring-[1.5px] inset-ring-border-strong',
-          'data-checked:inset-ring-6 data-checked:inset-ring-border-brand',
+          'size-6 shrink-0 rounded-full bg-bg-surface inset-ring-[1.5px] inset-ring-border-strong',
+          'data-checked:inset-ring-7',
+          tone === 'inverse'
+            ? 'data-checked:inset-ring-bg-inverse'
+            : 'data-checked:inset-ring-border-brand',
           'data-disabled:bg-bg-disabled data-disabled:inset-ring-border-disabled data-disabled:data-checked:inset-ring-text-disabled',
           FOCUS_RING,
         )}

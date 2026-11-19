@@ -22,7 +22,7 @@ export function MenuSheet({ open, onOpenChange, label, children }: MenuSheetProp
         <Drawer.Viewport className="fixed inset-x-0 bottom-0 z-50 flex justify-center">
           <Drawer.Popup
             className={cn(
-              'flex w-full max-w-(--layout-app-max-width) flex-col rounded-t-xl bg-bg-surface px-5 pt-3 pb-[calc(--spacing(8)+env(safe-area-inset-bottom))] shadow-lg outline-none',
+              'flex w-full max-w-(--layout-app-max-width) flex-col rounded-t-xl bg-bg-surface px-4 pt-3 pb-[calc(--spacing(8)+env(safe-area-inset-bottom))] shadow-lg outline-none',
               'translate-y-(--drawer-swipe-movement-y) transition-transform duration-300 data-ending-style:translate-y-full data-starting-style:translate-y-full',
             )}
           >

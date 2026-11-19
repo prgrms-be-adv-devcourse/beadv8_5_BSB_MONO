@@ -46,6 +46,16 @@ describe('SellerKitsPage', () => {
     await tabCount('배송 중', '2')
   })
 
+  it('송장 번호 칸은 영문 · 숫자 · -를 받고, 그 밖의 글자는 막고 안내한다', async () => {
+    renderPage()
+    const input = await screen.findByLabelText('OD-20261004-0101 송장 번호')
+    await userEvent.type(input, 'AB12-3가!')
+    expect(input).toHaveValue('AB12-3')
+    expect((await screen.findAllByText('영문, 숫자, -만 입력할 수 있어요')).length).toBeGreaterThan(
+      0,
+    )
+  })
+
   it('송장 입력 대기 표의 줄마다 택배사와 송장 번호 칸이 있다', async () => {
     renderPage()
     await screen.findByText('OD-20261004-0101')
@@ -148,7 +158,7 @@ describe('SellerKitsPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('키트 주문이 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('송장 입력 대기 키트가 없어요')).toBeInTheDocument()
   })
 
   it('여러 건을 고르면 줄마다 송장 번호가 채워져야 보낼 수 있다', async () => {

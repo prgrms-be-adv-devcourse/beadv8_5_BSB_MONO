@@ -89,6 +89,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const races = empty
     ? []
     : (list.data?.pages.flatMap((p) => p.races ?? []) ?? []).map((race) => toRaceListItem(race))
+  const listFailed = !loading && list.isError && !empty
   const total = empty ? 0 : (list.data?.pages[0]?.totalElements ?? 0)
   // 처음 목록이 보일 때 한 번. 검색어는 사람이 이름 · 전화번호를 적을 수 있어 있음 · 없음만 보낸다. 시안 미리보기는 보내지 않는다
   useTrackOnce(
@@ -142,7 +143,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
 
   return (
     <>
-      {!focused && <AppHeader />}
+      {!focused && <AppHeader search={false} className="border-b-0" />}
       <main className="flex flex-1 flex-col gap-4 px-4 pt-2 pb-4">
         {/* v3 시안에는 큰 제목이 없다. 화면 읽기 프로그램용으로만 남긴다 */}
         {!focused && <h1 className="sr-only">대회 찾기</h1>}
@@ -162,7 +163,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               <Icon name="ChevronLeft" />
             </IconButton>
           )}
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-surface p-3.5 shadow-sm inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
+          <label className="flex h-13 min-w-0 flex-1 items-center gap-2 rounded-md bg-bg-surface px-4 shadow-sm inset-ring inset-ring-border-default focus-within:inset-ring-2 focus-within:inset-ring-border-focus">
             <Icon name="Search" className="size-5" />
             <input
               ref={inputRef}
@@ -217,8 +218,8 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             onClear={() => setRecent(clearRecentSearches())}
           />
         )}
-        {!focused && (
-          <div className="-mt-1 flex flex-wrap gap-2 pb-1">
+        {!focused && !listFailed && (
+          <div className="flex flex-wrap gap-2 pb-1">
             <Chip
               selected={category.courseType !== undefined || category.surface !== undefined}
               onClick={() => setCategoryOpen(true)}
@@ -236,20 +237,30 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
             </Chip>
           </div>
         )}
-        {!focused && (
-          <div className="mt-2 flex items-center justify-between pt-1">
+        {!focused && (loading || races.length > 0) && !listFailed && (
+          <div className="mt-2 flex items-center justify-between pt-3">
             {loading ? (
-              <Skeleton className="w-12" />
+              <div className="flex h-6 items-center gap-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-5" />
+              </div>
             ) : (
-              <p className="text-body1-bold">{`대회 ${formatNumber(total)}개`}</p>
+              <p className="text-body1-bold">{`대회 ${total > 999 ? '999+' : formatNumber(total)}`}</p>
             )}
-            <SortSelect
-              items={[...SORTS]}
-              value={sort}
-              onValueChange={(value) => setUrl({ sort: value })}
-              defaultOpen={state === 'sort'}
-              aria-label="대회 정렬"
-            />
+            {loading ? (
+              <div className="flex h-6 items-center gap-1">
+                <Skeleton className="h-4 w-19" />
+                <Skeleton className="h-4 w-4" />
+              </div>
+            ) : (
+              <SortSelect
+                items={[...SORTS]}
+                value={sort}
+                onValueChange={(value) => setUrl({ sort: value })}
+                defaultOpen={state === 'sort'}
+                aria-label="대회 정렬"
+              />
+            )}
           </div>
         )}
 
@@ -257,11 +268,11 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         {!focused && !loading && list.isError && !empty && (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              title="대회를 불러오지 못했어요"
-              description="잠시 뒤 다시 시도해 주세요."
+              icon={null}
+              title="대회 목록을 불러오지 못했어요"
               action={
                 <Button variant="secondary" onClick={() => void list.refetch()}>
-                  다시 시도
+                  다시 불러오기
                 </Button>
               }
             />
@@ -270,8 +281,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
         {!focused && !loading && !list.isError && races.length === 0 && (
           <div className="flex flex-1 justify-center">
             <EmptyState
-              icon="Search"
-              title={query.trim() ? `‘${query}’에 맞는 대회가 없어요` : '맞는 대회가 없어요'}
+              icon={null}
+              title="찾는 대회가 없어요"
+              description="다른 이름이나 지역으로 찾아보세요"
               action={
                 (query.trim() !== '' || filtered) && (
                   <Button variant="secondary" onClick={resetFilters}>
@@ -283,7 +295,7 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           </div>
         )}
         {!focused && !loading && races.length > 0 && (
-          <ul className="flex flex-col gap-5 pt-2">
+          <ul className="flex flex-col gap-6 pt-2">
             {races.map((race) => (
               <li key={race.id}>
                 <Link
@@ -399,14 +411,14 @@ export function RaceListLoading() {
 // 피그마 M18 · 로딩: 실제 목록 줄과 같은 평평한 줄 4개
 function ListSkeleton() {
   return (
-    <div role="status" aria-label="불러오는 중" className="flex flex-col gap-5 pt-2">
-      {[0, 1, 2, 3].map((i) => (
+    <div role="status" aria-label="불러오는 중" className="flex flex-col gap-6 pt-2">
+      {[0, 1, 2, 3, 4].map((i) => (
         <div key={i} className="flex items-center gap-4">
           <Skeleton shape="rect" className="h-18 w-24 shrink-0" />
           <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="w-11/12" />
-            <Skeleton className="w-4/5" />
-            <Skeleton className="w-14" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="w-70" />
+            <Skeleton className="h-4 w-70" />
           </div>
         </div>
       ))}

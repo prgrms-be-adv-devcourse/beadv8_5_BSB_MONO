@@ -112,7 +112,7 @@ describe('SellerRaceNewPage', () => {
 
   it('종목 표는 등록할 종목 값으로 그린다', () => {
     renderPage()
-    expect(screen.getByRole('cell', { name: '₩45,000' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '45,000원' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '2,000명' })).toBeInTheDocument()
   })
 
@@ -134,13 +134,21 @@ describe('SellerRaceNewPage', () => {
     expect(rowCount()).toBe(before)
   })
 
+  it('키트 준비 수량 칸에 숫자가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
+    renderPage()
+    const input = screen.getByLabelText('준비 수량 1')
+    await userEvent.type(input, 'a')
+    expect(input).toHaveValue('')
+    expect((await screen.findAllByText('숫자만 입력할 수 있어요')).length).toBeGreaterThan(0)
+  })
+
   it('종목 추가 창에서 칸을 채우면 종목 표에 한 줄이 늘고, 삭제로 지울 수 있다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
     const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
 
     // 빈 칸으로 추가하면 창이 그대로 남고 칸 아래에 오류가 보인다
-    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
     expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
@@ -152,11 +160,11 @@ describe('SellerRaceNewPage', () => {
     await fill('참가비 (원)', '55000')
     await fill('모집 정원 (명)', '500')
     await fill('제한 시간 (분)', '180')
-    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(screen.getByRole('cell', { name: '하프' })).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '₩55,000' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '55,000원' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '하프 종목 삭제' }))
     expect(screen.queryByRole('cell', { name: '하프' })).not.toBeInTheDocument()
@@ -166,13 +174,13 @@ describe('SellerRaceNewPage', () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
     const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
-    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
     expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
     expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
 
-    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
     expect(within(dialog).queryByText(COURSE_FORM_ERRORS.nameRequired)).not.toBeInTheDocument()
   })
 
@@ -209,7 +217,7 @@ describe('SellerRaceNewPage', () => {
     await userEvent.type(within(dialog).getByRole('textbox', { name: '모집 정원 (명)' }), '500')
     await userEvent.type(within(dialog).getByRole('textbox', { name: '제한 시간 (분)' }), '180')
     await userEvent.click(within(dialog).getByRole('checkbox', { name: '성인만 받기' }))
-    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
 
     const row = screen.getByRole('cell', { name: '하프' }).closest('tr') as HTMLElement
@@ -336,4 +344,17 @@ describe('SellerRaceNewPage · 장소 주소 검색', () => {
       expect(screen.queryByText(RACE_FORM_ERRORS.locationRequired)).not.toBeInTheDocument(),
     )
   })
+
+  it.each(['거리 (km)', '참가비 (원)', '모집 정원 (명)', '제한 시간 (분)'])(
+    '종목 추가 창의 %s 칸에 숫자 아닌 글자를 치면 값은 그대로이고 안내가 보인다',
+    async (label) => {
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+      const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+      const field = within(dialog).getByRole('textbox', { name: label })
+      await userEvent.type(field, '1q')
+      expect(field).toHaveValue('1')
+      expect(within(dialog).getAllByText(/만 입력할 수 있어요/).length).toBeGreaterThan(0)
+    },
+  )
 })

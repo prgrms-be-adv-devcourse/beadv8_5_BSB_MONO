@@ -51,6 +51,16 @@ describe('CommunityWritePage', () => {
     expect(screen.getByRole('button', { name: '등록' })).toBeDisabled()
   })
 
+  it('제목 · 본문 글자 수 표시를 각 칸의 설명으로 연결한다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const content = await screen.findByRole('textbox', { name: '본문' })
+    await user.type(content, '안녕')
+
+    expect(content).toHaveAccessibleDescription('2/5,000')
+    expect(screen.getByRole('textbox', { name: '제목' })).toHaveAccessibleDescription('0/50')
+  })
+
   it('말머리·제목·본문·사진을 넣고 등록하면 서버로 보내고 글 상세로 옮겨 간다', async () => {
     const user = userEvent.setup()
     let sent: unknown

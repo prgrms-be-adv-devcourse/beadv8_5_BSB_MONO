@@ -21,6 +21,7 @@ import {
   server,
 } from '@/shared/testing'
 
+import { PARTICIPANT_ERRORS } from '../model/participant-form'
 import { RaceApplyPage } from './RaceApplyPage'
 
 const push = vi.fn()
@@ -170,7 +171,7 @@ describe('참가 신청 · 참가자 정보', () => {
     expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('휴대폰 번호')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('키트 배송 우편번호')).not.toBeInTheDocument()
-    expect(screen.getByText('서울 성동구 왕십리로 00')).toBeInTheDocument()
+    expect(screen.getByText(/서울 성동구 왕십리로 00/)).toBeInTheDocument()
 
     const emergencyName = screen.getByLabelText('비상 연락처 이름')
     await user.clear(emergencyName)
@@ -573,10 +574,11 @@ describe('참가 신청 · 참가자 정보', () => {
 })
 
 describe('RaceApplyPage 대기열 남은 시간', () => {
-  it('시안 미리보기는 시안의 남은 초를 헤더 오른쪽에 mm:ss로만 보여 준다', () => {
+  it('시안 미리보기는 시안의 남은 초를 헤더 아래 남은 시간 띠에 mm:ss로 보여 준다', () => {
     renderPage({}, { previewRemainingSeconds: 583 })
 
-    expect(within(screen.getByRole('banner')).getByRole('timer')).toHaveTextContent(/^09:43$/)
+    expect(screen.getByRole('timer')).toHaveTextContent(/09:43/)
+    expect(screen.getByText('자리를 잡아 뒀어요. 시간 안에 결제해 주세요')).toBeInTheDocument()
     expect(screen.queryByText(/시간 안에 신청과 결제를 마쳐 주세요/)).not.toBeInTheDocument()
   })
 
@@ -604,7 +606,7 @@ describe('RaceApplyPage 대기열 남은 시간', () => {
       )
       renderPage({}, { race: { ...RACE, id: '1' } })
 
-      expect(await screen.findByRole('timer')).toHaveTextContent(/^00:02$/)
+      expect(await screen.findByRole('timer')).toHaveTextContent(/00:02/)
       await act(() => vi.advanceTimersByTimeAsync(2000))
       await vi.waitFor(() =>
         expect(replace).toHaveBeenCalledWith('/checkout?result=timeout&raceId=1'),
@@ -626,10 +628,9 @@ describe('참가 신청 v3 배치', () => {
     expect(document.querySelector('[aria-current="step"]')).toBeNull()
     expect(screen.getByRole('link', { name: '변경' })).toHaveAttribute('href', `/races/${RACE.id}`)
     expect(screen.getByRole('heading', { level: 2, name: '회원 정보' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '회원 정보에서 바꾸기' })).toHaveAttribute(
-      'href',
-      '/me/edit',
-    )
+    // v4 시안: 회원 정보 제목 오른쪽의 「변경」은 회원 정보 수정으로 간다
+    expect(screen.getByRole('link', { name: '회원 정보 변경' })).toHaveAttribute('href', '/me/edit')
+    expect(screen.getByRole('link', { name: '회원 정보 변경' })).toHaveTextContent('변경')
   })
 
   it('개인정보 제3자 제공은 카드 없이 받는 곳 · 목적 · 항목 · 보유 기간 줄이고, 시안에 없는 양도 안내는 없다', async () => {
@@ -658,7 +659,8 @@ describe('참가 신청 v3 배치', () => {
     expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: '기념 티셔츠' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: '양말' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '회원 정보에서 바꾸기' })).not.toBeInTheDocument()
+    // 키트 옵션 단계에는 회원 정보 묶음이 없다
+    expect(screen.queryByRole('link', { name: '회원 정보 변경' })).not.toBeInTheDocument()
   })
 })
 
@@ -668,14 +670,55 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
       orderMock.getFindLatestParticipantMockHandler({ status: 200, message: '', data: null }),
     )
 
+  it('지난 신청에 우편번호가 없으면 요약 대신 입력 칸을 연다', async () => {
+    const example = orderMock.getFindLatestParticipantResponseMock()
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({
+        ...example,
+        data: {
+          ...example.data,
+          shippingAddress: { ...example.data?.shippingAddress, zipcode: '' },
+        },
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByLabelText('받는 사람')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '변경' })).not.toBeInTheDocument()
+  })
+
+  it('요약으로 보이던 배송지에 검증 오류가 나면 입력 칸을 열어 오류를 보여 준다', async () => {
+    const bodies = captureApply()
+    const example = orderMock.getFindLatestParticipantResponseMock()
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({
+        ...example,
+        data: {
+          ...example.data,
+          shippingAddress: { ...example.data?.shippingAddress, addressDetail: 'ㄱ'.repeat(256) },
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('checkbox', { name: /제3자 제공 동의/ }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(await screen.findByLabelText('상세 주소')).toBeInTheDocument()
+    expect(screen.getByText(PARTICIPANT_ERRORS.addressLength)).toBeInTheDocument()
+    expect(bodies).toHaveLength(0)
+  })
+
   it('주소는 주소 검색으로만 채우고, 고른 뒤에는 글로 보이며 다시 검색할 수 있다', async () => {
     const bodies = captureApply()
     const user = userEvent.setup()
     renderPage()
 
-    // 지난 신청 값이 있으면 글로 보이고 버튼은 「다시 검색」이다
-    expect(await screen.findByText('서울 성동구 왕십리로 00')).toBeInTheDocument()
+    // 지난 신청 값이 있으면 배송지 요약으로 보이고, 「변경」을 누르면 입력 칸이 열려 버튼은 「다시 검색」이다
+    expect(await screen.findByText(/서울 성동구 왕십리로 00/)).toBeInTheDocument()
     expect(screen.queryByLabelText('키트 배송 주소')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '변경' }))
     await user.click(screen.getByRole('button', { name: '다시 검색' }))
     completePostcode()
     expect(await screen.findByText('서울특별시 성동구 뚝섬로 273')).toBeInTheDocument()
@@ -734,6 +777,10 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     await user.type(screen.getByLabelText('키트 배송 주소'), '서울특별시 성동구 뚝섬로 273')
     expect(zipcode).toHaveValue('04768')
     expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
+    // 우편번호는 숫자만 받고, 막힌 글자를 치면 값은 그대로이고 안내가 보인다
+    await user.type(zipcode, 'a')
+    expect(zipcode).toHaveValue('04768')
+    expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
   })
 })
 
