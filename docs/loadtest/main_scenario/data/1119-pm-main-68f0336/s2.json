@@ -1,0 +1,264 @@
+{
+    "metrics": {
+        "http_req_duration{kind:queue,phase:main}": {
+            "avg": 59.333740818492736,
+            "min": 10.6692,
+            "med": 17.0114,
+            "max": 2655.594,
+            "p(90)": 106.80114000000026,
+            "p(95)": 263.1479199999999,
+            "thresholds": {
+                "p(95)<200": true
+            }
+        },
+        "http_req_failed{kind:write,phase:main}": {
+            "passes": 20,
+            "fails": 1040,
+            "thresholds": {
+                "rate<0.01": true
+            },
+            "value": 0.018867924528301886
+        },
+        "http_req_waiting": {
+            "p(95)": 220.07557999999992,
+            "avg": 53.403902141057756,
+            "min": 7.3672,
+            "med": 16.878950000000003,
+            "max": 2009.4556,
+            "p(90)": 102.05073
+        },
+        "dropped_iterations": {
+            "count": 134,
+            "rate": 0.6290490800771465,
+            "thresholds": {
+                "count==0": true
+            }
+        },
+        "http_req_failed{kind:read,phase:main}": {
+            "passes": 0,
+            "fails": 201,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(90)": 119.02737999999992,
+            "p(95)": 271.60507999999805,
+            "avg": 61.03051368195549,
+            "min": 10.6692,
+            "med": 17.4044,
+            "max": 2655.594
+        },
+        "vus_max": {
+            "value": 592,
+            "min": 460,
+            "max": 592
+        },
+        "http_req_connecting": {
+            "avg": 0.15976125440806033,
+            "min": 0,
+            "med": 0,
+            "max": 45.9526,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "vus": {
+            "min": 0,
+            "max": 332,
+            "value": 3
+        },
+        "data_sent": {
+            "count": 8716081,
+            "rate": 40916.73682782012
+        },
+        "iteration_duration": {
+            "avg": 533.7161856820949,
+            "min": 11.1009,
+            "med": 17.16605,
+            "max": 50225.9169,
+            "p(90)": 150.81426000000016,
+            "p(95)": 512.2841650000001
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 2493.6849,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 8.527937952141052
+        },
+        "data_received": {
+            "count": 14093333,
+            "rate": 66159.68775276786
+        },
+        "http_req_duration": {
+            "avg": 61.16186431486127,
+            "min": 10.6692,
+            "med": 17.4078,
+            "max": 2655.594,
+            "p(90)": 119.54966999999998,
+            "p(95)": 273.1441399999996
+        },
+        "http_req_duration{kind:write,phase:main}": {
+            "min": 36.5168,
+            "med": 114.66075000000001,
+            "max": 1042.769,
+            "p(90)": 323.9103600000001,
+            "p(95)": 444.4379649999992,
+            "avg": 163.96006386792465,
+            "thresholds": {
+                "p(95)<1000": false
+            }
+        },
+        "http_reqs": {
+            "rate": 186.36752596315463,
+            "count": 39700
+        },
+        "http_req_sending": {
+            "avg": 0.11068364735516424,
+            "min": 0,
+            "med": 0,
+            "max": 33.5366,
+            "p(90)": 0.32620999999999983,
+            "p(95)": 0.5082
+        },
+        "http_req_duration{kind:read,phase:main}": {
+            "p(90)": 21.2958,
+            "p(95)": 22.471,
+            "avg": 18.98335970149254,
+            "min": 16.0284,
+            "med": 18.3838,
+            "max": 38.5423,
+            "thresholds": {
+                "p(95)<300": false
+            }
+        },
+        "http_req_failed{kind:queue,phase:main}": {
+            "passes": 0,
+            "fails": 37679,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_failed": {
+            "passes": 20,
+            "fails": 39680,
+            "thresholds": {
+                "rate<0.05": false
+            },
+            "value": 0.0005037783375314861
+        },
+        "checks": {
+            "passes": 39189,
+            "fails": 20,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 0.9994899130301717
+        },
+        "http_req_blocked": {
+            "avg": 8.693457153652389,
+            "min": 0,
+            "med": 0,
+            "max": 2503.9983,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_duration{kind:write}": {
+            "p(95)": 444.4379649999992,
+            "avg": 163.96006386792465,
+            "min": 36.5168,
+            "med": 114.66075000000001,
+            "max": 1042.769,
+            "p(90)": 323.9103600000001,
+            "thresholds": {
+                "p(99)<5000": false
+            }
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "med": 0.3102,
+            "max": 1240.105,
+            "p(90)": 17.170549999999995,
+            "p(95)": 47.40301499999957,
+            "avg": 7.647278526448375
+        },
+        "iterations": {
+            "count": 36828,
+            "rate": 172.88522030657577
+        }
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "대회 상세 200": {
+                    "name": "대회 상세 200",
+                    "path": "::대회 상세 200",
+                    "id": "a0b84d4c74b4fac7c9f8e034aa707df3",
+                    "passes": 601,
+                    "fails": 0
+                },
+                "대기열 입장(200/409)": {
+                    "id": "c7e07a16c21a1872f676ed4088212eca",
+                    "passes": 601,
+                    "fails": 0,
+                    "name": "대기열 입장(200/409)",
+                    "path": "::대기열 입장(200/409)"
+                },
+                "대기열 상태 200": {
+                    "name": "대기열 상태 200",
+                    "path": "::대기열 상태 200",
+                    "id": "7cf159af2ede32012ebb820722d2fa6d",
+                    "passes": 35867,
+                    "fails": 0
+                },
+                "구매자 대기열 입장": {
+                    "passes": 360,
+                    "fails": 0,
+                    "name": "구매자 대기열 입장",
+                    "path": "::구매자 대기열 입장",
+                    "id": "f4d7b2accef5919de8b8b957b56f8bd6"
+                },
+                "2분 안에 입장": {
+                    "id": "122af494776680bd2197c421bba75c44",
+                    "passes": 360,
+                    "fails": 0,
+                    "name": "2분 안에 입장",
+                    "path": "::2분 안에 입장"
+                },
+                "입장 허가": {
+                    "passes": 360,
+                    "fails": 0,
+                    "name": "입장 허가",
+                    "path": "::입장 허가",
+                    "id": "eff5cbd56a44ee33063f17931d521447"
+                },
+                "신청 201": {
+                    "id": "c88dcee0e8721111a6ce99ce8eefa090",
+                    "passes": 360,
+                    "fails": 0,
+                    "name": "신청 201",
+                    "path": "::신청 201"
+                },
+                "주문 201/200": {
+                    "id": "622e7b7bfc92a4118b1acdc5e63e1da8",
+                    "passes": 340,
+                    "fails": 20,
+                    "name": "주문 201/200",
+                    "path": "::주문 201/200"
+                },
+                "결제 200(PAID)/202(PAYING)": {
+                    "name": "결제 200(PAID)/202(PAYING)",
+                    "path": "::결제 200(PAID)/202(PAYING)",
+                    "id": "8dd8ac2275c62f4f345cbd62ddd8ba9e",
+                    "passes": 340,
+                    "fails": 0
+                }
+            },
+        "name": "",
+        "path": ""
+    }
+}

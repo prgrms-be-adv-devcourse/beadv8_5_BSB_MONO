@@ -1,0 +1,1 @@
+stage=s2 start_utc=2026-11-19T07:30:18Z end_utc=2026-11-19T07:33:52Z k6_exit=99 buy_race=62 buy_course=182 wait_race=63 wait_course=183
