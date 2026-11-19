@@ -27,7 +27,8 @@ describe('v4 시안 반영으로 더한 prop', () => {
   it('Dialog stacked: 버튼을 세로로 쌓고 확인이 위에 온다', () => {
     render(<Dialog {...dialogOpen} title="t" stacked />)
     const confirm = screen.getByRole('button', { name: '확인' })
-    expect(confirm.parentElement?.className).toMatch(/\bflex-col-reverse\b/)
+    expect(confirm.parentElement?.className).toMatch(/\bflex-col\b/)
+    expect(confirm.parentElement?.firstElementChild).toBe(confirm)
   })
 
   it('Carousel showDots={false}: 점을 그리지 않는다', () => {
