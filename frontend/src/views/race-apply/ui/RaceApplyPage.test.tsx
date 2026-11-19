@@ -21,6 +21,7 @@ import {
   server,
 } from '@/shared/testing'
 
+import { PARTICIPANT_ERRORS } from '../model/participant-form'
 import { RaceApplyPage } from './RaceApplyPage'
 
 const push = vi.fn()
@@ -666,6 +667,46 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     server.use(
       orderMock.getFindLatestParticipantMockHandler({ status: 200, message: '', data: null }),
     )
+
+  it('지난 신청에 우편번호가 없으면 요약 대신 입력 칸을 연다', async () => {
+    const example = orderMock.getFindLatestParticipantResponseMock()
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({
+        ...example,
+        data: {
+          ...example.data,
+          shippingAddress: { ...example.data?.shippingAddress, zipcode: '' },
+        },
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByLabelText('받는 사람')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '변경' })).not.toBeInTheDocument()
+  })
+
+  it('요약으로 보이던 배송지에 검증 오류가 나면 입력 칸을 열어 오류를 보여 준다', async () => {
+    const bodies = captureApply()
+    const example = orderMock.getFindLatestParticipantResponseMock()
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({
+        ...example,
+        data: {
+          ...example.data,
+          shippingAddress: { ...example.data?.shippingAddress, addressDetail: 'ㄱ'.repeat(256) },
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('checkbox', { name: /제3자 제공 동의/ }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(await screen.findByLabelText('상세 주소')).toBeInTheDocument()
+    expect(screen.getByText(PARTICIPANT_ERRORS.addressLength)).toBeInTheDocument()
+    expect(bodies).toHaveLength(0)
+  })
 
   it('주소는 주소 검색으로만 채우고, 고른 뒤에는 글로 보이며 다시 검색할 수 있다', async () => {
     const bodies = captureApply()

@@ -232,8 +232,18 @@ function ParticipantForm({
   const recipientPhone = useWatch({ control, name: 'recipientPhone' })
   // 처음 값(지난 신청 · 이번에 입력해 둔 값)에 받는 사람과 주소가 다 있으면 입력 칸 대신 요약으로 보여 준다
   const [editingAddress, setEditingAddress] = useState(false)
+  // 배송지 칸에 검증 오류가 나면 요약에 가려지지 않게 입력 칸을 연다
+  const addressInvalid = !!(
+    errors.recipientName ||
+    errors.recipientPhone ||
+    errors.zipcode ||
+    errors.address ||
+    errors.addressDetail
+  )
   const savedAddress =
-    !editingAddress && !!(defaults.recipientName && defaults.recipientPhone && defaults.address)
+    !editingAddress &&
+    !addressInvalid &&
+    !!(defaults.recipientName && defaults.recipientPhone && defaults.zipcode && defaults.address)
   // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
   const [manualAddress, setManualAddress] = useState(false)
   const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
