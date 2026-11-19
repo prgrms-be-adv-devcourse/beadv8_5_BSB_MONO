@@ -167,7 +167,7 @@ function MonthlyPayouts({ today }: { today: Date }) {
   const payouts = payoutApi.usePayouts(params, { query: { select: unwrapData } })
 
   return (
-    <QueryRows query={payouts} label="대회별 월 정산" emptyTitle="이 기간에 정산 내역이 없어요">
+    <QueryRows query={payouts} label="대회별 월 정산" emptyTitle="정산 내역이 없어요">
       {(rows) => (
         <DataTable
           label="대회별 월 정산"
@@ -292,7 +292,7 @@ function PayoutItemList({ period }: { period: DetailPeriod }) {
               },
               {
                 key: 'amount',
-                header: '금액',
+                header: '금액(원)',
                 align: 'right',
                 render: (r) => formatNumber(r.amount),
               },
@@ -349,7 +349,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
               { key: 'race', header: '대회', render: (r) => r.raceName },
               {
                 key: 'amount',
-                header: '금액',
+                header: '금액(원)',
                 align: 'right',
                 width: 'w-35',
                 render: (r) => formatNumber(r.payoutAmount),
@@ -358,7 +358,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
               {
                 key: 'heldAt',
                 header: '보류일',
-                width: 'w-32.5',
+                width: 'w-32',
                 render: (r) => dayWithWeekday(r.heldAt),
               },
               {
