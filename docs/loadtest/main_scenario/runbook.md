@@ -25,7 +25,8 @@ sudo -E docker run --rm -e MYSQL_PWD mysql:8.4 mysql -h 10.0.2.222 -u"$U" -N -e 
 - **회원**: Redis에 본인인증 결과 주입 → `POST /api/v1/auth/join`. 약관은 **SERVICE·PRIVACY·AGE_OVER_14 3종**(AGE_OVER_14 빠지면 400). nginx가 `/auth`를 IP당 1/s로 막으니 1.1s 간격 throttle.
 - **비밀번호**: DB로 통일. `UPDATE crewrun_member.member_member SET password_hash='<BCrypt $2a$10 해시>' WHERE email LIKE 'loadtest%@crewrun.test';` (해시는 team05 `python3 -c "import bcrypt;..."`).
 - **예치금**: 충전 API 막혀 DB 직접. `UPDATE crewrun_cash.cash_wallet SET balance=1000000 WHERE holder_id IN (...)`. (가입 시 지갑 자동 생성됨.)
-- **판매자·대회**: `product_seller`에 판매자 등록 → `race`의 `sale_open_date=CURDATE(), individual_open_at=NOW()-1m`로 날짜만 당기고 **sale_status는 SCHEDULED로 둔다**(product 5분 스케줄러가 ON_SALE로 바꾸며 queue에 통지). 코스 `race_course`의 `individual_quota` 크게·`kit_included=0`.
+- **판매자**: 부하 계정 `loadtest1000`을 `crewrun_product.product_seller`에 승인 상태로 넣어 뒀다(id 900001, 2026-11-19). product 쪽 판매자 표만 넣은 것이라 member-service에는 판매자로 없다 → 이 계정의 대회는 정산 대상이 되면 안 된다(대회일을 120일 뒤로 둔다).
+- **대회**: 실행마다 `prepare-race.js`가 API로 새로 만든다(`POST /api/v1/product/races` → `POST /races/{id}/open` 판매 바로 시작). DB로 날짜를 당기던 예전 방식은 쓰지 않는다.
 
 ## 3. 토큰
 nginx 1/s 제한 + 토큰 30분 수명 → **단계마다 쓸 인원만 로그인하고 바로 실행**. 1,000명 한 번에 로그인하면 18분이라 뒤 단계 토큰이 만료된다.
@@ -35,16 +36,18 @@ LOADTEST_PASSWORD='<비번>' COUNT=300 k6 run login-prod.js   # → .accounts.js
 ```
 
 ## 4. 실행 (단계 램프)
-```bash
-k6 run -e STAGE=s1 --summary-export s1.json funnel.js   # 조회 100/s + 구매 2/s
-k6 run -e STAGE=s2 --summary-export s2.json funnel.js   # 조회 200/s
-k6 run -e STAGE=s3 --summary-export s3.json funnel.js   # 조회 330/s (여기서 붕괴)
-# 쓰기 한계: 구매 15/s. 구매자(1~900)가 이미 샀으면 코스 바꿔 신규로:
-k6 run -e STAGE=buystress -e BUY_RACE=9 -e BUY_COURSE=17 --summary-export buy.json funnel.js
+```powershell
+# 미니 PC prod-run 에서. 단계마다 새 대회 2개를 만들고 바로 funnel을 돌린다
+powershell -File run-stage.ps1 -Stage s1 -Tag 1119-pm-main-68f0336        # 조회 100/s + 구매 2/s
+powershell -File run-stage.ps1 -Stage s2 -Tag 1119-pm-main-68f0336        # 조회 200/s
+powershell -File run-stage.ps1 -Stage s3 -Tag 1119-pm-main-68f0336        # 조회 330/s (여기서 붕괴)
+powershell -File run-stage.ps1 -Stage buystress -Tag 1119-pm-main-68f0336 # 쓰기 한계: 구매 15/s
 ```
-- 단계별 **P95/P99는 `--summary-export`로 꼭 남긴다**(안 남기면 기록 없음).
+- 결과는 `runs\<Tag>\`에 남는다: `<stage>.json`(요약), `<stage>-raw.csv`(요청별 원시), `<stage>.log`, `<stage>.window.txt`(시작·끝 UTC, 대회 ID), `<stage>.race.json`.
+- **Tag에 날짜와 main 커밋을 넣고**, 서비스별 이미지 태그를 `MANIFEST.md`에 적는다(재현용).
 - 자동멈춤: 실패율 5%(30초), 쓰기 p99 5초 2분 지속.
-- 대기열 리셋 불필요(키 자동 정리). 재입장·재주문 409는 스크립트가 정상 처리.
+- 대기열 리셋 불필요(키 자동 정리). 재입장 409는 정상 처리, **신청 409는 실패**로 센다(새 대회라 중복이 나오면 안 된다).
+- 끝나면 `신청 201`·`주문`·`결제` 체크 건수가 0이 아닌지 확인한다.
 
 ## 5. 측정 (서버 지표)
 Grafana에서 JVM·Node·MySQL 대시보드. 또는 Prometheus 직접 쿼리(병목 1순위 `hikaricp_connections_pending`):
@@ -57,7 +60,7 @@ GRAFANA_PW='<비번>' python docs-local/ops/promsnap.py 15 40 > results/<stage>-
 - **k6 0.54엔 `crypto.randomUUID` 전역 없음** → Idempotency-Key를 `buy-${memberNo}-${Date.now()}` 식으로.
 - **k6 arrival-rate는 `maxVUs` 안 주면 preAllocatedVUs에 갇힘** → 목표 부하 미달(측정 무효). poll/buy에 maxVUs 넉넉히.
 - **PowerShell이 k6 경고를 에러로** 취급 → ps1에 `$ErrorActionPreference='Continue'`.
-- **구매자는 1회용**(코스당 1회, 이후 409). 높은 구매율 길게 못 끔 → 신규 코스로 바꾸거나 계정 늘림.
+- **구매자는 대회당 1번만 신청**(이후 409 중복). 예전엔 409를 정상 거절로 세서, 대회를 재사용한 실행은 주문·결제 0건인데도 통과로 보였다 → 실행마다 새 대회를 만든다.
 - **CPU가 벽이라 hikari 풀은 안 참**(CPU가 구매 throughput을 묶음).
 
 ## 7. 결과 요약
@@ -68,3 +71,15 @@ GRAFANA_PW='<비번>' python docs-local/ops/promsnap.py 15 40 > results/<stage>-
 | s3 | 330 | 99.6% | 5.8s | 붕괴(3,601 드롭) |
 
 (조회 숫자는 RPS = 대기열 조회 요청/초. 예매 완결은 별도 축으로 ~20 TPS = 거래/초 수준.) 병목 = 노드 2코어 CPU. 조회(nginx→gateway JWT 검증→queue)가 CPU 독식, gateway가 단일 최대(0.56코어). 개선 1순위 = 게이트웨이 JWT 검증 비용 절감, 다음 코어 증설. 테스트 후 전 파드 Running·OOM 0.
+
+## 8. 로그인을 빨리 끝내기 (부하 PC만 /auth 제한에서 빼기)
+nginx가 `/auth`를 IP당 초당 1건으로 막아 1,000명 로그인에 20분이 걸리고, 그동안 먼저 받은 토큰(30분)이 닳는다. 부하를 돌리는 동안만 부하 PC IP를 제한에서 뺀다(11/19 파티 부하에서 1,600명 약 6분).
+```bash
+ssh team05 'rm -f ~/nginx-config-backup.yaml'              # 옛 백업이 남아 있으면 닫을 때 옛 설정으로 덮어쓴다
+ssh team05 'bash -s' <부하PC 공인IP> < ops/nginx-open.sh   # 열기 (nginx 몇 초 재시작)
+powershell -File run-login.ps1 -Count 1000 -Interval 0.2    # 미니 PC에서
+# ... 부하 ...
+ssh team05 'bash -s' < ops/nginx-close.sh                   # 닫기 (실패해도 꼭)
+```
+- 그 IP에서 오는 로그인만 제한이 풀린다. 다른 사용자는 그대로다.
+- 부하 도중 nginx를 다시 배포하면 설정이 원래대로 돌아간다.

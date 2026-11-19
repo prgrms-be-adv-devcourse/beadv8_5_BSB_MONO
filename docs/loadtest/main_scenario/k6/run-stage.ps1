@@ -1,0 +1,28 @@
+param([string]$Stage, [string]$Tag, [switch]$PrepareOnly)
+# 한 단계를 돌린다: 새 대회 2개(구매용·대기용)를 만들고 → funnel.js 실행 → 요약(json)·원시(csv)·로그·시간창을 runs\<Tag>\ 에 남긴다
+# 먼저 run-login.ps1 -Count 1000 으로 토큰을 만들어 둔다 (판매자 계정 994번 포함)
+$ErrorActionPreference = 'Continue'
+Set-Location 'C:\Users\user\loadtest\prod-run'
+$k6 = 'C:\Users\user\loadtest\k6bin\k6-v0.54.0-windows-amd64\k6.exe'
+$dir = "runs\$Tag"
+New-Item -ItemType Directory -Force $dir | Out-Null
+
+# 비밀번호는 run-login.ps1에 적어 둔 값을 그대로 읽는다 (한 곳에서만 관리)
+$env:LOADTEST_PASSWORD = ([regex]::Match((Get-Content 'run-login.ps1' -Raw), "LOADTEST_PASSWORD = '([^']+)'")).Groups[1].Value
+& $k6 run -q -e LABEL=$Stage prepare-race.js *> "$dir\$Stage.prepare.log"
+if ($LASTEXITCODE -ne 0) { Get-Content "$dir\$Stage.prepare.log" -Tail 15; exit 1 }
+Copy-Item race.json "$dir\$Stage.race.json" -Force
+$r = Get-Content race.json -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($PrepareOnly) { Get-Content race.json; exit 0 }
+# 판매 시작 알림이 대기열 서비스에 닿을 시간을 준다
+Start-Sleep -Seconds 15
+
+$start = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+& $k6 run -e STAGE=$Stage -e BUY_RACE=$($r.buy.raceId) -e BUY_COURSE=$($r.buy.raceCourseId) `
+	-e WAIT_RACE=$($r.wait.raceId) -e WAIT_COURSE=$($r.wait.raceCourseId) `
+	--summary-export "$dir\$Stage.json" --out "csv=$dir\$Stage-raw.csv" funnel.js *> "$dir\$Stage.log"
+$code = $LASTEXITCODE
+$end = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+"stage=$Stage start_utc=$start end_utc=$end k6_exit=$code buy_race=$($r.buy.raceId) buy_course=$($r.buy.raceCourseId) wait_race=$($r.wait.raceId) wait_course=$($r.wait.raceCourseId)" |
+	Out-File -Encoding ascii "$dir\$Stage.window.txt"
+Get-Content "$dir\$Stage.window.txt"

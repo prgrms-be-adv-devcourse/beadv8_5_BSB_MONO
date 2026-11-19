@@ -1,5 +1,5 @@
 // 테스트 회원 N명을 로그인시켜 토큰을 ./.accounts.json 에 저장한다. funnel.js가 같이 읽는다
-// 회원은 이미 DB로 만들어 둠(비번 통일). JOIN=1은 보통 불필요(이미 가입). nginx가 /auth를 IP당 초당 1건으로 막아 1.1초 간격
+// 회원은 이미 DB로 만들어 둠(비번 통일). JOIN=1은 보통 불필요(이미 가입). nginx가 /auth를 IP당 초당 1건으로 막아 기본 1.1초 간격
 // 실행(이 폴더에서): LOADTEST_PASSWORD='…' COUNT=1000 k6 run login-prod.js
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -11,7 +11,8 @@ if (!PASSWORD) {
 }
 const COUNT = Number(__ENV.COUNT || 1000);
 const JOIN = __ENV.JOIN === '1';
-const AUTH_INTERVAL_SECONDS = 1.1;
+// nginx 제한(IP당 초당 1건)이 걸려 있으면 1.1초. nginx-open.sh로 부하 PC IP를 제한에서 뺐으면 -e AUTH_INTERVAL=0.2 처럼 줄인다
+const AUTH_INTERVAL_SECONDS = Number(__ENV.AUTH_INTERVAL || 1.1);
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export const options = {

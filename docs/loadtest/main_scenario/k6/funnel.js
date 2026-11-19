@@ -16,20 +16,27 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|^https:\/\/crewrun\.duckdns\.
 const accounts = new SharedArray('accounts', () => JSON.parse(open('./.accounts.json')));
 const tokenAgeMinutes = (Date.now() - Number(open('./.accounts-issued-at.txt'))) / 60000;
 
-const WAIT = { raceId: Number(__ENV.WAIT_RACE || 10), raceCourseId: Number(__ENV.WAIT_COURSE || 20) };
-const BUY = { raceId: Number(__ENV.BUY_RACE || 9), raceCourseId: Number(__ENV.BUY_COURSE || 16) };
+// 대회는 실행마다 prepare-race.js로 새로 만든다. 신청은 대회당 1번이라 대회를 재사용하면 구매가 전부 409(중복)로 끝나
+// 주문·결제가 한 건도 실행되지 않는다 (2026-11-19 오전 실행이 그랬다). run-stage.ps1이 race.json을 읽어 넘겨 준다
+for (const key of ['WAIT_RACE', 'WAIT_COURSE', 'BUY_RACE', 'BUY_COURSE']) {
+	if (!__ENV[key]) {
+		throw new Error(`${key} 환경 변수가 없습니다. prepare-race.js로 새 대회를 만든 뒤 run-stage.ps1로 실행하세요`);
+	}
+}
+const WAIT = { raceId: Number(__ENV.WAIT_RACE), raceCourseId: Number(__ENV.WAIT_COURSE) };
+const BUY = { raceId: Number(__ENV.BUY_RACE), raceCourseId: Number(__ENV.BUY_COURSE) };
 const POLL_INTERVAL_SECONDS = 3;
 const START_DELAY_SECONDS = 3;
 const BUY_GRACE_SECONDS = 90;
 
-// 1,000 계정 기준. 대기자(poll)는 재사용, 구매자(buyerFirstNo~)는 1회용이라 단계마다 겹치지 않게 나눈다
-// smoke→s1→s2→s3 를 한 토큰으로 이어 돌리면 구매자 범위가 안 겹친다. buystress는 1..900을 써서 따로(새 토큰) 돌린다
+// 1,000 계정 기준(1000번은 판매자). 단계마다 새 대회를 쓰므로 구매자 번호가 겹쳐도 된다
+// 번호 범위는 이전 실행과 같은 조건으로 비교하려고 그대로 둔다
 const STAGES = {
 	smoke: { enterRate: 5, enterSec: 4, pollSec: 60, buyRate: 1, buySec: 30, warmupSec: 0, buyerFirstNo: 1 },
 	s1: { enterRate: 10, enterSec: 30, pollSec: 180, buyRate: 2, buySec: 120, warmupSec: 20, buyerFirstNo: 41 },
 	s2: { enterRate: 20, enterSec: 30, pollSec: 180, buyRate: 3, buySec: 120, warmupSec: 20, buyerFirstNo: 301 },
 	s3: { enterRate: 33, enterSec: 30, pollSec: 180, buyRate: 2, buySec: 120, warmupSec: 20, buyerFirstNo: 661 },
-	// 결제(write) 한계 확인용. 구매 15/s로 밀어 ~20/s 붕괴 지점을 본다. 1..900 소비 → 새 토큰으로 단독 실행
+	// 결제(write) 한계 확인용. 구매 15/s로 밀어 ~20/s 붕괴 지점을 본다
 	buystress: { enterRate: 20, enterSec: 20, pollSec: 60, buyRate: 15, buySec: 60, warmupSec: 10, buyerFirstNo: 1 },
 };
 const STAGE = STAGES[__ENV.STAGE];
@@ -89,7 +96,7 @@ export const options = {
 
 const OK_200 = http.expectedStatuses(200);
 const QUEUE_ENTER_OK = http.expectedStatuses(200, 409);
-const APPLY_OK = http.expectedStatuses(201, 409);
+const APPLY_OK = http.expectedStatuses(201);
 const ORDER_OK = http.expectedStatuses(200, 201, 409);
 const PAY_OK = http.expectedStatuses(200, 202);
 
@@ -164,7 +171,6 @@ export function buy() {
 			emergencyContactName: '보호자', emergencyContactPhone: '010-8765-4321',
 		},
 	}), params(token, 'write', 'POST /api/v1/order/participations', APPLY_OK));
-	if (apply.status === 409) { check(apply, { '신청 정상거절': () => true }); return; }
 	if (!check(apply, { '신청 201': (r) => r.status === 201 })) { return; }
 
 	const order = http.post(`${BASE_URL}/api/v1/order/orders`,
