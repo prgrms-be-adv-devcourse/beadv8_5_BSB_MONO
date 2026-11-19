@@ -186,6 +186,7 @@ export function LoginPage({
         </footer>
       </main>
       <BottomCta
+        className="sticky bottom-0 z-10"
         primary={
           <Button type="submit" form="login-form" size="l" disabled={!isValid || login.isPending}>
             로그인

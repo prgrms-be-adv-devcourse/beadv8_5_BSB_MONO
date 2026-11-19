@@ -64,7 +64,7 @@ function EditForm({ inquiry, header }: { inquiry: Inquiry; header: React.ReactNo
   return (
     <>
       {header}
-      <main className="flex flex-1 flex-col gap-4 px-4 pt-4">
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-6">
         <p className="text-caption-regular text-text-tertiary">
           {[raceName, ANSWERER_NOTE[inquiry.assignee]].filter(Boolean).join(' · ')}
         </p>
