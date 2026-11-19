@@ -86,17 +86,18 @@ class ApiV1SellerRecordCertTest {
 	}
 
 	@Test
-	@DisplayName("승인 불가 사유는 참가자의 내 제출 목록에 보인다")
+	@DisplayName("승인 불가 사유와 판매자 메모는 참가자의 내 제출 목록에 보인다")
 	void participantSeesDenyReason() throws Exception {
 		long sellerId = fixture.approvedSeller();
 		long submissionId = fixture.submission(sellerId, 1, SubmissionStatus.NEEDS_REVIEW);
-		mockMvc.perform(deny(sellerId, submissionId, "")).andExpect(status().isOk());
+		mockMvc.perform(deny(sellerId, submissionId, "  넷타임이 잘렸어요  ")).andExpect(status().isOk());
 
 		// 픽스처의 제출은 회원 7이 냈다
 		mockMvc.perform(get("/api/v1/member/record-certs").header(MemberIdHeader.NAME, 7))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data[0].status").value("DENIED"))
-			.andExpect(jsonPath("$.data[0].denyReason").value("OTHER"));
+			.andExpect(jsonPath("$.data[0].denyReason").value("OTHER"))
+			.andExpect(jsonPath("$.data[0].denyMemo").value("넷타임이 잘렸어요"));
 	}
 
 	private RequestBuilder deny(long memberId, long submissionId, String memo) {
