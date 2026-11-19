@@ -210,7 +210,9 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       title="대회 등록"
       actions={
         <>
-          <Button variant="secondary">미리보기</Button>
+          <Button variant="secondary" disabled>
+            미리보기
+          </Button>
           <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>

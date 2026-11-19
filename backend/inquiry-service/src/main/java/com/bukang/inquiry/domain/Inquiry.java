@@ -92,8 +92,21 @@ public class Inquiry extends BaseIdAndTime {
 		return inquiry;
 	}
 
+	public static Inquiry create(InquiryDraft draft) {
+		return create(draft.memberId(), draft.raceId(), draft.orderId(), draft.type(), draft.sellerMemberId(),
+			draft.title(), draft.body());
+	}
+
+	public boolean isOwnedBy(long memberId) {
+		return this.memberId == memberId;
+	}
+
+	public boolean isSellerAssigned() {
+		return assignee == InquiryAssignee.SELLER;
+	}
+
 	public boolean isSellerOwnedBy(long memberId) {
-		return assignee == InquiryAssignee.SELLER && sellerMemberId != null && sellerMemberId == memberId;
+		return isSellerAssigned() && sellerMemberId != null && sellerMemberId == memberId;
 	}
 
 	public boolean isAdminOwned() {

@@ -94,6 +94,10 @@ public class SocialAccount extends BaseIdAndTime {
 		this.scopes = null;
 	}
 
+	public boolean isOwnedBy(long memberId) {
+		return member.getId() == memberId;
+	}
+
 	public boolean hasScopes(Set<String> required) {
 		return accessToken != null && scopes != null && Set.of(scopes.split(" ")).containsAll(required);
 	}

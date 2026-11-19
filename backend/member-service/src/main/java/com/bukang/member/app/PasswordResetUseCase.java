@@ -7,8 +7,6 @@ import java.util.Locale;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.bukang.member.config.auth.PasswordResetProperties;
 import com.bukang.member.domain.Member;
@@ -84,12 +82,7 @@ public class PasswordResetUseCase {
 		member.changePassword(passwordEncoder.encode(newPassword));
 
 		String email = member.getEmail();
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				afterPasswordChanged(memberId, email);
-			}
-		});
+		AfterCommit.run(() -> afterPasswordChanged(memberId, email));
 	}
 
 	private void sendMail(Member member) {

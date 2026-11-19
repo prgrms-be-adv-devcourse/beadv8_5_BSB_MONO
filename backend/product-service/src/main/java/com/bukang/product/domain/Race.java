@@ -323,6 +323,36 @@ public class Race extends BaseIdAndTime {
 		}
 	}
 
+	// 판매 예정 대회를 바로 열 수 있는지 (CRU-44): 판매 예정이고, 접수 마감 전이고, 당길 판매 시작 일정이 아직 오지 않았을 때만
+	// 판매 시작 일정이 이미 지났으면 판매 시작일 0시 상태 배치가 늦은 것이라, 일정을 건드리지 않고 배치에 맡긴다
+	public void checkOpenable(LocalDateTime now) {
+		switch (saleStatus) {
+			case SCHEDULED -> {
+			}
+			case ON_SALE -> throw new RaceChangeNotAllowedException("이미 판매 중인 대회입니다.");
+			case STOPPED -> throw new RaceChangeNotAllowedException("판매를 멈춘 대회는 판매 다시 열기로 열어 주세요.");
+			case CLOSED -> throw new RaceChangeNotAllowedException("판매가 끝난 대회입니다.");
+			case CANCELED -> throw new RaceChangeNotAllowedException("취소된 대회입니다.");
+		}
+		// 판매 예정이면 접수 마감은 늘 판매 시작 일정보다 뒤라, 마감을 먼저 봐야 마감 문구가 나온다
+		if (!now.isBefore(applicationCloseAt)) {
+			throw new RaceChangeNotAllowedException("접수 마감이 지난 대회는 판매를 시작할 수 없습니다.");
+		}
+		if (!saleOpenAt().isAfter(now)) {
+			throw new RaceChangeNotAllowedException("판매 시작 시각이 이미 지났습니다. 잠시 뒤 판매 중으로 바뀝니다.");
+		}
+	}
+
+	// 판매 시작일을 정하는 일정: 크루 예매가 있으면 크루 예매 시작(개인 예매 오픈보다 늘 이르다), 없으면 개인 예매 오픈
+	// 바로 열기는 이 일정만 지금으로 당긴다
+	public boolean hasCrewSale() {
+		return crewSaleStartAt != null;
+	}
+
+	private LocalDateTime saleOpenAt() {
+		return hasCrewSale() ? crewSaleStartAt : individualOpenAt;
+	}
+
 	// 키트 옵션을 등록하거나 바꿀 수 있는지: 대회 수정과 같이 취소된 대회와 판매가 끝난 대회만 막는다 (BUK-137)
 	// 판매 시작 뒤 옵션 빼기·수량 줄이기 같은 규칙은 KitOption이 옵션마다 본다
 	public void checkKitOptionChangeable(LocalDateTime now) {

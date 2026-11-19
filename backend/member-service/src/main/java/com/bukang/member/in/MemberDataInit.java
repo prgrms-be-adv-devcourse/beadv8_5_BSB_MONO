@@ -1,5 +1,6 @@
 package com.bukang.member.in;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.member.app.ClockTimes;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.app.MemberJoinUseCase;
 import com.bukang.member.domain.Member;
@@ -43,19 +45,22 @@ public class MemberDataInit {
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final MemberRepository memberRepository;
 	private final JdbcTemplate jdbcTemplate;
+	private final Clock clock;
 
 	public MemberDataInit(
 		@Lazy MemberDataInit self,
 		MemberFacade memberFacade,
 		MemberJoinUseCase memberJoinUseCase,
 		MemberRepository memberRepository,
-		JdbcTemplate jdbcTemplate
+		JdbcTemplate jdbcTemplate,
+		Clock clock
 	) {
 		this.self = self;
 		this.memberFacade = memberFacade;
 		this.memberJoinUseCase = memberJoinUseCase;
 		this.memberRepository = memberRepository;
 		this.jdbcTemplate = jdbcTemplate;
+		this.clock = clock;
 	}
 
 	@Bean
@@ -96,7 +101,7 @@ public class MemberDataInit {
 			log.warn("판매자1의 회원 ID가 {}라 product·payout 시작 데이터(회원 7)와 다릅니다. MEMBER_MEMBER를 확인하세요",
 				seller.getId());
 		}
-		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = ClockTimes.now(clock);
 		jdbcTemplate.update("""
 			INSERT INTO member_seller (seller_id, member_id, seller_type, business_name, business_number,
 				representative_name, status, requested_at, reviewed_at, result_checked_at)
@@ -106,7 +111,7 @@ public class MemberDataInit {
 	}
 
 	private void join(String name, String nickname, String email, String phone) {
-		if (memberFacade.existsByEmail(email)) {
+		if (!memberFacade.checkEmailAvailability(email).available()) {
 			return;
 		}
 

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { useToggleSale } from '@/features/seller-race'
 import {
   isRaceEditable,
@@ -52,6 +53,9 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
       actions={
         row && (
           <>
+            {row.saleStatus === 'SCHEDULED' && (
+              <RaceSaleActionButton raceId={raceId} saleStatus={row.saleStatus} by="seller" />
+            )}
             {row.saleStatus === 'ON_SALE' && (
               <button
                 type="button"

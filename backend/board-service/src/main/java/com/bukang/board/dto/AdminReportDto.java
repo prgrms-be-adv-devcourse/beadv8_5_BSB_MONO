@@ -22,6 +22,15 @@ public record AdminReportDto(
 	@Schema(description = "숨겨진 것 먼저, 그다음 최근에 처리한 순")
 	List<Item> items
 ) {
+	// 목록에서 세는 값(숨겨진 수, 오늘 처리한 수)을 항목에서 구한다. todayStart: 오늘 0시
+	public static AdminReportDto of(List<Item> items, long pendingReportCount, LocalDateTime todayStart) {
+		long hidden = items.stream().filter(item -> item.status() == Status.HIDDEN).count();
+		long handledToday = items.stream()
+			.filter(item -> item.handledAt() != null && !item.handledAt().isBefore(todayStart))
+			.count();
+		return new AdminReportDto(hidden, pendingReportCount, handledToday, items);
+	}
+
 	public record Item(
 		@Schema(description = "POST 글, COMMENT 댓글", example = "POST")
 		ReportTargetType targetType,

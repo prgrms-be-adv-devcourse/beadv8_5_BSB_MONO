@@ -53,7 +53,8 @@ import com.jayway.jsonpath.JsonPath;
 /**
  * 판매자 주문 목록·파티별 내역 API (BUK-227), 기간 판매 합계 (BUK-247). 승인된 판매자만 쓰고, 자기 대회 것만 보인다
  */
-@SpringBootTest
+// 주문 상세의 「배송 조회」 링크를 만들려고 Delivery Tracker Client ID를 준다 (CRU-40)
+@SpringBootTest(properties = "order.clients.delivery-tracker.client-id=test-client")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
@@ -182,6 +183,39 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.orders[0].orderItemId").value(itemIdOf(orderId)))
 			.andExpect(jsonPath("$.data.orders[0].partyId").value(party.getId()));
+	}
+
+	@Test
+	@DisplayName("keyword 한 칸으로 참가자 이름 또는 주문번호를 부분 일치 검색한다. 없는 말은 빈 목록이고 다른 조건과 함께 걸린다")
+	void keywordSearch() throws Exception {
+		setUpCourses();
+		long first = paidOrder(BUYER_ID, COURSE_ID);
+		paidOrder(BUYER_ID + 1, COURSE_ID);
+		String firstOrderNo = jdbcTemplate.queryForObject("select order_no from order_order where id = ?",
+			String.class, first);
+
+		// 참가자 이름은 두 주문 모두 "김러너"라 이름으로 찾으면 둘 다, 부분 일치도 된다
+		orders(SELLER_MEMBER_ID, "keyword", "김러너")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		orders(SELLER_MEMBER_ID, "keyword", "러너")
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		// 주문번호로 찾으면 그 주문 하나만
+		orders(SELLER_MEMBER_ID, "keyword", firstOrderNo)
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.orders[0].orderItemId").value(itemIdOf(first)));
+		// 없는 말은 빈 목록
+		orders(SELLER_MEMBER_ID, "keyword", "박파티")
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		// 빈 keyword는 거르지 않는다
+		orders(SELLER_MEMBER_ID, "keyword", "   ")
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		// 다른 조건과 함께 걸린다: 주문번호가 맞아도 다른 종목으로 거르면 0
+		orders(SELLER_MEMBER_ID, "keyword", firstOrderNo, "raceCourseId", String.valueOf(OTHER_COURSE_ID))
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		// 자기 대회만: 남의 판매자는 이 주문번호로 못 찾는다
+		orders(OTHER_SELLER_MEMBER_ID, "keyword", firstOrderNo)
+			.andExpect(jsonPath("$.data.totalElements").value(0));
 	}
 
 	@Test
@@ -335,7 +369,9 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.kitTrackingNumber").value("684912345678"))
 			.andExpect(jsonPath("$.data.kitShippedAt").isString())
 			.andExpect(jsonPath("$.data.kitTracking.status").value("NOT_TRACKED"))
-			.andExpect(jsonPath("$.data.kitTracking.events").isArray());
+			.andExpect(jsonPath("$.data.kitTracking.events").isArray())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").value("https://link.tracker.delivery/track"
+				+ "?client_id=test-client&carrier_id=kr.cjlogistics&tracking_number=684912345678"));
 	}
 
 	@Test
@@ -357,6 +393,7 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.cancelReason").value("BUYER_CANCELED"))
 			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("PREPARING"))
 			.andExpect(jsonPath("$.data.kitTrackingNumber").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").doesNotExist())
 			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
 			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist());
 	}
@@ -376,7 +413,8 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
 			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist())
 			.andExpect(jsonPath("$.data.kitDeliveryStatus").doesNotExist())
-			.andExpect(jsonPath("$.data.kitTracking").doesNotExist());
+			.andExpect(jsonPath("$.data.kitTracking").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").doesNotExist());
 		detail(SELLER_MEMBER_ID, pending)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.status").value("ORDERED"))

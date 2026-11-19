@@ -85,6 +85,11 @@ product:
     # 테스트용 당일 판매 (CRU-36). 켜면 판매 시작일이 오늘인 대회도 등록되고 처음부터 판매 중이다 (수정은 그대로 이틀 뒤부터)
     # 평소에는 꺼 둔다. 운영에서 부하 테스트할 때만 환경변수 PRODUCT_RACE_SAME_DAY_SALE_ENABLED=true로 켜고 다시 띄운다
     same-day-sale-enabled: ${PRODUCT_RACE_SAME_DAY_SALE_ENABLED:false}
+  # 다른 서비스 내부 API 호출 (CRU-44, 관리자 확인). mode·base-url은 프로파일별 yaml에 적는다
+  # test에는 mode를 적지 않는다. 테스트가 정한 가짜(StubMemberAdminPort)로 바꿔 쓴다
+  clients:
+    # 연결·응답 시간 제한. 넘으면 503으로 다시 시도하게 한다
+    timeout: 2s
 
 # 스케줄 작업 잠금 (common global/schedulerlock, BUK-206). pod가 여러 개여도 같은 작업은 한 곳에서만 돈다
 # 모든 서비스가 같은 DB를 쓰므로 잠금 표 이름에 서비스 접두사를 붙인다 (Flyway SQL로 만든다)
