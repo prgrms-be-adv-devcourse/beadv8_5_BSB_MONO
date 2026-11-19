@@ -169,7 +169,11 @@ public class ApiV1CashController {
 				examples = @ExampleObject(value = CashApiExamples.LOGIN_REQUIRED))),
 		@ApiResponse(responseCode = "404", description = "지갑 없음 (회원 가입 이벤트가 아직 처리되지 않았거나 없는 회원)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND)))
+				examples = @ExampleObject(value = CashApiExamples.WALLET_NOT_FOUND))),
+		@ApiResponse(responseCode = "429",
+			description = "PG를 부르기 전에 거절함 (돈이 빠지지 않음). 충전 확정이 동시에 너무 많거나, 충전 시도가 잦아 쿨다운 중",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(name = "충전 확정 몰림", value = CashApiExamples.CHARGE_BUSY)))
 	})
 	public ResponseEntity<RsData<CashChargeResponseDto>> confirmWalletCharge(
 		@LoginMemberId long memberId,
