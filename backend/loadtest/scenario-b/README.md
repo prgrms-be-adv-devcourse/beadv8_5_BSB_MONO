@@ -89,9 +89,28 @@ QUICK=1 OUT=/tmp/cashload loadtest/scenario-b/container/run.sh
 LABEL=local REP=1 OUT=/tmp/cashload SCENARIOS="warmup b0 b1 b2 b3 b4 b5 b5-limit b1-limit" loadtest/scenario-b/container/run.sh
 ```
 
-- 결과는 `$OUT/<LABEL>/rep<N>/`에 쌓여요: k6 요약(`*.json`, `*.txt`), 돈 확인(`*.verify.txt`), 락 통계, 그래프 PNG, 예치금 로그.
+- 결과는 `$OUT/<LABEL>/rep<N>/`에 쌓여요: k6 요약(`*.json`, `*.txt`), 돈 확인(`*.verify.txt`), 락 통계, 그래프 PNG, 예치금 로그, Prometheus 데이터(`prometheus-data.tar.gz`).
 - 그래프는 `PYTHON`(기본 `python3`)에 matplotlib이 있을 때만 그려요.
 - GitHub Actions: 기본 브랜치에 들어간 뒤에는 Actions → `cash-load-test` → Run workflow. 그 전에는 PR에 라벨을 붙여요.
   - `cash-load-test`: 그 PR 커밋을 A로 3번 재요.
   - `cash-load-test-ab`: B는 그 PR 커밋, A는 B에서 `container/ab-fixes.txt`의 커밋만 되돌린 코드예요. A·B를 번갈아 3번 재요(약 4시간).
     고친 커밋이 늘면 이 파일에 최근 커밋부터 더해요.
+
+### 끝난 뒤 지표 다시 보기
+
+회차마다 남는 `prometheus-data.tar.gz`를 로컬 Prometheus로 다시 띄우면, 그래프 PNG에 없는 지표나 구간도 볼 수 있어요.
+Actions 결과는 아티팩트 `cash-load-results`에서 받아요(30일 보관).
+
+```bash
+# 1) 풀기 (rep1 예시)
+mkdir -p /tmp/cashload-replay && tar -xzf <결과>/a/rep1/prometheus-data.tar.gz -C /tmp/cashload-replay
+chmod -R 777 /tmp/cashload-replay/prometheus
+# 2) 지난 데이터가 지워지지 않게 보관 기간을 길게 주고 띄운다 (주소 http://localhost:19095)
+#    측정용 Prometheus는 /prometheus/data에 썼으므로 data 폴더를 붙인다
+docker run --rm -d --name cashload-replay -p 19095:9090 -v /tmp/cashload-replay/prometheus/data:/prometheus \
+  prom/prometheus:v3.5.0 --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=10y
+# 3) 그래프를 다시 그리거나(시작 시각은 <시나리오>.start), Grafana에서 데이터 소스로 http://host.docker.internal:19095 를 더한다
+PROM_URL=http://localhost:19095 PROM_WINDOW=5s python3 loadtest/scenario-b/graph.py b6 "$(cat <결과>/a/rep1/b6.start)" /tmp/cashload-replay
+# 4) 다 보면 내린다
+docker rm -f cashload-replay
+```

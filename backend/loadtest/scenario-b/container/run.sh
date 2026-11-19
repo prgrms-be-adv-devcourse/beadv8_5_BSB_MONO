@@ -195,6 +195,14 @@ fi
 
 compose logs --no-color cash > "$RUN_DIR/cash.log" 2>&1 || true
 gzip -f "$RUN_DIR/cash.log"
+# Prometheus 데이터를 통째로 남긴다. 끝난 뒤 로컬에서 다시 띄워 아무 구간이나 다시 본다 (README 「끝난 뒤 지표 다시 보기」)
+# 멈춘 뒤 복사해서 쓰다 만 파일이 없다. 다시 띄우면 Prometheus가 WAL을 읽어 마지막까지 살린다
+compose stop prometheus >/dev/null 2>&1 || true
+if docker cp "$(compose ps -aq prometheus)":/prometheus "$RUN_DIR/prometheus" >/dev/null 2>&1; then
+	tar -czf "$RUN_DIR/prometheus-data.tar.gz" -C "$RUN_DIR" prometheus && rm -rf "$RUN_DIR/prometheus"
+else
+	log "Prometheus 데이터를 남기지 못함 (그래프 PNG는 그대로)"
+fi
 compose down -v --remove-orphans >/dev/null 2>&1
 # 내리면서 JVM이 JFR을 파일로 남긴다. 아티팩트 크기를 줄인다
 gzip -f "$JVM_DIR"/*.jfr "$JVM_DIR"/*.log 2>/dev/null || true
