@@ -146,6 +146,11 @@ final class CashApiExamples {
 		{ "status": 400, "code": "CHARGE_LIMIT_BALANCE", "message": "보유 한도는 10,000,000원입니다.", "data": null }
 		""";
 
+	static final String CHARGE_BUSY = """
+		{ "status": 429, "code": "CHARGE_BUSY",
+			"message": "충전 요청이 많아 지금은 처리할 수 없습니다. 잠시 후 다시 시도해주세요.", "data": null }
+		""";
+
 	static final String CHARGE_CONFIRM_INVALID_INPUT = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "paymentKey를 작성해주세요.", "data": null }
 		""";
