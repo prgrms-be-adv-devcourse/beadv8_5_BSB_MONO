@@ -13,6 +13,7 @@ import com.bukang.common.shared.file.domain.FileRef;
 import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
 import com.bukang.common.shared.race.event.RaceCourseChangedEvent;
 import com.bukang.common.shared.seller.domain.SellerStatus;
+import com.bukang.product.config.RaceSaleProperties;
 import com.bukang.product.domain.ProductSeller;
 import com.bukang.product.domain.Race;
 import com.bukang.product.domain.RaceCourse;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 승인된 판매자가 대회와 종목을 판매 예정(SCHEDULED)으로 등록한다. 판매 시작일은 오늘로부터 이틀 뒤부터 정할 수 있다.
+ * 테스트용 당일 판매(product.race.same-day-sale-enabled)를 켜면 오늘부터 받고, 오늘 판매 시작이면 판매 중으로 등록한다 (CRU-36).
  * 이미지 연결 메시지(대표 이미지는 대회, 즉 Race 대상이고 나머지 이미지는 종목, 즉 RaceCourse 대상)는 여기서 만들기만 하고,
  * ProductFacade가 커밋한 뒤 Kafka로 보낸다.
  * 같은 Idempotency-Key로 이미 등록한 대회가 있는지는 ProductFacade가 findRegistered로 먼저 확인한다.
@@ -38,6 +40,7 @@ public class RaceRegisterUseCase {
 	private final ProductSellerRepository productSellerRepository;
 	private final RaceRepository raceRepository;
 	private final RaceRequestValidator raceRequestValidator;
+	private final RaceSaleProperties raceSaleProperties;
 
 	public RaceSaveResult register(long memberId, String idempotencyKey, RaceSaveRequestDto request,
 		LocalDateTime now) {
@@ -46,7 +49,7 @@ public class RaceRegisterUseCase {
 			.orElseThrow(SellerNotApprovedException::new);
 		raceRequestValidator.validate(request);
 
-		Race race = new Race(seller, request, idempotencyKey, now);
+		Race race = new Race(seller, request, idempotencyKey, now, raceSaleProperties.sameDaySaleEnabled());
 		// 종목마다 요청의 종목 이미지를 함께 기억해 두었다가, 저장해 ID가 생긴 뒤 연결 대상을 만든다
 		Map<RaceCourse, List<RaceImageRequestDto>> imagesByCourse = new LinkedHashMap<>();
 		for (RaceCourseSaveRequestDto courseRequest : request.getCourses()) {

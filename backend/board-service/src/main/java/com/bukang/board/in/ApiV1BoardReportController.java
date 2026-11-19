@@ -9,7 +9,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.bukang.board.app.BoardAdminReportUseCase;
+import com.bukang.board.app.BoardAdminReportHandleUseCase;
+import com.bukang.board.app.BoardAdminReportQuery;
 import com.bukang.board.app.BoardReportUseCase;
 import com.bukang.board.domain.ReportHandledAction;
 import com.bukang.board.domain.ReportTargetType;
@@ -35,7 +36,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ApiV1BoardReportController {
 	private final BoardReportUseCase boardReportUseCase;
-	private final BoardAdminReportUseCase boardAdminReportUseCase;
+	private final BoardAdminReportQuery boardAdminReportQuery;
+	private final BoardAdminReportHandleUseCase boardAdminReportHandleUseCase;
 
 	@PostMapping("/posts/{postId}/report")
 	@Operation(summary = "글 신고", description = "글을 신고한다. 서로 다른 회원 5명이 신고하면 글이 숨겨진다. 같은 회원이 다시 신고해도 1건으로 세고 같은 응답을 준다.")
@@ -78,7 +80,7 @@ public class ApiV1BoardReportController {
 		@ApiResponse(responseCode = "503", description = "회원 서비스에 연결하지 못해 관리자인지 모름")
 	})
 	public RsData<AdminReportDto> reports(@LoginMemberId long memberId) {
-		return RsData.of(HttpStatus.OK, "신고 목록을 조회했습니다.", boardAdminReportUseCase.list(memberId));
+		return RsData.of(HttpStatus.OK, "신고 목록을 조회했습니다.", boardAdminReportQuery.list(memberId));
 	}
 
 	@PostMapping("/admin/reports/{targets}/{targetId}/{action}")
@@ -96,7 +98,7 @@ public class ApiV1BoardReportController {
 		@Parameter(description = "posts 또는 comments", example = "posts") @PathVariable String targets,
 		@Parameter(description = "글 ID 또는 댓글 ID", example = "7") @PathVariable long targetId,
 		@Parameter(description = "restore 또는 delete", example = "restore") @PathVariable String action) {
-		boardAdminReportUseCase.handle(memberId, ReportTargetType.fromPath(targets), targetId,
+		boardAdminReportHandleUseCase.handle(memberId, ReportTargetType.fromPath(targets), targetId,
 			ReportHandledAction.fromPath(action));
 		return RsData.of(HttpStatus.OK, "처리했습니다.", null);
 	}

@@ -24,6 +24,10 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 	// 판매자의 대회 (최근 등록 순)
 	List<Race> findAllBySellerOrderByIdDesc(ProductSeller seller);
 
+	// 그 회원이 판매자인 대회 중 판매 상태가 statuses 중 하나인 대회가 있는지 (회원 서비스의 판매자 탈퇴 확인용)
+	// memberId는 회원 ID다(대회의 seller_id에 든 판매자 ID가 아니다). seller.member.id로 풀린다
+	boolean existsBySellerMemberIdAndSaleStatusIn(long memberId, Collection<RaceSaleStatus> statuses);
+
 	// 같은 이름의 대회가 있는지 (개발용 더미 대회를 한 번만 만들 때 ProductDataInit이 쓴다)
 	boolean existsByTitle(String title);
 
@@ -142,6 +146,32 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 		+ "where r.id = :id and r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.STOPPED "
 		+ "and r.applicationCloseAt > :now")
 	int resumeSale(@Param("id") long id, @Param("now") LocalDateTime now);
+
+	// 판매 예정 대회를 바로 연다 (CRU-44): 판매 시작 일정을 지금으로 당기고, 판매 시작일을 오늘로, 상태를 판매 중으로 한 번에 바꾼다
+	// 상태만 바꾸면 '판매 중인데 판매 시작일이 미래'인 대회가 생겨 대기열·크루 배치·판매 시작 뒤 수정 규칙이 어긋난다
+	// 확인은 대회 행을 잠근 뒤 Race.checkOpenable이 먼저 하고(이유별 문구), 여기서는 같은 조건을 한 번 더 건다
+	//   엔티티를 고쳐 저장하지 않는 이유는 멈추기와 같다. 그 사이 상태 배치가 판매 중으로 바꿨으면 0행이 되어 덮어쓰지 않는다
+	// 크루 예매가 있는 대회: 크루 예매 시작만 당긴다 (개인 예매 오픈은 그대로)
+	@Modifying(clearAutomatically = true)
+	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.ON_SALE, "
+		+ "r.crewSaleStartAt = :openAt, r.saleOpenDate = :today, r.modifyDate = :now "
+		+ "where r.id = :id and r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.SCHEDULED "
+		+ "and r.crewSaleStartAt > :now and r.applicationCloseAt > :now")
+	int openCrewSaleNow(@Param("id") long id, @Param("openAt") LocalDateTime openAt, @Param("today") LocalDate today,
+		@Param("now") LocalDateTime now);
+
+	// 크루 예매가 없는 대회: 개인 예매 오픈을 당긴다
+	@Modifying(clearAutomatically = true)
+	@Query("update Race r set r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.ON_SALE, "
+		+ "r.individualOpenAt = :openAt, r.saleOpenDate = :today, r.modifyDate = :now "
+		+ "where r.id = :id and r.saleStatus = com.bukang.common.shared.race.domain.RaceSaleStatus.SCHEDULED "
+		+ "and r.crewSaleStartAt is null and r.individualOpenAt > :now and r.applicationCloseAt > :now")
+	int openIndividualSaleNow(@Param("id") long id, @Param("openAt") LocalDateTime openAt,
+		@Param("today") LocalDate today, @Param("now") LocalDateTime now);
+
+	// 관리자 대회 관리의 모든 대회 (취소 포함, 최근 등록 순). 판매자와 종목을 쿼리 한 번으로 읽는다 (CRU-44)
+	@Query("select distinct r from Race r join fetch r.seller left join fetch r.courses order by r.id desc")
+	List<Race> findAllWithSellerAndCourses();
 
 	// 판매 시작일이 된 판매 예정 대회 → 판매 중
 	@Modifying(clearAutomatically = true)

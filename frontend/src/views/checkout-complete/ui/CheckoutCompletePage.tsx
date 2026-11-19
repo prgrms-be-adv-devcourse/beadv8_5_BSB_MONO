@@ -8,9 +8,9 @@ import { raceDetailQueryOptions } from '@/entities/race'
 import { useMyBalance } from '@/entities/wallet'
 import { orderApi, unwrapData } from '@/shared/api'
 import { formatNumber, orderTrackItems, useTrackOnce } from '@/shared/lib'
-import { Badge, BibCard, BottomCta, buttonClassName, KeyValue, Skeleton } from '@/shared/ui'
+import { BibCard, BottomCta, buttonClassName, KeyValue, Skeleton } from '@/shared/ui'
 
-// 피그마 V2 · M08 참가 확정
+// 피그마 V3 · 참가 확정(1944:20431)
 // 결제한 주문(/checkout/complete?orderId=)을 주문 API로 불러와 그린다. 주문은 로그인이 필요해 클라이언트에서 부른다.
 // 배번은 주문 API에 없어 아직 보여 주지 않는다.
 export function CheckoutCompletePage({ orderId }: { orderId: number }) {
@@ -44,10 +44,10 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
   return (
     <>
       <AppHeader type="sub" title="참가 확정" close backHref="/" />
-      <main className="flex flex-1 flex-col gap-8 px-4 pt-16 pb-8">
+      <main className="flex flex-1 flex-col justify-center pb-8">
         {order.data ? (
           <>
-            <div className="flex flex-col gap-2 pb-2">
+            <div className="flex flex-col gap-2 px-5 pt-4 pb-6">
               <h2 className="text-title2">참가가 확정됐어요</h2>
               <p className="text-body2-regular text-text-secondary">
                 {race.data && option
@@ -56,39 +56,47 @@ export function CheckoutCompletePage({ orderId }: { orderId: number }) {
               </p>
             </div>
             {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
-            <div className="contents" data-clarity-mask="true">
+            <div className="px-5 py-4" data-clarity-mask="true">
               <BibCard
                 image={race.data?.images[0]}
                 imagePosition="50% 12%"
                 eyebrow={race.data?.title ?? ''}
-                status={<Badge tone="live">참가 확정</Badge>}
                 unit="No."
                 number="-"
                 title={[participant, option?.name].filter(Boolean).join(' · ')}
                 meta={race.data ? `${race.data.startsAt} · ${race.data.place}` : undefined}
               />
             </div>
-            <div className="flex flex-col gap-3">
-              <KeyValue label="주문번호" value={order.data.orderNo ?? '-'} />
+            <div className="flex flex-col divide-y divide-border-default px-5 py-6">
+              <KeyValue className="py-3" label="주문번호" value={order.data.orderNo ?? '-'} />
               {participant && (
                 <div data-clarity-mask="true">
-                  <KeyValue label="참가자" value={participant} />
+                  <KeyValue className="py-3" label="참가자" value={participant} />
                 </div>
               )}
               <KeyValue
+                className="py-3"
                 label="결제"
                 value={`${formatNumber(order.data.totalAmount ?? 0)}원 (예치금)`}
               />
               {balance !== undefined && (
-                <KeyValue label="남은 예치금" value={`${formatNumber(balance)}원`} />
+                <KeyValue
+                  className="py-3"
+                  label="남은 예치금"
+                  value={`${formatNumber(balance)}원`}
+                />
               )}
               {order.data.shippingAddress && refundDeadline && (
-                <KeyValue label="키트 배송" value={`환불 기한(${refundDeadline}) 지난 뒤 배송`} />
+                <KeyValue
+                  className="py-3"
+                  label="키트 배송"
+                  value={`환불 기한(${refundDeadline}) 지난 뒤 배송`}
+                />
               )}
             </div>
           </>
         ) : (
-          <div aria-busy className="flex flex-col gap-5">
+          <div aria-busy className="flex flex-col gap-5 px-5 py-4">
             <Skeleton shape="rect" className="h-16" />
             <Skeleton shape="rect" className="h-48" />
             <Skeleton shape="rect" className="h-32" />

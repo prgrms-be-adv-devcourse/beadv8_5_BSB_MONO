@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -221,8 +222,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			assertThat(half.getPrice()).isEqualTo(60_000);
 			assertThat(half.isKitIncluded()).isTrue();
 			assertThat(half.getKitPrice()).isEqualTo(5_000);
-			assertThat(half.getMinAge()).isEqualTo(20);
-			assertThat(half.getMaxAge()).isEqualTo(60);
+			assertThat(half.getMinAge()).isEqualTo(19);
+			assertThat(half.getMaxAge()).isNull();
 			assertThat(half.getCrewQuota()).isZero();
 			assertThat(half.getIndividualQuota()).isEqualTo(300);
 			assertThat(half.getStatus()).isEqualTo(CourseStatus.OPEN);
@@ -244,7 +245,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	void indexSearchDocuments() throws Exception {
 		RaceSaveRequestDto request = upcomingRace().title("2026 한강 나이트 런")
 			.description("한강 야경을 보며 달리는 대회")
-			.course(course().timeLimitMinutes(65).age(14, 70),
+			.course(course().timeLimitMinutes(65).age(19, null),
 				course().name("5K").type(CourseType.KM_5).distanceKm("5").timeLimitMinutes(40))
 			.build();
 
@@ -274,8 +275,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		assertThat(tenK.isKitIncluded()).isFalse();
 		assertThat(tenK.getDistanceKm()).isEqualTo(10.0);
 		assertThat(tenK.getPaceMinutes()).isEqualTo(6);
-		assertThat(tenK.getMinAge()).isEqualTo(14);
-		assertThat(tenK.getMaxAge()).isEqualTo(70);
+		assertThat(tenK.getMinAge()).isEqualTo(19);
+		assertThat(tenK.getMaxAge()).isNull();
 
 		RaceCourseDocument fiveK = raceCourseDocumentRepository.findById(String.valueOf(registered.courseIds().get(1)))
 			.orElseThrow();
@@ -401,8 +402,8 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			Arguments.of("참가비 0원", upcomingRace().course(course().price(0)).build(), "참가비는 0원보다 커야 합니다."),
 			Arguments.of("거리 10.555km", upcomingRace().course(course().distanceKm("10.555")).build(),
 				"거리는 999.99km 이하, 소수 둘째 자리까지 작성해주세요."),
-			Arguments.of("참가 최소 나이 13세", upcomingRace().course(course().age(13, null)).build(),
-				"참가 최소 나이는 만 14세 이상이어야 합니다."),
+			Arguments.of("참가 최소 나이 없음", upcomingRace().course(course().age(null, null)).build(),
+				"참가 최소 나이를 작성해주세요."),
 			Arguments.of("개인 정원 -1명", upcomingRace().course(course().quota(0, -1)).build(), "개인 정원은 0 이상이어야 합니다."),
 			Arguments.of("이미지 파일 ID 0",
 				upcomingRace().images(new RaceImageRequestDto(0L, FileType.THUMBNAIL, 0)).build(),
@@ -524,11 +525,20 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 
 	// ---------- RaceRequestValidator: 종목 ----------
 
-	@Test
-	@DisplayName("두 번째 종목(하프)의 최대 나이 20세가 최소 나이 30세보다 적으면 400이고, 메시지에 종목명이 붙는다")
-	void rejectMaxAgeBelowMinAge() throws Exception {
-		assertRejected(upcomingRace().course(course(), halfCourse().age(30, 20)).build(),
-			"참가 최대 나이는 최소 나이 이상이어야 합니다. (종목: 하프)");
+	@ParameterizedTest(name = "최소 {0}세, 최대 {1} → 400")
+	@CsvSource(value = {"13,null", "16,null", "18,null", "20,null", "30,null"}, nullValues = "null")
+	@DisplayName("참가 최소 나이가 14(제한 없음)와 19(성인만)가 아니면 400이고, 메시지에 종목명이 붙는다")
+	void rejectMinAgeNotFourteenOrNineteen(int minAge, Integer maxAge) throws Exception {
+		assertRejected(upcomingRace().course(course(), halfCourse().age(minAge, maxAge)).build(),
+			"참가 최소 나이는 14(제한 없음) 또는 19(성인만)로 작성해주세요. (종목: 하프)");
+	}
+
+	@ParameterizedTest(name = "최소 {0}세, 최대 {1}세 → 400")
+	@CsvSource({"14,70", "19,70", "19,19", "14,14"})
+	@DisplayName("참가 최대 나이를 보내면 400이고, 메시지에 종목명이 붙는다")
+	void rejectMaxAge(int minAge, int maxAge) throws Exception {
+		assertRejected(upcomingRace().course(course(), halfCourse().age(minAge, maxAge)).build(),
+			"참가 최대 나이는 받지 않습니다. 비워주세요. (종목: 하프)");
 	}
 
 	@Test
@@ -636,7 +646,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 			.timeLimitMinutes(180)
 			.price(60_000)
 			.kit(5_000)
-			.age(20, 60)
+			.age(19, null)
 			.quota(0, 300);
 	}
 

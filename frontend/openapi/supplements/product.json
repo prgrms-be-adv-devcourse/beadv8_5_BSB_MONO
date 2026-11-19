@@ -82,6 +82,65 @@
           "$ref": "#/components/schemas/KitOptionListDto"
         }
       }
+    },
+    "open": {
+      "200": {
+        "wrapper": "RsDataRaceSaveDto",
+        "data": {
+          "$ref": "#/components/schemas/RaceSaveDto"
+        }
+      }
+    },
+    "stop": {
+      "200": {
+        "wrapper": "RsDataRaceSaveDto",
+        "data": {
+          "$ref": "#/components/schemas/RaceSaveDto"
+        }
+      }
+    },
+    "resume": {
+      "200": {
+        "wrapper": "RsDataRaceSaveDto",
+        "data": {
+          "$ref": "#/components/schemas/RaceSaveDto"
+        }
+      }
+    },
+    "openByAdmin": {
+      "200": {
+        "wrapper": "RsDataRaceSaveDto",
+        "data": {
+          "$ref": "#/components/schemas/RaceSaveDto"
+        }
+      }
+    },
+    "stopByAdmin": {
+      "200": {
+        "wrapper": "RsDataRaceSaveDto",
+        "data": {
+          "$ref": "#/components/schemas/RaceSaveDto"
+        }
+      }
+    },
+    "resumeByAdmin": {
+      "200": {
+        "wrapper": "RsDataRaceSaveDto",
+        "data": {
+          "$ref": "#/components/schemas/RaceSaveDto"
+        }
+      }
+    },
+    "findAdminRaces": {
+      "200": {
+        "wrapper": "RsDataListSellerRaceDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SellerRaceDto"
+          }
+        }
+      }
     }
   },
   "schemas": {
@@ -566,6 +625,22 @@
         "applicationCloseAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "sellerName": {
+          "type": "string"
+        },
+        "crewSaleStartAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "individualOpenAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "refundDeadline": {
+          "type": "string",
+          "format": "date"
         },
         "courses": {
           "type": "array",

@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewQuery;
 import com.bukang.member.crew.dto.CrewMemberCountDto;
 import com.bukang.member.crew.dto.CrewMemberStatusDto;
 import com.bukang.member.crew.dto.CrewPenaltyDto;
@@ -33,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/member/crews")
 public class InternalV1CrewController {
-	private final CrewFacade crewFacade;
+	private final CrewQuery crewQuery;
 
 	@GetMapping("/{crewId}/members/{memberId}")
 	@Operation(summary = "크루원 여부와 가입 시각 조회",
@@ -54,7 +54,7 @@ public class InternalV1CrewController {
 		@Parameter(description = "확인할 회원 ID", example = "2") @PathVariable long memberId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "크루원 여부를 조회했습니다.", crewFacade.findMemberStatus(crewId, memberId)));
+			.body(RsData.of(HttpStatus.OK, "크루원 여부를 조회했습니다.", crewQuery.findMemberStatus(crewId, memberId)));
 	}
 
 	@GetMapping("/{crewId}/member-count")
@@ -72,7 +72,7 @@ public class InternalV1CrewController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "크루원 수를 조회했습니다.", crewFacade.findMemberCount(crewId)));
+			.body(RsData.of(HttpStatus.OK, "크루원 수를 조회했습니다.", crewQuery.findMemberCount(crewId)));
 	}
 
 	@GetMapping("/{crewId}/penalty")
@@ -90,6 +90,6 @@ public class InternalV1CrewController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
 		return ResponseEntity.ok()
-			.body(RsData.of(HttpStatus.OK, "크루 파티 만들기 제한을 조회했습니다.", crewFacade.findPenalty(crewId)));
+			.body(RsData.of(HttpStatus.OK, "크루 파티 만들기 제한을 조회했습니다.", crewQuery.findPenalty(crewId)));
 	}
 }

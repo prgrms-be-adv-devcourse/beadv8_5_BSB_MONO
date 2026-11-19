@@ -61,6 +61,8 @@ images:
 patches:
   # base의 ConfigMap app-config에 운영 값을 덮어쓰고 더한다 (S3·사이트 주소·소셜 로그인 앱 ID 등)
   - path: app-config.yaml
+  # 상품 서비스의 테스트용 당일 판매 설정 (CRU-36). product Pod에만 넣어, 켜고 끌 때 product만 다시 뜬다
+  - path: product-same-day-sale.yaml
   # 도메인과 HTTPS. 인증서는 Traefik이 Let's Encrypt에서 받는다 (infra/main-node/traefik-config.yaml)
   - path: ingress.yaml
   # GHCR 이미지가 비공개라, 이미지를 받을 때 로그인 정보(Secret ghcr-pull)를 쓰게 한다

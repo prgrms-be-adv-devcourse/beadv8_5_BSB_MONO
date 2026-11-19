@@ -21,7 +21,7 @@ public class MemberModifyUseCase {
 	public Member modify(long memberId, String nickname) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
 		Member member = memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 
 		// 내 행을 빼고 중복을 찾는다. 내 값을 그대로 보내거나 대소문자만 바꿔도
 		// (MySQL 기본 정렬은 대소문자를 무시해 내 행이 걸린다) "이미 사용 중"이 뜨지 않게 하기 위해서다

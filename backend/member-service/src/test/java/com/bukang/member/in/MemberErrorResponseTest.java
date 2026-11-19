@@ -47,7 +47,7 @@ class MemberErrorResponseTest {
 			"email": "%s",
 			"password": "password1234",
 			"nickname": "%s",
-			"agreedTerms": ["SERVICE", "PRIVACY"],
+			"agreedTerms": ["SERVICE", "PRIVACY", "AGE_OVER_14"],
 			"verificationToken": "%s"
 		}
 		""";

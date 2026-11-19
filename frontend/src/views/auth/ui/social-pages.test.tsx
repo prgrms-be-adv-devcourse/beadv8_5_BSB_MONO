@@ -160,7 +160,7 @@ describe('SocialSignupPage', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/races/12'))
     expect(body).toEqual({
       nickname: '소셜러너',
-      agreedTerms: ['SERVICE', 'PRIVACY', 'MARKETING'],
+      agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14', 'MARKETING'],
       verificationToken: 'mock-verification.token',
     })
     expect(getAuthStatus()).toBe('authenticated')

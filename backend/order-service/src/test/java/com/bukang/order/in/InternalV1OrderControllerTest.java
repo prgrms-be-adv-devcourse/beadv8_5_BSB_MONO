@@ -32,7 +32,6 @@ import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -77,9 +76,6 @@ class InternalV1OrderControllerTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private ParticipationKitOptionRepository participationKitOptionRepository;
 
 	@Autowired
@@ -108,7 +104,6 @@ class InternalV1OrderControllerTest {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
 		participationKitOptionRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();
@@ -393,6 +388,54 @@ class InternalV1OrderControllerTest {
 		findOrderLookup(999_999)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+	}
+
+	// ---------- 기록증 제출용 참가권 조회 (BUK-271) ----------
+
+	@Test
+	@DisplayName("참가권 조회: 결제한 참가권은 산 회원 · 대회 · 종목 ID와 결제 완료 상태를 준다")
+	void ticketPaid() throws Exception {
+		long orderItemId = paidOrderItem(5, COURSE_1115);
+
+		findTicket(orderItemId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("참가권을 조회했습니다."))
+			.andExpect(jsonPath("$.data.buyerId").value(5))
+			.andExpect(jsonPath("$.data.raceId").value(100))
+			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_1115))
+			.andExpect(jsonPath("$.data.status").value("PAID"));
+	}
+
+	@Test
+	@DisplayName("참가권 조회: 환불 중 · 환불된 참가권은 상태로 구분해 준다")
+	void ticketRefunded() throws Exception {
+		long canceling = paidOrderItem(5, COURSE_1115);
+		long canceled = paidOrderItem(6, COURSE_1116);
+		markStatus(canceling, OrderItemStatus.CANCELING);
+		markCanceled(canceled);
+
+		findTicket(canceling)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("CANCELING"));
+		findTicket(canceled)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.buyerId").value(6))
+			.andExpect(jsonPath("$.data.raceId").value(101))
+			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_1116))
+			.andExpect(jsonPath("$.data.status").value("CANCELED"));
+	}
+
+	@Test
+	@DisplayName("참가권 조회: 없는 참가권이면 404와 ORDER_ITEM_NOT_FOUND")
+	void ticketNotFound() throws Exception {
+		findTicket(999_999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_ITEM_NOT_FOUND"))
+			.andExpect(jsonPath("$.message").value("존재하지 않는 참가권입니다."));
+	}
+
+	private ResultActions findTicket(long orderItemId) throws Exception {
+		return mockMvc.perform(get("/internal/v1/order/order-items/{orderItemId}/ticket", orderItemId));
 	}
 
 	private ResultActions findOrderLookup(long orderId) throws Exception {

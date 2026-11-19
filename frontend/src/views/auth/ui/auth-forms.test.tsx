@@ -188,6 +188,11 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
   })
 
+  it('하단 「고객센터」는 마이(/me)가 아니라 고객센터 화면(/me/support)으로 연결한다 (CRU-19)', () => {
+    render(withQueryClient(<LoginPage />))
+    expect(screen.getByRole('link', { name: '고객센터' })).toHaveAttribute('href', '/me/support')
+  })
+
   it('소셜로 가입한 계정이면(AUTH_SOCIAL_ACCOUNT) 칸 문구 대신 모달로 가입한 제공자를 알려 주고, 닫을 수 있다', async () => {
     server.use(
       http.post('*/api/v1/auth/login', () =>
@@ -229,6 +234,99 @@ describe('LoginPage', () => {
   it('시안 미리보기(failed)는 로그인 실패 문구를 보여 준다', () => {
     render(withQueryClient(<LoginPage failed />))
     expect(screen.getByText(AUTH_ERRORS.loginFailed)).toBeInTheDocument()
+  })
+})
+
+describe('LoginPage 테스트 계정 로그인', () => {
+  const DEMO_PATH = '*/api/v1/auth/demo-login'
+  const DEMO_BUTTON = '테스트 계정으로 로그인'
+
+  beforeEach(() => clearAccessToken())
+
+  function demoEnabled() {
+    server.use(
+      http.get(DEMO_PATH, () =>
+        HttpResponse.json({ status: 200, message: '데모 로그인을 쓸 수 있습니다.', data: null }),
+      ),
+    )
+  }
+
+  it('서버에서 꺼져 있으면(GET 404) 버튼을 보여 주지 않는다', async () => {
+    let asked = false
+    server.use(
+      http.get(DEMO_PATH, () => {
+        asked = true
+        return HttpResponse.json({ status: 404, message: 'Not Found', data: null }, { status: 404 })
+      }),
+    )
+    render(withQueryClient(<LoginPage />))
+
+    await vi.waitFor(() => expect(asked).toBe(true))
+    expect(screen.queryByRole('button', { name: DEMO_BUTTON })).not.toBeInTheDocument()
+  })
+
+  it('서버에서 켜져 있으면 버튼을 보여 준다', async () => {
+    demoEnabled()
+    render(withQueryClient(<LoginPage />))
+
+    expect(await screen.findByRole('button', { name: DEMO_BUTTON })).toBeInTheDocument()
+  })
+
+  it('누르면 본문 없이 데모 로그인 API만 부르고, 성공하면 로그인 상태가 되어 가려던 곳으로 간다', async () => {
+    demoEnabled()
+    let body: string | undefined
+    let contentType: string | null = null
+    server.use(
+      http.post(DEMO_PATH, async ({ request }) => {
+        body = await request.text()
+        contentType = request.headers.get('content-type')
+        return HttpResponse.json(memberMock.getLoginResponseMock())
+      }),
+    )
+    const user = userEvent.setup()
+    render(withQueryClient(<LoginPage next="/admin" />))
+
+    await user.click(await screen.findByRole('button', { name: DEMO_BUTTON }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/admin'))
+    expect(body).toBe('')
+    // 서버는 JSON 형식 요청만 받는다(다른 사이트의 폼 전송을 막는다)
+    expect(contentType).toBe('application/json')
+    expect(getAuthStatus()).toBe('authenticated')
+  })
+
+  it('비밀번호 입력 없이도 누를 수 있다', async () => {
+    demoEnabled()
+    render(withQueryClient(<LoginPage />))
+
+    expect(await screen.findByRole('button', { name: DEMO_BUTTON })).toBeEnabled()
+  })
+
+  it('실패하면(429) 서버 문구를 보여 주고 이동하지 않는다', async () => {
+    demoEnabled()
+    server.use(
+      http.post(DEMO_PATH, () =>
+        HttpResponse.json(
+          {
+            status: 429,
+            code: 'DEMO_LOGIN_TOO_MANY',
+            message: '요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.',
+            data: null,
+          },
+          { status: 429 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    render(withQueryClient(<LoginPage />))
+
+    await user.click(await screen.findByRole('button', { name: DEMO_BUTTON }))
+
+    expect(
+      await screen.findByText('요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.'),
+    ).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+    expect(getAuthStatus()).not.toBe('authenticated')
   })
 })
 

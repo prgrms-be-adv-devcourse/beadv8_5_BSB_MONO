@@ -1,11 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`buttonClassName > accent · l 의 className 1`] = `"inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-accent text-text-on-accent enabled:hover:bg-bg-accent-hover disabled:bg-bg-brand-disabled disabled:text-text-on-brand h-13 gap-2 px-5 text-body1-medium"`;
-
-exports[`buttonClassName > accent · m 의 className 1`] = `"inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-accent text-text-on-accent enabled:hover:bg-bg-accent-hover disabled:bg-bg-brand-disabled disabled:text-text-on-brand gap-2 px-4 py-3 text-body2-medium"`;
-
-exports[`buttonClassName > accent · s 의 className 1`] = `"inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-accent text-text-on-accent enabled:hover:bg-bg-accent-hover disabled:bg-bg-brand-disabled disabled:text-text-on-brand gap-1 px-3 py-2 text-body2-medium"`;
-
 exports[`buttonClassName > danger · l 의 className 1`] = `"inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-danger text-text-on-danger enabled:hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled h-13 gap-2 px-5 text-body1-medium"`;
 
 exports[`buttonClassName > danger · m 의 className 1`] = `"inline-flex shrink-0 items-center justify-center rounded-sm whitespace-nowrap select-none disabled:cursor-not-allowed outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus bg-bg-danger text-text-on-danger enabled:hover:bg-bg-danger-hover disabled:bg-bg-disabled disabled:text-text-disabled gap-2 px-4 py-3 text-body2-medium"`;

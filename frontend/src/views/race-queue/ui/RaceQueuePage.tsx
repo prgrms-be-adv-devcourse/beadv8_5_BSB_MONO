@@ -12,6 +12,7 @@ import { skippedNotice, useAdmissionTimer, useQueuePosition } from '@/features/q
 import { raceDetailQueryOptions } from '@/entities/race'
 import {
   BottomCta,
+  Button,
   buttonClassName,
   Dialog,
   formatTimer,
@@ -22,19 +23,20 @@ import {
 
 import { useQueueProgress } from '../model/use-queue-progress'
 import { useQueueTracking } from '../model/use-queue-tracking'
-import { RunnerFigure } from './RunnerFigure'
 
 // 피그마 V2 · 대기열 A안(확정) · 나가기 확인 / M05-Q2 대기열 · 내 차례
 // 같은 주소에서 입장 여부에 따라 두 화면을 바꿔 그린다.
 // 들어오면 대기열에 등록하고(useQueuePosition) 차례가 올 때까지 순번을 짧은 간격마다 다시 묻는다.
-// 차례가 오면 주문 서비스에 입장 확인을 묻고, 입장하면 버튼을 누르지 않아도 신청서(M05)로 넘어간다.
-// 넘어가는 동안에는 기다리는 화면을 그대로 둔다. 내 차례 화면(M05-Q2)을 그리면 남은 시간이 잠깐 깜빡이기 때문이다.
-// 내 차례 화면은 시안 미리보기에서만 그린다. 남은 시간은 신청서 위쪽 띠에서 보여 준다.
+// 차례가 오면 주문 서비스에 입장 확인을 묻고, 입장하면 내 차례 화면(M05-Q2)을 최소 1.5초 보여 준 뒤 신청서(M05)로 넘어간다.
+// 서버가 바로 입장시키면 이 화면을 거치지 않고 대회 상세에서 신청서로 간다(useEnterQueue).
+// 내 차례 화면의 남은 시간은 시안 미리보기에서만 그린다. 실제 남은 시간은 신청서 위쪽 띠에서 보여 준다.
 // 남은 시간은 신청서에서 1초씩 줄여 가고, 0이 되면 입장 시간 만료 화면(M07-1)으로 간다.
 // A안은 대기 인원과 내 순서 숫자를 보이지 않는다. 오른쪽 위 X를 누르면 나가기 확인 창이 뜨고, 나가면 대회 상세로 간다.
 // 상단 timer bar 띠는 이 화면에 없다(신청서 M05부터).
 // 96px 그림도 시안처럼 선을 2px로 둔다. 아이콘은 24 격자라 96px에서는 0.5가 2px이다.
 const BIG_ICON_STROKE = 0.5
+// 내 차례 화면을 보여 주는 최소 시간. 화면이 깜빡이지 않게 이 시간이 지난 뒤에 신청서로 넘어간다.
+const ADMITTED_HOLD_MS = 1500
 
 export function RaceQueuePage({
   raceId,
@@ -77,11 +79,13 @@ export function RaceQueuePage({
   const [leaving, setLeaving] = useState(false)
   const applyHref = `/races/${raceId}/apply?option=${encodeURIComponent(optionId)}` as const
 
-  // 차례가 오면 신청서로 자동으로 넘어간다 (시안 미리보기는 머문다)
+  // 차례가 오면 내 차례 화면을 최소 시간 보여 준 뒤 신청서로 자동으로 넘어간다 (시안 미리보기는 머문다)
   const admitted = remaining !== null
   useQueueTracking(raceId, admitted, !preview)
   useEffect(() => {
-    if (admitted && !preview) router.replace(applyHref)
+    if (!admitted || preview) return
+    const timeout = setTimeout(() => router.replace(applyHref), ADMITTED_HOLD_MS)
+    return () => clearTimeout(timeout)
   }, [admitted, preview, applyHref, router])
 
   // 대기열에 등록하지 못했다. 입장 확인은 묻지 않고 이유를 안내한다
@@ -89,7 +93,7 @@ export function RaceQueuePage({
   const notice = skippedNotice(queue.skippedStatus ?? 0)
   const progress = useQueueProgress(queue.rank)
   // 기다리는 화면은 시안처럼 제목 줄 없이 오른쪽 위 닫기(X)만 둔다
-  const waiting = !blocked && !(queue.failed && remaining === null) && !(preview && admitted)
+  const waiting = !blocked && !(queue.failed && remaining === null) && !admitted
 
   return (
     <>
@@ -131,17 +135,13 @@ export function RaceQueuePage({
           <BottomCta
             className="sticky bottom-0 z-10"
             primary={
-              <button
-                type="button"
-                onClick={queue.retry}
-                className={buttonClassName({ size: 'l' })}
-              >
+              <Button size="l" onClick={queue.retry}>
                 다시 줄 서기
-              </button>
+              </Button>
             }
           />
         </>
-      ) : preview && remaining !== null ? (
+      ) : admitted ? (
         <>
           <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-6">
             <h1 className="text-center text-title2 text-text-primary">
@@ -155,12 +155,14 @@ export function RaceQueuePage({
               strokeWidth={BIG_ICON_STROKE}
               aria-hidden
             />
-            <div role="timer" className="flex flex-col items-center gap-1 text-center">
-              <p className="text-body2-medium text-text-secondary">남은 시간</p>
-              <p className="font-display text-number-s text-text-primary tabular-nums">
-                {formatTimer(remaining)}
-              </p>
-            </div>
+            {preview && (
+              <div role="timer" className="flex flex-col items-center gap-1 text-center">
+                <p className="text-body2-medium text-text-secondary">남은 시간</p>
+                <p className="font-display text-number-s text-text-primary tabular-nums">
+                  {formatTimer(remaining)}
+                </p>
+              </div>
+            )}
             <p className="text-center text-body2-regular text-text-secondary">
               남은 시간 안에 참가 신청과 결제를 마쳐 주세요.
               <br />
@@ -183,26 +185,25 @@ export function RaceQueuePage({
               <Icon name="X" />
             </IconButton>
           </header>
-          <main className="flex flex-1 flex-col items-center px-6 pt-6 text-center">
+          <main className="flex flex-1 flex-col items-center justify-center gap-2 px-6 pt-6 pb-30 text-center">
             <h1 className="text-title2 text-text-primary">
               신청하는 분이 많아
               <br />
               잠시 기다리고 있어요
             </h1>
             {race.data && (
-              <p className="pt-2 text-body2-regular text-text-secondary">
+              <p className="text-body2-regular text-text-secondary">
                 {optionName ? `${race.data.title} · ${optionName}` : race.data.title}
               </p>
             )}
-            <RunnerFigure className="mt-9 size-24" />
             {/* 대기 인원 · 순번 숫자 없이 진행 정도만 보여 준다. 순번을 모르는 동안은 값 없이 움직인다 */}
             <ProgressBar
               value={progress}
               indeterminate={progress === undefined}
               aria-label="대기 진행 정도"
-              className="mt-9 w-full"
+              className="mt-6 w-full"
             />
-            <p className="pt-9 text-caption-regular text-text-tertiary">
+            <p className="pt-3 text-body2-regular text-text-primary">
               이 화면을 나가면 순서가 처음으로 돌아가요.
             </p>
           </main>

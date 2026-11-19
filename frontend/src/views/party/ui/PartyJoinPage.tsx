@@ -22,7 +22,7 @@ import { Alert, BottomCta, Button, Skeleton } from '@/shared/ui'
 import { JOIN_FAILURE } from '../lib/party-copy'
 import {
   EMPTY_PARTICIPANT,
-  participantSchema,
+  participantSchemaFor,
   toParticipantRequest,
   type ParticipantValues,
 } from '../model/participant-form'
@@ -48,8 +48,12 @@ export function PartyJoinPage({ token }: { token: string }) {
   const [blocked, setBlocked] = useState<PartyFailure>()
   const [individualId, setIndividualId] = useState<number>()
   const [serverMessage, setServerMessage] = useState<string>()
+  const course = race.data?.courses?.find((c) => c.raceCourseId === data?.raceCourseId)
+  // 파티 종목에 키트가 들어 있으면 키트 배송지도 받는다
+  const kit = course?.kitIncluded === true
+  const schema = participantSchemaFor(kit)
   const form = useForm<ParticipantValues>({
-    resolver: zodResolver(participantSchema),
+    resolver: zodResolver(schema),
     defaultValues: EMPTY_PARTICIPANT,
   })
 
@@ -58,7 +62,7 @@ export function PartyJoinPage({ token }: { token: string }) {
     join.mutate(
       {
         joinToken: token,
-        participant: toParticipantRequest(participantSchema.parse(values)),
+        participant: toParticipantRequest(schema.parse(values), kit),
         thirdPartyConsent: true,
       },
       {
@@ -82,12 +86,11 @@ export function PartyJoinPage({ token }: { token: string }) {
     (preview.error ? partyFailureOf(preview.error) : undefined) ??
     (data && !data.joinLinkAlive ? 'LINK_EXPIRED' : undefined) ??
     (data && data.status !== 'RECRUITING' ? 'NOT_RECRUITING' : undefined)
-  const course = race.data?.courses?.find((c) => c.raceCourseId === data?.raceCourseId)
 
   let body
   if (failure && failure !== 'INDIVIDUAL_EXISTS') {
     body = <PartyFailureScreen copy={JOIN_FAILURE[failure]} crewId={data?.crewId} />
-  } else if (preview.isPending) {
+  } else if (preview.isPending || (race.isPending && !race.isError)) {
     body = (
       <div className="flex flex-col gap-4 p-4" aria-busy>
         <Skeleton className="h-8 w-2/3" />
@@ -96,6 +99,9 @@ export function PartyJoinPage({ token }: { token: string }) {
     )
   } else if (!data) {
     body = <PartyLoadError onRetry={() => void preview.refetch()} />
+  } else if (race.isError) {
+    // 종목 정보 없이는 키트 배송지를 받을지 알 수 없어 합류를 막는다
+    body = <PartyLoadError onRetry={() => void race.refetch()} />
   } else {
     body = (
       <>
@@ -125,6 +131,7 @@ export function PartyJoinPage({ token }: { token: string }) {
           {serverMessage && <Alert tone="danger" title={serverMessage} />}
           <ParticipantFields
             form={form}
+            kit={kit}
             course={course ? `${course.name} · ${formatNumber(course.price ?? 0)}원` : undefined}
           />
         </form>
@@ -140,7 +147,13 @@ export function PartyJoinPage({ token }: { token: string }) {
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={
-            <Button size="l" type="submit" form={FORM_ID} loading={join.isPending}>
+            <Button
+              size="l"
+              type="submit"
+              form={FORM_ID}
+              loading={join.isPending}
+              disabled={!race.isSuccess}
+            >
               합류하기
             </Button>
           }

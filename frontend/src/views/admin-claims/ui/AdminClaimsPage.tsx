@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { z } from 'zod'
 
 import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { formatMonthDay } from '@/entities/payout'
@@ -9,7 +10,6 @@ import { ApiError, memberApi, payoutApi, unwrapData, type payoutModel } from '@/
 import { cn, formatNumber, formatWon, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Badge,
   Button,
   DataTable,
   Dialog,
@@ -23,10 +23,26 @@ import {
   useToast,
 } from '@/shared/ui'
 
+// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
+const STATUS_TEXT: Record<string, string> = {
+  success: 'text-text-success',
+  danger: 'text-text-danger',
+  warning: 'text-text-warning',
+}
+const statusText = (tone: string) =>
+  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
+
 type Status = payoutModel.PayoutClaimStatus
 type Claim = payoutModel.PayoutClaimDto
 
 const PAGE_SIZE = 50
+
+// 청구 ID 검색어: 비우면 검색 해제, 아니면 영문·숫자·-만 40자까지
+const claimCodeSchema = z
+  .string()
+  .trim()
+  .max(40, '청구 ID가 너무 길어요')
+  .regex(/^[A-Za-z0-9-]*$/, '청구 ID는 영문, 숫자, -만 쓸 수 있어요')
 
 const STATUS_LABEL: Record<Status, string> = { 청구_중: '청구 중', 입금_확인: '입금 확인' }
 
@@ -71,9 +87,15 @@ export function AdminClaimsPage() {
   const changeStatus = (next: Status) => {
     setUrl({ status: next, page: '0', code: '' })
   }
-  const search = () => setUrl({ code: codeText.trim() })
+  const [codeError, setCodeError] = useState<string>()
+  const search = () => {
+    const parsed = claimCodeSchema.safeParse(codeText)
+    setCodeError(parsed.success ? undefined : parsed.error.issues[0].message)
+    if (parsed.success) setUrl({ code: parsed.data })
+  }
   const clearSearch = () => {
     setCodeText('')
+    setCodeError(undefined)
     setUrl({ code: '' })
   }
 
@@ -122,6 +144,7 @@ export function AdminClaimsPage() {
             label="청구 ID"
             placeholder="RC-20261215-0001"
             value={codeText}
+            error={codeError}
             onChange={(e) => setCodeText(e.target.value)}
           />
           <Button type="submit" variant="secondary">
@@ -178,9 +201,9 @@ export function AdminClaimsPage() {
                   header: '상태',
                   width: 'w-24',
                   render: (c) => (
-                    <Badge tone={c.status === '청구_중' ? 'warning' : 'neutral'}>
+                    <span className={statusText(c.status === '청구_중' ? 'warning' : 'neutral')}>
                       {STATUS_LABEL[c.status]}
-                    </Badge>
+                    </span>
                   ),
                 },
               ]}

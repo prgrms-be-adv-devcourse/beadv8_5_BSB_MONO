@@ -1,6 +1,11 @@
 package com.bukang.board.out;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -10,6 +15,12 @@ import org.springframework.data.repository.query.Param;
 import com.bukang.board.domain.BoardMember;
 
 public interface BoardMemberRepository extends JpaRepository<BoardMember, Long> {
+	// 글·댓글 목록에 붙일 글쓴이를 한 번에 읽어 ID로 찾게 한다. 복사본이 없는 회원은 맵에 없다
+	default Map<Long, BoardMember> writersOf(Collection<Long> memberIds) {
+		return findAllById(new HashSet<>(memberIds)).stream()
+			.collect(Collectors.toMap(BoardMember::getId, Function.identity()));
+	}
+
 	// 복사본이 없으면 넣고, 있어도 프로필을 아직 못 받은 행(modify_date가 비어 있음, 판매자 이벤트가 먼저 만든 행)이면
 	// 닉네임·생성 시각·탈퇴 여부·수정 시각만 채운다. 판매자 칸(seller_approved, seller_changed_at)과 프로필을 이미 받은 행은 건드리지 않는다 (BUK-161)
 	// 먼저 SELECT로 확인하면 같은 회원을 동시에 넣는 이벤트와 둘 다 통과하므로, 기본 키 제약으로 한 번에 판단한다. 중복 키 예외를 내지 않는다

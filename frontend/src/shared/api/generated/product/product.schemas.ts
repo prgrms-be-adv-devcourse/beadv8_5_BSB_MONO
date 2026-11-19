@@ -551,6 +551,11 @@ export interface SellerRaceDto {
   saleStatus?: SellerRaceDtoSaleStatus;
   saleOpenDate?: string;
   applicationCloseAt?: string;
+  sellerName?: string;
+  /** @nullable */
+  crewSaleStartAt?: string | null;
+  individualOpenAt?: string;
+  refundDeadline?: string;
   courses?: SellerRaceCourseDto[];
 }
 

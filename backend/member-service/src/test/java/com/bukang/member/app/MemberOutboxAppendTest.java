@@ -123,7 +123,7 @@ class MemberOutboxAppendTest {
 	@DisplayName("가입하면 같은 트랜잭션에서 가입 토픽 행이 보낼 차례로 남고, 본문 eventId·회원 ID·마케팅 동의가 행과 맞는다")
 	void joinAppendsJoinedRow() {
 		MemberDto member = join("outbox-join@crewrun.com", "아웃박스가입", "010-3000-0001",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14, TermsType.MARKETING));
 
 		List<MemberOutboxEvent> rows = allRows();
 		assertThat(rows).hasSize(1);
@@ -146,7 +146,7 @@ class MemberOutboxAppendTest {
 	@DisplayName("마케팅 약관에 동의하지 않고 가입하면 가입 본문의 marketingAgreed가 false다")
 	void joinWithoutMarketingConsent() {
 		join("outbox-nomarketing@crewrun.com", "마케팅거절", "010-3000-0002",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 
 		MemberJoinedEvent body = jsonConverter.fromJson(allRows().get(0).getPayload(), MemberJoinedEvent.class);
 		assertThat(body.marketingAgreed()).isFalse();
@@ -157,7 +157,7 @@ class MemberOutboxAppendTest {
 	void joinRollbackLeavesNoRow() {
 		transactionTemplate.executeWithoutResult(status -> {
 			memberJoinUseCase.join("outbox-rollback@crewrun.com", "password1234", "롤백가입", null,
-				List.of(TermsType.SERVICE, TermsType.PRIVACY),
+				List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14),
 				new VerifiedIdentity("김롤백", BIRTH_DATE, "010-3000-0003", "ci-outbox-rollback",
 					"identity-outbox-rollback", "name-birth-outbox-rollback", null));
 			status.setRollbackOnly();
@@ -170,10 +170,11 @@ class MemberOutboxAppendTest {
 	@Test
 	@DisplayName("중복 이메일로 가입에 실패하면 실패한 가입의 아웃박스 행은 남지 않는다")
 	void duplicateJoinLeavesNoRow() {
-		join("outbox-dup@crewrun.com", "먼저가입", "010-3000-0004", List.of(TermsType.SERVICE, TermsType.PRIVACY));
+		join("outbox-dup@crewrun.com", "먼저가입", "010-3000-0004",
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 
 		assertThatThrownBy(() -> join("outbox-dup@crewrun.com", "중복가입", "010-3000-0005",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY)))
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14)))
 			.isInstanceOf(DuplicateEmailException.class);
 
 		assertThat(allRows()).hasSize(1);
@@ -183,7 +184,7 @@ class MemberOutboxAppendTest {
 	@DisplayName("정보를 바꾸면 정보 변경 토픽 행이 남고, 본문의 eventId·닉네임·수정 시각이 행·회원과 맞는다")
 	void modifyAppendsModifiedRow() {
 		MemberDto joined = join("outbox-modify@crewrun.com", "수정전회원", "010-3000-0006",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 
 		MemberDto modified = memberFacade.modifyMe(joined.getId(),
 			new MemberModifyRequestDto("수정후회원"));
@@ -201,7 +202,7 @@ class MemberOutboxAppendTest {
 	@DisplayName("탈퇴하면 한 트랜잭션에 정보 변경(닉네임 \"탈퇴한 회원\") → 탈퇴 순서로 두 줄이 남고, 이벤트 ID는 서로 다르다")
 	void withdrawAppendsModifiedThenWithdrawn() {
 		MemberDto joined = join("outbox-withdraw@crewrun.com", "탈퇴할회원", "010-3000-0007",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 
 		memberFacade.withdrawMe(joined.getId());
 
@@ -226,14 +227,14 @@ class MemberOutboxAppendTest {
 	@DisplayName("판매자 신청·승인은 판매자 토픽 행을 남기고, 대상 종류는 Seller, 대상 ID는 판매자 ID다")
 	void sellerApplyAndApproveAppendSellerRows() {
 		MemberDto member = join("outbox-seller@crewrun.com", "판매신청", "010-3000-0008",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 		MemberDto admin = join("outbox-admin@crewrun.com", "관리회원", "010-3000-0009",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 		memberFacade.grantAdmin("outbox-admin@crewrun.com");
 
 		SellerDto seller = sellerFacade.apply(member.getId(),
 			new SellerApplyRequestDto(SellerType.BUSINESS, "크루런 스포츠", "1234567890", "신청대표",
-				"004", "1101230000678", PayoutAccountHolderType.PERSONAL));
+				"004", "1101230000678", PayoutAccountHolderType.PERSONAL, true));
 		sellerFacade.approve(admin.getId(), seller.getId());
 
 		List<MemberOutboxEvent> sellerRows = allRows().stream()
@@ -252,7 +253,7 @@ class MemberOutboxAppendTest {
 	@DisplayName("마케팅 수신 동의 변경을 발행하면 동의 변경 토픽 행이 남고, 본문에 회원 ID·동의 여부·바꾼 시각이 있다")
 	void marketingConsentChangeAppendsRow() {
 		MemberDto joined = join("outbox-consent@crewrun.com", "동의변경", "010-3000-0010",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.MARKETING));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14, TermsType.MARKETING));
 		LocalDateTime changedAt = LocalDateTime.of(2026, 11, 2, 15, 0);
 
 		transactionTemplate.executeWithoutResult(status -> memberRepository.findById(joined.getId()).orElseThrow()
@@ -324,7 +325,7 @@ class MemberOutboxAppendTest {
 	@DisplayName("새 필드(eventId, marketingAgreed)를 모르는 옛 소비자 레코드도 새 가입 본문을 읽는다")
 	void oldConsumerReadsNewPayload() {
 		MemberDto member = join("outbox-oldconsumer@crewrun.com", "옛소비자", "010-3000-0011",
-			List.of(TermsType.SERVICE, TermsType.PRIVACY));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14));
 
 		OldMemberJoinedEvent old = jsonConverter.fromJson(allRows().get(0).getPayload(), OldMemberJoinedEvent.class);
 

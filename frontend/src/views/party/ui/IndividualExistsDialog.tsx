@@ -59,7 +59,8 @@ export function IndividualExistsDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title="이 대회에 개인 신청이 있어요"
-      body="한 사람은 한 대회에 신청 하나만 가질 수 있어요. 개인 신청을 취소하면 파티에 참여할 수 있어요."
+      body="한 사람은 한 대회에 신청 하나만 가질 수 있어요. 개인 신청을 취소하면 파티에 참여할 수
+          있어요."
       confirmLabel="개인 신청 취소하기"
       cancelLabel="돌아가기"
       onConfirm={() => void cancel()}

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
 import com.bukang.member.crew.app.CrewPenaltyRecordUseCase;
+import com.bukang.member.crew.app.CrewTime;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,13 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 public class CrewPenaltyScheduler {
-	private static final String ZONE = "Asia/Seoul";
-
 	private final CrewPenaltyRecordUseCase crewPenaltyRecordUseCase;
 	private final Clock clock;
 
 	@SchedulerLock(name = "member-crew-penalty", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
-	@Scheduled(cron = "0 30 4 * * *", zone = ZONE)
+	@Scheduled(cron = "0 30 4 * * *", zone = CrewTime.ZONE)
 	public void record() {
 		int saved = crewPenaltyRecordUseCase.record(clock.instant());
 		log.info("결제율 미달 크루의 파티 만들기 제한을 저장했습니다. 새로 저장한 건수={}", saved);

@@ -9,4 +9,9 @@ public class CrewPartyCheckFailedException extends BusinessException {
 	public CrewPartyCheckFailedException(String message) {
 		super(HttpStatus.SERVICE_UNAVAILABLE, "CREW_PARTY_CHECK_FAILED", message);
 	}
+
+	public CrewPartyCheckFailedException(String message, Throwable cause) {
+		super(HttpStatus.SERVICE_UNAVAILABLE, "CREW_PARTY_CHECK_FAILED", message);
+		initCause(cause);
+	}
 }

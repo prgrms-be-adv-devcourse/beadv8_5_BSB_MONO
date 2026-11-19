@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { AppHeader } from '@/widgets/app-header'
 import { useWithdraw, withdrawFailure, type WithdrawFailure } from '@/features/auth'
 import { formatNumber } from '@/shared/lib'
-import { Badge, BottomCta, Button, buttonClassName, Checkbox, Dialog, KeyValue } from '@/shared/ui'
+import { BottomCta, Button, buttonClassName, Checkbox, Dialog, KeyValue } from '@/shared/ui'
 
 import { useWithdrawBlockers } from '../model/use-withdraw-blockers'
 
@@ -75,9 +75,9 @@ export function WithdrawPage() {
         {(hasCash || hasTicket || hasCrew) && (
           <section className="flex flex-col px-4">
             {hasCash && (
-              <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
+              <div className="flex flex-col items-start gap-1 py-4">
                 <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="info">안내</Badge>
+                  <span className="text-body2-medium text-text-secondary">안내</span>
                   남은 예치금 {formatNumber(remaining.balance)}원
                 </p>
                 <p className="text-body2-regular text-text-secondary">
@@ -92,9 +92,9 @@ export function WithdrawPage() {
               </div>
             )}
             {hasTicket && (
-              <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
+              <div className="flex flex-col items-start gap-1 py-4">
                 <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="warning">필수</Badge>
+                  <span className="text-body2-medium text-text-warning">필수</span>
                   끝나지 않은 참가권 {remaining.ticketCount}장
                 </p>
                 <p className="text-body2-regular text-text-secondary">
@@ -111,7 +111,7 @@ export function WithdrawPage() {
             {hasCrew && (
               <div className="flex flex-col items-start gap-1 py-4">
                 <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="warning">필수</Badge>
+                  <span className="text-body2-medium text-text-warning">필수</span>
                   크루장인 크루 {remaining.leaderCrewCount}개
                 </p>
                 <p className="text-body2-regular text-text-secondary">
@@ -127,7 +127,6 @@ export function WithdrawPage() {
             )}
           </section>
         )}
-        <div className="mt-2 h-3 bg-bg-subtle" />
         <section className="flex flex-col gap-2 px-4 py-5">
           <p className="text-body2-bold">탈퇴하면 개인정보는 바로 지워요</p>
           <p className="text-caption-regular text-text-secondary">

@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { readKitOptionIds, saveKitOptionIds } from '@/features/booking'
 import { cashApi, orderApi } from '@/shared/api'
-import { orderMock, server } from '@/shared/testing'
+import { orderMock, productMock, server } from '@/shared/testing'
 
 import { CheckoutPage, type CheckoutState } from './CheckoutPage'
 
@@ -90,7 +90,7 @@ const LIMIT_NOTICE =
 
 const timer = () => screen.getByRole('timer')
 const agree = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('checkbox', { name: '[필수] 환불 기한을 확인했어요' }))
+  user.click(screen.getByRole('checkbox', { name: '주문 내용 확인 및 결제 동의' }))
 
 describe('결제 화면', () => {
   beforeEach(() => {
@@ -112,20 +112,15 @@ describe('결제 화면', () => {
     sessionStorage.clear()
   })
 
-  it('주문 금액 · 대회 · 참가자와 결제 기한까지 남은 시간을 보여 준다', async () => {
+  it('참가자 · 대회 · 결제 금액과 결제 기한까지 남은 시간을 보여 준다', async () => {
     renderCheckout()
 
-    expect(
-      await screen.findByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림'),
-    ).toBeInTheDocument()
-    // 예치금 10만 원에서 45,000원을 내고 55,000원이 남는다
-    expect(screen.getByText('55,000원')).toBeInTheDocument()
+    expect(await screen.findByText('이달림 · 1994.06.25 · 남성')).toBeInTheDocument()
+    expect(screen.getByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
     expect(timer()).toHaveTextContent(/10:00|09:5\d/)
-    // Clarity 화면 녹화에서 참가자 이름이 든 주문 요약을 가린다
+    // Clarity 화면 녹화에서 참가자 이름이 든 줄을 가린다
     expect(
-      screen
-        .getByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림')
-        .closest('[data-clarity-mask="true"]'),
+      screen.getByText('이달림 · 1994.06.25 · 남성').closest('[data-clarity-mask="true"]'),
     ).not.toBeNull()
   })
 
@@ -142,8 +137,8 @@ describe('결제 화면', () => {
     )
     renderCheckout()
 
-    const label = await screen.findByText('키트 배송지')
-    expect(label.closest('[data-clarity-mask="true"]')).not.toBeNull()
+    const address = await screen.findByText(/서울 성동구 왕십리로 1/)
+    expect(address.closest('[data-clarity-mask="true"]')).not.toBeNull()
   })
 
   it('대기열에 입장 중이면 결제 기한 대신 대기열에서 받은 남은 시간을 센다', async () => {
@@ -155,7 +150,7 @@ describe('결제 화면', () => {
     )
     renderCheckout()
 
-    await screen.findByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림')
+    await screen.findByText('이달림 · 1994.06.25 · 남성')
     await vi.waitFor(() => expect(timer()).toHaveTextContent(/05:00|04:5\d/))
   })
 
@@ -169,7 +164,7 @@ describe('결제 화면', () => {
     )
     renderCheckout()
 
-    await screen.findByText('2026 용감한 쿠키RUN in 서울 · 10K · 이달림')
+    await screen.findByText('이달림 · 1994.06.25 · 남성')
     await vi.waitFor(() => expect(timer()).toHaveTextContent(/05:00|04:5\d/))
   })
 
@@ -198,7 +193,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -218,7 +213,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -273,7 +268,7 @@ describe('결제 화면', () => {
       </QueryClientProvider>,
     )
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -323,7 +318,7 @@ describe('결제 화면', () => {
       </QueryClientProvider>,
     )
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -350,10 +345,11 @@ describe('결제 화면', () => {
     renderCheckout()
 
     // 45,000원 중 40,000원은 예치금에서, 모자란 5,000원은 최소 충전 금액 1만 원으로 충전한다.
-    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제' })
-    expect(screen.getByText('+10,000원')).toBeInTheDocument()
-    // 결제 수단 카드에 모자란 금액이 배지로 보인다 (피그마 M07 C안)
-    expect(screen.getByText('5,000원 부족')).toBeInTheDocument()
+    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제하기' })
+    // 결제 금액 구역에 카드로 충전할 금액이 보인다
+    expect(
+      within(screen.getByRole('region', { name: '결제 금액' })).getByText('10,000원'),
+    ).toBeInTheDocument()
     await agree(user)
     await user.click(button)
 
@@ -375,7 +371,7 @@ describe('결제 화면', () => {
     renderCheckout()
 
     // 버튼에 보이는 충전 금액과 실제로 보내는 충전 금액이 같아야 한다
-    const button = await screen.findByRole('button', { name: '300,000원 충전하고 결제' })
+    const button = await screen.findByRole('button', { name: '300,000원 충전하고 결제하기' })
     expect(button).toHaveAccessibleDescription(LIMIT_NOTICE)
     await agree(user)
     await user.click(button)
@@ -392,7 +388,7 @@ describe('결제 화면', () => {
     )
     renderCheckout()
 
-    await screen.findByRole('button', { name: '300,000원 충전하고 결제' })
+    await screen.findByRole('button', { name: '300,000원 충전하고 결제하기' })
     expect(screen.queryByText(LIMIT_NOTICE)).not.toBeInTheDocument()
   })
 
@@ -401,7 +397,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -418,7 +414,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -433,7 +429,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -447,7 +443,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -477,7 +473,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout(undefined, { charged: true })
 
-    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제' })
+    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제하기' })
     await vi.waitFor(() => expect(button).toBeEnabled())
     expect(requestCharge).not.toHaveBeenCalled()
 
@@ -501,7 +497,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout(undefined, { charged: true })
 
-    const button = await screen.findByRole('button', { name: '150,000원 충전하고 결제' })
+    const button = await screen.findByRole('button', { name: '150,000원 충전하고 결제하기' })
     await vi.waitFor(() => expect(button).toBeEnabled())
     expect(paid).toBe(1)
     expect(requestCharge).not.toHaveBeenCalled()
@@ -544,7 +540,7 @@ describe('결제 화면', () => {
     expect(await screen.findByText('결제하지 못했어요')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 결제하기' }))
 
-    expect(await screen.findByRole('button', { name: '45,000원 결제' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '45,000원 결제하기' })).toBeInTheDocument()
   })
 
   it('결제 때 기한이 지났다고 하면(409 ORDER_PAYMENT_DEADLINE_PASSED) 시간 초과 화면을 보여 준다', async () => {
@@ -552,7 +548,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -568,7 +564,7 @@ describe('결제 화면', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     renderCheckout()
 
-    const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
     await agree(user)
     await user.click(pay)
 
@@ -629,7 +625,7 @@ describe('결제 화면', () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       renderCheckout()
 
-      const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+      const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
       await agree(user)
       await user.click(pay)
 
@@ -699,7 +695,7 @@ describe('결제 화면', () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       renderCheckout()
 
-      const pay = await screen.findByRole('button', { name: '45,000원 결제' })
+      const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
       await agree(user)
       await user.click(pay)
 
@@ -772,11 +768,171 @@ describe('결제 화면', () => {
     })
   })
 
+  describe('v3 배치', () => {
+    const headings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    const region = (name: string) => screen.getByRole('region', { name })
+
+    it('남은 시간은 헤더 오른쪽에만 있고 위쪽 안내 띠는 없다', async () => {
+      renderCheckout()
+
+      await screen.findByRole('heading', { name: '결제 금액' })
+      expect(within(screen.getByRole('banner')).getByRole('timer')).toHaveTextContent(
+        /^(10:00|09:5\d)$/,
+      )
+      expect(screen.queryByText(/자리를 잡아 뒀어요/)).not.toBeInTheDocument()
+    })
+
+    it('예치금이 모자라면 여섯 구역이 시안 순서로 보인다', async () => {
+      server.use(balanceHandler(40_000))
+      renderCheckout()
+
+      await screen.findByRole('heading', { name: '결제 금액' })
+      expect(headings()).toEqual([
+        '참가자 · 배송',
+        '신청 대회',
+        '예치금',
+        '충전 수단',
+        '결제 금액',
+        '결제 동의',
+      ])
+    })
+
+    it('참가자 상자는 이름 · 생년월일 · 성별, 배송 주소, 비상 연락처를 보여 준다', async () => {
+      renderCheckout()
+
+      const box = await screen.findByRole('region', { name: '참가자 · 배송' })
+      expect(await within(box).findByText('이달림 · 1994.06.25 · 남성')).toBeInTheDocument()
+      expect(within(box).getByText(/서울 성동구 왕십리로/)).toBeInTheDocument()
+      expect(within(box).getByText('비상 연락처 김가족 (010-9876-5432)')).toBeInTheDocument()
+    })
+
+    it('참가 신청을 못 받으면 이름 · 비상 연락처 줄은 빼고 배송 주소만 보여 준다', async () => {
+      server.use(
+        http.get('*/api/v1/order/participations/:id', () =>
+          HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+        ),
+      )
+      renderCheckout()
+
+      const box = await screen.findByRole('region', { name: '참가자 · 배송' })
+      expect(await within(box).findByText(/서울 성동구 왕십리로/)).toBeInTheDocument()
+      expect(within(box).queryByText(/비상 연락처/)).not.toBeInTheDocument()
+      expect(within(box).queryByText(/1994/)).not.toBeInTheDocument()
+    })
+
+    it('신청 대회 상자는 대회 · 종목 · 키트 옵션 · 참가비를 보여 준다', async () => {
+      renderCheckout()
+
+      const box = await screen.findByRole('region', { name: '신청 대회' })
+      expect(await within(box).findByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
+      expect(within(box).getByText(/ · 10K$/)).toBeInTheDocument()
+      expect(within(box).getByText('키트 티셔츠 L')).toBeInTheDocument()
+      expect(within(box).getByText('참가비')).toBeInTheDocument()
+      expect(within(box).getByText('45,000원')).toBeInTheDocument()
+    })
+
+    it('예치금이 모자라면 보유 · 쓸 예치금, 충전 수단, 카드로 충전할 금액과 남는 예치금을 보여 준다', async () => {
+      server.use(balanceHandler(40_000))
+      renderCheckout()
+
+      const deposit = await screen.findByRole('region', { name: '예치금' })
+      await within(deposit).findByText('40,000원 (전액)')
+      expect(within(deposit).getByText('보유 예치금')).toBeInTheDocument()
+      expect(within(deposit).getByText('40,000원')).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: '카드 · 간편결제 (토스페이먼츠)' })).toBeChecked()
+
+      const amount = region('결제 금액')
+      expect(within(amount).getByText('45,000원')).toBeInTheDocument()
+      expect(within(amount).getByText('-40,000원')).toBeInTheDocument()
+      expect(within(amount).getByText('5,000원')).toBeInTheDocument()
+      expect(within(amount).getByText('카드로 충전할 금액')).toBeInTheDocument()
+      expect(within(amount).getByText('10,000원')).toBeInTheDocument()
+      expect(
+        within(amount).getByText('최소 1만 원부터 충전해요. 남는 5,000원은 예치금으로 남아요.'),
+      ).toBeInTheDocument()
+    })
+
+    it('예치금이 넉넉하면 충전 수단 구역과 카드로 충전할 금액 줄이 없다', async () => {
+      renderCheckout()
+
+      const amount = await screen.findByRole('region', { name: '결제 금액' })
+      const deposit = await screen.findByRole('region', { name: '예치금' })
+      await within(deposit).findByText('45,000원')
+      expect(within(deposit).queryByText(/전액/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: '충전 수단' })).not.toBeInTheDocument()
+      expect(within(amount).queryByText('카드로 충전할 금액')).not.toBeInTheDocument()
+      expect(within(amount).getByText('-45,000원')).toBeInTheDocument()
+      expect(within(amount).getByText('0원')).toBeInTheDocument()
+    })
+
+    it('보유 예치금을 전부 쓰면 쓸 예치금 뒤에 (전액)을 붙인다', async () => {
+      server.use(balanceHandler(45_000))
+      renderCheckout()
+
+      const deposit = await screen.findByRole('region', { name: '예치금' })
+      expect(await within(deposit).findByText('45,000원 (전액)')).toBeInTheDocument()
+    })
+
+    it('잔액을 못 불러오면 예치금 구역은 값 대신 -를 보여 준다', async () => {
+      server.use(
+        http.get('*/api/v1/cash/wallets/balance', () =>
+          HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+        ),
+      )
+      renderCheckout()
+
+      const deposit = await screen.findByRole('region', { name: '예치금' })
+      expect(await within(deposit).findAllByText('-')).toHaveLength(2)
+      expect(screen.queryByRole('heading', { name: '충전 수단' })).not.toBeInTheDocument()
+    })
+
+    it('결제 동의는 체크 하나와 필수 두 줄, 통신판매중개 고지로 이루어지고 체크 전에는 결제할 수 없다', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
+      expect(pay).toBeDisabled()
+      const consent = region('결제 동의')
+      expect(
+        await within(consent).findByText(/^\(필수\) .+ 뒤에는 취소해도 환불되지 않아요$/),
+      ).toBeInTheDocument()
+      expect(within(consent).getByText('(필수) 결제대행 서비스 이용약관 동의')).toBeInTheDocument()
+      expect(
+        within(consent).getByText(
+          '크루런은 통신판매중개자이며 거래 당사자가 아니에요. 대회 운영과 환불 책임은 판매자에게 있어요.',
+        ),
+      ).toBeInTheDocument()
+      await agree(user)
+      expect(pay).toBeEnabled()
+    })
+
+    it('환불 기한이 없으면 날짜 문장은 빼고 동의 체크와 이용약관 줄만 남기며, 체크하면 결제할 수 있다', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const example = productMock.getFindRaceResponseMock()
+      server.use(
+        productMock.getFindRaceMockHandler({
+          ...example,
+          data: { ...example.data!, refundDeadline: undefined },
+        }),
+      )
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
+      const consent = region('결제 동의')
+      await within(consent).findByText('(필수) 결제대행 서비스 이용약관 동의')
+      expect(within(consent).queryByText(/뒤에는 취소해도 환불되지 않아요/)).not.toBeInTheDocument()
+      expect(within(consent).queryByText(/-/)).not.toBeInTheDocument()
+      expect(pay).toBeDisabled()
+      await agree(user)
+      expect(pay).toBeEnabled()
+    })
+  })
+
   it('?preview=offline 시안은 시안의 남은 시간에서 센다', () => {
     renderCheckout('offline')
 
     expect(timer()).toHaveTextContent('05:10')
-    expect(screen.getByRole('checkbox', { name: '[필수] 환불 기한을 확인했어요' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: '주문 내용 확인 및 결제 동의' })).toBeChecked()
   })
 
   it('?preview=timeout 시안은 바로 시간 초과 화면을 보여 준다', () => {

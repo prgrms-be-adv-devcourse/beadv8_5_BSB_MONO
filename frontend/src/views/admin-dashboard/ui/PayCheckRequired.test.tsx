@@ -5,13 +5,12 @@ import { describe, expect, it } from 'vitest'
 
 import { server } from '@/shared/testing'
 
-import { PayCheckRequiredCard, PayCheckRequiredTile } from './PayCheckRequired'
+import { PayCheckRequiredCard } from './PayCheckRequired'
 
-function renderBoth() {
+function renderCard() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <PayCheckRequiredTile />
       <PayCheckRequiredCard />
     </QueryClientProvider>,
   )
@@ -58,12 +57,11 @@ describe('지급 확인 필요 (관리자 홈)', () => {
         })
       }),
     )
-    renderBoth()
+    renderCard()
 
     expect(await screen.findByText('정산 41(ST-20261115-7B2C) 결과 모름 3번')).toBeInTheDocument()
     expect(screen.getByText('11/15')).toBeInTheDocument()
     expect(screen.getByText('최종')).toBeInTheDocument()
-    // 타일과 표가 같은 쿼리를 써서 요청은 한 번
     expect(queries).toHaveLength(1)
     expect(queries[0].get('type')).toBe('지급_확인_필요')
     expect(queries[0].get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
@@ -85,12 +83,12 @@ describe('지급 확인 필요 (관리자 홈)', () => {
         }),
       ),
     )
-    renderBoth()
+    renderCard()
 
     expect(await screen.findByText('지급 결과를 확인해야 하는 정산이 없어요')).toBeInTheDocument()
   })
 
-  it('요청이 실패하면 타일에 -를 보이고 로딩 모양을 남기지 않는다', async () => {
+  it('요청이 실패하면 오류 안내를 보이고 로딩 모양을 남기지 않는다', async () => {
     server.use(
       http.get('*/api/v1/payout/admin/create-failures', () =>
         HttpResponse.json(
@@ -99,10 +97,9 @@ describe('지급 확인 필요 (관리자 홈)', () => {
         ),
       ),
     )
-    const { container } = renderBoth()
+    const { container } = renderCard()
 
     expect(await screen.findByText('지급 확인 필요 기록을 불러오지 못했어요')).toBeInTheDocument()
-    expect(screen.getByText('-')).toBeInTheDocument()
     expect(container.querySelector('.animate-pulse')).toBeNull()
   })
 })

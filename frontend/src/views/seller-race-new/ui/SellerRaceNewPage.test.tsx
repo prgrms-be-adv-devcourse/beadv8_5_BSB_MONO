@@ -58,7 +58,7 @@ describe('SellerRaceNewPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
 
     expect(await screen.findByText(RACE_FORM_ERRORS.titleRequired)).toBeInTheDocument()
-    expect(screen.getByText(RACE_FORM_ERRORS.sidoRequired)).toBeInTheDocument()
+    expect(screen.getByText(RACE_FORM_ERRORS.locationRequired)).toBeInTheDocument()
     expect(screen.getByText(RACE_FORM_ERRORS.coverRequired)).toBeInTheDocument()
     expect(screen.getAllByText(RACE_FORM_ERRORS.dateRequired)).toHaveLength(3)
     expect(requested).toBe(false)
@@ -162,6 +162,62 @@ describe('SellerRaceNewPage', () => {
     expect(screen.queryByRole('cell', { name: '하프' })).not.toBeInTheDocument()
   })
 
+  it('종목 추가 창의 오류는 추가를 누를 때만 바뀐다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    expect(within(dialog).getByText(COURSE_FORM_ERRORS.nameRequired)).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    expect(within(dialog).queryByText(COURSE_FORM_ERRORS.nameRequired)).not.toBeInTheDocument()
+  })
+
+  it('종목 추가 창을 닫았다 다시 열면 쓰던 값이 지워진다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    let dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    expect(within(dialog).getByRole('textbox', { name: '종목 이름' })).toHaveValue('')
+  })
+
+  it('종목 추가 창에는 성인만 받기 체크 하나만 있고 나이 입력 칸은 없다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    expect(within(dialog).getByRole('checkbox', { name: '성인만 받기' })).not.toBeChecked()
+    expect(within(dialog).queryByRole('textbox', { name: /나이/ })).not.toBeInTheDocument()
+  })
+
+  it('성인만 받기를 체크해 종목을 추가하면 목록에 성인만이라고 보인다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '하프')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+    await userEvent.click(await screen.findByRole('option', { name: '하프' }))
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '거리 (km)' }), '21.1')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '참가비 (원)' }), '55000')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '모집 정원 (명)' }), '500')
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '제한 시간 (분)' }), '180')
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: '성인만 받기' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: '추가' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+    const row = screen.getByRole('cell', { name: '하프' }).closest('tr') as HTMLElement
+    expect(within(row).getByRole('cell', { name: '성인만' })).toBeInTheDocument()
+    // 기본 종목 둘은 제한이 없어 나이 문구가 없다
+    expect(screen.getAllByRole('cell', { name: '성인만' })).toHaveLength(1)
+  })
+
   it('종목을 모두 지우고 등록하기를 누르면 종목을 추가하라고 한다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '10K 종목 삭제' }))
@@ -212,25 +268,36 @@ describe('SellerRaceNewPage', () => {
   })
 })
 
-describe('SellerRaceNewPage · 지역 주소 검색', () => {
-  it('시·도 · 시·군·구는 손으로 쓰지 않고 주소 검색 결과의 이름으로 채운다', async () => {
+describe('SellerRaceNewPage · 장소 주소 검색', () => {
+  it('주소 검색 버튼 하나만 보이고, 고르면 도로명 주소가 글자로 나오고 다시 검색 · 상세 주소가 생긴다', async () => {
     renderPage()
-    const sido = screen.getByRole('textbox', { name: '시·도' })
-    const sigungu = screen.getByRole('textbox', { name: '시·군·구' })
-    expect(sido).toHaveAttribute('readonly')
-    expect(sigungu).toHaveAttribute('readonly')
+    expect(screen.queryByRole('textbox', { name: '장소' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: '시·도' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: '상세 주소' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
-    expect(await screen.findByText(RACE_FORM_ERRORS.sidoRequired)).toBeInTheDocument()
+    expect(await screen.findByText(RACE_FORM_ERRORS.locationRequired)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     completePostcode()
-    // 검색 API가 「서울」이 아니라 「서울특별시」로 채워야 대회 찾기 필터와 글자가 같다
-    expect(sido).toHaveValue('서울특별시')
-    expect(sigungu).toHaveValue('성동구')
+    expect(await screen.findByText('서울특별시 성동구 뚝섬로 273')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 검색' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '상세 주소' })).toBeInTheDocument()
+    // 시·도 · 시·군·구는 고른 주소에서 정해지므로 입력 칸을 두지 않는다
+    expect(screen.queryByRole('textbox', { name: '시·도' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: '시·군·구' })).not.toBeInTheDocument()
     await waitFor(() =>
-      expect(screen.queryByText(RACE_FORM_ERRORS.sidoRequired)).not.toBeInTheDocument(),
+      expect(screen.queryByText(RACE_FORM_ERRORS.locationRequired)).not.toBeInTheDocument(),
     )
+  })
+
+  it('다시 검색을 누르면 새 주소로 바뀐다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    await userEvent.click(await screen.findByRole('button', { name: '다시 검색' }))
+    completePostcode({ roadAddress: '서울특별시 중구 세종대로 110' })
+    expect(await screen.findByText('서울특별시 중구 세종대로 110')).toBeInTheDocument()
   })
 
   it('시·군·구가 없는 곳(세종)을 고르면 시·군·구만 직접 입력할 수 있다', async () => {
@@ -242,33 +309,31 @@ describe('SellerRaceNewPage · 지역 주소 검색', () => {
       roadAddress: '세종특별자치시 한누리대로 2130',
     })
 
-    expect(screen.getByRole('textbox', { name: '시·도' })).toHaveValue('세종특별자치시')
-    expect(screen.getByRole('textbox', { name: '시·도' })).toHaveAttribute('readonly')
-    expect(screen.getByRole('textbox', { name: '시·군·구' })).not.toHaveAttribute('readonly')
+    expect(await screen.findByRole('textbox', { name: '시·군·구' })).not.toHaveAttribute('readonly')
+    expect(screen.queryByRole('textbox', { name: '시·도' })).not.toBeInTheDocument()
   })
 
-  it('주소 검색을 불러오지 못하면 시·도 · 시·군·구를 직접 입력할 수 있다', async () => {
+  it('주소 검색을 불러오지 못하면 장소 · 시·도 · 시·군·구를 직접 입력할 수 있다', async () => {
     postcodeFake.failLoad = true
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
 
-    const sido = screen.getByRole('textbox', { name: '시·도' })
-    await waitFor(() => expect(sido).not.toHaveAttribute('readonly'))
+    const sido = await screen.findByRole('textbox', { name: '시·도' })
+    await userEvent.type(screen.getByRole('textbox', { name: '장소' }), '서울숲 일대')
     await userEvent.type(sido, '서울특별시')
     await userEvent.type(screen.getByRole('textbox', { name: '시·군·구' }), '성동구')
     expect(sido).toHaveValue('서울특별시')
   })
 
-  it('창을 연 채로 등록하기를 눌러 오류가 난 뒤 주소를 고르면 시·도 · 시·군·구 오류가 모두 사라진다', async () => {
+  it('창을 연 채로 등록하기를 눌러 오류가 난 뒤 주소를 고르면 오류가 사라진다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
-    expect(await screen.findByText(RACE_FORM_ERRORS.sigunguRequired)).toBeInTheDocument()
+    expect(await screen.findByText(RACE_FORM_ERRORS.locationRequired)).toBeInTheDocument()
 
     completePostcode()
     await waitFor(() =>
-      expect(screen.queryByText(RACE_FORM_ERRORS.sigunguRequired)).not.toBeInTheDocument(),
+      expect(screen.queryByText(RACE_FORM_ERRORS.locationRequired)).not.toBeInTheDocument(),
     )
-    expect(screen.queryByText(RACE_FORM_ERRORS.sidoRequired)).not.toBeInTheDocument()
   })
 })

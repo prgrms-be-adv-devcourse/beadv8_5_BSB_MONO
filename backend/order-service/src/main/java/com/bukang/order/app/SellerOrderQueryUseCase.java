@@ -9,20 +9,28 @@ import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.order.domain.Order;
+import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderItemStatus;
+import com.bukang.order.domain.OrderStatus;
+import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
+import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.domain.exception.OrderSearchPeriodException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.KitOptionChoiceDto;
+import com.bukang.order.dto.SellerOrderDetailDto;
 import com.bukang.order.dto.SellerOrderDto;
 import com.bukang.order.dto.SellerOrderPageDto;
 import com.bukang.order.dto.SellerPartyDto;
 import com.bukang.order.dto.SellerPartyPageDto;
 import com.bukang.order.dto.SellerSalesSummaryDto;
 import com.bukang.order.out.OrderItemRepository;
+import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyRepository;
@@ -44,6 +52,7 @@ public class SellerOrderQueryUseCase {
 	static final int MAX_PERIOD_MONTHS = 12;
 
 	private final OrderItemRepository orderItemRepository;
+	private final OrderRepository orderRepository;
 	private final ParticipationKitOptionRepository participationKitOptionRepository;
 	private final PartyRepository partyRepository;
 	private final ParticipationRepository participationRepository;
@@ -54,18 +63,41 @@ public class SellerOrderQueryUseCase {
 	 * 파티 번호(partyId)로 찾으면 기간은 보지 않는다 (기능명세 S-25, 정책 6장 조회·보관-2)
 	 */
 	public SellerOrderPageDto findOrders(long sellerId, Long raceId, Long raceCourseId, OrderItemStatus status,
-		Long partyId, LocalDate from, LocalDate to, int page, int size) {
+		Long partyId, LocalDate from, LocalDate to, String keyword, int page, int size) {
 		if (partyId != null) {
 			from = null;
 			to = null;
 		}
 		checkPeriod(from, to);
 		Page<SellerOrderDto> orders = orderItemRepository.findSellerOrders(sellerId, raceId, raceCourseId, status,
-			partyId, startOf(from), endOf(to), PageRequest.of(page, size));
+			partyId, startOf(from), endOf(to), likeKeyword(keyword), PageRequest.of(page, size));
 		Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository.findChoicesByParticipationIds(
 			orders.stream().map(SellerOrderDto::getParticipationId).toList());
 		orders.forEach(order -> order.attachKitOptions(options.getOrDefault(order.getParticipationId(), List.of())));
 		return SellerOrderPageDto.from(orders);
+	}
+
+	/**
+	 * 판매자 주문 상세 창 (CRU-39). 주문 상품 하나를 배송·취소 칸까지 돌려준다
+	 * 상품 HTTP를 부르지 않아 읽기 트랜잭션 하나로 주문·배송을 지연 로딩한다. 바꾸지 않으므로 잠그지 않는다
+	 * 보내기 전에 취소된 키트 주문도 연다. 목록처럼 기한이 지나 만료된 주문은 판 적이 없어 없는 것으로 본다(404)
+	 */
+	@Transactional(readOnly = true)
+	public SellerOrderDetailDto findOrder(long sellerId, long orderItemId) {
+		Order order = orderItemRepository.findOrderIdByItemId(orderItemId)
+			.flatMap(orderRepository::findById)
+			.filter(found -> found.getStatus() != OrderStatus.EXPIRED)
+			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
+		OrderItem item = order.findItem(orderItemId);
+		if (!item.isSoldBy(sellerId)) {
+			throw new SellerAccessDeniedException("본인 대회의 주문만 볼 수 있습니다.");
+		}
+		Participation participation = participationRepository.findById(item.getParticipationId())
+			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
+		List<KitOptionChoiceDto> options = participationKitOptionRepository
+			.findChoicesByParticipationIds(List.of(participation.getId()))
+			.getOrDefault(participation.getId(), List.of());
+		return SellerOrderDetailDto.of(order, item, participation, order.findKitShipment(item), options);
 	}
 
 	/**
@@ -133,6 +165,15 @@ public class SellerOrderQueryUseCase {
 		if (to.isAfter(from.plusMonths(MAX_PERIOD_MONTHS))) {
 			throw new OrderSearchPeriodException("조회 기간은 한 번에 12개월까지입니다.");
 		}
+	}
+
+	// 참가자 이름·주문번호 통합 검색어를 %말% LIKE 패턴으로. 빈 값이면 null이라 거르지 않는다
+	// shortcut: 검색어 속 %·_는 LIKE 와일드카드로 샌다. 정확 일치가 필요해지면 ESCAPE 절을 더한다
+	private static String likeKeyword(String keyword) {
+		if (keyword == null || keyword.isBlank()) {
+			return null;
+		}
+		return "%" + keyword.strip() + "%";
 	}
 
 	private static LocalDateTime startOf(LocalDate from) {

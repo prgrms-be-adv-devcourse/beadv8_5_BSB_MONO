@@ -269,7 +269,7 @@ class ApiV1SocialAccountTest {
 			new PendingSignup(SocialProvider.KAKAO, kakaoUserId, email, null));
 		String token = identityStore.verify("김소셜", LocalDate.of(1995, 4, 12), "010-9876-5432");
 		return socialJoinUseCase.join("pending-" + kakaoUserId, new SocialJoinRequestDto(null, "소셜러너", null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY), token))
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14), token))
 			.member().getId();
 	}
 

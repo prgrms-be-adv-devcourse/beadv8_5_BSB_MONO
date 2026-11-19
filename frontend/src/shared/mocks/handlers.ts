@@ -32,6 +32,8 @@ import {
 import { getBukangPayoutAPIMock } from '@/shared/api/generated/payout/payout.msw'
 import {
   getBukangProductAPIMock,
+  getFindAdminRacesMockHandler,
+  getFindAdminRacesResponseMock,
   getFindMineMockHandler as getFindMyRacesMockHandler,
   getSearchMockHandler,
   getSuggestMockHandler,
@@ -65,7 +67,14 @@ import {
 import { notificationHandlers } from './notifications'
 import { partyHandlers } from './party'
 import { payoutHandlers } from './payout'
-import { findMockRace, getMockRaces, mockImageOfCourse, searchMockRaces } from './races'
+import {
+  findMockRace,
+  getMockRaces,
+  mockImageOfCourse,
+  mockImageOfRace,
+  searchMockRaces,
+} from './races'
+import { recordCertHandlers } from './record-certs'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
 
@@ -79,13 +88,20 @@ function pathParamCount(handler: RequestHandler): number {
  * 명세 예시의 이미지 주소는 실제로 없는 S3 주소라(next/image 허용 호스트도 아니다) 목에서는 public/mock 이미지로 바꾼다.
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
  */
+/** 대표 이미지(THUMBNAIL)는 대회 파일에, 소개 이미지(DETAIL)는 종목 파일에 있다. 실제 서버와 같게 나눠 준다. */
 const fileImageHandler = getFindByRefMockHandler(({ request }) => {
   const example = getFindByRefResponseMock()
-  const refId = Number(new URL(request.url).searchParams.get('refId'))
-  const image = mockImageOfCourse(refId) ?? '/mock/races/cookierun.webp'
+  const params = new URL(request.url).searchParams
+  const refType = params.get('refType')
+  const refId = Number(params.get('refId'))
+  const isRace = refType === 'Race'
+  const image =
+    (isRace ? mockImageOfRace(refId) : mockImageOfCourse(refId)) ?? '/mock/races/cookierun.webp'
   return {
     ...example,
-    data: example.data?.map((file) => ({ ...file, url: image })),
+    data: example.data
+      ?.filter((file) => (file.fileType === 'THUMBNAIL') === isRace)
+      .map((file) => ({ ...file, refType, refId, url: image })),
   }
 })
 
@@ -143,6 +159,16 @@ const authHandlers = [
       },
     )
   }),
+  // 데모 로그인은 시연용 기존 회원으로 로그인한다. 재발급이 이어서 성공하도록 로그인과 같은 쿠키를 심는다
+  http.post('*/api/v1/auth/demo-login', () =>
+    HttpResponse.json(getLoginResponseMock(), {
+      headers: withCookies(
+        issueMockRefreshCookie(),
+        issueMockLoginMarkCookie(),
+        clearMockMemberCookie(),
+      ),
+    }),
+  ),
   // 소셜 가입은 로그인과 같이 Refresh Token 쿠키를 심는다(재발급이 이어서 성공해야 로그인 상태가 유지된다).
   // 시작 · 콜백(제공자 화면을 다녀오는 302)은 목으로 흉내 내지 않는다.
   http.post('*/api/v1/auth/oauth2/join', async ({ request }) => {
@@ -258,7 +284,7 @@ const withdrawHandlers = [
 ]
 
 /**
- * 가입 목. 서버처럼 필수 약관(SERVICE, PRIVACY)이 빠지면 400 MEMBER_REQUIRED_TERMS_NOT_AGREED로 답한다.
+ * 가입 목. 서버처럼 필수 약관(SERVICE, PRIVACY, AGE_OVER_14)이 빠지면 400 MEMBER_REQUIRED_TERMS_NOT_AGREED로 답한다.
  * 이메일 중복 확인은 이메일에 "taken"이 들어 있으면 이미 가입된 것으로 본다 (그 밖에는 사용 가능).
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
  */
@@ -277,7 +303,11 @@ const signupHandlers = [
         { status: 400 },
       )
     }
-    if (!agreed.includes('SERVICE') || !agreed.includes('PRIVACY')) {
+    if (
+      !agreed.includes('SERVICE') ||
+      !agreed.includes('PRIVACY') ||
+      !agreed.includes('AGE_OVER_14')
+    ) {
       return HttpResponse.json(
         {
           status: 400,
@@ -557,6 +587,16 @@ const raceHandlers = [
     }
   }),
   getFindMyRacesMockHandler(),
+  // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다
+  getFindAdminRacesMockHandler(() => {
+    const example = getFindAdminRacesResponseMock()
+    const [race] = example.data ?? []
+    const statuses = ['SCHEDULED', 'ON_SALE', 'STOPPED'] as const
+    return {
+      ...example,
+      data: statuses.map((saleStatus, i) => ({ ...race, raceId: i + 1, saleStatus })),
+    }
+  }),
   // 가짜 대회 목록(races.ts)에 있는 대회만 열린다. 없는 번호는 진짜 서버처럼 404, 숫자가 아니면 400
   http.get('*/api/v1/product/races/:raceId', ({ params }) => {
     const raceId = Number(params.raceId)
@@ -757,6 +797,7 @@ export const handlers = [
   ...identityVerificationHandlers,
   ...signupHandlers,
   ...fileUploadHandlers,
+  ...recordCertHandlers,
   myOrdersHandler,
   ...raceHandlers,
   ...queueHandlers,

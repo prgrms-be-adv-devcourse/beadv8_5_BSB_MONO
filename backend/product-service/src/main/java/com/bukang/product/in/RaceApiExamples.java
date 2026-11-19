@@ -262,6 +262,88 @@ final class RaceApiExamples {
 		{ "status": 409, "message": "대회 상태가 바뀌어 처리하지 못했습니다. 다시 조회해 주세요.", "data": null }
 		""";
 
+	static final String OPEN_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대회 판매를 시작했습니다.",
+			"data": {
+				"raceId": 1,
+				"saleStatus": "ON_SALE",
+				"saleOpenDate": "2026-10-18",
+				"courseIds": [1]
+			}
+		}
+		""";
+
+	static final String OPEN_ALREADY_ON_SALE = """
+		{ "status": 409, "message": "이미 판매 중인 대회입니다.", "data": null }
+		""";
+
+	static final String OPEN_STOPPED = """
+		{ "status": 409, "message": "판매를 멈춘 대회는 판매 다시 열기로 열어 주세요.", "data": null }
+		""";
+
+	static final String OPEN_AFTER_APPLICATION_CLOSE = """
+		{ "status": 409, "message": "접수 마감이 지난 대회는 판매를 시작할 수 없습니다.", "data": null }
+		""";
+
+	static final String OPEN_AFTER_SALE_OPEN_TIME = """
+		{ "status": 409, "message": "판매 시작 시각이 이미 지났습니다. 잠시 뒤 판매 중으로 바뀝니다.", "data": null }
+		""";
+
+	static final String SALE_CLOSED = """
+		{ "status": 409, "message": "판매가 끝난 대회입니다.", "data": null }
+		""";
+
+	static final String RACE_CANCELED = """
+		{ "status": 409, "message": "취소된 대회입니다.", "data": null }
+		""";
+
+	static final String ADMIN_FORBIDDEN = """
+		{ "status": 403, "code": "PRODUCT_ADMIN_FORBIDDEN", "message": "관리자만 이용할 수 있습니다.", "data": null }
+		""";
+
+	static final String MEMBER_SERVICE_UNAVAILABLE = """
+		{
+			"status": 503,
+			"code": "PRODUCT_EXTERNAL_SERVICE_UNAVAILABLE",
+			"message": "회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+			"data": null
+		}
+		""";
+
+	static final String ADMIN_RACES_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대회 목록을 조회했습니다.",
+			"data": [
+				{
+					"raceId": 1,
+					"title": "2026 용감한 쿠키RUN in 서울",
+					"raceDate": "2026-11-01T08:00:00",
+					"saleStatus": "ON_SALE",
+					"saleOpenDate": "2026-10-20",
+					"applicationCloseAt": "2026-10-31T18:00:00",
+					"sellerName": "(주)러닝컴퍼니",
+					"crewSaleStartAt": null,
+					"individualOpenAt": "2026-10-20T09:00:00",
+					"refundDeadline": "2026-10-25",
+					"courses": [
+						{
+							"raceCourseId": 1,
+							"name": "10K",
+							"price": 45000,
+							"status": "OPEN",
+							"quota": 600,
+							"reserved": 5,
+							"sold": 15
+						}
+					]
+				}
+			]
+		}
+		""";
+
 	static final String SEARCH_SUCCESS = """
 		{
 			"status": 200,
@@ -330,6 +412,10 @@ final class RaceApiExamples {
 					"saleStatus": "ON_SALE",
 					"saleOpenDate": "2026-10-20",
 					"applicationCloseAt": "2026-10-31T18:00:00",
+					"sellerName": "(주)러닝컴퍼니",
+					"crewSaleStartAt": null,
+					"individualOpenAt": "2026-10-20T09:00:00",
+					"refundDeadline": "2026-10-25",
 					"courses": [
 						{
 							"raceCourseId": 1,
@@ -478,7 +564,7 @@ final class RaceApiExamples {
 						"distanceKm": 10.00,
 						"timeLimitMinutes": 90,
 						"minAge": 14,
-						"maxAge": 70,
+						"maxAge": null,
 						"price": 45000,
 						"kitIncluded": true,
 						"kitPrice": 0,
@@ -486,7 +572,8 @@ final class RaceApiExamples {
 						"crewQuota": 0,
 						"individualQuota": 600,
 						"crewRemaining": 0,
-						"individualRemaining": 580
+						"individualRemaining": 580,
+						"recordCertRequired": false
 					}
 				]
 			}

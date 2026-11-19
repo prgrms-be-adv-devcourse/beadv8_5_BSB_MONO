@@ -254,7 +254,7 @@ class InternalV1MemberTest {
 	@DisplayName("비사업자 판매자는 상호 · 사업자번호가 null이다 (BUK-246)")
 	void businessInfoOfIndividualSeller() throws Exception {
 		long sellerId = sellerFacade.apply(memberId, new SellerApplyRequestDto(SellerType.INDIVIDUAL, null, null,
-			"김러너", "004", "1101230000678", PayoutAccountHolderType.PERSONAL)).getId();
+			"김러너", "004", "1101230000678", PayoutAccountHolderType.PERSONAL, true)).getId();
 
 		mockMvc.perform(get(BUSINESS_INFO, sellerId))
 			.andExpect(status().isOk())
