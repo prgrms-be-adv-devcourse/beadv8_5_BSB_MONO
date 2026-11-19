@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { Route } from 'next'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -136,6 +136,8 @@ function WriteForm({
       content: initial?.content ?? '',
     },
   })
+  const titleCountId = useId()
+  const contentCountId = useId()
   const title = useWatch({ control, name: 'title' })
   const content = useWatch({ control, name: 'content' })
   const [photos, setPhotos] = useState<Photo[]>(initial?.photos ?? [])
@@ -237,8 +239,14 @@ function WriteForm({
           />
         </fieldset>
         <div className="flex flex-col gap-2">
-          <TextField label="제목" placeholder="제목" maxLength={TITLE_MAX} {...register('title')} />
-          <p className="text-right text-caption-regular text-text-secondary">
+          <TextField
+            label="제목"
+            placeholder="제목"
+            maxLength={TITLE_MAX}
+            aria-describedby={titleCountId}
+            {...register('title')}
+          />
+          <p id={titleCountId} className="text-right text-caption-regular text-text-secondary">
             {title.length}/{TITLE_MAX}
           </p>
         </div>
@@ -247,12 +255,13 @@ function WriteForm({
             label="본문"
             placeholder="내용"
             maxLength={CONTENT_MAX}
+            aria-describedby={contentCountId}
             // 고치기에서 글자 수 표시가 처음부터 맞도록 초기값을 알려 준다
             defaultValue={initial?.content}
             className="[&_textarea]:h-30"
             {...register('content')}
           />
-          <p className="text-caption-regular text-text-secondary">
+          <p id={contentCountId} className="text-caption-regular text-text-secondary">
             {content.length.toLocaleString('en-US')}/{CONTENT_MAX.toLocaleString('en-US')}
           </p>
         </div>
