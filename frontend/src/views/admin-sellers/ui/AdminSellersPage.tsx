@@ -115,7 +115,7 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
 
   return (
     <ConsolePage title="판매자 관리">
-      <div role="tablist" aria-label="신청 상태" className="flex items-center gap-2">
+      <div role="group" aria-label="신청 상태" className="flex items-center gap-2">
         {(
           [
             { value: 'pending', label: '승인 대기', count: pending.data?.length },
@@ -125,9 +125,6 @@ export function AdminSellersPage({ rejectOpen = false }: { rejectOpen?: boolean 
         ).map((t) => (
           <Chip
             key={t.value}
-            role="tab"
-            aria-pressed={undefined}
-            aria-selected={tab === t.value}
             selected={tab === t.value}
             onClick={() => {
               setUrl({ tab: t.value })

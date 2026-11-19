@@ -83,16 +83,9 @@ export function AdminMembersPage() {
   return (
     <ConsolePage title="회원 관리">
       <div className="flex items-center gap-2">
-        <div role="tablist" aria-label="회원 보기" className="flex items-center gap-2">
+        <div role="group" aria-label="회원 보기" className="flex items-center gap-2">
           {tabs.map((t) => (
-            <Chip
-              key={t.value}
-              role="tab"
-              aria-pressed={undefined}
-              aria-selected={tab === t.value}
-              selected={tab === t.value}
-              onClick={() => setUrl({ tab: t.value })}
-            >
+            <Chip key={t.value} selected={tab === t.value} onClick={() => setUrl({ tab: t.value })}>
               {t.label}
               {t.count !== undefined && <span className="tabular-nums">{t.count}</span>}
             </Chip>

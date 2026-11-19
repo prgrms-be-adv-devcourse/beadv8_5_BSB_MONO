@@ -108,16 +108,9 @@ function PeriodPicker({
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <div role="tablist" aria-label="기간" className="flex items-center gap-2">
+      <div role="group" aria-label="기간" className="flex items-center gap-2">
         {STATS_PERIOD_ITEMS.map((item) => (
-          <Chip
-            key={item.value}
-            role="tab"
-            aria-pressed={undefined}
-            aria-selected={kind === item.value}
-            selected={kind === item.value}
-            onClick={() => choose(item.value)}
-          >
+          <Chip key={item.value} selected={kind === item.value} onClick={() => choose(item.value)}>
             {item.label}
           </Chip>
         ))}

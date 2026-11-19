@@ -12,7 +12,7 @@ import {
 } from '@/widgets/console-page'
 import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { adminRacesQueryOptions, toAdminRaceRow } from '@/entities/race'
-import { cn, formatNumber } from '@/shared/lib'
+import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
 import { Chip, DataTable, EmptyState, KeyValue } from '@/shared/ui'
 
 const n = formatNumber
@@ -33,14 +33,19 @@ export function AdminRacesPage() {
     select: (list) => list.map(toAdminRaceRow),
   })
   const [selectedId, setSelectedId] = useState<number>()
-  const [filter, setFilter] = useState<'all' | 'ON_SALE' | 'CLOSED'>('all')
+  // 거르기는 URL(?filter=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { filter: 'all' },
+    { filter: ['all', 'ON_SALE', 'CLOSED'] },
+  )
+  const filter = url.filter as 'all' | 'ON_SALE' | 'CLOSED'
   const allRows = races.data ?? []
   const rows = filter === 'all' ? allRows : allRows.filter((r) => r.saleStatus === filter)
   const race = rows.find((r) => r.id === selectedId) ?? rows[0]
 
   return (
     <ConsolePage title="대회 관리">
-      <div role="tablist" aria-label="대회 보기" className="flex items-center gap-2">
+      <div role="group" aria-label="대회 보기" className="flex items-center gap-2">
         {(
           [
             ['all', '전체', allRows.length],
@@ -48,14 +53,7 @@ export function AdminRacesPage() {
             ['CLOSED', '종료', allRows.filter((r) => r.saleStatus === 'CLOSED').length],
           ] as const
         ).map(([value, label, count]) => (
-          <Chip
-            key={value}
-            role="tab"
-            aria-pressed={undefined}
-            aria-selected={filter === value}
-            selected={filter === value}
-            onClick={() => setFilter(value)}
-          >
+          <Chip key={value} selected={filter === value} onClick={() => setUrl({ filter: value })}>
             {label}
             <span className="tabular-nums">{count}</span>
           </Chip>

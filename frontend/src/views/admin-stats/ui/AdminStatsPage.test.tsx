@@ -224,7 +224,7 @@ describe('AdminStatsPage', () => {
     renderPage()
 
     expect(await screen.findByText('GA4 연결 정보가 없어요')).toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: '지난 7일' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '지난 7일' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '구매 단계' })).not.toBeInTheDocument()
   })
 
@@ -314,7 +314,7 @@ describe('AdminStatsPage', () => {
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
-    await user.click(screen.getByRole('tab', { name: '지난 30일' }))
+    await user.click(screen.getByRole('button', { name: '지난 30일' }))
 
     await waitFor(() =>
       expect(requests).toEqual(
@@ -334,7 +334,7 @@ describe('AdminStatsPage', () => {
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
-    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
     await pickDate(user, '시작 날짜', '2026-10-30')
     await pickDate(user, '끝 날짜', '2026-10-20')
     expect(screen.getByRole('button', { name: '적용' })).toBeDisabled()
@@ -349,7 +349,7 @@ describe('AdminStatsPage', () => {
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
-    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
     await pickDate(user, '시작 날짜', '2026-10-05')
     await pickDate(user, '끝 날짜', '2026-10-12')
     await user.click(screen.getByRole('button', { name: '적용' }))
@@ -368,7 +368,7 @@ describe('AdminStatsPage', () => {
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
-    await user.click(screen.getByRole('tab', { name: '직접 고르기' }))
+    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
     await user.click(screen.getByRole('button', { name: /^끝 날짜/ }))
     const popup = await screen.findByRole('dialog', { name: '끝 날짜 고르기' })
     await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))

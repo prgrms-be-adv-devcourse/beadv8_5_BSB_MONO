@@ -58,12 +58,16 @@ describe('AdminMembersPage 탭', () => {
     )
     renderPage()
 
-    expect(screen.getByRole('tab', { name: /전체 회원/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /전체 회원/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /확인이 필요한 계정/ })).toHaveTextContent('3'),
+      expect(screen.getByRole('button', { name: /확인이 필요한 계정/ })).toHaveTextContent('3'),
     )
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /고액 충전 확인/ })).toHaveTextContent('7'),
+      expect(screen.getByRole('button', { name: /고액 충전 확인/ })).toHaveTextContent('7'),
     )
   })
 
@@ -81,7 +85,7 @@ describe('AdminMembersPage 고액 충전 확인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /고액 충전 확인/ }))
+    await user.click(await screen.findByRole('button', { name: /고액 충전 확인/ }))
 
     const table = await screen.findByRole('table', { name: '고액 충전 확인' })
     const rows = within(table).getAllByRole('row')
@@ -101,7 +105,7 @@ describe('AdminMembersPage 고액 충전 확인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /고액 충전 확인/ }))
+    await user.click(await screen.findByRole('button', { name: /고액 충전 확인/ }))
 
     expect(await screen.findByText('확인할 충전이 없어요')).toBeInTheDocument()
   })
@@ -111,7 +115,7 @@ describe('AdminMembersPage 고액 충전 확인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /고액 충전 확인/ }))
+    await user.click(await screen.findByRole('button', { name: /고액 충전 확인/ }))
 
     expect(await screen.findByText(ADMIN_MEMBER_ERRORS.notAdmin)).toBeInTheDocument()
   })
@@ -121,7 +125,7 @@ describe('AdminMembersPage 고액 충전 확인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /고액 충전 확인/ }))
+    await user.click(await screen.findByRole('button', { name: /고액 충전 확인/ }))
 
     expect(await screen.findByText(ADMIN_MEMBER_ERRORS.memberUnavailable)).toBeInTheDocument()
   })
@@ -136,7 +140,7 @@ describe('AdminMembersPage 고액 충전 확인', () => {
     )
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('tab', { name: /고액 충전 확인/ }))
+    await user.click(await screen.findByRole('button', { name: /고액 충전 확인/ }))
 
     await user.click(await screen.findByRole('button', { name: '다음 페이지' }))
 
@@ -154,7 +158,7 @@ describe('AdminMembersPage 확인이 필요한 계정', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /확인이 필요한 계정/ }))
+    await user.click(await screen.findByRole('button', { name: /확인이 필요한 계정/ }))
 
     const tables = await screen.findAllByRole('table', { name: '확인이 필요한 계정' })
     expect(tables).toHaveLength(1)
@@ -174,7 +178,7 @@ describe('AdminMembersPage 확인이 필요한 계정', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /확인이 필요한 계정/ }))
+    await user.click(await screen.findByRole('button', { name: /확인이 필요한 계정/ }))
 
     expect(await screen.findByText('확인이 필요한 계정이 없어요')).toBeInTheDocument()
   })
@@ -184,7 +188,7 @@ describe('AdminMembersPage 확인이 필요한 계정', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /확인이 필요한 계정/ }))
+    await user.click(await screen.findByRole('button', { name: /확인이 필요한 계정/ }))
 
     expect(await screen.findByText(ADMIN_MEMBER_ERRORS.notAdmin)).toBeInTheDocument()
   })
@@ -194,7 +198,7 @@ describe('AdminMembersPage 확인이 필요한 계정', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: /확인이 필요한 계정/ }))
+    await user.click(await screen.findByRole('button', { name: /확인이 필요한 계정/ }))
 
     expect(await screen.findByText(ADMIN_MEMBER_ERRORS.loadFailed)).toBeInTheDocument()
   })

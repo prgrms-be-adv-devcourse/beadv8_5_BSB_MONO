@@ -101,21 +101,14 @@ export function AdminClaimsPage() {
   return (
     <ConsolePage title="회수 관리">
       <div className="flex items-center gap-2">
-        <div role="tablist" aria-label="청구 상태" className="flex items-center gap-2">
+        <div role="group" aria-label="청구 상태" className="flex items-center gap-2">
           {(
             [
               { value: '청구_중', label: '청구 중', count: summary?.claimingCount },
               { value: '입금_확인', label: '입금 확인', count: undefined },
             ] as { value: Status; label: string; count?: number }[]
           ).map((t) => (
-            <Chip
-              key={t.value}
-              role="tab"
-              aria-pressed={undefined}
-              aria-selected={status === t.value}
-              selected={status === t.value}
-              onClick={() => changeStatus(t.value)}
-            >
+            <Chip key={t.value} selected={status === t.value} onClick={() => changeStatus(t.value)}>
               {t.label}
               {t.count !== undefined && <span className="tabular-nums">{t.count}</span>}
             </Chip>
