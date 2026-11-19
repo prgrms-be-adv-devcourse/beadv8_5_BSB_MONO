@@ -31,6 +31,12 @@ describe('ProtectedScreenGuard', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
+  it('로그인 확인 로딩은 0.3초 뒤에 보이고, 진행 막대의 접근성 이름은 그대로다', () => {
+    renderGuard()
+    const bar = screen.getByRole('progressbar', { name: '로그인 확인 중' })
+    expect(bar.closest('main')).toHaveClass('animate-delayed-show')
+  })
+
   it('로그인 확인이 실패하면(비로그인) 내용 없이 로그인 화면으로 보낸다', () => {
     pathname = '/notifications'
     window.history.replaceState(null, '', '/notifications?tab=1')
