@@ -64,6 +64,24 @@ class InternalV1FileViewAndDeleteTest {
 	}
 
 	@Test
+	@DisplayName("올린 사람 조회는 파일을 올린 회원 ID와 용도 · 상태를 주고, 없거나 삭제된 파일이면 404로 답한다 (BUK-274)")
+	void uploader() throws Exception {
+		StoredFile cert = linkedCert();
+
+		mockMvc.perform(get("/internal/v1/file/files/{fileId}/uploader", cert.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.memberId").value(OWNER_ID))
+			.andExpect(jsonPath("$.data.fileType").value("RECORD_CERT"))
+			.andExpect(jsonPath("$.data.status").value("ACTIVE"));
+		mockMvc.perform(get("/internal/v1/file/files/{fileId}/uploader", 9999))
+			.andExpect(status().isNotFound());
+		cert.delete();
+		storedFileRepository.save(cert);
+		mockMvc.perform(get("/internal/v1/file/files/{fileId}/uploader", cert.getId()))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
 	@DisplayName("파일 삭제는 행과 S3 객체를 함께 지우고, 이미 없는 파일도 성공으로 답한다")
 	void deleteFile() throws Exception {
 		StoredFile cert = linkedCert();

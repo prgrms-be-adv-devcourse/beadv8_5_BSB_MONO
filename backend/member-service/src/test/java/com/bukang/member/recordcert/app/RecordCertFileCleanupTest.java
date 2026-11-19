@@ -118,8 +118,8 @@ class RecordCertFileCleanupTest {
 	private void submission(long recordCertId, SubmissionStatus status, LocalDateTime endedAt) {
 		jdbcTemplate.update("""
 			insert into member_record_cert_submission (record_cert_id, member_id, order_item_id, race_id,
-				race_course_id, status, created_at, updated_at)
-			values (?, 1, 1, 1, 1, ?, ?, ?)
+				race_course_id, seller_member_id, status, version, created_at, updated_at)
+			values (?, 1, 1, 1, 1, 9, ?, 0, ?, ?)
 			""", recordCertId, status.name(), NOW.minusDays(60), endedAt);
 	}
 }
