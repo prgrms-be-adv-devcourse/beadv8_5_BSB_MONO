@@ -165,7 +165,7 @@ function CheckoutResult({
   return (
     <>
       <AppHeader type="sub" title="결제" close backHref="/" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6">
+      <main className="flex flex-1 flex-col px-4 pt-(--layout-content-start) pb-6">
         <EmptyState icon={result.icon} title={result.title} description={result.description} />
       </main>
       <BottomCta
@@ -197,7 +197,10 @@ function PayingResult() {
   return (
     <>
       <AppHeader type="sub" title="결제" close backHref="/" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6" aria-live="polite">
+      <main
+        className="flex flex-1 flex-col px-4 pt-(--layout-content-start) pb-6"
+        aria-live="polite"
+      >
         <EmptyState
           icon="Clock"
           title={late ? '결제 확인이 늦어지고 있어요' : '결제를 확인하고 있어요'}

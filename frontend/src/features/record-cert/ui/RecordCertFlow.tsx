@@ -166,7 +166,7 @@ export function RecordCertFlow({ orderItemId, uploadPhoto, doneHref }: RecordCer
         결과는 참가권 화면에서 볼 수 있어요. 판매자 확인이 필요하면 조금 더 걸릴 수 있어요.
       </p>
       <BottomCta
-        className="mt-auto w-full"
+        className="sticky bottom-0 z-10 w-full"
         primary={
           <a href={doneHref} className={buttonClassName({ size: 'l' })}>
             참가권으로 돌아가기
@@ -211,7 +211,7 @@ function RoiPicker({ photo, onRead }: { photo: Photo; onRead: (roi: Roi) => void
         <PhotoWithRoi photo={photo} roi={roi} />
       </div>
       <BottomCta
-        className="mt-auto"
+        className="sticky bottom-0 z-10"
         secondary={
           <Button variant="secondary" size="l" onClick={() => setRoi(wholeImage(natural))}>
             사진 전체
@@ -397,7 +397,7 @@ export function ConfirmForm({
       )}
 
       <BottomCta
-        className="mt-auto"
+        className="sticky bottom-0 z-10"
         secondary={
           <Button type="button" variant="secondary" size="l" onClick={onRetry}>
             다른 사진

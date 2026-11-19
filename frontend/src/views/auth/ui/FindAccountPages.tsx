@@ -196,7 +196,7 @@ export function PasswordNewPage() {
     return (
       <>
         <AppHeader type="sub" title="비밀번호 재설정" />
-        <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
+        <main className="flex flex-1 flex-col px-5 pt-(--layout-content-start) pb-6">
           <EmptyState
             icon={null}
             title="링크가 만료됐어요"
@@ -216,7 +216,7 @@ export function PasswordNewPage() {
     return (
       <>
         <AppHeader type="sub" title="비밀번호 재설정" />
-        <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
+        <main className="flex flex-1 flex-col px-5 pt-(--layout-content-start) pb-6">
           <EmptyState
             icon={null}
             title="링크를 확인하지 못했어요"
@@ -249,7 +249,7 @@ export function PasswordNewPage() {
   return (
     <>
       <AppHeader type="sub" title="비밀번호 재설정" />
-      <CenterBody>
+      <CenterBody center={false}>
         <AuthIntro title="새 비밀번호를 정해 주세요" />
         {confirmReset.isError && (
           <Alert tone="danger" title="비밀번호를 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요." />
@@ -361,7 +361,7 @@ export function FindEmailResultPage() {
   return (
     <>
       <AppHeader type="sub" title="이메일 찾기" />
-      <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
+      <main className="flex flex-1 flex-col px-5 pt-(--layout-content-start) pb-6">
         <EmptyState
           icon="CircleCheck"
           title="가입한 이메일을 찾았어요"

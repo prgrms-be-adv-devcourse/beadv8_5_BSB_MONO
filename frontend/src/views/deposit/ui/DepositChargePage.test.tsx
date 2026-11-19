@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
 import { server } from '@/shared/testing'
+import { ToastProvider } from '@/shared/ui'
 
 import { DepositChargePage } from './DepositChargePage'
 
@@ -25,7 +26,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <DepositChargePage />
+      <ToastProvider>
+        <DepositChargePage />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -123,7 +126,7 @@ describe('예치금 충전 (M21)', () => {
     expect(await screen.findByText('17,000원')).toBeInTheDocument()
   })
 
-  it('1회 한도(30만 원)를 넘는 금액은 충전 버튼을 막고 알려 준다', async () => {
+  it('1회 한도(30만 원)를 넘으려 하면 30만 원으로 맞추고 토스트로 알려 준다', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -131,8 +134,18 @@ describe('예치금 충전 (M21)', () => {
     await user.clear(input)
     await user.type(input, '310000')
 
-    expect(screen.getByText('한 번에 300,000원까지 충전할 수 있어요.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '310,000원 충전하기' })).toBeDisabled()
+    expect(await screen.findByText('한 번에 30만원까지 충전할 수 있어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '300,000원 충전하기' })).toBeEnabled()
+  })
+
+  it('+버튼으로 30만 원을 넘기려 해도 30만 원으로 맞춘다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole('button', { name: '+10만' }))
+
+    expect(await screen.findByText('한 번에 30만원까지 충전할 수 있어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '300,000원 충전하기' })).toBeInTheDocument()
   })
 
   it('오늘 충전한 금액과 더해 하루 한도(100만 원)를 넘으면 충전 버튼을 막는다', async () => {
