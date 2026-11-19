@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 
-import { ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import {
   myRacesQueryOptions,
   SaleRateBar,
@@ -101,17 +101,16 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
           }
         />
       ) : all.length === 0 ? (
-        <EmptyState
-          title="아직 등록한 대회가 없어요"
-          action={
-            <Link
-              href="/seller/races/new?from=races"
-              className={buttonClassName({ variant: 'secondary' })}
-            >
-              대회 등록
-            </Link>
-          }
-        />
+        <ConsoleCard>
+          <EmptyState
+            title="등록한 대회가 없어요"
+            action={
+              <Link href="/seller/races/new?from=races" className={buttonClassName()}>
+                대회 등록하기
+              </Link>
+            }
+          />
+        </ConsoleCard>
       ) : (
         <>
           <div className="flex items-center justify-between gap-4">
@@ -123,11 +122,19 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
                   onClick={() => setUrl({ status })}
                 >
                   {status === 'ALL' ? '전체' : SELLER_SALE_STATUS[status as SellerSaleStatus].label}{' '}
-                  {countOf(status)}
+                  <span
+                    className={cn(
+                      url.status !== status && 'text-caption-regular text-text-secondary',
+                    )}
+                  >
+                    {countOf(status)}
+                  </span>
                 </Chip>
               ))}
             </div>
             <TextField
+              compact
+              leading={<Icon name="Search" />}
               aria-label="대회 이름으로 찾기"
               placeholder="대회 이름으로 찾기"
               className="w-80"
@@ -138,36 +145,33 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
             {rows.length === 0 ? (
               <EmptyState title="해당하는 대회가 없어요" />
             ) : (
-              <table aria-label="내 대회" className="w-full table-fixed text-body2-regular">
+              <table aria-label="내 대회" className="w-full table-fixed text-body1-regular">
                 <thead>
-                  <tr className="border-b border-border-default text-body2-medium text-text-secondary">
-                    <th className="h-11 text-left font-medium">대회</th>
-                    <th className="h-11 w-28 text-left font-medium">대회일</th>
-                    <th className="h-11 w-36 text-left font-medium">종목</th>
-                    <th className="h-11 w-72 text-left font-medium">판매 / 정원</th>
-                    <th className="h-11 w-24 text-left font-medium">상태</th>
-                    <th className="h-11 w-10">
+                  <tr className="border-b border-border-default text-caption-medium text-text-secondary">
+                    <th className="h-11 px-3 text-left font-medium">대회</th>
+                    <th className="h-11 w-30 px-3 text-left font-medium">대회일</th>
+                    <th className="h-11 w-48 px-3 text-left font-medium">종목</th>
+                    <th className="h-11 w-72 px-3 text-left font-medium">판매 / 정원</th>
+                    <th className="h-11 w-32 px-3 text-left font-medium">상태</th>
+                    <th className="h-11 w-12 px-3">
                       <span className="sr-only">상세</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="h-16 border-b border-border-default last:border-b-0"
-                    >
-                      <td className="truncate pr-4">
+                    <tr key={row.id} className="h-16 border-b border-border-default">
+                      <td className="truncate px-3">
                         <Link
                           href={`/seller/races/${row.id}`}
-                          className={cn('rounded-sm text-body2-medium', FOCUS_RING)}
+                          className={cn('rounded-sm text-body1-medium', FOCUS_RING)}
                         >
                           {row.title}
                         </Link>
                       </td>
-                      <td className="tabular-nums">{row.date}</td>
-                      <td className="truncate pr-2">{row.courseNames}</td>
-                      <td>
+                      <td className="px-3 tabular-nums">{row.date}</td>
+                      <td className="truncate px-3">{row.courseNames}</td>
+                      <td className="px-3">
                         <SaleRateBar
                           aria-label={`${row.title} 판매율`}
                           percent={
@@ -178,13 +182,18 @@ export function SellerRacesPage({ registeredRaceId }: { registeredRaceId?: strin
                       </td>
                       <td
                         className={cn(
-                          'text-body2-medium',
+                          'px-3 text-body1-medium',
                           row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : '',
                         )}
                       >
                         {row.badge.label}
+                        {row.saleStatus === 'SCHEDULED' && (
+                          <span className="block text-caption-regular text-text-secondary">
+                            {row.saleOpenText}
+                          </span>
+                        )}
                       </td>
-                      <td>
+                      <td className="px-3">
                         <Link
                           href={`/seller/races/${row.id}`}
                           aria-label={`${row.title} 상세`}

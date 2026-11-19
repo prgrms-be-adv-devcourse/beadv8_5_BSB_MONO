@@ -87,6 +87,37 @@ describe('AdminClaimsPage', () => {
     )
   })
 
+  it('목록 위 숫자 요약에 회수할 금액과 입금 기한 지난 청구(건수 · 금액)를 보여 준다', async () => {
+    const overdue = {
+      ...CLAIMING,
+      id: 3,
+      claimCode: 'RC-20200101-0003',
+      amount: 50000,
+      dueDate: '2020-01-01',
+    }
+    mockClaims([CLAIMING, overdue], [2, 155500, 0])
+    renderPage()
+
+    const strip = await screen.findByRole('group', { name: '회수 요약' })
+    const collect = within(strip).getByText('회수할 금액').parentElement
+    expect(collect).toHaveTextContent('₩155,500')
+    const late = within(strip).getByText('입금 기한 지난 청구').parentElement
+    expect(late).toHaveTextContent('1')
+    expect(late).toHaveTextContent('₩50,000')
+  })
+
+  it('숫자 요약은 불러오는 중에는 자리표시, 실패하면 -를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/admin/claims', () =>
+        HttpResponse.json({ status: 500, message: 'x', data: null }, { status: 500 }),
+      ),
+    )
+    renderPage()
+    expect(screen.getByRole('status', { name: '회수 요약 불러오는 중' })).toBeInTheDocument()
+    const strip = await screen.findByRole('group', { name: '회수 요약' })
+    expect(within(strip).getByText('회수할 금액').parentElement).toHaveTextContent('-')
+  })
+
   it('카드 숫자와 청구 중 목록을 보여 주고, 판매자 이름을 판매자 ID로 맞춰 붙인다', async () => {
     const queries = mockClaims([CLAIMING], [1, 105500, 3])
     renderPage()
@@ -94,7 +125,7 @@ describe('AdminClaimsPage', () => {
     const row = await screen.findByRole('row', { name: /RC-20261215-0002/ })
     expect(within(row).getByText('춘천러닝클럽')).toBeInTheDocument()
     expect(within(row).getByText('₩105,500')).toBeInTheDocument()
-    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /청구 중/ })).toHaveTextContent('1')
     expect(screen.getByText('국민은행 12345678901234')).toBeInTheDocument()
     expect(queries[0].get('status')).toBe('청구_중')
   })
@@ -136,7 +167,7 @@ describe('AdminClaimsPage', () => {
     renderPage()
     await screen.findByRole('row', { name: /RC-20261215-0002/ })
 
-    await user.click(screen.getByRole('tab', { name: '입금 확인' }))
+    await user.click(screen.getByRole('button', { name: '입금 확인' }))
 
     await screen.findByRole('row', { name: /RC-20261215-0002/ })
     expect(queries.at(-1)?.get('status')).toBe('입금_확인')

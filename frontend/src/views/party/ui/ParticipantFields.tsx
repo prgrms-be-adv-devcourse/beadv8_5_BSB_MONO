@@ -5,7 +5,7 @@ import { Controller, type UseFormReturn } from 'react-hook-form'
 
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
 import { BirthDateField } from '@/entities/member'
-import { Checkbox, PhoneField, Radio, RadioGroup, Select, TextField } from '@/shared/ui'
+import { Checkbox, digitsOnly, PhoneField, Radio, RadioGroup, Select, TextField } from '@/shared/ui'
 
 import type { ParticipantValues } from '../model/participant-form'
 
@@ -51,8 +51,8 @@ export function ParticipantFields({
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h3 className="text-body1-medium">개인정보 제3자 제공 동의</h3>
-        <ul className="flex flex-col gap-1 text-caption-regular text-text-secondary">
+        <h3 className="text-body1-bold">개인정보 제3자 제공 동의</h3>
+        <ul className="flex flex-col gap-2 text-body1-regular text-text-secondary">
           {CONSENT_LINES.map((line) => (
             <li key={line}>{line}</li>
           ))}
@@ -76,7 +76,7 @@ export function ParticipantFields({
       </section>
       {course && (
         <section className="flex flex-col gap-3">
-          <h3 className="text-body1-medium">종목</h3>
+          <h3 className="text-body1-bold">종목</h3>
           <TextField
             label="파티 종목"
             value={course}
@@ -86,7 +86,7 @@ export function ParticipantFields({
         </section>
       )}
       <section className="flex flex-col gap-4">
-        <h3 className="text-body1-medium">참가자 정보</h3>
+        <h3 className="text-body1-bold">참가자 정보</h3>
         <TextField
           label="참가자 이름"
           autoComplete="name"
@@ -139,7 +139,7 @@ export function ParticipantFields({
         )}
       </section>
       <section className="flex flex-col gap-4">
-        <h3 className="text-body1-medium">비상 연락처</h3>
+        <h3 className="text-body1-bold">비상 연락처</h3>
         <TextField
           label="비상 연락처 이름"
           helper="연락받을 분께 먼저 알려 주세요"
@@ -154,12 +154,14 @@ export function ParticipantFields({
       </section>
       {kit && (
         <section className="flex flex-col gap-4">
-          <h3 className="text-body1-medium">키트 배송지</h3>
+          <h3 className="text-body1-bold">키트 배송지</h3>
           {/* 배송지는 Clarity 화면 녹화에서 가린다. 받는 사람은 참가자 본인으로 보낸다 */}
           <div className="flex flex-col gap-4" data-clarity-mask="true">
             <TextField
               label="키트 배송 우편번호"
               inputMode="numeric"
+              filter={digitsOnly}
+              filterMessage="숫자만 입력할 수 있어요"
               readOnly={!manualAddress}
               error={errors.zipcode?.message}
               {...register('zipcode')}

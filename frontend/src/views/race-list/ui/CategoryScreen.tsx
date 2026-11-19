@@ -85,15 +85,15 @@ export function CategoryScreen({
         </IconButton>
         <h1 className="text-body1-bold">카테고리</h1>
       </header>
-      <ul aria-label="거리" className="flex gap-6 border-b border-border-default px-4 py-3">
+      <ul aria-label="거리" className="grid grid-cols-4 border-b border-border-default px-4 py-3">
         {DISTANCES.map((d) => (
-          <li key={d.label}>
+          <li key={d.label} className="flex justify-center">
             <button
               type="button"
               onClick={() => onPick({ courseType: [d.courseType] })}
               className={cn('flex flex-col items-center gap-1 rounded-md', FOCUS_RING)}
             >
-              <span className="flex size-11 items-center justify-center rounded-full bg-bg-subtle text-body2-bold text-text-brand">
+              <span className="flex size-11 items-center justify-center rounded-full bg-bg-surface text-body2-bold text-text-brand shadow-sm">
                 {d.label}
               </span>
               <span className="text-caption-regular text-text-tertiary">{d.sub}</span>
@@ -102,25 +102,27 @@ export function CategoryScreen({
         ))}
       </ul>
       <div className="flex flex-1">
-        <ul aria-label="지역" className="flex w-30 shrink-0 flex-col gap-2 px-4 py-4">
-          <li>
+        <ul aria-label="지역" className="flex w-30 shrink-0 flex-col px-4 py-2">
+          <li className="flex h-12 items-center">
             <button
               type="button"
               onClick={() => onPick({})}
-              className={cn('py-2 text-body2-medium text-text-tertiary', FOCUS_RING)}
+              className={cn('text-caption-medium text-text-secondary', FOCUS_RING)}
             >
               전체
             </button>
           </li>
           {REGIONS.map((r) => (
-            <li key={r.label}>
+            <li key={r.label} className="flex h-12 items-center">
               <button
                 type="button"
                 aria-current={r === region ? 'true' : undefined}
                 onClick={() => setRegion(r)}
                 className={cn(
-                  'py-2 text-left text-body2-medium',
-                  r === region ? 'text-body2-bold text-text-primary' : 'text-text-tertiary',
+                  'text-left',
+                  r === region
+                    ? 'text-title3 text-text-primary'
+                    : 'text-caption-medium text-text-secondary',
                   FOCUS_RING,
                 )}
               >

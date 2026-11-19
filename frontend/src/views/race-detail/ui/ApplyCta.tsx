@@ -216,7 +216,7 @@ function SheetRow({
   return (
     <BottomSheetOption {...props}>
       <span className="flex items-center gap-3">
-        <Icon name={icon} className="size-5 shrink-0" />
+        <Icon name={icon} className="size-6 shrink-0" />
         <span className="flex min-w-0 flex-1 flex-col">
           {children}
           {sub && <span className="text-caption-regular text-text-tertiary">{sub}</span>}

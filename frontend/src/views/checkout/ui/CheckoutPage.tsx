@@ -32,11 +32,11 @@ import {
   buttonClassName,
   Checkbox,
   EmptyState,
-  HeaderTimer,
   Icon,
   Radio,
   RadioGroup,
   Skeleton,
+  TimerBar,
   type IconName,
 } from '@/shared/ui'
 
@@ -449,6 +449,11 @@ function OrderCheckout({
         order.data.shippingAddress?.recipientName,
       )}
       shipTo={shipToLabel(order.data.shippingAddress)}
+      changeHref={
+        raceId !== undefined && order.data.items?.[0]?.raceCourseId !== undefined
+          ? (`/races/${raceId}/apply?option=${order.data.items[0].raceCourseId}` as const)
+          : undefined
+      }
       emergency={emergencyLabel(
         participation.data?.participant?.emergencyContactName,
         participation.data?.participant?.emergencyContactPhone,
@@ -537,13 +542,25 @@ function CheckoutSkeleton() {
 }
 
 /** 결제 화면 구역: 제목 + 내용. 화면 낭독기가 구역 이름을 읽도록 제목에 이어 둔다. */
-function Block({ title, children }: { title: string; children: ReactNode }) {
+function Block({
+  title,
+  aside,
+  children,
+}: {
+  title: string
+  /** 제목 오른쪽 (변경 버튼) */
+  aside?: ReactNode
+  children: ReactNode
+}) {
   const id = useId()
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3">
-      <h2 id={id} className="text-title3">
-        {title}
-      </h2>
+    <section aria-labelledby={id} className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id={id} className="text-title3">
+          {title}
+        </h2>
+        {aside}
+      </div>
       {children}
     </section>
   )
@@ -553,9 +570,9 @@ const BOX = 'flex flex-col rounded-md border border-border-default bg-bg-surface
 
 function Row({ label, value, strong }: { label: string; value: ReactNode; strong?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2 text-body2-regular">
+    <div className="flex items-center justify-between gap-4 py-2 text-body1-regular">
       <span className="shrink-0 text-text-secondary">{label}</span>
-      <span className={strong ? 'text-body2-bold' : 'text-body2-medium'}>{value}</span>
+      <span className={strong ? 'text-body1-bold' : 'text-body1-medium'}>{value}</span>
     </div>
   )
 }
@@ -575,6 +592,7 @@ function CheckoutForm({
   onAgreedChange,
   notice,
   action,
+  changeHref,
 }: {
   offline?: boolean
   remaining: number
@@ -594,13 +612,19 @@ function CheckoutForm({
   /** 결제창 위에 보여 줄 안내 */
   notice?: ReactNode
   action: ReactNode
+  /** 참가자 정보를 고치러 가는 참가 신청 화면. 모르면 변경 버튼을 그리지 않는다 */
+  changeHref?: `/races/${number}/apply?option=${number}`
 }) {
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
   // 1회 충전 한도보다 많이 모자라 한 번 충전으로는 결제할 수 없다
   const overLimit = payment !== undefined && payment.balanceAfter < 0
   return (
     <>
-      <AppHeader type="sub" title="결제" action={<HeaderTimer remainingSeconds={remaining} />} />
+      <AppHeader type="sub" title="결제" />
+      <TimerBar
+        message="자리를 잡아 뒀어요. 시간 안에 결제해 주세요"
+        remainingSeconds={remaining}
+      />
       <main className="flex flex-1 flex-col gap-8 px-4 pt-4 pb-6">
         {offline && (
           <Alert
@@ -612,12 +636,24 @@ function CheckoutForm({
         {notice}
 
         {(participant || shipTo || emergency) && (
-          <Block title="참가자 · 배송">
+          <Block
+            title="참가자 · 배송"
+            aside={
+              changeHref && (
+                <Link
+                  href={changeHref}
+                  className={buttonClassName({ variant: 'ghost', size: 's' })}
+                >
+                  변경
+                </Link>
+              )
+            }
+          >
             {/* 참가자 이름 · 받는 곳 주소가 들어 있어 Clarity 화면 녹화에서 가린다 */}
             <div className={`${BOX} gap-1 p-4`} data-clarity-mask="true">
               {participant && <p className="text-body1-medium">{participant}</p>}
-              {shipTo && <p className="text-body2-regular">{shipTo}</p>}
-              {emergency && <p className="text-body2-regular text-text-secondary">{emergency}</p>}
+              {shipTo && <p className="text-body1-regular">{shipTo}</p>}
+              {emergency && <p className="text-body1-regular text-text-secondary">{emergency}</p>}
             </div>
           </Block>
         )}
@@ -643,17 +679,17 @@ function CheckoutForm({
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <p className="text-body1-bold">{race.title}</p>
-                <p className="text-body2-regular text-text-secondary">{race.meta}</p>
+                <p className="text-caption-regular text-text-secondary">{race.meta}</p>
               </div>
             </div>
             {kitOption && (
-              <p className="border-t border-border-default pt-3 text-body2-regular">
+              <p className="border-t border-border-default pt-3 text-body1-regular">
                 키트 {kitOption}
               </p>
             )}
             <div className="border-t border-border-default pt-2">
               <div className="flex items-center justify-between gap-4 py-2">
-                <span className="text-body2-regular">참가비</span>
+                <span className="text-body1-regular">참가비</span>
                 <span className="text-body1-bold">{won(amount)}</span>
               </div>
             </div>
@@ -697,12 +733,12 @@ function CheckoutForm({
                   <span className="text-title2">{won(payment.charge)}</span>
                 </div>
                 {overLimit ? (
-                  <p id={CHARGE_LIMIT_NOTICE_ID} className="text-right text-body2-regular">
+                  <p id={CHARGE_LIMIT_NOTICE_ID} className="text-right text-caption-regular">
                     한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은
                     다시 충전해 주세요.
                   </p>
                 ) : (
-                  <p className="text-right text-body2-regular text-text-secondary">
+                  <p className="text-right text-caption-regular text-text-secondary">
                     {payment.balanceAfter > 0
                       ? `최소 1만 원부터 충전해요. 남는 ${won(payment.balanceAfter)}은 예치금으로 남아요.`
                       : '최소 1만 원부터 충전해요.'}
@@ -719,7 +755,7 @@ function CheckoutForm({
             onCheckedChange={onAgreedChange}
             label={<span className="font-bold">주문 내용 확인 및 결제 동의</span>}
           />
-          <ul className="flex flex-col gap-2 pl-8 text-body2-regular text-text-secondary">
+          <ul className="flex flex-col gap-2 pl-8 text-body1-regular text-text-secondary">
             {refundDeadline && (
               <li className="flex gap-2">
                 <Icon name="Check" className="mt-0.5 size-4 shrink-0" aria-hidden />

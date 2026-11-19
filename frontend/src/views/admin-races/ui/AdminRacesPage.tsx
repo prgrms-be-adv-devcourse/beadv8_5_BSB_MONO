@@ -3,12 +3,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { CONSOLE_BOX, ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import {
+  CONSOLE_BOX,
+  ConsoleCard,
+  ConsoleLoading,
+  ConsoleMessage,
+  ConsolePage,
+} from '@/widgets/console-page'
 import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { adminRacesQueryOptions, toAdminRaceRow } from '@/entities/race'
-import { ApiError } from '@/shared/api'
-import { cn, formatNumber } from '@/shared/lib'
-import { Alert, DataTable, EmptyState, KeyValue } from '@/shared/ui'
+import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
+import { Chip, DataTable, EmptyState, KeyValue } from '@/shared/ui'
 
 const n = formatNumber
 
@@ -28,27 +33,47 @@ export function AdminRacesPage() {
     select: (list) => list.map(toAdminRaceRow),
   })
   const [selectedId, setSelectedId] = useState<number>()
-  const rows = races.data ?? []
+  // 거르기는 URL(?filter=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { filter: 'all' },
+    { filter: ['all', 'ON_SALE', 'CLOSED'] },
+  )
+  const filter = url.filter as 'all' | 'ON_SALE' | 'CLOSED'
+  const allRows = races.data ?? []
+  const rows = filter === 'all' ? allRows : allRows.filter((r) => r.saleStatus === filter)
   const race = rows.find((r) => r.id === selectedId) ?? rows[0]
 
   return (
-    <ConsolePage title="대회 관리" description="등록된 대회를 조회하고 판매 상태를 바꿔요.">
+    <ConsolePage title="대회 관리">
+      <div role="group" aria-label="대회 보기" className="flex items-center gap-2">
+        {(
+          [
+            ['all', '전체', allRows.length],
+            ['ON_SALE', '판매 중', allRows.filter((r) => r.saleStatus === 'ON_SALE').length],
+            ['CLOSED', '종료', allRows.filter((r) => r.saleStatus === 'CLOSED').length],
+          ] as const
+        ).map(([value, label, count]) => (
+          <Chip key={value} selected={filter === value} onClick={() => setUrl({ filter: value })}>
+            {label}
+            <span className="tabular-nums">{count}</span>
+          </Chip>
+        ))}
+      </div>
       {races.isPending ? (
         <ConsoleLoading />
       ) : races.isError && !races.data ? (
-        <Alert
-          tone="danger"
-          title="대회 목록을 불러오지 못했어요"
-          description={
-            (races.error instanceof ApiError && races.error.serverMessage) ||
-            '잠시 후 다시 시도해 주세요.'
-          }
-        />
+        <ConsoleMessage
+          kind="error"
+          onRetry={() => void races.refetch()}
+          retrying={races.isFetching}
+        >
+          대회 목록을 불러오지 못했어요
+        </ConsoleMessage>
       ) : !race ? (
         <EmptyState title="등록된 대회가 없어요" />
       ) : (
         <div className="flex flex-wrap items-start gap-6">
-          <ConsoleCard title={`대회 ${rows.length}개`} className="min-w-130 flex-1">
+          <div className="min-w-130 flex-1">
             <DataTable
               label="등록된 대회"
               rows={rows}
@@ -80,7 +105,7 @@ export function AdminRacesPage() {
                 },
               ]}
             />
-          </ConsoleCard>
+          </div>
 
           <ConsoleCard title="대회 상세" className="w-95 shrink-0">
             <p className="text-body2-regular text-text-secondary">{race.title}</p>

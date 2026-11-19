@@ -12,7 +12,7 @@ import { ToastProvider } from '@/shared/ui'
 import { AUTH_ERRORS } from '../model/schemas'
 import { SignupStepProvider } from '../model/signup-store'
 import { termChecks } from '../model/signup-terms'
-import { PasswordNewPage, PasswordResetPage } from './FindAccountPages'
+import { FindEmailPage, PasswordNewPage, PasswordResetPage } from './FindAccountPages'
 import { LoginPage } from './LoginPage'
 import { SignupProfilePage } from './SignupPages'
 
@@ -513,5 +513,30 @@ describe('비밀번호 확인 칸', () => {
     await user.clear(screen.getByLabelText('새 비밀번호'))
     await user.type(screen.getByLabelText('새 비밀번호'), 'password1232')
     expect(screen.queryByText(AUTH_ERRORS.passwordMismatch)).not.toBeInTheDocument()
+  })
+})
+
+describe('이메일 찾기 숫자 칸', () => {
+  it.each(['생년월일', '휴대폰 번호'])(
+    '%s에 글자를 치면 값은 그대로이고 안내가 보인다',
+    async (label) => {
+      const user = userEvent.setup()
+      render(withQueryClient(<FindEmailPage />))
+      const field = screen.getByLabelText(label)
+      await user.type(field, 'abc')
+      expect(field).toHaveValue('')
+      expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
+    },
+  )
+
+  it('생년월일에 1995-03-02를 붙여 넣으면 숫자 8자리만 남는다', async () => {
+    const user = userEvent.setup()
+    render(withQueryClient(<FindEmailPage />))
+    const field = screen.getByLabelText('생년월일')
+    await user.click(field)
+    await user.paste('1995-03-02')
+    expect(field).toHaveValue('19950302')
+    await user.type(field, '9')
+    expect(field).toHaveValue('19950302')
   })
 })

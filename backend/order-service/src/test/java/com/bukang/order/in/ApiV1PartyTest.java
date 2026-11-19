@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,8 +55,11 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 import com.bukang.order.support.StubCrewPort;
 import com.bukang.order.support.StubCrewPortConfig;
+import com.bukang.order.support.StubMemberPorts;
+import com.bukang.order.support.StubMemberPortsConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.jayway.jsonpath.JsonPath;
@@ -63,7 +67,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class})
+@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class, StubMemberPortsConfig.class})
 class ApiV1PartyTest {
 	private static final String BASE_URL = "/api/v1/order/parties";
 	private static final String RACE_STATUS_URL = BASE_URL + "/me/race-status";
@@ -100,6 +104,9 @@ class ApiV1PartyTest {
 	@Autowired
 	private StubCrewPort crewPort;
 
+	@Autowired
+	private StubMemberPorts memberPorts;
+
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
 
@@ -117,6 +124,7 @@ class ApiV1PartyTest {
 		orderOutboxKafkaEventRepository.deleteAll();
 		raceCoursePort.clear();
 		crewPort.clear();
+		memberPorts.clear();
 	}
 
 	@Test
@@ -251,6 +259,27 @@ class ApiV1PartyTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId));
+	}
+
+	@Test
+	@DisplayName("파티 만들기·합류도 참가자 이름·생년월일·휴대폰을 회원 본인인증 값으로 저장하고, 회원 서비스가 실패하면 503이고 합류가 남지 않는다 (CRU-59)")
+	void partyParticipantFromMemberIdentity() throws Exception {
+		memberPorts.identity(LEADER, new MemberIdentity("박파티장", LocalDate.of(1990, 3, 3), "010-5555-6666"));
+		memberPorts.identity(MEMBER, new MemberIdentity("최파티원", LocalDate.of(1991, 4, 4), "010-7777-8888"));
+		String token = token(create(LEADER, COURSE_HALF));
+
+		memberPorts.setUnavailable(true);
+		join(MEMBER, token).andExpect(status().isServiceUnavailable());
+		assertThat(participationRepository.findFirstByMemberIdOrderByIdDesc(MEMBER)).isEmpty();
+		assertThat(partyMemberRepository.count()).isEqualTo(1);
+
+		memberPorts.setUnavailable(false);
+		join(MEMBER, token).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.participant.name").value("최파티원"));
+		assertThat(participationRepository.findFirstByMemberIdOrderByIdDesc(LEADER).orElseThrow().getParticipant()
+			.getPhone()).isEqualTo("010-5555-6666");
+		assertThat(participationRepository.findFirstByMemberIdOrderByIdDesc(MEMBER).orElseThrow().getParticipant()
+			.getBirth()).isEqualTo(LocalDate.of(1991, 4, 4));
 	}
 
 	@Test

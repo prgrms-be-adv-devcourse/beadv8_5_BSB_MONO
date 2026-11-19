@@ -29,7 +29,7 @@ export function RecentSearches({
         <h2 id="recent-searches" className="text-title3">
           최근 검색어
         </h2>
-        <Button variant="text" size="s" onClick={onClear} className="text-text-tertiary">
+        <Button variant="ghost" size="s" onClick={onClear} className="text-text-danger">
           전체 삭제
         </Button>
       </div>
@@ -37,7 +37,7 @@ export function RecentSearches({
         {terms.map((term) => (
           <li
             key={term}
-            className="flex items-center gap-1 rounded-full bg-bg-subtle py-1.5 pr-2 pl-3 text-body2-medium text-text-secondary"
+            className="flex items-center gap-1 rounded-full border border-border-default bg-bg-surface py-1.5 pr-2 pl-3 text-body2-medium text-text-secondary shadow-sm"
           >
             <button
               type="button"

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/shared/lib'
 
+import { Icon } from '../icon/icons'
 import { TableCell, TableHeaderCell, type CellAlign } from './Table'
 
 export type DataTableColumn<Row> = {
@@ -24,6 +25,10 @@ export type DataTableProps<Row> = {
   selected?: string | string[]
   /** 넘기면 줄을 눌러 고를 수 있다 */
   onRowClick?: (row: Row) => void
+  /** true면 줄 오른쪽 끝에 > 화살표 칸을 둔다(관리자 목록, 2070:11384) */
+  rowArrow?: boolean
+  /** true면 표 바깥에 1px 테두리 + 그림자 + 둥글기 12(카드 밖에 놓는 관리자 표). 카드 안 표는 끈다 */
+  framed?: boolean
   className?: string
 }
 
@@ -35,11 +40,17 @@ export function DataTable<Row>({
   label,
   selected: selectedKeys,
   onRowClick,
+  rowArrow = false,
+  framed = false,
   className,
 }: DataTableProps<Row>) {
   return (
     <div
-      className={cn('overflow-hidden rounded-md inset-ring inset-ring-border-default', className)}
+      className={cn(
+        'overflow-hidden',
+        framed && 'rounded-md border border-border-default shadow-sm',
+        className,
+      )}
     >
       <table aria-label={label} className="w-full table-fixed border-collapse tabular-nums">
         <thead>
@@ -54,6 +65,7 @@ export function DataTable<Row>({
                 {column.header}
               </TableHeaderCell>
             ))}
+            {rowArrow && <TableHeaderCell aria-hidden className="w-12 max-w-none" />}
           </tr>
         </thead>
         <tbody>
@@ -81,6 +93,18 @@ export function DataTable<Row>({
                     {column.render(row)}
                   </TableCell>
                 ))}
+                {rowArrow && (
+                  <TableCell
+                    align="right"
+                    className={cn(selected && 'bg-bg-brand-subtle hover:bg-bg-brand-subtle')}
+                  >
+                    <Icon
+                      name="ChevronRight"
+                      aria-hidden
+                      className="ml-auto size-5 text-text-tertiary"
+                    />
+                  </TableCell>
+                )}
               </tr>
             )
           })}

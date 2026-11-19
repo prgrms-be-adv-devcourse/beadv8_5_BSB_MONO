@@ -121,10 +121,19 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
     )
   })
 
+  // 시안 2074:95341: 고를 대회가 하나도 없으면 제목과 안내, 대회 찾기 버튼만 보여 준다
+  const noRaces =
+    crewId !== undefined &&
+    !blocked &&
+    step === 1 &&
+    races.isSuccess &&
+    !(races.data.races ?? []).some((r) => r.crewSaleStartAt)
+
   let body
   if (crewId === undefined) {
     body = (
       <EmptyState
+        icon={null}
         className="pt-26"
         title="크루 홈에서 파티를 만들 수 있어요"
         action={
@@ -164,6 +173,22 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
         <ParticipantFields form={form} kit={kit} sizes={sizes} />
       </form>
     )
+  } else if (noRaces) {
+    body = (
+      <div className="flex flex-col gap-6 bg-bg-surface px-4 py-6">
+        <h2 className="text-title1">어느 대회에 나갈까요?</h2>
+        <EmptyState
+          icon="Message"
+          className="py-0"
+          title="지금 고를 수 있는 대회가 없어요"
+          action={
+            <Link href="/races" className={buttonClassName({ variant: 'primary', size: 'm' })}>
+              대회 찾기
+            </Link>
+          }
+        />
+      </div>
+    )
   } else if (races.isPending) {
     body = (
       <div className="flex flex-col gap-3 p-4" aria-busy>
@@ -188,7 +213,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
           description="만든 뒤에는 종목을 바꿀 수 없어요. 바꾸려면 파티를 새로 만들어야 해요."
         />
         {list.length === 0 ? (
-          <EmptyState title="크루 예매 중인 대회가 없어요" />
+          <EmptyState icon={null} title="크루 예매 중인 대회가 없어요" />
         ) : (
           <ul className="flex flex-col gap-3">
             {list.map((race) => {
@@ -266,9 +291,12 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   const picked = detail.data?.courses?.find((c) => c.raceCourseId === courseId)
   return (
     <>
-      <AppHeader type="sub" title="파티 만들기" />
+      <AppHeader
+        type="sub"
+        title={blocked === 'JOINED_LATE' || noRaces ? '대회 정하기' : '파티 만들기'}
+      />
       <main className="flex flex-1 flex-col">{body}</main>
-      {crewId !== undefined && !blocked && (
+      {crewId !== undefined && !blocked && !noRaces && (
         <BottomCta
           className="sticky bottom-0 z-10"
           primary={

@@ -20,7 +20,7 @@ export function NextRaceCard() {
       <Link
         href={`/tickets/${next.ticketId}`}
         className={cn(
-          'flex items-center gap-4 rounded-lg border border-border-default bg-bg-surface p-4',
+          'flex items-center gap-4 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm',
           FOCUS_RING,
         )}
       >
@@ -32,11 +32,11 @@ export function NextRaceCard() {
           )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-body2-bold text-text-brand">
+          <span className="text-body1-bold text-text-brand">
             다음 대회 · {formatDDay(next.raceDate, next.now)}
           </span>
           <span className="truncate text-body1-bold text-text-primary">{next.title}</span>
-          <span className="truncate text-body2-regular text-text-secondary">
+          <span className="truncate text-caption-regular text-text-secondary">
             {[when, next.courseName].filter(Boolean).join(' · ')}
           </span>
         </span>

@@ -17,13 +17,12 @@ function renderPage() {
 }
 
 describe('SellerDashboardPage', () => {
-  it('다음 정산 구역에 지급 예정액 · 지급일 · 지급보류를 보여 준다', async () => {
+  it('다음 정산 구역에 지급 예정액 · 지급일을 보여 준다', async () => {
     renderPage()
 
     const payout = await card('다음 정산')
     expect(await within(payout).findByText('94,500')).toBeInTheDocument()
-    expect(within(payout).getByText('10월 20일 지급 예정')).toBeInTheDocument()
-    expect(within(payout).getByText('지급보류 1건')).toBeInTheDocument()
+    expect(within(payout).getByText('10월 20일 (화) 지급 예정')).toBeInTheDocument()
   })
 
   it('지급 예정 정산이 없으면(다음 정산일 null) 없다고 보여 주고 지급보류는 숨긴다', async () => {

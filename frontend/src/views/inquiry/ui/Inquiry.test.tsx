@@ -137,7 +137,7 @@ describe('내 문의 목록', () => {
     expect(await screen.findByText('보낸 문의가 없어요')).toBeInTheDocument()
   })
 
-  it('불러오지 못하면 다시 시도하기를 보여 준다', async () => {
+  it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/inquiry/inquiries/me', () =>
         HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
@@ -145,7 +145,7 @@ describe('내 문의 목록', () => {
     )
     renderUi(<MyInquiriesPage />)
 
-    expect(await screen.findByRole('button', { name: '다시 시도하기' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
   })
 
   it('보낸 직후에는 알림을 한 번 띄운다', async () => {
@@ -156,32 +156,32 @@ describe('내 문의 목록', () => {
 })
 
 describe('문의 상세', () => {
-  it('답변 전에는 고치기 · 지우기가 있고, 지우면 목록으로 간다', async () => {
+  it('답변 전에는 수정하기 · 삭제하기가 있고, 지우면 목록으로 간다', async () => {
     const user = userEvent.setup()
     renderUi(<InquiryDetailPage inquiryId={1} />)
 
-    expect(await screen.findByRole('link', { name: '고치기' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: '수정하기' })).toHaveAttribute(
       'href',
       '/me/inquiries/1/edit',
     )
     // 답변 전 배지는 「답변 기다림」(목록은 「답변 대기」)
-    expect(screen.getByText('답변 기다림')).toBeInTheDocument()
+    expect(screen.getByText('답변 대기')).toBeInTheDocument()
     server.use(http.delete('*/api/v1/inquiry/inquiries/1', () => ok(null)))
-    await user.click(screen.getByRole('button', { name: '지우기' }))
-    expect(await screen.findByText('지운 문의는 되돌릴 수 없어요.')).toBeInTheDocument()
-    const buttons = await screen.findAllByRole('button', { name: '지우기' })
+    await user.click(screen.getByRole('button', { name: '삭제하기' }))
+    expect(await screen.findByText('삭제한 문의는 되돌릴 수 없어요.')).toBeInTheDocument()
+    const buttons = await screen.findAllByRole('button', { name: '삭제하기' })
     await user.click(buttons[buttons.length - 1])
 
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/me/inquiries?deleted=1'))
   })
 
-  it('답변이 달렸으면 답변을 보여 주고 고치기 · 지우기를 숨긴다', async () => {
+  it('답변이 달렸으면 답변을 보여 주고 수정하기 · 삭제하기를 숨긴다', async () => {
     renderUi(<InquiryDetailPage inquiryId={3} />)
 
     expect(await screen.findByText('크루런 답변')).toBeInTheDocument()
     expect(screen.getByText('취소하면 바로 예치금으로 돌려드려요.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '지우기' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: '고치기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '삭제하기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '수정하기' })).not.toBeInTheDocument()
   })
 
   it('지우는 사이 답변이 달렸으면 서버 문구를 알린다', async () => {
@@ -196,8 +196,8 @@ describe('문의 상세', () => {
     )
     renderUi(<InquiryDetailPage inquiryId={1} />)
 
-    await user.click(await screen.findByRole('button', { name: '지우기' }))
-    const buttons = await screen.findAllByRole('button', { name: '지우기' })
+    await user.click(await screen.findByRole('button', { name: '삭제하기' }))
+    const buttons = await screen.findAllByRole('button', { name: '삭제하기' })
     await user.click(buttons[buttons.length - 1])
 
     expect((await screen.findAllByText('이미 답변이 달린 문의입니다.')).length).toBeGreaterThan(0)

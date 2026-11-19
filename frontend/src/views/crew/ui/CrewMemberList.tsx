@@ -37,33 +37,47 @@ export function CrewMemberList({
   const hidden = members.length - shown.length
   return (
     <>
-      {/* 목록 하나가 칸을 나누고 줄은 그 칸을 나눠 쓴다(subgrid). 닉네임 칸이 남는 폭을 채워 역할 뱃지가 오른쪽 끝에 오고,
-          줄 버튼 칸은 가장 넓은 버튼에 맞춰져 버튼이 없는 줄(크루장)도 뱃지가 같은 세로선에 선다.
-          남는 폭보다 긴 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
-      <ul
-        className={cn(
-          'grid items-center gap-3',
-          action
-            ? 'grid-cols-[auto_minmax(0,1fr)_auto_auto]'
-            : 'grid-cols-[auto_minmax(0,1fr)_auto]',
-        )}
-      >
-        {shown.map((member) => (
-          <li key={member.memberId} className="col-span-full grid grid-cols-subgrid items-center">
-            <Avatar size="m" name={member.nickname} />
+      {/* 크루 관리(action 있음)는 역할이 닉네임 바로 옆, 크루 홈은 줄 오른쪽 끝에 온다.
+          긴 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
+      <ul className={cn('flex flex-col', action ? 'gap-6' : 'gap-3')}>
+        {shown.map((member) => {
+          const name = (
             <span
               id={labelId?.(member)}
               title={member.nickname}
-              className="min-w-0 truncate text-body2-medium"
+              className="min-w-0 truncate text-body1-medium"
             >
               {member.nickname}
             </span>
-            <span className="text-body2-regular text-text-secondary">
+          )
+          const role = (
+            <span className="shrink-0 text-caption-regular text-text-secondary">
               {CREW_ROLE_LABEL[member.role]}
             </span>
-            {action && <div>{action(member)}</div>}
-          </li>
-        ))}
+          )
+          return (
+            <li
+              key={member.memberId}
+              className={cn('flex items-center gap-3', action && 'min-h-11')}
+            >
+              <Avatar size="m" name={member.nickname} />
+              {action ? (
+                <>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {name}
+                    {role}
+                  </div>
+                  <div>{action(member)}</div>
+                </>
+              ) : (
+                <>
+                  <div className="flex min-w-0 flex-1">{name}</div>
+                  {role}
+                </>
+              )}
+            </li>
+          )
+        })}
       </ul>
       {hidden > 0 &&
         (moreHref ? (

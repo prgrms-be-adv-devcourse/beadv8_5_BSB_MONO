@@ -15,7 +15,7 @@ import {
   type SocialProviderId,
 } from '@/features/auth'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
-import { Button, Dialog, Divider, Icon, useToast } from '@/shared/ui'
+import { Button, Dialog, Icon, useToast } from '@/shared/ui'
 
 import { SocialMark } from './SocialMark'
 
@@ -70,7 +70,7 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
   return (
     <>
       <AppHeader type="sub" title="계정 연결" />
-      <main className="flex flex-1 flex-col pt-(--layout-content-start) pb-6">
+      <main className="flex flex-1 flex-col pt-6 pb-6">
         <h2 className="px-4 pb-2 text-title3">로그인 방법</h2>
         <ul className="flex flex-col px-4">
           <li className="flex min-h-16 items-center gap-3 py-3">
@@ -114,7 +114,7 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
                 </div>
                 {isConnected ? (
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="s"
                     disabled={!me.data || lastMethod || unlink.isPending}
                     onClick={() => setUnlinking(provider.id)}
@@ -123,7 +123,6 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
                   </Button>
                 ) : (
                   <Button
-                    size="s"
                     disabled={!me.data || link.isPending}
                     onClick={() => link.mutate(provider.id)}
                   >
@@ -134,7 +133,6 @@ export function AccountLinkPage({ linked, error }: { linked?: string; error?: st
             )
           })}
         </ul>
-        <Divider type="section" />
         {actionError && (
           <p role="alert" className="px-4 pt-3 text-caption-regular text-text-danger">
             {(actionError instanceof ApiError && actionError.serverMessage) ||

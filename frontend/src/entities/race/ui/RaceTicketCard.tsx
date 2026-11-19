@@ -28,7 +28,7 @@ export function RaceTicketCard({
   className,
 }: RaceTicketCardProps) {
   return (
-    <div className={cn('flex items-center gap-3', className)}>
+    <div className={cn('flex items-center gap-4', className)}>
       {image ? (
         <Image
           src={image}

@@ -14,7 +14,7 @@ describe('(seller) 오류 경계', () => {
     const retry = vi.fn()
     render(<GroupError error={new Error('boom')} retry={retry} />)
 
-    expect(screen.getByText('정보를 불러오지 못했어요')).toBeInTheDocument()
+    expect(screen.getByText('화면을 불러오지 못했어요')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: '다시 시도하기' }))
     expect(retry).toHaveBeenCalledTimes(1)
   })

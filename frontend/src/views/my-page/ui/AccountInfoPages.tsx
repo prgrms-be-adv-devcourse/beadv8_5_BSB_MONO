@@ -6,7 +6,7 @@ import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { FOCUS_RING, Icon, TextField } from '@/shared/ui'
+import { FOCUS_RING, Icon, KeyValue } from '@/shared/ui'
 
 import { EMPTY } from './MenuRow'
 
@@ -18,8 +18,15 @@ export function EmailInfoPage() {
   return (
     <>
       <AppHeader type="sub" title="이메일 정보" backHref="/me/settings" />
-      <main className="flex flex-1 flex-col px-4 py-6" data-clarity-mask="true">
-        <TextField label="계정 이메일" value={me.data?.email ?? EMPTY} disabled readOnly />
+      <main className="flex flex-1 flex-col gap-3 px-4 py-6" data-clarity-mask="true">
+        <h2 className="text-body1-bold">계정 이메일</h2>
+        <div className="rounded-md border border-border-default p-4 shadow-sm">
+          <KeyValue
+            label="이메일"
+            value={me.data?.email ?? EMPTY}
+            className="[&>span:first-child]:w-22"
+          />
+        </div>
       </main>
     </>
   )
@@ -36,7 +43,7 @@ export function TermsConsentPage() {
   return (
     <>
       <AppHeader type="sub" title="약관 및 동의" backHref="/me/settings" />
-      <main className="flex flex-1 flex-col gap-6 px-4 py-6">
+      <main className="flex flex-1 flex-col gap-8 px-4 py-6">
         <TermsGroup title="필수 동의 약관" items={REQUIRED} />
         <TermsGroup
           title="선택 동의"
@@ -59,15 +66,15 @@ function TermsGroup({
 }) {
   return (
     <section className="flex flex-col">
-      <h2 className="pb-1 text-body2-bold">{title}</h2>
+      <h2 className="pb-1 text-body1-bold">{title}</h2>
       {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
-          className={cn('flex items-center gap-3 rounded-md py-3', FOCUS_RING)}
+          className={cn('flex items-center gap-3 rounded-md py-5', FOCUS_RING)}
         >
           <span className="flex-1 text-body1-regular">{item.label}</span>
-          <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
+          <Icon name="ChevronRight" className="size-5 shrink-0" />
         </Link>
       ))}
     </section>

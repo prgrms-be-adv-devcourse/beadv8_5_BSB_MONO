@@ -11,7 +11,7 @@ import { buttonClassName, FOCUS_RING, Icon, IconButton, Logo } from '@/shared/ui
 
 // IconButton(M 44, ghost)과 같은 모양의 링크
 const ICON_LINK = cn(
-  'inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-primary hover:bg-bg-subtle [&_svg]:size-5',
+  'inline-flex size-11 shrink-0 items-center justify-center rounded-full text-text-primary hover:bg-bg-subtle [&_svg]:size-6',
   FOCUS_RING,
 )
 
@@ -31,6 +31,8 @@ type SubProps = {
   close?: boolean
   /** 있으면 뒤로 가기 대신 이 함수를 부른다 (한 화면 안의 이전 단계로 돌아갈 때) */
   onBack?: () => void
+  /** 닫기(X) 헤더의 제목 자리. 기본은 왼쪽(결과 화면 시안 다수), 글쓰기 시안만 가운데 */
+  titleAlign?: 'start' | 'center'
   /** 오른쪽 아이콘 버튼 자리 (공유 등) */
   action?: ReactNode
 }
@@ -40,16 +42,20 @@ export type AppHeaderProps = (MainProps | SubProps) & { className?: string }
 // 피그마 Header Device=Mobile. 회원 화면은 PC에서도 600 기둥 안에서 이 모양을 쓴다.
 export function AppHeader(props: AppHeaderProps) {
   const base = cn(
-    'sticky top-0 z-10 flex h-(--layout-header-height) shrink-0 items-center gap-1 border-b border-border-default bg-bg-surface',
+    'sticky top-0 z-10 flex h-(--layout-header-height) shrink-0 items-center gap-1 bg-bg-surface',
     props.className,
   )
 
   if (props.type === 'sub') {
+    const centered = props.close && props.titleAlign === 'center'
     return (
       <header className={cn(base, 'px-1')}>
         <BackButton href={props.backHref} close={props.close} onBack={props.onBack} />
-        <h1 className="min-w-0 flex-1 truncate text-body1-bold">{props.title}</h1>
-        {props.action}
+        <h1 className={cn('min-w-0 flex-1 truncate text-body1-bold', centered && 'text-center')}>
+          {props.title}
+        </h1>
+        {/* 제목을 가운데에 두면 왼쪽 버튼과 같은 폭의 빈 자리를 오른쪽에 둔다 */}
+        {props.action ?? (centered && <span aria-hidden className="size-11 shrink-0" />)}
       </header>
     )
   }

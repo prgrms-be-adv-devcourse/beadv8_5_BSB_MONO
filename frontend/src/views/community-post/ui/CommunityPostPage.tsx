@@ -141,26 +141,26 @@ export function CommunityPostPage({ postId }: { postId: number }) {
       />
       <main className="flex flex-1 flex-col">
         {hidden && (
-          <p className="flex items-center gap-2 bg-bg-subtle px-4 py-3 text-body2-medium text-text-secondary">
-            <Icon name="CircleAlert" className="size-5" />
+          <p className="flex h-11 items-center gap-2 border-b border-border-default bg-bg-surface px-4 text-caption-regular text-text-secondary">
+            <Icon name="CircleAlert" className="size-4" />
             신고로 숨겨진 글이에요
           </p>
         )}
-        <article className="flex flex-col gap-4 px-5 pt-6 pb-6">
+        <article className="flex flex-col gap-4 px-4 pt-4 pb-6">
           <div className="flex flex-col gap-1">
             <span className="text-caption-medium text-text-secondary">{p.categoryLabel}</span>
-            <h1 className="text-title2 break-words">{p.title}</h1>
+            <h1 className="text-title3 break-words">{p.title}</h1>
           </div>
           <div className="flex items-center gap-2">
             <Avatar size="m" name={writer.withdrawn ? undefined : writer.nickname} />
             <div className="flex flex-col">
               <span className="flex items-center gap-2">
-                <span className={cn('text-body2-bold', writer.withdrawn && 'text-text-tertiary')}>
+                <span className={cn('text-body1-bold', writer.withdrawn && 'text-text-tertiary')}>
                   {writer.nickname}
                 </span>
                 {writer.seller && <Badge>판매자</Badge>}
               </span>
-              <span className="text-caption-regular text-text-tertiary">
+              <span className="text-caption-regular text-text-secondary">
                 {formatDateTime(p.createdAt)}
                 {p.edited && ' · 수정됨'}
               </span>
@@ -184,23 +184,21 @@ export function CommunityPostPage({ postId }: { postId: number }) {
           <div className="flex items-center gap-4">
             <button
               type="button"
+              aria-label={`좋아요 ${p.likeCount}`}
               aria-pressed={p.liked}
               onClick={onLike}
               disabled={like.isPending}
-              className={cn(
-                'flex h-9.5 items-center gap-1 rounded-full px-3.5 text-body2-medium inset-ring inset-ring-border-default',
-                FOCUS_RING,
-              )}
+              className={cn('flex items-center gap-1 rounded-full text-body1-medium', FOCUS_RING)}
             >
               <Icon
                 name="Heart"
                 className={cn('size-5', p.liked && 'fill-current text-text-danger')}
               />
-              좋아요 {p.likeCount}
+              {p.likeCount}
             </button>
-            <span className="flex items-center gap-1 text-body2-regular text-text-secondary">
+            <span className="flex items-center gap-1 text-body1-medium text-text-secondary">
               <CommentIcon className="size-5" />
-              댓글 {countComments(comments.data ?? [])}
+              {countComments(comments.data ?? [])}
             </span>
           </div>
         </article>
@@ -253,10 +251,10 @@ export function CommunityPostPage({ postId }: { postId: number }) {
           aria-label="신고 사유"
           value={reason ?? ''}
           onValueChange={(value) => setReason(value as ReportReason)}
-          className="gap-1 px-2"
+          className="gap-1"
         >
           {REPORT_REASONS.map((r) => (
-            <Radio key={r.value} value={r.value} label={r.label} className="h-12" />
+            <Radio key={r.value} value={r.value} label={r.label} tone="inverse" className="h-12" />
           ))}
         </RadioGroup>
       </BottomSheet>

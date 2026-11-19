@@ -47,6 +47,44 @@ function renderPage(confirmOpen = false) {
   )
 }
 
+describe('SellerRaceChangePage 알림 대상', () => {
+  function soldRaces(sold: number) {
+    server.use(
+      http.get('*/api/v1/product/races/mine', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: [
+            {
+              raceId: 1,
+              title: '테스트 대회',
+              saleStatus: 'ON_SALE',
+              courses: [
+                { raceCourseId: 1, name: '10K', quota: 100, sold: sold - 2 },
+                { raceCourseId: 2, name: '하프', quota: 100, sold: 2 },
+              ],
+            },
+          ],
+        }),
+      ),
+    )
+  }
+
+  it('일정 변경: 알림 글 칸 아래에 참가자 수와 알림 방식을 알려 주고, 전액 환불 7일을 보여 준다', async () => {
+    soldRaces(12)
+    renderPage()
+    expect(await screen.findByText('12명에게 앱 알림과 문자로 보내요')).toBeInTheDocument()
+    expect(screen.getByText('알린 날부터 7일')).toBeInTheDocument()
+  })
+
+  it('대회 취소: 공지 칸 아래에도 같은 안내를 보여 준다', async () => {
+    soldRaces(12)
+    renderPage()
+    await userEvent.click(await screen.findByRole('radio', { name: /대회 취소/ }))
+    expect(await screen.findByText('12명에게 앱 알림과 문자로 보내요')).toBeInTheDocument()
+  })
+})
+
 describe('SellerRaceChangePage 일정 변경', () => {
   it('새 대회일(날짜만)로 대회 전체를 PUT 하고, 시각은 지금 대회 시각을 그대로 둔다', async () => {
     let body: productModel.RaceSaveRequestDto | undefined

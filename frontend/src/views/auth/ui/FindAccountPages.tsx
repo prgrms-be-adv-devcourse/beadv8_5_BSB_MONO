@@ -13,6 +13,7 @@ import {
   BottomCta,
   Button,
   buttonClassName,
+  digitsOnly,
   EmptyState,
   Spinner,
   TextField,
@@ -53,6 +54,7 @@ export function PasswordResetPage() {
           description="30분 안에 메일의 링크를 눌러 주세요."
         />
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Link href="/login" className={buttonClassName({ size: 'l' })}>
@@ -68,34 +70,41 @@ export function PasswordResetPage() {
     <>
       <AppHeader type="sub" title="계정 찾기" />
       <AccountTabs current="password" />
-      <form noValidate onSubmit={onSubmit} className="contents">
+      <form id="password-reset-form" noValidate onSubmit={onSubmit} className="contents">
         <CenterBody center={false}>
           <h2 className="text-title2">
             가입한 이메일 주소를
             <br />
-            입력해 주세요.
+            입력해 주세요
           </h2>
           {requestReset.isError && (
             <Alert tone="danger" title={requestErrorMessage(requestReset.error)} />
           )}
           <TextField
-            aria-label="이메일"
+            label="이메일"
             placeholder="이메일 주소를 입력해 주세요"
             type="email"
             autoComplete="email"
             error={errors.email?.message}
             {...register('email', { onChange: () => requestReset.isError && requestReset.reset() })}
           />
+        </CenterBody>
+      </form>
+      <BottomCta
+        bordered={false}
+        className="sticky bottom-0 z-10"
+        primary={
           <Button
             type="submit"
+            form="password-reset-form"
             size="l"
             disabled={!isValid || requestReset.isPending}
             loading={requestReset.isPending}
           >
             비밀번호 재설정 링크 보내기
           </Button>
-        </CenterBody>
-      </form>
+        }
+      />
     </>
   )
 }
@@ -167,6 +176,7 @@ export function PasswordNewPage() {
           description="새 비밀번호로 다시 로그인해 주세요."
         />
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Link href="/login" className={buttonClassName({ size: 'l' })}>
@@ -188,6 +198,7 @@ export function PasswordNewPage() {
         <AppHeader type="sub" title="비밀번호 재설정" />
         <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
           <EmptyState
+            icon={null}
             title="링크가 만료됐어요"
             description="재설정 링크는 30분이 지나거나 한 번 쓰면 다시 쓸 수 없어요. 링크를 다시 받아 주세요."
             action={
@@ -206,9 +217,14 @@ export function PasswordNewPage() {
       <>
         <AppHeader type="sub" title="비밀번호 재설정" />
         <main className="flex flex-1 items-center justify-center px-5 pt-6 pb-6">
-          <EmptyState title="링크를 확인하지 못했어요" description="잠시 뒤 다시 시도해 주세요." />
+          <EmptyState
+            icon={null}
+            title="링크를 확인하지 못했어요"
+            description="잠시 뒤 다시 시도해 주세요."
+          />
         </main>
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Button size="l" onClick={() => verify({ data: { token: tokenRef.current } })}>
@@ -255,6 +271,7 @@ export function PasswordNewPage() {
         />
       </CenterBody>
       <BottomCta
+        bordered={false}
         className="sticky bottom-0 z-10"
         primary={
           <Button
@@ -290,43 +307,51 @@ export function FindEmailPage() {
     <>
       <AppHeader type="sub" title="계정 찾기" />
       <AccountTabs current="email" />
-      <form noValidate onSubmit={onSubmit} className="contents">
+      <form id="find-email-form" noValidate onSubmit={onSubmit} className="contents">
         <CenterBody center={false}>
           <h2 className="text-title2">
             가입할 때 적은 정보를
             <br />
-            입력해 주세요.
+            입력해 주세요
           </h2>
           <TextField
-            aria-label="이름"
+            label="이름"
             placeholder="이름을 입력해 주세요"
             autoComplete="name"
             error={errors.name?.message}
             {...register('name')}
           />
           <TextField
-            aria-label="생년월일"
+            label="생년월일"
             placeholder="생년월일 8자리 (예: 19950302)"
             inputMode="numeric"
+            // maxLength는 붙여 넣은 「1995-03-02」를 숫자만 남기기 전에 잘라 버려서 filter 안에서 8자로 자른다
+            filter={(value) => digitsOnly(value).slice(0, 8)}
             autoComplete="bday"
-            maxLength={8}
             error={errors.birth?.message}
             {...register('birth')}
           />
           <TextField
-            aria-label="휴대폰 번호"
+            label="휴대폰 번호"
             placeholder="휴대폰 번호 (예: 01012345678)"
             type="tel"
             inputMode="numeric"
+            filter={digitsOnly}
             autoComplete="tel"
             error={errors.phone?.message}
             {...register('phone')}
           />
-          <Button type="submit" size="l" disabled={!isValid}>
-            가입한 이메일 찾기
-          </Button>
         </CenterBody>
       </form>
+      <BottomCta
+        bordered={false}
+        className="sticky bottom-0 z-10"
+        primary={
+          <Button type="submit" form="find-email-form" size="l" disabled={!isValid}>
+            가입한 이메일 찾기
+          </Button>
+        }
+      />
     </>
   )
 }
@@ -349,6 +374,7 @@ export function FindEmailResultPage() {
         />
       </main>
       <BottomCta
+        bordered={false}
         className="sticky bottom-0 z-10"
         primary={
           <Link href="/login" className={buttonClassName({ size: 'l' })}>

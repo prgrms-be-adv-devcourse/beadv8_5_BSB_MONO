@@ -70,7 +70,7 @@ describe('MyCrewsPage (M09-0)', () => {
     const links = screen.getAllByRole('link', { name: '새 크루 만들기' })
     expect(links).toHaveLength(1)
     expect(links[0]).toHaveAttribute('href', '/crews/new')
-    expect(links[0]).toHaveTextContent('+ 새 크루 만들기')
+    expect(links[0]).toHaveTextContent('새 크루 만들기')
   })
 
   it('머리글은 로고와 알림이고 아래에 주요 메뉴가 있다', async () => {
@@ -91,14 +91,17 @@ describe('MyCrewsPage (M09-0)', () => {
     server.use(memberMock.getFindMyCrewsMockHandler({ status: 200, message: '조회', data: [] }))
     renderPage(<MyCrewsPage />)
     expect(await screen.findByText('아직 가입한 크루가 없어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '크루 만들기' })).toHaveAttribute('href', '/crews/new')
-    expect(screen.queryByRole('link', { name: '새 크루 만들기' })).not.toBeInTheDocument()
+    expect(screen.getByText('가입한 크루 0')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '새 크루 만들기' })).toHaveAttribute(
+      'href',
+      '/crews/new',
+    )
   })
 
   it('불러오지 못하면 다시 불러오기를 보여 준다', async () => {
     server.use(http.get('*/api/v1/member/crews/me', () => failWith(500, 'INTERNAL_ERROR')))
     renderPage(<MyCrewsPage />)
-    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
   })
 })
 

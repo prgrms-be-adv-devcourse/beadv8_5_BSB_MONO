@@ -139,7 +139,16 @@ export function InquiryBoard({
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title={sent ? '보낸 문의가 없어요' : '문의가 없어요'} />
+            <EmptyState
+              icon={null}
+              title={
+                sent
+                  ? '보낸 문의가 없어요'
+                  : filter === 'WAITING'
+                    ? '답변을 기다리는 문의가 없어요'
+                    : '문의가 없어요'
+              }
+            />
           ) : (
             <ul className="flex flex-col">
               {items.map((inquiry) => (
@@ -156,22 +165,20 @@ export function InquiryBoard({
                     }}
                     className={cn(
                       'flex w-full flex-col items-start gap-1 rounded-lg p-3 text-left',
-                      inquiry.id === selectedId && 'bg-bg-brand-subtle',
+                      inquiry.id === selectedId && 'inset-ring-2 inset-ring-text-primary',
                       FOCUS_RING,
                     )}
                   >
                     <span className="flex w-full items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-body2-bold">
+                      <span className="min-w-0 flex-1 truncate text-caption-regular text-text-tertiary">
                         <Who inquiry={inquiry} />
                       </span>
                       <span className="shrink-0 text-caption-regular text-text-tertiary">
                         {slashDate(inquiry.createDate)}
                       </span>
                     </span>
-                    <span className="w-full truncate text-body2-regular text-text-secondary">
-                      {inquiry.title}
-                    </span>
-                    <span className="text-caption-medium text-text-secondary">
+                    <span className="w-full truncate text-body1-medium">{inquiry.title}</span>
+                    <span className="text-caption-regular text-text-tertiary">
                       {TYPE_LABEL[inquiry.type]}
                     </span>
                   </button>
@@ -254,19 +261,17 @@ function Detail({
   return (
     <article className="flex flex-col gap-6 rounded-md bg-bg-surface p-6 inset-ring inset-ring-border-default">
       <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="min-w-0 flex-1 text-title3">{data.title}</h2>
-          <span
-            className={cn(
-              'shrink-0 text-body2-medium',
-              data.status === 'ANSWERED' ? 'text-text-success' : 'text-text-secondary',
-            )}
-          >
-            {badge.label}
-          </span>
-        </div>
+        <span
+          className={cn(
+            'text-caption-regular',
+            data.status === 'ANSWERED' ? 'text-text-success' : 'text-text-tertiary',
+          )}
+        >
+          {badge.label}
+        </span>
+        <h2 className="text-title3">{data.title}</h2>
         <p className="text-caption-regular text-text-tertiary">{meta}</p>
-        <p className="pt-2 text-body2-regular whitespace-pre-wrap">{data.body}</p>
+        <p className="pt-4 text-body1-regular whitespace-pre-wrap">{data.body}</p>
       </header>
       {data.order && <OrderInfo order={data.order} />}
       {data.status === 'ANSWERED' ? (
@@ -279,7 +284,7 @@ function Detail({
               </span>
             )}
           </div>
-          <p className="text-body2-regular whitespace-pre-wrap">{data.answer}</p>
+          <p className="text-body1-regular whitespace-pre-wrap">{data.answer}</p>
         </section>
       ) : (
         answerable && (
@@ -294,8 +299,8 @@ function OrderInfo({ order }: { order: InquiryOrder }) {
   const item = order.items[0]
   const canceled = order.status === 'CANCELED'
   return (
-    <section className="flex flex-col gap-2 rounded-md p-4 inset-ring inset-ring-border-default">
-      <h3 className="text-body2-bold">주문 정보</h3>
+    <section className="flex flex-col gap-4 rounded-md p-4 shadow-sm inset-ring inset-ring-border-default">
+      <h3 className="sr-only">주문 정보</h3>
       <KeyValue label="주문번호" value={order.orderNo} />
       {item && <KeyValue label="대회 · 코스" value={`${item.raceName} · ${item.courseName}`} />}
       {item && <KeyValue label="키트" value={item.kitSummary ?? '고르지 않음'} />}

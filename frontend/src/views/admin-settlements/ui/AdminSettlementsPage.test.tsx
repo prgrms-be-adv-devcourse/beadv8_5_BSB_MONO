@@ -40,6 +40,41 @@ describe('AdminSettlementsPage', () => {
   })
 
   describe('지급보류 칩', () => {
+    it('정산 내역 번호에 글자를 치면 값은 그대로이고 숫자만 쓸 수 있다고 알린다', async () => {
+      search = 'tab=지급보류'
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByRole('textbox', { name: '정산 내역 번호' })
+      await user.type(input, 'ab')
+
+      expect(input).toHaveValue('')
+      expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
+    })
+
+    it('숫자와 글자가 섞인 번호를 넣으면 숫자만 남기고 그 번호로 보류를 건다', async () => {
+      search = 'tab=지급보류'
+      let path = ''
+      server.use(
+        http.post('*/api/v1/payout/payouts/:payoutId/holds', ({ request }) => {
+          path = new URL(request.url).pathname
+          return HttpResponse.json(payoutMock.getHoldResponseMock(), { status: 201 })
+        }),
+      )
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByRole('textbox', { name: '정산 내역 번호' })
+      await user.type(input, 'ST-12')
+      expect(input).toHaveValue('12')
+      await user.click(screen.getByRole('combobox', { name: '보류 사유' }))
+      await user.click(await screen.findByRole('option', { name: '정산 계좌 미등록' }))
+      await user.click(screen.getByRole('button', { name: '보류 걸기' }))
+
+      expect(await screen.findByText('지급보류를 걸었어요.')).toBeInTheDocument()
+      expect(path).toBe('/api/v1/payout/payouts/12/holds')
+    })
+
     it('정산 내역 번호와 사유로 보류를 건다', async () => {
       search = 'tab=지급보류'
       let request: { path: string; body: unknown } | null = null
@@ -64,7 +99,7 @@ describe('AdminSettlementsPage', () => {
       })
     })
 
-    it('번호가 숫자가 아니면 API를 부르지 않는다', async () => {
+    it('번호 칸이 비어 있으면 API를 부르지 않는다', async () => {
       search = 'tab=지급보류'
       const called = vi.fn()
       server.use(
@@ -76,7 +111,6 @@ describe('AdminSettlementsPage', () => {
       const user = userEvent.setup()
       renderPage()
 
-      await user.type(screen.getByRole('textbox', { name: '정산 내역 번호' }), 'ST-20261120-3F02')
       await user.click(screen.getByRole('button', { name: '보류 걸기' }))
 
       expect(await screen.findByText('정산 내역 번호를 숫자로 넣어 주세요.')).toBeInTheDocument()

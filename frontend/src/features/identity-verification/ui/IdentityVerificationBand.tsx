@@ -30,7 +30,7 @@ export function IdentityVerificationBand({
         {verification && <Badge tone="success">본인인증 완료</Badge>}
       </div>
       {!verification && (
-        <Button variant="secondary" size="l" loading={opening} onClick={start}>
+        <Button variant="secondary" size="m" loading={opening} onClick={start}>
           휴대폰 본인인증
         </Button>
       )}

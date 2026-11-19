@@ -1,14 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
-import type { productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
-import { SALE_CHANGE_ERRORS } from '../model/sale-change-form'
 import { SellerRaceDetailPage } from './SellerRaceDetailPage'
 
 function renderPage() {
@@ -22,21 +19,24 @@ function renderPage() {
   )
 }
 
-const saveButton = () => screen.findByRole('button', { name: '변경 저장' })
-
 describe('SellerRaceDetailPage', () => {
-  it('상태 글자와 종목 표를 보여 준다', async () => {
+  it('상태 글자와 종목별 판매 표를 보여 준다', async () => {
     renderPage()
-    expect(await screen.findByRole('table', { name: '종목' })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: '종목별 판매' })).toBeInTheDocument()
     expect(screen.getAllByText('판매 중').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '판매 멈추기' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '판매 중 변경' })).toHaveAttribute(
+      'href',
+      '/seller/races/1/edit',
+    )
   })
 
-  it('종목 표에 결제 대기 인원을 보여 주고, 바로 가기에 대회 번호를 넘긴다', async () => {
+  it('판매 요약 · 기본 정보 · 종목 · 키트 구역을 보여 주고, 바로 가기에 대회 번호를 넘긴다', async () => {
     renderPage()
-    const table = await screen.findByRole('table', { name: '종목' })
-    expect(within(table).getByRole('columnheader', { name: '결제 대기' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '판매 현황' })).toHaveAttribute(
+    expect(await screen.findByText('결제 대기')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '기본 정보' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: '종목 · 참가권' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^판매 현황/ })).toHaveAttribute(
       'href',
       '/seller/sales?race=1',
     )
@@ -46,57 +46,59 @@ describe('SellerRaceDetailPage', () => {
     )
   })
 
-  it('판매가 시작된 대회의 참가비를 바꾸려 하면 막는 문구를 보여 준다', async () => {
-    renderPage()
-    const price = await screen.findByLabelText('참가비 (10K)')
-    await userEvent.clear(price)
-    await userEvent.type(price, '40000')
-    expect(await screen.findByText(SALE_CHANGE_ERRORS.priceChanged)).toBeInTheDocument()
-  })
-
-  it('정원을 늘려 저장하면 대회 전체(이미지 포함)를 PUT 한다', async () => {
-    let body: productModel.RaceSaveRequestDto | undefined
+  it('남은 자리는 정원 - 판매 - 결제 대기로 센다 (요약과 종목별 판매 모두)', async () => {
     server.use(
-      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
-        body = (await request.json()) as productModel.RaceSaveRequestDto
-        return HttpResponse.json({
+      http.get('*/api/v1/product/races/mine', () =>
+        HttpResponse.json({
           status: 200,
-          message: '대회를 수정했습니다.',
-          data: { raceId: 1, saleStatus: 'ON_SALE', saleOpenDate: '2026-10-20', courseIds: [1] },
-        })
-      }),
-    )
-    renderPage()
-    const quota = await screen.findByLabelText('모집 정원 (10K)')
-    await userEvent.clear(quota)
-    await userEvent.type(quota, '700')
-    await userEvent.click(await saveButton())
-
-    expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
-    expect(body?.courses[0]).toMatchObject({ courseId: 1, individualQuota: 700, price: 45000 })
-    // 대표 이미지는 대회 쪽에, 소개 이미지는 종목 쪽에 그대로 다시 보낸다 (CRU-6)
-    expect(body?.images.map((i) => i.fileType)).toEqual(['THUMBNAIL'])
-    expect(body?.courses[0].images.map((i) => i.fileType)).toEqual(['DETAIL'])
-    expect(body).toMatchObject({
-      title: '2026 용감한 쿠키RUN in 서울',
-      refundDeadline: '2026-10-31',
-    })
-  })
-
-  it('서버가 막으면(409) 그 문구를 보여 준다', async () => {
-    server.use(
-      http.put('*/api/v1/product/races/:raceId', () =>
-        HttpResponse.json(
-          { status: 409, message: '판매가 끝난 대회는 수정할 수 없습니다.', data: null },
-          { status: 409 },
-        ),
+          message: 'ok',
+          data: [
+            {
+              raceId: 1,
+              title: '테스트 대회',
+              saleStatus: 'ON_SALE',
+              applicationCloseAt: '2099-01-01T00:00:00',
+              courses: [{ raceCourseId: 1, name: '10K', quota: 10, sold: 3, reserved: 2 }],
+            },
+          ],
+        }),
       ),
     )
     renderPage()
-    const quota = await screen.findByLabelText('모집 정원 (10K)')
-    await userEvent.clear(quota)
-    await userEvent.type(quota, '700')
-    await userEvent.click(await saveButton())
-    expect(await screen.findByText('판매가 끝난 대회는 수정할 수 없습니다.')).toBeInTheDocument()
+    const table = await screen.findByRole('table', { name: '종목별 판매' })
+    expect(within(table).getByRole('cell', { name: '5' })).toBeInTheDocument()
+    expect(screen.getAllByText('5')).toHaveLength(2)
+  })
+
+  it('접수 마감이 지나면 마감으로 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/product/races/mine', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: [
+            {
+              raceId: 1,
+              title: '테스트 대회',
+              saleStatus: 'ON_SALE',
+              applicationCloseAt: '2000-01-01T00:00:00',
+              courses: [],
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage()
+    expect(await screen.findByText('마감')).toBeInTheDocument()
+  })
+
+  it('키트를 불러오지 못하면 오류를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/product/races/:raceId/kit-options', () =>
+        HttpResponse.json({ status: 500, message: 'x', data: null }, { status: 500 }),
+      ),
+    )
+    renderPage()
+    expect(await screen.findByText('키트를 불러오지 못했어요')).toBeInTheDocument()
   })
 })
