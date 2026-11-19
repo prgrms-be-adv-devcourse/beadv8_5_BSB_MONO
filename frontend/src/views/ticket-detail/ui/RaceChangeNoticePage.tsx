@@ -6,13 +6,14 @@ import { AppHeader } from '@/widgets/app-header'
 import { daysUntil, formatRaceDate, formatRaceDateTime } from '@/entities/race'
 import { ticketErrorMessage, useCancelTicket } from '@/entities/ticket'
 import { formatNumber } from '@/shared/lib'
-import { Alert, Badge, BottomCta, Button, KeyValue, ProgressBar } from '@/shared/ui'
+import { Alert, Badge, BottomCta, Button, KeyValue } from '@/shared/ui'
 
-import { fullRefundLastDay, SCHEDULE_CHANGE_REFUND_DAYS } from '../model/refund-period'
+import { fullRefundLastDay } from '../model/refund-period'
 import { useTicket } from '../model/use-ticket'
+import { TicketBox as Box, TicketSection as Section } from './TicketInfo'
 import { TicketStateView, ticketViewState } from './TicketStateView'
 
-// 피그마 V2 · M24 대회 변경 안내(1333:22003, 일정 변경 알림에서 들어온다). 카드 상자 대신 회색 띠로 나눈 구역이다.
+// 피그마 v4 · 대회 변경 안내(2070:35538, 일정 변경 알림에서 들어온다). 구역 제목 아래 테두리 상자.
 // 대회 상세의 scheduleChangedAt(알린 일시) · refundDeadline(환불 기한)으로 그린다.
 // TODO(api): 시안의 「이전 날짜」는 대회 API가 바뀌기 전 날짜를 주지 않아 새 날짜만 보여 준다.
 export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
@@ -47,64 +48,64 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
           <div className="flex flex-col items-start gap-2 px-4 py-4">
             <Badge tone="warning">일정 변경</Badge>
             <h2 className="text-title2">{race.title} 날짜가 바뀌었어요</h2>
-            <p className="text-body2-regular text-text-secondary">
-              {formatRaceDate(changedAt)}에 주최 측이 대회 일정을 바꿨어요.
-            </p>
           </div>
         ) : (
           <Alert className="mx-4 mt-4 w-auto" title="바뀐 대회 일정이 없어요" />
         )}
 
-        <section className="flex flex-col gap-4 px-4 py-6">
-          {race.raceDate && (
-            <div className="flex flex-col gap-1">
-              <span className="text-caption-regular text-text-secondary">새 날짜</span>
-              <span className="font-display text-number-m">{formatRaceDate(race.raceDate)}</span>
-              <span className="text-caption-regular text-text-secondary">
-                {formatRaceDateTime(race.raceDate)}
-              </span>
-            </div>
-          )}
-          {race.location && <KeyValue label="장소" value={race.location} />}
-        </section>
+        <Section title="바뀐 일정">
+          <Box>
+            {race.raceDate && (
+              <div className="flex flex-col gap-1 border-b border-border-default pb-3">
+                <span className="text-caption-regular text-text-secondary">새 날짜</span>
+                <span className="font-display text-number-s">
+                  {formatRaceDate(race.raceDate).split(' ')[0].replace('/', '.')}
+                </span>
+                <span className="text-body1-regular text-text-secondary">
+                  {formatRaceDateTime(race.raceDate).split(' ').slice(1).join(' ')}
+                </span>
+              </div>
+            )}
+            {race.location && <KeyValue label="장소" value={race.location} />}
+          </Box>
+        </Section>
 
         {lastDay && (
-          <section className="flex flex-col gap-3 px-5 py-7">
-            <p className="text-body2-medium">전액 환불받을 수 있는 기간</p>
-            {daysLeft >= 0 ? (
-              <>
+          <Section title="전액 환불 기간">
+            <Box>
+              {daysLeft >= 0 ? (
                 <p className="flex items-baseline gap-2">
-                  <span className="font-display text-number-m">{daysLeft}</span>
-                  <span className="text-body1-medium">일 남았어요</span>
+                  <span className="font-display text-number-s">{daysLeft}</span>
+                  <span className="text-body1-regular">일 남았어요</span>
                 </p>
-                <ProgressBar
-                  value={Math.min(100, Math.round((daysLeft / SCHEDULE_CHANGE_REFUND_DAYS) * 100))}
-                />
-              </>
-            ) : (
-              <p className="text-body1-medium">전액 환불 기간이 지났어요</p>
-            )}
-            <p className="text-body2-regular text-text-secondary">
-              {[
-                changedAt ? `${formatRaceDate(changedAt)} 알림` : undefined,
-                `${formatRaceDate(lastDay)} 23:59까지 전액 환불돼요.`,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          </section>
+              ) : (
+                <p className="text-body1-bold">전액 환불 기간이 지났어요</p>
+              )}
+              <p className="text-body1-regular">
+                {formatRaceDate(lastDay)} 23:59까지 전액 환불돼요
+              </p>
+            </Box>
+          </Section>
         )}
 
-        <section className="flex flex-col gap-3 px-5 py-7">
-          <h3 className="text-body1-bold">내 참가권</h3>
-          <KeyValue label="종목" value={course?.name ?? ticket.itemName} />
-          {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
-          <div data-clarity-mask="true">
+        <Section title="내 참가권" mask>
+          <Box>
+            <KeyValue label="종목" value={course?.name ?? ticket.itemName} />
             <KeyValue label="참가자" value={participation?.participant?.name ?? '-'} />
-          </div>
-          <KeyValue label="결제 금액" value={amount} />
-          {refundable && <KeyValue label="환불받을 금액" value={`${amount} (예치금)`} />}
-        </section>
+            <KeyValue label="결제 금액" value={<span className="font-bold">{amount}</span>} />
+            {refundable && (
+              <KeyValue
+                label="환불받을 금액"
+                value={
+                  <>
+                    <span className="font-bold">{amount}</span>{' '}
+                    <span className="text-caption-regular text-text-secondary">예치금</span>
+                  </>
+                }
+              />
+            )}
+          </Box>
+        </Section>
 
         {cancel.isError && (
           <Alert
@@ -120,7 +121,7 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         secondary={
           refundable ? (
             <Button variant="secondary" size="l" onClick={() => router.replace('/tickets')}>
-              그대로 참가
+              그대로 참가하기
             </Button>
           ) : undefined
         }

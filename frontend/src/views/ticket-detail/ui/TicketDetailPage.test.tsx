@@ -62,8 +62,8 @@ describe('TicketDetailPage', () => {
     expect(screen.getByText('주문번호 OD-20261012-0001 · 11/1 (일) 08:00')).toBeInTheDocument()
     // v3 시안: 참가자 정보 상자 (줄마다 이름표 + 값)
     expect(screen.getByRole('heading', { name: '참가자 정보' })).toBeInTheDocument()
-    expect(screen.getByText('티셔츠 사이즈')).toBeInTheDocument()
-    expect(screen.getByText('L')).toBeInTheDocument()
+    expect(screen.getByText('키트 옵션')).toBeInTheDocument()
+    expect(screen.getByText('기념 티셔츠 L')).toBeInTheDocument()
     expect(screen.getByText('키트 배송지')).toBeInTheDocument()
     expect(screen.getByText('서울 성동구 왕십리로 00 101동 1001호')).toBeInTheDocument()
     expect(screen.getByText('비상 연락처')).toBeInTheDocument()
@@ -370,9 +370,7 @@ describe('RaceChangeNoticePage', () => {
     ).toBeInTheDocument()
     // 10/14 알림 → 1일째로 7일째인 10/20까지. 오늘(10/15) 기준 5일 남음
     expect(screen.getByText('5')).toBeInTheDocument()
-    expect(
-      screen.getByText('10/14 (수) 알림 · 10/20 (화) 23:59까지 전액 환불돼요.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('10/20 (화) 23:59까지 전액 환불돼요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '전액 환불받기' })).toBeInTheDocument()
   })
 })

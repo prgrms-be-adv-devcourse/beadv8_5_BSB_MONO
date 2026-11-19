@@ -116,8 +116,7 @@ async function fillAccount(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('예금주'), '김러너')
 }
 
-const submit = (amount = '65,000원') =>
-  screen.findByRole('button', { name: `${amount} 돌려받기 신청` })
+const submit = (amount = '65,000원') => screen.findByRole('button', { name: `${amount} 환급 신청` })
 
 describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
   beforeEach(() => {
@@ -142,9 +141,9 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     renderWithClient(<DepositRefundPage />)
 
     expect(await screen.findByText('65,000원')).toBeInTheDocument()
-    expect(
-      screen.getByText('2027-10-12까지 신청하면 60,000원은 카드로, 5,000원은 계좌로 돌아가요.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('카드로 돌아가는 금액')).toBeInTheDocument()
+    expect(screen.getByText('계좌로 받는 금액')).toBeInTheDocument()
+    expect(screen.getByText('2027-10-12까지')).toBeInTheDocument()
     const button = await submit()
     expect(button).toBeDisabled()
     await fillAccount(user)
@@ -160,6 +159,17 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/)
   })
 
+  it('계좌번호에 숫자와 -가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<DepositRefundPage />)
+
+    const account = await screen.findByLabelText('계좌번호')
+    await user.type(account, '12a')
+
+    expect(account).toHaveValue('12')
+    expect(screen.getAllByText('숫자와 -만 입력할 수 있어요').length).toBeGreaterThan(0)
+  })
+
   it('카드만: 계좌 입력 없이 바로 신청할 수 있고, 요청에 계좌 정보를 넣지 않는다', async () => {
     const bodies: WithdrawalBody[] = []
     server.use(
@@ -172,9 +182,9 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     const user = userEvent.setup()
     renderWithClient(<DepositRefundPage />)
 
-    expect(
-      await screen.findByText('2027-10-09까지 신청하면 65,000원 전부 결제한 카드로 돌아가요.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('2027-10-09까지')).toBeInTheDocument()
+    expect(screen.getByText('카드로 돌아가는 금액')).toBeInTheDocument()
+    expect(screen.queryByText('계좌로 받는 금액')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('계좌번호')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '환급 계좌' })).not.toBeInTheDocument()
     const button = await submit()
@@ -190,11 +200,12 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(saved).toMatchObject({ cardAmount: 65000, accountAmount: 0 })
   })
 
-  it('계좌만: 임시 문장을 보여 주고 계좌를 받는다', async () => {
+  it('계좌만: 계좌로 받는 금액만 보여 주고 계좌를 받는다', async () => {
     server.use(planHandler(ACCOUNT_ONLY))
     renderWithClient(<DepositRefundPage />)
 
-    expect(await screen.findByText('65,000원 전부 계좌로 돌아가요.')).toBeInTheDocument()
+    expect(await screen.findByText('계좌로 받는 금액')).toBeInTheDocument()
+    expect(screen.queryByText('카드로 돌아가는 금액')).not.toBeInTheDocument()
     expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
     expect(await submit()).toBeDisabled()
   })
@@ -212,10 +223,11 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('2025-09-01 충전 · 85,000원')).toBeInTheDocument()
     expect(screen.getByText('계좌로 · 카드 취소 기한(2026-08-31)이 지났어요')).toBeInTheDocument()
-    expect(screen.getByText('5,000원')).toBeInTheDocument()
+    // 위쪽 금액 줄에도 같은 금액이 있어 상세 줄까지 두 번 보인다
+    expect(screen.getAllByText('5,000원')).toHaveLength(2)
     expect(screen.getByText('2026-10-13 충전 · 60,000원')).toBeInTheDocument()
     expect(screen.getByText('결제한 카드로 · 카드 취소 2027-10-12까지')).toBeInTheDocument()
-    expect(screen.getByText('60,000원')).toBeInTheDocument()
+    expect(screen.getAllByText('60,000원')).toHaveLength(2)
 
     await user.click(toggle)
     expect(screen.queryByText('2025-09-01 충전 · 85,000원')).not.toBeInTheDocument()
@@ -225,25 +237,25 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     server.use(planHandler({ ...CARD_ONLY, earliestLastCancelableDate: null }))
     renderWithClient(<DepositRefundPage />)
 
-    expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
+    expect(await screen.findByText('환급받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /환급 신청/ })).toBeDisabled()
   })
 
   it('응답 모양이 계약과 다르면 안내를 보여 주고 신청을 막는다', async () => {
     server.use(planHandler({ ...MIXED, charges: [{ chargeId: 1, refundTo: 'CASH' }] }))
     renderWithClient(<DepositRefundPage />)
 
-    expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(await screen.findByText('환급받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
     expect(screen.queryByText('65,000원')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /환급 신청/ })).toBeDisabled()
   })
 
   it('카드 몫이 잔액보다 크게 오면 계약과 다른 응답으로 보고 신청을 막는다', async () => {
     server.use(planHandler({ ...MIXED, balance: 50000 }))
     renderWithClient(<DepositRefundPage />)
 
-    expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /돌려받기 신청/ })).toBeDisabled()
+    expect(await screen.findByText('환급받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /환급 신청/ })).toBeDisabled()
   })
 
   it('충전 건에 없는 잔액(판매자 정산 대금)도 계좌 몫에 넣는다: 계좌 몫 = 잔액 − 기한 안 충전의 남은 금액', async () => {
@@ -251,11 +263,8 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     server.use(planHandler({ ...MIXED, balance: 85000 }))
     renderWithClient(<DepositRefundPage />)
 
-    expect(
-      await screen.findByText(
-        '2027-10-12까지 신청하면 60,000원은 카드로, 25,000원은 계좌로 돌아가요.',
-      ),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('25,000원')).toBeInTheDocument()
+    expect(screen.getByText('60,000원')).toBeInTheDocument()
     expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
   })
 
@@ -263,7 +272,8 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     server.use(planHandler({ balance: 30000, earliestLastCancelableDate: null, charges: [] }))
     renderWithClient(<DepositRefundPage />)
 
-    expect(await screen.findByText('30,000원 전부 계좌로 돌아가요.')).toBeInTheDocument()
+    expect(await screen.findByText('계좌로 받는 금액')).toBeInTheDocument()
+    expect(screen.queryByText('카드로 돌아가는 금액')).not.toBeInTheDocument()
     expect(screen.getByLabelText('계좌번호')).toBeInTheDocument()
   })
 
@@ -300,7 +310,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByText('돌려받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(await screen.findByText('환급받을 금액을 불러오지 못했어요.')).toBeInTheDocument()
     expect(calls).toBe(1)
   })
 
@@ -550,7 +560,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     expect(keys[1]).not.toBe(keys[0])
   })
 
-  it('accountRequired와 함께 확인 중인 금액이 있으면 그 금액이 정해진 뒤 다시 신청하라고 알린다', async () => {
+  it('accountRequired와 함께 처리 중인 금액이 있으면 그 금액이 정해진 뒤 다시 신청하라고 알린다', async () => {
     server.use(
       planHandler(CARD_ONLY),
       http.post('*/api/v1/cash/withdrawals', () =>
@@ -628,7 +638,7 @@ describe('예치금 돌려받기 (M22, 환급 변경안 11/5)', () => {
     await user.click(await submit())
 
     expect(
-      await screen.findByText('처리 중인 환급이 끝난 뒤 다시 신청할 수 있어요.'),
+      await screen.findByText('처리 중인 환급이 끝나야 다시 신청할 수 있어요'),
     ).toBeInTheDocument()
     expect(screen.queryByText('잠시 뒤 다시 시도해 주세요.')).not.toBeInTheDocument()
     expect(replace).not.toHaveBeenCalledWith('/me/deposit/refund/done')
@@ -726,18 +736,16 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
       }),
     )
 
-  it('전부 계좌로 보냈으면 돌려받았다고 쓰고 가린 계좌 · 지금 예치금 · 일시를 보여 준다', () => {
+  it('전부 계좌로 보냈으면 환급받았다고 쓰고 가린 계좌 · 지금 예치금 · 일시를 보여 준다', () => {
     save({})
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(
-      screen.getByRole('heading', { name: '예치금 5,000원을 돌려받았어요' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('남은 예치금 전부를 아래 계좌로 보냈어요.')).toBeInTheDocument()
-    expect(screen.getByText('계좌로 보낸 금액')).toBeInTheDocument()
-    expect(screen.getByText('₩5,000')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '예치금을 환급받았어요' })).toBeInTheDocument()
+    expect(screen.queryByText('알아 두세요')).not.toBeInTheDocument()
+    expect(screen.getByText('환급 금액')).toBeInTheDocument()
+    expect(screen.getByText('5,000원')).toBeInTheDocument()
     expect(screen.getByText('국민은행 123456-**-***567')).toBeInTheDocument()
-    expect(screen.getByText('₩0')).toBeInTheDocument()
+    expect(screen.getByText('0원')).toBeInTheDocument()
     expect(screen.getByText('10/6 (화) 14:20')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '예치금 보기' })).toHaveAttribute('href', '/me/deposit')
   })
@@ -757,19 +765,19 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
       screen.getByRole('heading', { name: '예치금 130,000원 환급을 신청했어요' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(
-        '30,000원은 결제한 카드의 결제취소를 요청했어요. 카드사에 따라 반영까지 며칠 걸릴 수 있어요. 70,000원은 아래 계좌로 보냈어요. 20,000원은 아직 처리 중이에요. 끝나면 알림으로 알려 드려요.',
-      ),
+      screen.getByText('20,000원은 아직 처리 중이에요. 끝나면 알림으로 알려 드려요.'),
     ).toBeInTheDocument()
-    expect(screen.getByText('₩70,000')).toBeInTheDocument()
-    expect(screen.getByText('확인 중인 금액')).toBeInTheDocument()
-    expect(screen.getByText('₩20,000')).toBeInTheDocument()
+    expect(
+      screen.getByText('카드 결제취소는 카드사에 따라 며칠 걸릴 수 있어요.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('70,000원')).toBeInTheDocument()
+    expect(screen.getByText('처리 중인 금액')).toBeInTheDocument()
+    expect(screen.getByText('20,000원')).toBeInTheDocument()
     expect(screen.getByText('예치금으로 되돌린 금액')).toBeInTheDocument()
-    expect(screen.getAllByText('₩10,000')).toHaveLength(2)
-    expect(screen.queryByText('남은 예치금 전부를 아래 계좌로 보냈어요.')).not.toBeInTheDocument()
+    expect(screen.getAllByText('10,000원')).toHaveLength(2)
   })
 
-  it('카드로만 돌려받아 계좌가 없으면 0원인 금액 · 계좌 · 예금주 줄을 보여 주지 않는다', () => {
+  it('카드로만 환급받아 계좌가 없으면 0원인 금액 · 계좌 · 예금주 줄을 보여 주지 않는다', () => {
     save({
       amount: 65000,
       cardAmount: 65000,
@@ -784,18 +792,16 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
       screen.getByRole('heading', { name: '예치금 65,000원 환급을 신청했어요' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(
-        '65,000원 전부 결제한 카드의 결제취소를 요청했어요. 카드사에 따라 반영까지 며칠 걸릴 수 있어요.',
-      ),
+      screen.getByText('카드 결제취소는 카드사에 따라 며칠 걸릴 수 있어요.'),
     ).toBeInTheDocument()
     expect(screen.queryByText('계좌로 보낸 금액')).not.toBeInTheDocument()
-    expect(screen.queryByText('확인 중인 금액')).not.toBeInTheDocument()
+    expect(screen.queryByText('처리 중인 금액')).not.toBeInTheDocument()
     expect(screen.queryByText('예치금으로 되돌린 금액')).not.toBeInTheDocument()
     expect(screen.queryByText('받을 계좌')).not.toBeInTheDocument()
     expect(screen.queryByText('예금주')).not.toBeInTheDocument()
   })
 
-  it('카드 결제취소가 전부 거절돼 예치금으로 되돌아왔으면 돌려받았다고 쓰지 않는다', () => {
+  it('카드 결제취소가 전부 거절돼 예치금으로 되돌아왔으면 환급받았다고 쓰지 않는다', () => {
     save({
       amount: 65000,
       balance: 65000,
@@ -811,9 +817,14 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     expect(screen.queryByText('진행 단계')).not.toBeInTheDocument()
     expect(
       screen.getByText(
-        '일부 금액은 결제사 사정으로 카드 취소가 되지 않아 예치금으로 돌려드렸어요. 잠시 후 다시 신청해 주세요.',
+        '일부 금액은 결제사 사정으로 카드 취소가 되지 않아 예치금으로 돌려드렸어요.',
       ),
     ).toBeInTheDocument()
+    expect(screen.getByText('계좌 정보를 넣고 다시 신청해 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '계좌 넣고 다시 신청' })).toHaveAttribute(
+      'href',
+      '/me/deposit/refund',
+    )
   })
 
   it('일부라도 예치금으로 되돌아왔으면 환급 완료로 보이지 않는다', () => {
@@ -867,9 +878,7 @@ describe('예치금 돌려받기 · 환급 완료 (M22-1)', () => {
     save({})
     renderWithClient(<DepositRefundDonePage />)
 
-    expect(
-      screen.getByRole('heading', { name: '예치금 5,000원을 돌려받았어요' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '예치금을 환급받았어요' })).toBeInTheDocument()
     expect(
       screen.queryByText('입력하신 계좌로 보냈어요.', { exact: false }),
     ).not.toBeInTheDocument()

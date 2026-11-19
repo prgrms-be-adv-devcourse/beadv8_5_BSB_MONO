@@ -94,12 +94,12 @@ describe('RaceListPage', () => {
 
     await vi.waitFor(() => expect(sorts.at(-1)).toBe('PRICE'))
     await vi.waitFor(async () => expect(await titles()).toEqual(['싼 대회', '곧 마감 대회']))
-    expect(screen.getByText('대회 2개')).toBeInTheDocument()
+    expect(screen.getByText('접수 중인 대회 2')).toBeInTheDocument()
   })
 
-  it('개수 줄은 「대회 N개」이고, 목록 줄에 더보기 버튼은 없다 (v3)', async () => {
+  it('개수 줄은 「접수 중인 대회 N」이고, 목록 줄에 더보기 버튼은 없다 (v3)', async () => {
     renderPage()
-    expect(await screen.findByText(/^대회 \d+개$/)).toBeInTheDocument()
+    expect(await screen.findByText(/^접수 중인 대회 \d+$/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /더보기/ })).not.toBeInTheDocument()
   })
 

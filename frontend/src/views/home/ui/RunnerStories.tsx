@@ -16,7 +16,7 @@ export function RunnerStories() {
   if (posts.length === 0) return null
 
   return (
-    <section aria-labelledby="runner-stories" className="flex flex-col gap-3.5 px-4 pt-2 pb-7">
+    <section aria-labelledby="runner-stories" className="flex flex-col gap-4 px-4 pt-2 pb-6">
       <h2 id="runner-stories" className="text-title3">
         <Link href="/community" className={cn('flex items-center gap-1 rounded-sm', FOCUS_RING)}>
           러너 이야기

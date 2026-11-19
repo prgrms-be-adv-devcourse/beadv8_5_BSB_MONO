@@ -60,7 +60,13 @@ export function CommunityWritePage({ postId }: { postId?: number }) {
 
   if (auth !== 'authenticated')
     return (
-      <AppHeader type="sub" close title={editing ? '글 수정' : '글쓰기'} backHref="/community" />
+      <AppHeader
+        type="sub"
+        close
+        titleAlign="center"
+        title={editing ? '글 수정' : '글쓰기'}
+        backHref="/community"
+      />
     )
   return editing ? <EditLoader postId={postId} /> : <WriteForm />
 }
@@ -73,7 +79,7 @@ function EditLoader({ postId }: { postId: number }) {
   if (post.isPending || photos.isPending) {
     return (
       <>
-        <AppHeader type="sub" close title="글 수정" backHref={back} />
+        <AppHeader type="sub" close titleAlign="center" title="글 수정" backHref={back} />
         <main role="status" aria-label="글 불러오는 중" className="flex flex-col gap-3 p-4">
           <Skeleton className="w-16" />
           <Skeleton className="h-11 w-full" />
@@ -86,7 +92,7 @@ function EditLoader({ postId }: { postId: number }) {
   if (post.isError || !post.data.mine || post.data.status === 'HIDDEN') {
     return (
       <>
-        <AppHeader type="sub" close title="글 수정" backHref="/community" />
+        <AppHeader type="sub" close titleAlign="center" title="글 수정" backHref="/community" />
         <main className="flex flex-1 items-center justify-center px-4 pb-16">
           <EmptyState role="alert" icon="CircleAlert" title="고칠 수 없는 글이에요" />
         </main>
@@ -205,12 +211,13 @@ function WriteForm({
       <AppHeader
         type="sub"
         close
+        titleAlign="center"
         title={editing ? '글 수정' : '글쓰기'}
         backHref={editing ? (`/community/${postId}` as Route) : '/community'}
       />
-      <div className="flex flex-1 flex-col gap-7 px-5 pt-6 pb-6">
+      <div className="flex flex-1 flex-col gap-7 px-4 pt-4 pb-6">
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-body2-medium">말머리</legend>
+          <legend className="mb-3 text-body1-medium">말머리</legend>
           <Controller
             control={control}
             name="category"
@@ -230,22 +237,27 @@ function WriteForm({
           />
         </fieldset>
         <div className="flex flex-col gap-2">
-          <TextField label="제목" maxLength={TITLE_MAX} {...register('title')} />
-          <p className="text-right text-caption-regular text-text-tertiary">
+          <TextField label="제목" placeholder="제목" maxLength={TITLE_MAX} {...register('title')} />
+          <p className="text-right text-caption-regular text-text-secondary">
             {title.length}/{TITLE_MAX}
           </p>
         </div>
-        <Textarea
-          label="본문"
-          maxLength={CONTENT_MAX}
-          showCounter
-          // 고치기에서 글자 수 표시가 처음부터 맞도록 초기값을 알려 준다
-          defaultValue={initial?.content}
-          className="[&_textarea]:h-30"
-          {...register('content')}
-        />
+        <div className="flex flex-col gap-2">
+          <Textarea
+            label="본문"
+            placeholder="내용"
+            maxLength={CONTENT_MAX}
+            // 고치기에서 글자 수 표시가 처음부터 맞도록 초기값을 알려 준다
+            defaultValue={initial?.content}
+            className="[&_textarea]:h-30"
+            {...register('content')}
+          />
+          <p className="text-caption-regular text-text-secondary">
+            {content.length.toLocaleString('en-US')}/{CONTENT_MAX.toLocaleString('en-US')}
+          </p>
+        </div>
         <section aria-label="사진" className="flex flex-col gap-2">
-          <h2 className="text-body2-medium">사진</h2>
+          <h2 className="text-body1-medium">사진</h2>
           <ul className="flex flex-wrap gap-2">
             <li>
               <button

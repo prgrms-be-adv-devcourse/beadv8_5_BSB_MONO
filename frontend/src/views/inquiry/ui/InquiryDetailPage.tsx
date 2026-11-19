@@ -15,7 +15,7 @@ import {
   useMyInquiry,
   useRaceSellerName,
 } from '@/entities/inquiry'
-import { Button, buttonClassName, Dialog, Skeleton, useToast } from '@/shared/ui'
+import { BottomCta, Button, buttonClassName, Dialog, Skeleton, useToast } from '@/shared/ui'
 
 import { InquiryMeta } from './MyInquiriesPage'
 
@@ -67,34 +67,28 @@ export function InquiryDetailPage({ inquiryId }: { inquiryId: number }) {
         <p
           className={
             data.status === 'ANSWERED'
-              ? 'text-body2-medium text-text-success'
-              : 'text-body2-medium text-text-secondary'
+              ? 'text-body1-bold text-text-success'
+              : 'text-caption-regular text-text-secondary'
           }
         >
-          {data.status === 'WAITING' ? '답변 기다림' : status.label}
+          {status.label}
         </p>
-        <h2 className="text-title2">{data.title}</h2>
-        <p className="text-caption-regular text-text-tertiary">
+        <h2 className="text-title3">{data.title}</h2>
+        <p className="text-caption-regular text-text-secondary">
           <InquiryMeta inquiry={data} suffix={`${dotDateTime(data.createDate)} 보냄`} />
         </p>
-        <p className="text-body2-regular whitespace-pre-wrap text-text-secondary">{data.body}</p>
 
-        {data.status === 'WAITING' ? (
-          <div className="flex gap-2">
-            <Link
-              href={`/me/inquiries/${data.id}/edit`}
-              className={buttonClassName({ variant: 'ghost', size: 's' })}
-            >
-              고치기
-            </Link>
-            <Button variant="ghost" size="s" onClick={() => setConfirmOpen(true)}>
-              지우기
-            </Button>
-          </div>
-        ) : (
-          data.answer && (
-            <section className="mt-3 flex flex-col gap-2 rounded-lg bg-bg-brand-subtle p-4">
-              <h3 className="text-body2-medium text-text-brand">
+        <section className="mt-4 flex flex-col gap-3">
+          <h3 className="text-body1-bold">문의 내용</h3>
+          <p className="rounded-md border border-border-default p-4 text-body1-regular whitespace-pre-wrap shadow-sm">
+            {data.body}
+          </p>
+        </section>
+
+        {data.status === 'ANSWERED' && data.answer && (
+          <section className="mt-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-body1-bold">
                 {[
                   `${ASSIGNEE_ANSWERER[data.assignee]} 답변`,
                   data.assignee === 'SELLER' && sellerName,
@@ -102,25 +96,45 @@ export function InquiryDetailPage({ inquiryId }: { inquiryId: number }) {
                   .filter(Boolean)
                   .join(' · ')}
               </h3>
-              <p className="text-body2-regular whitespace-pre-wrap text-text-secondary">
-                {data.answer}
-              </p>
               {data.answeredAt && (
-                <p className="text-caption-regular text-text-tertiary">
+                <span className="shrink-0 text-caption-regular text-text-secondary">
                   {dotDateTime(data.answeredAt)} 답변
-                </p>
+                </span>
               )}
-            </section>
-          )
+            </div>
+            <p className="rounded-md border border-border-default p-4 text-body1-regular whitespace-pre-wrap shadow-sm">
+              {data.answer}
+            </p>
+          </section>
         )}
       </main>
+      {data.status === 'WAITING' && (
+        <BottomCta
+          className="sticky bottom-0 z-10 border-t border-border-default"
+          secondary={
+            <Button
+              variant="ghost"
+              size="l"
+              className="text-text-danger"
+              onClick={() => setConfirmOpen(true)}
+            >
+              삭제하기
+            </Button>
+          }
+          primary={
+            <Link href={`/me/inquiries/${data.id}/edit`} className={buttonClassName({ size: 'l' })}>
+              수정하기
+            </Link>
+          }
+        />
+      )}
       <Dialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         type="danger"
-        title="문의를 지울까요?"
-        body="지운 문의는 되돌릴 수 없어요."
-        confirmLabel="지우기"
+        title="문의를 삭제할까요?"
+        body="삭제한 문의는 되돌릴 수 없어요."
+        confirmLabel="삭제하기"
         confirming={remove.isPending}
         onConfirm={onDelete}
       />

@@ -89,7 +89,9 @@ export function PartyJoinPage({ token }: { token: string }) {
 
   let body
   if (failure && failure !== 'INDIVIDUAL_EXISTS') {
-    body = <PartyFailureScreen copy={JOIN_FAILURE[failure]} crewId={data?.crewId} />
+    body = (
+      <PartyFailureScreen copy={JOIN_FAILURE[failure]} crewId={data?.crewId} partyId={data?.id} />
+    )
   } else if (preview.isPending || (race.isPending && !race.isError)) {
     body = (
       <div className="flex flex-col gap-4 p-4" aria-busy>
@@ -106,8 +108,8 @@ export function PartyJoinPage({ token }: { token: string }) {
     body = (
       <>
         <section className="flex flex-col gap-1 bg-bg-surface px-4 py-6">
-          <h2 className="text-title1">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
-          <p className="text-body2-regular text-text-secondary">
+          <h2 className="text-title2">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
+          <p className="text-caption-regular text-text-secondary">
             {[
               crew.data && `${crew.data.name} 크루`,
               course?.name,
@@ -126,7 +128,6 @@ export function PartyJoinPage({ token }: { token: string }) {
         >
           <Alert
             title={`이 링크로 ${formatKstDateTime(data.joinTokenExpiresAt)}까지 합류할 수 있어요`}
-            description="파티장이 링크를 새로 만들면 이 링크는 더 쓸 수 없어요."
           />
           {serverMessage && <Alert tone="danger" title={serverMessage} />}
           <ParticipantFields
@@ -162,6 +163,7 @@ export function PartyJoinPage({ token }: { token: string }) {
       {individualId !== undefined && (
         <IndividualExistsDialog
           participationId={individualId}
+          purpose="join"
           onClose={() => setIndividualId(undefined)}
           onCanceled={() => {
             setIndividualId(undefined)

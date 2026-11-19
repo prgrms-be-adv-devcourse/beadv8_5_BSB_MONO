@@ -16,20 +16,40 @@ export function AuthIntro({ title, size = 'm' }: { title: string; size?: 's' | '
 }
 
 // 가입 단계 제목 (왼쪽 정렬)
-export function StepIntro({ title, description }: { title: string; description?: string }) {
+export function StepIntro({
+  title,
+  description,
+  compact = false,
+}: {
+  title: string
+  description?: string
+  /** 아래에 입력 칸이 바로 이어지는 소제목이면 아래 여백을 줄인다 */
+  compact?: boolean
+}) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', !compact && 'pb-8')}>
       <h2 className="text-title2 whitespace-pre-line">{title}</h2>
       {description && <p className="text-body2-regular text-text-tertiary">{description}</p>}
     </div>
   )
 }
 
-// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (옆 20 · 위 24, 묶음 사이 28)
-export function CenterBody({ children, center = true }: { children: ReactNode; center?: boolean }) {
+// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (옆 16 · 위 24 또는 32, 묶음 사이 12)
+export function CenterBody({
+  children,
+  center = true,
+  top = 6,
+}: {
+  children: ReactNode
+  center?: boolean
+  /** 위 여백. 가입 단계는 8(32), 계정 찾기는 6(24) */
+  top?: 6 | 8
+}) {
   return (
     <main className={center ? 'flex flex-1 flex-col justify-center' : 'flex flex-1 flex-col'}>
-      <div className="flex flex-col gap-7 px-5 pt-6 pb-6">{children}</div>
+      <div className={cn('flex flex-col gap-3 px-4 pb-6', top === 8 ? 'pt-8' : 'pt-6')}>
+        {children}
+      </div>
     </main>
   )
 }
@@ -41,7 +61,7 @@ export function AccountTabs({ current }: { current: 'email' | 'password' }) {
     { key: 'password', href: '/password-reset', label: '비밀번호 찾기' },
   ] as const
   return (
-    <nav aria-label="계정 찾기" className="flex border-b border-border-default bg-bg-surface">
+    <nav aria-label="계정 찾기" className="flex bg-bg-surface">
       {tabs.map((tab) => (
         <Link
           key={tab.key}
@@ -98,47 +118,57 @@ export function LineField({
 }) {
   const messageId = useId()
   return (
-    <div className="flex flex-col gap-2">
-      <div
-        className={cn(
-          'flex items-center gap-2 rounded-field bg-bg-surface px-4 inset-ring',
-          error ? 'inset-ring-2 inset-ring-border-danger' : 'inset-ring-border-default',
-        )}
-      >
-        <input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={messageId}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <div
           className={cn(
-            'min-w-0 flex-1 bg-transparent py-3 text-body1-regular outline-none placeholder:text-text-tertiary',
-            className,
+            'flex items-center gap-2 border-b-2 pb-3',
+            error ? 'border-border-danger' : 'border-text-primary',
           )}
-          {...props}
-        />
-        {onClear && (
-          <IconButton size="s" variant="secondary" aria-label="지우기" onClick={onClear}>
-            <Icon name="X" />
-          </IconButton>
-        )}
-      </div>
-      <div id={messageId} className="flex flex-col gap-1">
-        {error && (
-          <p role="alert" className="text-caption-regular text-text-danger">
-            {error}
-          </p>
-        )}
-        {hints?.map((hint) => (
-          <p
-            key={hint.text}
+        >
+          <input
+            aria-invalid={error ? true : undefined}
+            aria-describedby={messageId}
             className={cn(
-              'flex items-center gap-1 text-caption-regular',
-              hint.ok ? 'text-text-success' : 'text-text-tertiary',
+              'min-w-0 flex-1 bg-transparent text-title3 outline-none placeholder:text-text-tertiary',
+              className,
             )}
-          >
-            <Icon name="Check" className="size-4" />
-            {hint.text}
-          </p>
-        ))}
+            {...props}
+          />
+          {onClear && (
+            <button
+              type="button"
+              aria-label="지우기"
+              onClick={onClear}
+              className={cn(
+                'flex size-5 shrink-0 items-center justify-center rounded-full bg-text-tertiary text-text-on-brand',
+                FOCUS_RING,
+              )}
+            >
+              <Icon name="X" className="size-3" />
+            </button>
+          )}
+        </div>
+        <div id={messageId}>
+          {error && (
+            <p role="alert" className="text-caption-regular text-text-danger">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
+      {hints?.map((hint) => (
+        <p
+          key={hint.text}
+          className={cn(
+            'flex items-center gap-1 text-caption-medium',
+            hint.ok ? 'text-text-success' : 'text-text-tertiary',
+          )}
+        >
+          <Icon name="Check" className="size-4" />
+          {hint.text}
+        </p>
+      ))}
     </div>
   )
 }
@@ -155,12 +185,12 @@ export function StatusScreen({
 }) {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-      <span className="flex size-16 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
+      <span className="flex size-18 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
         <Icon name={icon} className="size-6" />
       </span>
       <div className="flex flex-col gap-1">
-        <h2 className="text-title3">{title}</h2>
-        {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
+        <h2 className="text-title2">{title}</h2>
+        {description && <p className="text-caption-regular text-text-secondary">{description}</p>}
       </div>
     </main>
   )

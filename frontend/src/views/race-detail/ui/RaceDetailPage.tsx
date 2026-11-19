@@ -9,18 +9,15 @@ import { AppHeader } from '@/widgets/app-header'
 import { RaceShareSheet } from '@/widgets/race-share-sheet'
 import { useAuthStatus } from '@/features/auth'
 import { useMyRaceStatus } from '@/entities/party'
-import { formatRaceDateTime, RacePoster, type RaceDetail, type RaceOption } from '@/entities/race'
-import { cn, formatNumber, useTrackOnce } from '@/shared/lib'
 import {
-  Alert,
-  Badge,
-  buttonClassName,
-  FOCUS_RING,
-  Icon,
-  IconButton,
-  KeyValue,
-  Section,
-} from '@/shared/ui'
+  formatRaceDateTime,
+  parseKstDateTime,
+  RacePoster,
+  type RaceDetail,
+  type RaceOption,
+} from '@/entities/race'
+import { cn, formatNumber, useNow, useTrackOnce } from '@/shared/lib'
+import { Badge, buttonClassName, FOCUS_RING, Icon, IconButton, Section } from '@/shared/ui'
 
 import { ApplyCta } from './ApplyCta'
 import { SimilarRaces } from './SimilarRaces'
@@ -94,7 +91,7 @@ export function RaceDetailPage({
           </IconButton>
         }
       />
-      <main className="flex flex-1 flex-col bg-bg-surface">
+      <main className="flex flex-1 flex-col bg-bg-surface pt-2">
         <div className="bg-bg-surface">
           <div className="relative h-84 overflow-hidden">
             {race.images[0] ? (
@@ -116,43 +113,27 @@ export function RaceDetailPage({
             )}
           </div>
 
-          <div className="flex flex-col gap-3 px-4 py-5">
-            <h2 className="text-title1">{race.title}</h2>
-            <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
+          <div className="flex flex-col gap-3 px-4 py-4">
+            <h2 className="text-title2">{race.title}</h2>
+            <p className="flex items-center gap-2 text-caption-regular text-text-secondary">
               <Icon name="Calendar" className="size-4" />
               {race.startsAt}
             </p>
-            <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
+            <p className="flex items-center gap-2 text-caption-regular text-text-secondary">
               <Icon name="MapPin" className="size-4" />
               {race.place}
             </p>
-            <p className="flex items-center gap-2 text-body2-regular text-text-secondary">
+            <p className="flex items-center gap-2 text-caption-regular text-text-secondary">
               <Icon name="Users" className="size-4" />
               {capacityLine(race.dDay, race.capacity)}
             </p>
             <p className="flex items-baseline gap-2">
               <span className="text-title2">{formatPrice(minPrice)}</span>
-              <span className="text-body2-regular text-text-secondary">부터</span>
+              <span className="text-caption-regular text-text-secondary">부터</span>
             </p>
           </div>
         </div>
 
-        {(alreadyApplied || joinedAsMember) && (
-          <div className="bg-bg-surface px-4 py-4">
-            <Alert
-              title={alreadyApplied ? '이 대회에 이미 신청했어요' : '파티로 신청 중인 대회예요'}
-              description={
-                <>
-                  한 사람은 한 대회에 1건만 가질 수 있어요.
-                  <br />
-                  {alreadyApplied
-                    ? '내 참가 대회에서 확인해 주세요.'
-                    : '개인으로 나가려면 파티에서 먼저 나가 주세요.'}
-                </>
-              }
-            />
-          </div>
-        )}
         {inParty && !joinedAsMember && !alreadyApplied && (
           <p className="bg-bg-surface px-4 pb-4">
             <Badge>
@@ -162,7 +143,11 @@ export function RaceDetailPage({
           </p>
         )}
 
-        <div className="sticky top-(--layout-header-height) z-[5] bg-bg-surface px-5 py-2">
+        {race.crew && (
+          <CrewSummary crew={race.crew} saleOpen={race.schedule[0]?.value.split(' ~ ')[0]} />
+        )}
+
+        <div className="sticky top-(--layout-header-height) z-[5] bg-bg-surface px-4 py-2">
           <nav aria-label="대회 상세 바로 가기" className="flex border-b border-border-default">
             {anchors.map((item) => (
               <a
@@ -186,7 +171,7 @@ export function RaceDetailPage({
           </nav>
         </div>
 
-        <Section title="종목 선택" className="scroll-mt-32 pt-7 pb-5">
+        <Section title="종목 선택" className="scroll-mt-32 pt-6 pb-4">
           <div id="race-options" className="flex flex-col gap-3">
             {race.options.map((option) => (
               <OptionCard
@@ -199,16 +184,16 @@ export function RaceDetailPage({
           </div>
         </Section>
 
-        <div className="flex flex-col px-4 pt-5 pb-2">
+        <div className="flex flex-col px-4 pt-4 pb-2">
           <InfoRow id="race-schedule" label="접수">
-            <p className="text-body2-medium text-text-primary">{race.schedule[0]?.value ?? '-'}</p>
-            <p className="text-body2-regular text-text-secondary">
+            <p className="text-body1-medium text-text-primary">{race.schedule[0]?.value ?? '-'}</p>
+            <p className="text-body1-regular text-text-secondary">
               정보 수정은 {race.infoEditDeadline}까지
             </p>
           </InfoRow>
           <InfoRow id="race-refund" label="취소·환불" divided>
             <div className="flex flex-col gap-2">
-              <p className="text-body2-medium text-text-primary">
+              <p className="text-body1-medium text-text-primary">
                 환불은 <b className="font-bold">예치금</b>으로 돌려드려요
               </p>
               {refundDeadline !== '-' && (
@@ -226,35 +211,19 @@ export function RaceDetailPage({
             </div>
           </InfoRow>
           <InfoRow label="키트 배송" divided>
-            <p className="text-body2-regular text-text-primary">
+            <p className="text-body1-regular text-text-primary">
               <b className="font-bold">환불 기한이 지난 뒤</b> 배송을 시작해요
             </p>
           </InfoRow>
           <InfoRow label="양도" divided>
-            <p className="text-body2-regular text-text-primary">
+            <p className="text-body1-regular text-text-primary">
               참가권은 다른 사람에게 <b className="font-bold text-text-danger">양도할 수 없어요</b>
             </p>
           </InfoRow>
         </div>
 
-        {race.crew && (
-          <Section title="크루원과 함께 신청하려면">
-            <div className="flex flex-col gap-4">
-              {race.crew.endAt && (
-                <KeyValue label="크루 전용 자리 마감" value={formatRaceDateTime(race.crew.endAt)} />
-              )}
-              {race.crew.minCount !== undefined && (
-                <KeyValue
-                  label="파티 인원"
-                  value={`${race.crew.minCount}명 ~ ${race.crew.maxCount ?? race.crew.minCount}명`}
-                />
-              )}
-            </div>
-          </Section>
-        )}
-
         {hasInfo && (
-          <Section title="상세 정보" className="scroll-mt-32 pt-7 pb-5">
+          <Section title="상세 정보" className="scroll-mt-32 pt-6 pb-4">
             <div id="race-info" className="flex flex-col gap-3">
               {race.description && (
                 <p className="text-body2-regular whitespace-pre-line">{race.description}</p>
@@ -275,7 +244,7 @@ export function RaceDetailPage({
         )}
 
         {race.faq.length > 0 && (
-          <Section title="자주 묻는 질문" className="pt-7 pb-5">
+          <Section title="자주 묻는 질문" className="pt-6 pb-4">
             <FaqList items={race.faq} />
           </Section>
         )}
@@ -285,14 +254,14 @@ export function RaceDetailPage({
         <Section title="문의">
           <Link
             href={`/me/inquiries/new?raceId=${race.id}` as Route}
-            className={buttonClassName({ variant: 'secondary' })}
+            className={buttonClassName({ variant: 'ghost' })}
           >
             이 대회에 문의하기
           </Link>
         </Section>
 
-        <section className="flex flex-col gap-2 bg-bg-surface px-4 pt-7 pb-5">
-          <p className="text-body2-medium">{race.seller.name}</p>
+        <section className="flex flex-col gap-2 bg-bg-surface px-4 pt-6 pb-4">
+          <p className="text-body1-medium">{race.seller.name}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.businessNo}</p>
           <p className="text-caption-regular text-text-tertiary">{race.seller.mailOrderNo}</p>
         </section>
@@ -311,6 +280,47 @@ export function RaceDetailPage({
         url={`${typeof window === 'undefined' ? '' : window.location.origin}/races/${race.id}`}
       />
     </>
+  )
+}
+
+// 피그마 대회 상세(크루 전용 자리): 요약 아래 테두리 카드. 크루 선예매 · 일반 판매 오픈 · 파티 인원
+function CrewSummary({
+  crew,
+  saleOpen,
+}: {
+  crew: NonNullable<RaceDetail['crew']>
+  saleOpen?: string
+}) {
+  const now = useNow()
+  const active =
+    !!now &&
+    (!crew.startAt || now >= parseKstDateTime(crew.startAt)) &&
+    (!crew.endAt || now < parseKstDateTime(crew.endAt))
+  return (
+    <div className="px-4 pb-4">
+      <dl className="flex flex-col gap-3 rounded-lg border border-border-default bg-bg-surface p-4 shadow-sm">
+        {crew.endAt && (
+          <CrewRow label="크루 선예매">
+            <span className={active ? 'text-text-brand' : undefined}>
+              {formatRaceDateTime(crew.endAt)} 마감{active && ' · 진행 중'}
+            </span>
+          </CrewRow>
+        )}
+        {saleOpen && <CrewRow label="일반 판매 오픈">{saleOpen}</CrewRow>}
+        {crew.minCount !== undefined && (
+          <CrewRow label="파티 인원">{`${crew.minCount}명 ~ ${crew.maxCount ?? crew.minCount}명`}</CrewRow>
+        )}
+      </dl>
+    </div>
+  )
+}
+
+function CrewRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-4 text-body1-regular">
+      <dt className="w-24 shrink-0 text-text-secondary">{label}</dt>
+      <dd className="min-w-0 flex-1 text-text-primary">{children}</dd>
+    </div>
   )
 }
 
@@ -342,14 +352,14 @@ function OptionCard({
           {option.name}
           {option.soldOut && <span className="text-text-tertiary"> · 정원 마감</span>}
         </span>
-        <span className="text-body2-regular text-text-secondary">{option.includes}</span>
+        <span className="text-body1-regular text-text-secondary">{option.includes}</span>
       </span>
       <span className="text-body1-bold text-text-primary">{formatPrice(option.price)}</span>
     </button>
   )
 }
 
-// 접수 · 취소 안내의 한 줄: 왼쪽 이름 칸 72, 오른쪽 내용
+// 접수 · 취소 안내의 한 줄: 왼쪽 이름 칸 84, 오른쪽 내용
 function InfoRow({
   id,
   label,
@@ -364,9 +374,9 @@ function InfoRow({
   return (
     <div
       id={id}
-      className={cn('flex scroll-mt-32 gap-3 py-4', divided && 'border-t border-border-default')}
+      className={cn('flex scroll-mt-32 gap-4 py-4', divided && 'border-t border-border-default')}
     >
-      <p className="w-18 shrink-0 text-body2-regular text-text-secondary">{label}</p>
+      <p className="w-21 shrink-0 text-body1-regular text-text-secondary">{label}</p>
       <div className="flex min-w-0 flex-1 flex-col gap-1">{children}</div>
     </div>
   )
@@ -376,7 +386,7 @@ function RefundBox({ description, children }: { description: string; children: R
   return (
     <div className="flex flex-col gap-0.5 rounded-sm border border-border-default px-4 py-3">
       <p className="text-body1-bold text-text-primary">{children}</p>
-      <p className="text-body2-regular text-text-primary">{description}</p>
+      <p className="text-body1-regular text-text-primary">{description}</p>
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
   BottomCta,
   Button,
   buttonClassName,
+  digitsOnly,
   Divider,
   KeyValue,
   PhoneField,
@@ -143,15 +144,24 @@ function ParticipantForm({
           <Section
             title="참가자 정보"
             aside={
-              <Link href="/me/edit" className={buttonClassName({ variant: 'ghost', size: 's' })}>
-                회원 정보에서 바꾸기
+              <Link
+                href="/me/edit"
+                aria-label="회원 정보에서 바꾸기"
+                className={buttonClassName({ variant: 'ghost', size: 's' })}
+              >
+                변경
               </Link>
             }
           >
             {/* 이름 · 생년월일은 Clarity 화면 녹화에서 가린다 */}
             <div className="flex flex-col gap-2" data-clarity-mask="true">
-              <KeyValue label="이름" value={participant.name ?? '-'} />
               <KeyValue
+                label="이름"
+                value={participant.name ?? '-'}
+                className="[&>span:first-child]:w-22"
+              />
+              <KeyValue
+                className="[&>span:first-child]:w-22"
                 label="생년월일"
                 value={participant.birth ? participant.birth.replaceAll('-', '.') : '-'}
               />
@@ -216,6 +226,7 @@ function ParticipantForm({
               <TextField
                 label="우편번호"
                 inputMode="numeric"
+                filter={digitsOnly}
                 readOnly={!manualAddress}
                 error={errors.zipcode?.message}
                 {...register('zipcode')}

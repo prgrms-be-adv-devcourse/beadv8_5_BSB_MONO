@@ -10,6 +10,7 @@ import {
   installPostcodeFake,
   memberMock,
   pickDate,
+  postcodeFake,
   productMock,
   server,
 } from '@/shared/testing'
@@ -112,8 +113,8 @@ describe('파티 상세', () => {
     const cta = await screen.findByRole('link', { name: '파티 참가하기' })
     expect(cta).toHaveClass('bg-bg-brand-disabled')
     expect(cta).not.toHaveClass('opacity-40')
-    // v3: 고정 영역 위 회색 선은 없다
-    expect(cta.closest('div.border-t')).toBeNull()
+    // v4: 고정 영역 위에 회색 선이 있다
+    expect(cta.closest('div.border-t')).not.toBeNull()
     expect(cta.closest('div.bg-bg-surface')).not.toBeNull()
   })
 
@@ -156,7 +157,7 @@ describe('파티 상세', () => {
 
   it('없는 파티면 불러오지 못했다는 화면을 보여 준다', async () => {
     renderPage(<PartyDetailPage partyId={404} />)
-    expect(await screen.findByText('파티 정보를 불러오지 못했어요')).toBeInTheDocument()
+    expect(await screen.findByText('파티를 불러오지 못했어요')).toBeInTheDocument()
   })
 
   it('파티 나가기는 머리글 ⋮ 메뉴에서 열고, 확인하면 크루 홈으로 간다', async () => {
@@ -164,7 +165,8 @@ describe('파티 상세', () => {
     renderPage(<PartyDetailPage partyId={1} />)
     await user.click(await screen.findByRole('button', { name: '더보기' }))
     await user.click(await screen.findByRole('menuitem', { name: '파티 나가기' }))
-    await user.click(await screen.findByRole('button', { name: '나가기' }))
+    expect(await screen.findByText('파티장을 넘기고 나갈까요?')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '넘기고 나가기' }))
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/7'))
   })
 
@@ -385,6 +387,38 @@ describe('파티 상세 · 친구 초대 다시 만들기', () => {
     )
   })
 
+  it('초대 링크 기간이 끝났으면 카드에 끝난 시각과 새 초대 링크 만들기를 보이고 참가하기는 막는다', async () => {
+    server.use(
+      http.get('*/api/v1/order/parties/1', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '성공',
+          data: {
+            id: 1,
+            crewId: 7,
+            raceId: 100,
+            raceCourseId: 2,
+            leaderMemberId: 1,
+            status: 'RECRUITING',
+            paymentDueAt: null,
+            joinToken: 'old',
+            joinTokenExpiresAt: '2026-01-01T09:30:00',
+            memberCount: 4,
+            paidCount: 0,
+            members: [],
+          },
+        }),
+      ),
+    )
+    renderPage(<PartyDetailPage partyId={1} />)
+    expect(await screen.findByText(/에 끝났어요/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '새 초대 링크 만들기' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '파티 참가하기' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  })
+
   it('복사에 실패한 뒤 다시 눌러도 초대 링크를 새로 만들지 않는다', async () => {
     const created = vi.fn()
     server.use(leaderCrew, invited(created))
@@ -416,8 +450,8 @@ describe('파티 상세 · 친구 초대 다시 만들기', () => {
 
 describe('파티 합류', () => {
   it.each([
-    ['expired', '참가 링크 기간이 끝났어요'],
-    ['notfound', '참가 링크를 찾을 수 없어요'],
+    ['expired', '링크 기간이 끝났어요'],
+    ['notfound', '링크를 찾을 수 없어요'],
     ['closed', '모집이 끝난 파티예요'],
   ])('링크 %s는 합류 대신 이유를 보여 준다', async (token, title) => {
     renderPage(<PartyJoinPage token={token} />)
@@ -426,7 +460,7 @@ describe('파티 합류', () => {
 
   it('막힌 화면은 이유와 홈으로 가는 버튼을 보여 준다', async () => {
     renderPage(<PartyJoinPage token="notfound" />)
-    expect(await screen.findByText('참가 링크를 찾을 수 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('링크를 찾을 수 없어요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '홈으로 가기' })).toHaveAttribute('href', '/')
   })
 
@@ -479,7 +513,7 @@ describe('파티 합류', () => {
     const user = userEvent.setup()
     renderPage(<PartyJoinPage token="ok" />)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('파티 정보를 불러오지 못했어요')
+    expect(await screen.findByRole('alert')).toHaveTextContent('파티를 불러오지 못했어요')
     expect(screen.getByRole('button', { name: '합류하기' })).toBeDisabled()
     failing = false
     await user.click(screen.getByRole('button', { name: '다시 불러오기' }))
@@ -786,6 +820,21 @@ describe('파티 · 키트 배송지', () => {
       for (const field of [zipcode, detail, screen.getByLabelText('키트 배송 주소')]) {
         expect(field.closest('[data-clarity-mask="true"]')).not.toBeNull()
       }
+    })
+
+    it('주소 검색을 못 쓰면 우편번호 칸이 숫자만 받고, 막힌 글자를 치면 이유를 보여 준다', async () => {
+      server.use(raceWith(kitCourse))
+      postcodeFake.failLoad = true
+      const user = userEvent.setup()
+      renderPage(<PartyJoinPage token="ok" />)
+
+      await user.click(await screen.findByRole('button', { name: '주소 검색' }))
+      const zipcode = await screen.findByLabelText('키트 배송 우편번호')
+      await waitFor(() => expect(zipcode).not.toHaveAttribute('readonly'))
+      await user.type(zipcode, 'a')
+
+      expect(zipcode).toHaveValue('')
+      expect(await screen.findAllByText('숫자만 입력할 수 있어요')).not.toHaveLength(0)
     })
 
     it('키트가 없는 종목이면 배송지 칸을 보이지 않고 보내지도 않는다', async () => {

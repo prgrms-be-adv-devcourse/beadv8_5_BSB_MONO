@@ -11,7 +11,7 @@ export function NotificationSettingsPage() {
       <AppHeader type="sub" title="알림 설정" backHref="/me/settings" />
       <main className="flex flex-1 flex-col pb-6">
         <section className="flex flex-col px-4 pt-6">
-          <h2 className="pb-1 text-caption-regular text-text-brand">알림 종류</h2>
+          <h2 className="pb-1 text-caption-medium text-text-secondary">알림 종류</h2>
           <SwitchRow label="대회 소식" defaultChecked />
           <SwitchRow
             label="결제 · 예치금"
@@ -22,7 +22,7 @@ export function NotificationSettingsPage() {
           <SwitchRow label="크루 소식" defaultChecked />
         </section>
         <section className="flex flex-col px-4 pt-6">
-          <h2 className="pb-1 text-caption-regular text-text-brand">광고</h2>
+          <h2 className="pb-1 text-caption-medium text-text-secondary">광고</h2>
           <SwitchRow label="마케팅 정보 받기" defaultChecked />
           <SwitchRow label="밤 9시~아침 8시 광고 받기" />
         </section>
@@ -43,7 +43,7 @@ function SwitchRow({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border-default py-4 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 py-4">
       <div className="flex flex-col gap-0.5">
         <span className="text-body1-medium">{label}</span>
         {description && (

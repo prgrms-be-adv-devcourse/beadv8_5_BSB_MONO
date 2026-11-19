@@ -15,7 +15,7 @@ import {
 import { useMyBalance } from '@/entities/wallet'
 import { cashApi } from '@/shared/api'
 import { useGoBack } from '@/shared/lib'
-import { Alert, BottomCta, Button, Dialog, KeyValue } from '@/shared/ui'
+import { Alert, BottomCta, Button, Dialog, KeyValue, NUMERIC_NOTICE } from '@/shared/ui'
 
 const STEPS = [10_000, 50_000, 100_000]
 const won = (n: number) => n.toLocaleString('ko-KR')
@@ -29,6 +29,8 @@ export function DepositChargePage() {
   const queryClient = useQueryClient()
   const goBack = useGoBack()
   const [amount, setAmount] = useState(MIN_CHARGE)
+  // 숫자가 아닌 글자를 쳐서 막았으면 이유를 칸 아래에 보여 준다 (쉼표는 보이는 값에 있어 허용)
+  const [blocked, setBlocked] = useState(false)
   const [charging, setCharging] = useState(false)
   const [failed, setFailed] = useState(false)
   const [held, setHeld] = useState(false)
@@ -82,7 +84,7 @@ export function DepositChargePage() {
   return (
     <>
       <AppHeader type="sub" title="예치금 충전" />
-      <main className="flex flex-1 flex-col gap-7 px-5 pt-6 pb-6">
+      <main className="flex flex-1 flex-col gap-10 px-4 pt-6 pb-6">
         {/* 결제창을 띄우지 못했을 때. 시안에 문구가 없어 결제 실패(M07-3) 문구를 쓴다 */}
         {failed && (
           <Alert
@@ -93,7 +95,7 @@ export function DepositChargePage() {
         )}
         {held && <ChargeHeldAlert />}
         <section className="flex flex-col gap-4">
-          <label htmlFor="charge-amount" className="text-body2-medium">
+          <label htmlFor="charge-amount" className="text-caption-regular text-text-tertiary">
             충전할 금액
           </label>
           <div className="flex items-baseline justify-end gap-1 border-b-2 border-text-primary px-1 py-3">
@@ -101,11 +103,19 @@ export function DepositChargePage() {
               id="charge-amount"
               inputMode="numeric"
               value={won(amount)}
-              onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
+              onChange={(e) => {
+                setBlocked(/[^\d,]/.test(e.target.value))
+                setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)
+              }}
               className="w-full bg-transparent text-right font-display text-number-s outline-none"
             />
             <span className="text-body2-medium">원</span>
           </div>
+          {blocked && (
+            <p role="alert" className="text-caption-regular text-text-danger">
+              {NUMERIC_NOTICE}
+            </p>
+          )}
           {limitMessage && (
             <p className="text-caption-regular text-text-tertiary">{limitMessage}</p>
           )}
@@ -121,21 +131,26 @@ export function DepositChargePage() {
               </Button>
             ))}
           </div>
-          <div className="flex flex-col gap-2 pt-4">
-            <KeyValue
-              label="지금 예치금"
-              value={balance === undefined ? '-' : `${won(balance)}원`}
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-body2-regular text-text-tertiary">충전 후 예치금</span>
-              <span className="text-body2-bold">
+        </section>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-title3">충전 정보</h2>
+          <div className="flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4">
+            <div className="flex items-center justify-between text-caption-regular text-text-tertiary">
+              <span>지금 예치금</span>
+              <span>{balance === undefined ? '-' : `${won(balance)}원`}</span>
+            </div>
+            <div className="flex items-center justify-between text-body1-regular">
+              <span className="text-text-tertiary">충전 후 예치금</span>
+              <span className="text-body1-bold">
                 {balance === undefined ? '-' : `${won(balance + amount)}원`}
               </span>
             </div>
+            <KeyValue
+              label="충전 방법"
+              value="토스페이먼츠 (카드 · 계좌이체)"
+              className="[&>span:first-child]:w-22"
+            />
           </div>
-        </section>
-        <section>
-          <KeyValue label="충전 방법" value="토스페이먼츠 (카드 · 계좌이체)" />
         </section>
       </main>
       {/* 서버가 확정 전에 거절한 충전(일일 · 보유 한도, 잦은 시도 등)과 카드 승인 거절. 카드에서 돈은 빠지지 않았다 */}

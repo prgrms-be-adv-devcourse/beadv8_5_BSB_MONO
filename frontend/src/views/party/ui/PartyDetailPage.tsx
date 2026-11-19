@@ -95,11 +95,7 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
       />
       <main className="flex flex-1 flex-col bg-bg-surface">
         {party.isPending ? (
-          <div className="flex flex-col gap-4 p-4" aria-busy>
-            <Skeleton className="h-8 w-2/3" />
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-24 w-full" />
-          </div>
+          <PartyDetailSkeleton />
         ) : data ? (
           <PartyDetailBody party={data} leaveOpen={leaveOpen} onLeaveOpenChange={setLeaveOpen} />
         ) : (
@@ -229,7 +225,6 @@ function PartyDetailBody({
       }
     }
     if (!isLeader) return { title: '파티장이 파티 참가하기를 누르면 결제할 수 있어요' }
-    if (!linkAlive) return { title: '참가 링크 기간이 끝났어요' }
     const rest = min - party.memberCount
     return { title: rest > 0 ? `${rest}명 더 모이면 참가할 수 있어요` : '파티로 참가할 수 있어요' }
   })()
@@ -237,20 +232,41 @@ function PartyDetailBody({
   // 응답에 결제 기한이 있을 때만 파티장 화면에 마감 시각을 보여 준다.
   const payDueAt = party.status === 'PAYING' && isLeader && myPaid ? party.paymentDueAt : undefined
 
-  const canApply = isLeader && recruiting && min > 0 && party.memberCount >= min
+  // 먼저 합류한 파티원(파티장 다음 사람)이 새 파티장이 된다
+  const nextLeader = party.members.find((m) => !m.leader)?.nickname
+  const leaveCopy =
+    party.memberCount <= 1
+      ? {
+          title: '나가면 파티가 끝나요',
+          body: '남은 파티원이 없어서 파티가 종료돼요. 초대 링크도 더 쓸 수 없어요.',
+          confirm: '파티 끝내기',
+        }
+      : isLeader
+        ? {
+            title: '파티장을 넘기고 나갈까요?',
+            body: `가장 먼저 합류한 ${nextLeader ? `${nextLeader} 님` : '파티원'}이 파티장이 돼요. 내 결제 전 신청서는 취소돼요.`,
+            confirm: '넘기고 나가기',
+          }
+        : {
+            title: '파티에서 나갈까요?',
+            body: '내 결제 전 신청서가 취소돼요. 같은 링크로 다시 합류하거나 이 대회에 개인으로 신청할 수 있어요.',
+            confirm: '나가기',
+          }
+
+  const canApply = isLeader && recruiting && linkAlive && min > 0 && party.memberCount >= min
 
   return (
     <>
-      <section className="flex flex-col gap-1 px-5 py-4">
-        <span className="text-body2-medium text-text-brand">
+      <section className="flex flex-col gap-1 px-4 py-4">
+        <span className="text-body1-medium text-text-brand">
           {PARTY_STATUS_LABEL[party.status]}
         </span>
         <h2 className="text-title2">{race.data?.title ?? <Skeleton className="h-8 w-2/3" />}</h2>
-        <p className="text-body2-regular text-text-secondary">
+        <p className="text-caption-regular text-text-secondary">
           {[crew.data && `${crew.data.name} 크루`, course?.name].filter(Boolean).join(' · ')}
         </p>
       </section>
-      <section className="flex flex-col gap-4 px-5 py-6">
+      <section className="flex flex-col gap-4 px-4 py-6">
         <div className="flex flex-col gap-2">
           <p className="text-caption-medium text-text-secondary">지금 할 일</p>
           <h3 className="text-title3">{todo.title}</h3>
@@ -268,11 +284,6 @@ function PartyDetailBody({
             {formatKstMonthDayTime(payDueAt)}까지 파티원이 결제할 수 있어요
           </p>
         )}
-        {recruiting && isLeader && !linkAlive && (
-          <Button size="l" loading={regenerate.isPending} onClick={makeLink}>
-            새 참가 링크 만들기
-          </Button>
-        )}
         {party.status === 'PAYING' && participationId !== undefined && !myPaid && (
           <Button size="l" loading={pay.isPending} onClick={() => pay.mutate(participationId)}>
             {course?.name} · {formatNumber(price)}원 결제하기
@@ -283,37 +294,61 @@ function PartyDetailBody({
             다른 대회 보기
           </Link>
         )}
-        {recruiting && isLeader && linkAlive && (
-          <div className="flex flex-col overflow-hidden rounded-md border border-border-default bg-bg-surface">
-            <div className="flex flex-col gap-0.5 px-4 py-4">
-              <span className="text-body2-medium text-text-secondary">초대 링크</span>
-              <span className="text-body1-medium">
-                {formatKstDateTime(party.joinTokenExpiresAt)}까지 쓸 수 있어요
-              </span>
+        {recruiting && isLeader && (
+          <div className="flex flex-col rounded-md border border-border-default bg-bg-surface shadow-sm">
+            <div className="flex h-19 flex-col justify-center gap-1 px-4 py-3">
+              <span className="text-caption-medium text-text-secondary">초대 링크</span>
+              {linkAlive ? (
+                <span className="text-body1-medium">
+                  {formatKstDateTime(party.joinTokenExpiresAt)}까지 쓸 수 있어요
+                </span>
+              ) : (
+                <span className="text-body1-medium text-text-danger">
+                  {formatKstDateTime(party.joinTokenExpiresAt)}에 끝났어요
+                </span>
+              )}
             </div>
-            <div className="flex divide-x divide-border-default border-t border-border-default *:flex *:h-12 *:flex-1 *:items-center *:justify-center *:text-body2-medium">
-              {canInviteFriends ? (
-                <button
-                  type="button"
+            <div className="flex gap-2 px-4 pb-4">
+              {!linkAlive ? (
+                <Button
+                  variant="ghost"
+                  size="s"
+                  className="flex-1"
+                  loading={regenerate.isPending}
+                  onClick={makeLink}
+                >
+                  새 초대 링크 만들기
+                </Button>
+              ) : canInviteFriends ? (
+                <Button
+                  variant="ghost"
+                  size="s"
+                  className="flex-1"
                   disabled={createInvite.isPending}
                   onClick={inviteFriend}
-                  className="text-text-brand"
                 >
                   친구 초대
-                </button>
+                </Button>
               ) : (
-                <button type="button" onClick={copyLink} className="text-text-brand">
+                <Button variant="ghost" size="s" className="flex-1" onClick={copyLink}>
                   링크 복사
-                </button>
+                </Button>
               )}
-              <button type="button" onClick={() => setConfirm('regenerate')}>
-                새로 만들기
-              </button>
+              {linkAlive && (
+                <Button
+                  variant="ghost"
+                  size="s"
+                  className="flex-1"
+                  onClick={() => setConfirm('regenerate')}
+                >
+                  새로 만들기
+                </Button>
+              )}
             </div>
           </div>
         )}
       </section>
-      <section className="flex flex-col gap-3 px-5 py-4">
+      <section className="flex flex-col gap-4 px-4 py-4">
         {recruiting ? (
           <h3 className="text-body1-bold">
             {party.memberCount}명 / 최소 {min}명{max ? ` · 최대 ${max}명` : ''}
@@ -331,12 +366,12 @@ function PartyDetailBody({
           {party.members.map((m) => (
             <li key={m.memberId} className="flex items-center gap-3 py-2">
               <Avatar size="m" name={m.nickname} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body2-medium">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="truncate text-body1-medium">
                   {m.nickname}
                   {m.memberId === me.data?.id ? ' · 나' : ''}
                 </span>
-                <span className="text-caption-regular text-text-tertiary">
+                <span className="text-caption-regular text-text-secondary">
                   {m.leader ? '파티장' : '파티원'}
                 </span>
               </div>
@@ -351,9 +386,9 @@ function PartyDetailBody({
           ))}
         </ul>
       </section>
-      {recruiting && isLeader && linkAlive && (
+      {recruiting && isLeader && (
         <BottomCta
-          className="sticky bottom-0 z-10 mt-auto px-5"
+          className="sticky bottom-0 z-10 mt-auto border-t border-border-default px-4"
           primary={
             <Link
               href={`/parties/${party.id}/apply`}
@@ -375,8 +410,14 @@ function PartyDetailBody({
       <Dialog
         open={confirm === 'regenerate'}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title="참가 링크를 새로 만들까요?"
-        body="새 링크를 만들면 지금 링크로는 합류할 수 없어요. 이미 합류한 파티원은 그대로예요."
+        title="초대 링크를 새로 만들까요?"
+        body={
+          <>
+            새 링크를 만들면 지금 링크로는 합류할 수 없어요.
+            <br />
+            이미 합류한 파티원은 그대로예요.
+          </>
+        }
         cancelLabel="돌아가기"
         confirmLabel="새로 만들기"
         onConfirm={makeLink}
@@ -386,15 +427,9 @@ function PartyDetailBody({
         open={leaveOpen}
         onOpenChange={onLeaveOpenChange}
         type="danger"
-        title="파티에서 나갈까요?"
-        body={
-          party.memberCount <= 1
-            ? '남은 사람이 없어 파티가 종료돼요.'
-            : isLeader
-              ? '먼저 합류한 파티원이 새 파티장이 돼요. 나간 뒤에도 같은 링크로 다시 합류할 수 있어요.'
-              : '나간 뒤에도 같은 링크로 다시 합류할 수 있어요.'
-        }
-        confirmLabel="나가기"
+        title={leaveCopy.title}
+        body={leaveCopy.body}
+        confirmLabel={leaveCopy.confirm}
         onConfirm={() =>
           leave.mutate(party.id, {
             onSuccess: () => router.replace(`/crews/${party.crewId}` as Route),
@@ -430,5 +465,39 @@ function PartyMoreMenu({ onLeave }: { onLeave: () => void }) {
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  )
+}
+
+// 시안 2074:94849 · 파티 상세 로딩: 제목 줄, 정보 상자(줄 두 개 · 버튼 세 개), 참가자 세 줄 자리를 회색으로 잡는다.
+function PartyDetailSkeleton() {
+  return (
+    <div role="status" aria-label="파티를 불러오는 중" className="flex flex-col px-4 pt-5 pb-4">
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="mt-3.5 h-5 w-85" />
+      <Skeleton className="mt-3 w-85" />
+      <Skeleton className="mt-11 w-full" />
+      <Skeleton className="mt-3.5 h-5 w-85" />
+      <div className="mt-5 flex flex-col gap-2.5 rounded-md border border-border-default bg-bg-surface p-4 pt-4.5">
+        <Skeleton className="w-full" />
+        <Skeleton className="h-4 w-80" />
+        <div className="mt-3.5 flex items-center gap-2">
+          <Skeleton shape="rect" className="h-8 w-40 rounded-full" />
+          <Skeleton shape="rect" className="h-10 w-48" />
+          <Skeleton shape="rect" className="h-8 flex-1 rounded-full" />
+        </div>
+      </div>
+      <Skeleton className="mt-11 h-4 w-44" />
+      <div className="mt-12 flex flex-col gap-5">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex gap-3">
+            <Skeleton shape="circle" className="mt-0.5 size-8 shrink-0" />
+            <div className="flex flex-1 flex-col gap-2.5">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="w-3/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
