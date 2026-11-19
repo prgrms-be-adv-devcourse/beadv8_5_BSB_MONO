@@ -238,14 +238,14 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
           </div>
         )}
         {!focused && (loading || races.length > 0) && !listFailed && (
-          <div className="mt-2 flex items-center justify-between pt-2.5">
+          <div className="mt-2 flex items-center justify-between pt-2">
             {loading ? (
               <div className="flex h-6 items-center gap-1">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-4 w-5" />
               </div>
             ) : (
-              <p className="text-body1-bold">{`접수 중인 대회 ${total > 999 ? '999+' : formatNumber(total)}`}</p>
+              <p className="text-body1-bold">{`대회 ${total > 999 ? '999+' : formatNumber(total)}`}</p>
             )}
             {loading ? (
               <div className="flex h-6 items-center gap-1">
