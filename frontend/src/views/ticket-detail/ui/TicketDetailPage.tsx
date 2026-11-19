@@ -111,7 +111,7 @@ export function TicketDetailPage({
             }
           >
             {participant?.tshirtSize && (
-              <InfoRow label="키트 옵션">기념 티셔츠 {participant.tshirtSize}</InfoRow>
+              <InfoRow label="키트 옵션">{participant.tshirtSize}</InfoRow>
             )}
             {addressLine && <InfoRow label="키트 배송지">{addressLine}</InfoRow>}
             {participant?.emergencyContactPhone && (

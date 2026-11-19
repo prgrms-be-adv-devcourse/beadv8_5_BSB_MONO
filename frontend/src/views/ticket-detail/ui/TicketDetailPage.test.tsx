@@ -63,7 +63,9 @@ describe('TicketDetailPage', () => {
     // v3 시안: 참가자 정보 상자 (줄마다 이름표 + 값)
     expect(screen.getByRole('heading', { name: '참가자 정보' })).toBeInTheDocument()
     expect(screen.getByText('키트 옵션')).toBeInTheDocument()
-    expect(screen.getByText('기념 티셔츠 L')).toBeInTheDocument()
+    // 키트 옵션 이름은 서버가 정하므로 고정 글자 없이 신청한 값만 보여 준다
+    expect(screen.getByText('L')).toBeInTheDocument()
+    expect(screen.queryByText(/기념 티셔츠/)).not.toBeInTheDocument()
     expect(screen.getByText('키트 배송지')).toBeInTheDocument()
     expect(screen.getByText('서울 성동구 왕십리로 00 101동 1001호')).toBeInTheDocument()
     expect(screen.getByText('비상 연락처')).toBeInTheDocument()
@@ -208,6 +210,12 @@ function payingOrder() {
 }
 
 describe('TicketEditPage', () => {
+  it('회원 정보로 가는 링크는 보이는 글자 「변경」이 이름에 들어 있다', async () => {
+    renderWithClient(<TicketEditPage ticketId="1-1" />)
+
+    expect(await screen.findByRole('link', { name: /변경/ })).toHaveAttribute('href', '/me/edit')
+  })
+
   it('결제 확인 중인 참가권은 주소로 열어도 수정할 수 없다', async () => {
     server.use(payingOrder())
     renderWithClient(<TicketEditPage ticketId="1-1" />)

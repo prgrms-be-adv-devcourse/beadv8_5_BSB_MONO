@@ -146,7 +146,7 @@ function ParticipantForm({
             aside={
               <Link
                 href="/me/edit"
-                aria-label="회원 정보에서 바꾸기"
+                aria-label="회원 정보 변경"
                 className={buttonClassName({ variant: 'ghost', size: 's' })}
               >
                 변경
