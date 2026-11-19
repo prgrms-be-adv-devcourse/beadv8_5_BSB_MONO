@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { Button } from './button/Button'
 import { Carousel, CarouselSlide } from './carousel/Carousel'
+import { digitsOnly } from './field/input-filter'
 import { PhoneField } from './field/PhoneField'
 import { Textarea } from './field/Textarea'
 import { TextField } from './field/TextField'
@@ -126,7 +127,61 @@ describe('TextField', () => {
   })
 })
 
+describe('TextField 막은 입력 안내', () => {
+  it('숫자 칸에 a를 치면 값은 그대로이고 안내가 보이며, 1을 치면 사라진다', async () => {
+    const user = userEvent.setup()
+    render(
+      <TextField
+        label="인원"
+        inputMode="numeric"
+        filter={digitsOnly}
+        filterMessage="숫자만 입력할 수 있어요"
+      />,
+    )
+    const input = screen.getByLabelText('인원')
+
+    await user.type(input, 'a')
+    expect(input).toHaveValue('')
+    expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
+    expect(input).toHaveAccessibleDescription('숫자만 입력할 수 있어요')
+
+    await user.type(input, '1')
+    expect(input).toHaveValue('1')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+  })
+
+  it('오류 문구가 있으면 오류 문구가 우선이다', async () => {
+    const user = userEvent.setup()
+    render(
+      <TextField
+        label="인원"
+        error="인원을 입력해 주세요"
+        filter={digitsOnly}
+        filterMessage="숫자만 입력할 수 있어요"
+      />,
+    )
+    await user.type(screen.getByLabelText('인원'), 'a')
+
+    expect(screen.getByText('인원을 입력해 주세요')).toBeInTheDocument()
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+  })
+})
+
 describe('PhoneField', () => {
+  it('숫자가 아닌 글자를 치면 안내가 보이고, 숫자를 치면 사라진다', async () => {
+    const user = userEvent.setup()
+    render(<PhoneField label="휴대폰 번호" />)
+    const input = screen.getByLabelText('휴대폰 번호')
+
+    await user.type(input, 'a')
+    expect(input).toHaveValue('')
+    expect(input).toHaveAccessibleDescription('숫자만 입력할 수 있어요')
+
+    await user.type(input, '0')
+    expect(input).toHaveValue('0')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+  })
+
   it('숫자만 쳐도 하이픈을 넣고, 숫자가 아닌 글자와 11자리 넘는 숫자는 버린다', async () => {
     const user = userEvent.setup()
     render(<PhoneField label="휴대폰 번호" />)

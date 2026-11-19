@@ -21,6 +21,10 @@ export type DialogProps = {
   onConfirm: () => void
   /** 요청 중이면 확인 버튼에 Spinner를 붙인다. */
   confirming?: boolean
+  /** true면 버튼을 세로로 쌓는다(확인이 위, 취소가 아래). 소셜 로그인 안내처럼 확인 버튼이 길 때 */
+  stacked?: boolean
+  /** 확인 버튼에 덧붙일 클래스(예: 카카오 노란 바탕) */
+  confirmClassName?: string
 }
 
 // 화면 가운데 떠서 확인을 받는 창. 모바일 폭 320, 태블릿 이상 폭 400.
@@ -36,13 +40,15 @@ export function Dialog({
   onCancel,
   onConfirm,
   confirming = false,
+  stacked = false,
+  confirmClassName,
 }: DialogProps) {
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-5 rounded-xl bg-bg-surface px-5 pt-6 pb-5 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-100">
-          <div className="flex flex-col gap-1.5">
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-6 rounded-lg bg-bg-surface p-6 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-100">
+          <div className="flex flex-col gap-2">
             <AlertDialog.Title className="text-center text-title3 text-text-primary">
               {title}
             </AlertDialog.Title>
@@ -51,7 +57,7 @@ export function Dialog({
               <AlertDialog.Description
                 render={<div />}
                 className={cn(
-                  'text-body2-regular text-text-secondary',
+                  'text-body1-regular text-text-secondary',
                   // 글 본문만 가운데. 입력 폼 같은 요소가 들어오면 왼쪽 정렬을 그대로 둔다
                   typeof body === 'string' && 'text-center',
                 )}
@@ -60,7 +66,7 @@ export function Dialog({
               </AlertDialog.Description>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className={cn('flex', stacked ? 'flex-col-reverse gap-2' : 'gap-6')}>
             {type !== 'alert' && (
               <AlertDialog.Close
                 render={<Button variant="secondary" className="flex-1" />}
@@ -73,7 +79,7 @@ export function Dialog({
               variant={type === 'danger' ? 'danger' : 'primary'}
               loading={confirming}
               onClick={onConfirm}
-              className="flex-1"
+              className={cn('flex-1', confirmClassName)}
             >
               {confirmLabel}
             </Button>

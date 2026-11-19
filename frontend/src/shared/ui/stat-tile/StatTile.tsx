@@ -14,6 +14,10 @@ export type StatTileProps = {
   tone?: StatTileTone
   /** 숫자 크기. 좁은 3칸 배치(대회 상세 등)는 s */
   size?: 'm' | 's'
+  /** tile: 칸마다 카드(기본). cell: 카드 없이 왼쪽 정렬 칸 — StatStrip 안에서 쓴다(판매자 숫자 요약, 2070:66595) */
+  layout?: 'tile' | 'cell'
+  /** cell에서 숫자를 빨갛게(지급보류·돌려줄 금액 등 2070:69108) */
+  danger?: boolean
   className?: string
 }
 
@@ -22,7 +26,7 @@ const TONE: Record<
   { box: string; label: string; value: string; unit: string; caption: string }
 > = {
   surface: {
-    box: 'bg-bg-surface shadow-sm',
+    box: 'bg-bg-surface shadow-sm inset-ring inset-ring-border-default',
     label: 'text-text-tertiary',
     value: 'text-text-primary',
     unit: 'text-text-secondary',
@@ -52,9 +56,30 @@ export function StatTile({
   caption,
   tone = 'surface',
   size = 'm',
+  layout = 'tile',
+  danger = false,
   className,
 }: StatTileProps) {
   const colors = TONE[tone]
+  if (layout === 'cell') {
+    return (
+      <div className={cn('flex min-w-0 flex-1 flex-col items-start gap-1 px-6', className)}>
+        <span className="w-full truncate text-caption-regular text-text-secondary">{label}</span>
+        <span className="flex items-baseline gap-1">
+          <span
+            className={cn(
+              size === 'm' ? 'font-display text-number-s' : 'text-title2',
+              danger ? 'text-text-danger' : 'text-text-primary',
+            )}
+          >
+            {value}
+          </span>
+          {unit && <span className="text-caption-regular text-text-secondary">{unit}</span>}
+        </span>
+        {caption && <span className="text-caption-regular text-text-secondary">{caption}</span>}
+      </div>
+    )
+  }
   return (
     <div
       className={cn(
@@ -72,9 +97,23 @@ export function StatTile({
         >
           {value}
         </span>
-        {unit && <span className={cn('text-body2-medium', colors.unit)}>{unit}</span>}
+        {unit && <span className={cn('text-body1-medium', colors.unit)}>{unit}</span>}
       </span>
       {caption && <span className={cn('text-caption-regular', colors.caption)}>{caption}</span>}
+    </div>
+  )
+}
+
+// 숫자 칸(StatTile layout="cell") 여러 개를 한 카드에 담고 칸 사이에 세로선을 긋는다.
+export function StatStrip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'flex w-full rounded-md bg-bg-surface py-6 shadow-sm inset-ring inset-ring-border-default [&>*+*]:border-l [&>*+*]:border-border-default',
+        className,
+      )}
+    >
+      {children}
     </div>
   )
 }

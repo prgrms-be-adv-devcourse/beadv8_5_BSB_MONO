@@ -31,6 +31,9 @@ export function PhoneField({ onChange, onFocus, onKeyDown, ...props }: PhoneFiel
 
   return (
     <TextField
+      // 하이픈·공백·+(국가번호)는 붙여넣기로 들어올 수 있어 허용하고, 그 밖의 글자는 막는다
+      filter={(value) => value.replace(/[^\d\s+-]/g, '')}
+      filterMessage="숫자만 입력할 수 있어요"
       type="tel"
       inputMode="numeric"
       autoComplete="tel"

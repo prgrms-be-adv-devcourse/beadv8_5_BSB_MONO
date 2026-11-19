@@ -37,7 +37,7 @@ export function BottomSheet({ open, onOpenChange, title, children, footer }: Bot
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-9 rounded-full bg-bg-control-off" />
             </div>
-            <div className="flex items-center gap-2 py-1 pr-2 pl-5">
+            <div className="flex items-center gap-2 py-1 pr-1 pl-4">
               <Drawer.Title className="min-w-0 flex-1 text-title3 text-text-primary">
                 {title}
               </Drawer.Title>
@@ -49,11 +49,11 @@ export function BottomSheet({ open, onOpenChange, title, children, footer }: Bot
                 }
               />
             </div>
-            <Drawer.Content className="flex flex-col overflow-y-auto px-3 py-2">
+            <Drawer.Content className="flex flex-col overflow-y-auto px-4 py-2">
               {children}
             </Drawer.Content>
             {footer && (
-              <div className="flex flex-col px-5 pt-2 pb-[calc(--spacing(5)+env(safe-area-inset-bottom))] *:w-full">
+              <div className="flex flex-col px-4 pt-2 pb-[calc(--spacing(8)+env(safe-area-inset-bottom))] *:w-full">
                 {footer}
               </div>
             )}

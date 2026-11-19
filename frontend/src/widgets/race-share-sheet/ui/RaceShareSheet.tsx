@@ -63,7 +63,7 @@ function ShareAction({
           </svg>
         </span>
       ) : (
-        <span className="flex size-13 items-center justify-center rounded-full bg-bg-subtle">
+        <span className="flex size-13 items-center justify-center rounded-full bg-bg-surface shadow-sm">
           <Icon name={icon} className="size-5" />
         </span>
       )}

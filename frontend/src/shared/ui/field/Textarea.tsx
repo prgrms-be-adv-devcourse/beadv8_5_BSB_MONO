@@ -13,6 +13,8 @@ export type TextareaProps = Omit<ComponentProps<'textarea'>, 'children'> & {
   error?: ReactNode
   /** maxLength와 함께 쓰면 오른쪽 아래에 '글자 수/최대'를 보여 준다. */
   showCounter?: boolean
+  /** 글자 수 자리. right(기본)는 도움말 오른쪽, left는 칸 아래 왼쪽에 「0/5,000」으로 둔다. */
+  counterAlign?: 'left' | 'right'
 }
 
 // 여러 줄 입력. 입력 영역 높이 120.
@@ -21,6 +23,7 @@ export function Textarea({
   helper,
   error,
   showCounter = false,
+  counterAlign = 'right',
   disabled,
   maxLength,
   value,
@@ -54,11 +57,11 @@ export function Textarea({
         }
       />
       {(description || showCounter) && (
-        <div className="flex justify-between gap-2">
+        <div className={cn('flex gap-2', counterAlign === 'left' ? 'flex-col' : 'justify-between')}>
           <Field.Description className={FIELD_HELPER}>{description}</Field.Description>
           {showCounter && maxLength !== undefined && (
             <span className={cn(FIELD_HELPER, 'shrink-0')}>
-              {length}/{maxLength}
+              {length}/{maxLength.toLocaleString('ko-KR')}
             </span>
           )}
         </div>

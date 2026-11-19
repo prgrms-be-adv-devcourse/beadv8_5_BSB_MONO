@@ -14,7 +14,7 @@ export function RaceCard({ race, className }: RaceCardProps) {
   return (
     <Link
       href={`/races/${race.id}`}
-      className={cn('flex flex-col gap-2.5 rounded-md', FOCUS_RING, className)}
+      className={cn('flex flex-col gap-3 rounded-md', FOCUS_RING, className)}
     >
       <span className="relative block aspect-4/3 w-full overflow-hidden rounded-md">
         {race.image ? (
@@ -37,7 +37,7 @@ export function RaceCard({ race, className }: RaceCardProps) {
       <span className="flex flex-col gap-1">
         <span className="text-body1-bold break-keep">{race.title}</span>
         <span className="truncate text-caption-regular text-text-tertiary">{race.meta}</span>
-        <span className="text-body2-medium text-text-secondary">{race.price}</span>
+        <span className="text-body1-medium text-text-primary">{race.price}</span>
       </span>
     </Link>
   )
