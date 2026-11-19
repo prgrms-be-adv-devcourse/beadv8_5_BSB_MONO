@@ -64,6 +64,7 @@ public final class InternalHttpClients {
 	 * GET으로 부르고 RsData의 data를 돌려준다. 404 중 notFoundCode가 맞는 것은 빈 값이다
 	 * 그 밖의 실패(시간 초과 · 연결 실패 · 5xx · 코드가 다른 404 · 그 밖의 4xx · data가 없는 응답)는 모두
 	 * InquiryExternalServiceUnavailableException(503)이다. 4xx는 다시 시도해도 풀리지 않아 장애와 구분해 남긴다
+	 * data 자체만 검사한다. data 안쪽 필드의 null 검사는 부르는 어댑터가 해야 한다(빠뜨리면 NPE로 500이 된다)
 	 */
 	public static <T> Optional<T> getData(RestClient restClient, Endpoint endpoint,
 		ParameterizedTypeReference<RsData<T>> type, String path, Object... uriVariables) {
