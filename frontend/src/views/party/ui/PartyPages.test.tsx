@@ -494,6 +494,42 @@ describe('파티 합류', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/1'))
   })
 
+  // CRU-74: 티셔츠 종목인데 사이즈 칸이 없어 서버가 400으로 거절했다
+  it('티셔츠를 주는 종목이면 사이즈를 골라야 합류되고, 고른 사이즈를 함께 보낸다', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.get('*/api/v1/product/races/:raceId', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '성공',
+          data: {
+            raceId: 100,
+            title: '2026 용감한 쿠키RUN in 서울',
+            courses: [{ ...COURSE, tshirtSizeOption: ['S', 'M', 'L', 'XL'] }],
+          },
+        }),
+      ),
+      http.post('*/api/v1/order/parties/join', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          { status: 201, message: '성공', data: { id: 9, partyId: 1 } },
+          { status: 201 },
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage(<PartyJoinPage token="ok" />)
+    await fillAndSubmit(user)
+    expect(await screen.findByText('티셔츠 사이즈를 골라 주세요.')).toBeInTheDocument()
+    expect(bodies).toHaveLength(0)
+
+    await user.click(screen.getByRole('combobox', { name: '기념 티셔츠 사이즈' }))
+    await user.click(await screen.findByRole('option', { name: 'M' }))
+    await user.click(screen.getByRole('button', { name: '합류하기' }))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/1'))
+    expect(bodies[0]).toMatchObject({ participant: { tshirtSize: 'M' } })
+  })
+
   it('합류가 인원 초과로 거절되면 인원이 다 찼다는 화면으로 바뀐다', async () => {
     const user = userEvent.setup()
     server.use(

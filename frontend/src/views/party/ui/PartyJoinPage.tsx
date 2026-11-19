@@ -51,7 +51,8 @@ export function PartyJoinPage({ token }: { token: string }) {
   const course = race.data?.courses?.find((c) => c.raceCourseId === data?.raceCourseId)
   // 파티 종목에 키트가 들어 있으면 키트 배송지도 받는다
   const kit = course?.kitIncluded === true
-  const schema = participantSchemaFor(kit)
+  const sizes = course?.tshirtSizeOption ?? []
+  const schema = participantSchemaFor(kit, sizes)
   const form = useForm<ParticipantValues>({
     resolver: zodResolver(schema),
     defaultValues: EMPTY_PARTICIPANT,
@@ -132,6 +133,7 @@ export function PartyJoinPage({ token }: { token: string }) {
           <ParticipantFields
             form={form}
             kit={kit}
+            sizes={sizes}
             course={course ? `${course.name} · ${formatNumber(course.price ?? 0)}원` : undefined}
           />
         </form>

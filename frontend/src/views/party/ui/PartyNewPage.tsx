@@ -83,8 +83,10 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   })
   const create = useCreateParty()
   // 고른 종목에 키트가 들어 있으면 키트 배송지도 받는다
-  const kit = detail.data?.courses?.find((c) => c.raceCourseId === courseId)?.kitIncluded === true
-  const schema = participantSchemaFor(kit)
+  const pickedCourse = detail.data?.courses?.find((c) => c.raceCourseId === courseId)
+  const kit = pickedCourse?.kitIncluded === true
+  const sizes = pickedCourse?.tshirtSizeOption ?? []
+  const schema = participantSchemaFor(kit, sizes)
   const form = useForm<ParticipantValues>({
     resolver: zodResolver(schema),
     defaultValues: EMPTY_PARTICIPANT,
@@ -159,7 +161,7 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
           </p>
         </div>
         {serverMessage && <Alert tone="danger" title={serverMessage} />}
-        <ParticipantFields form={form} kit={kit} />
+        <ParticipantFields form={form} kit={kit} sizes={sizes} />
       </form>
     )
   } else if (races.isPending) {
