@@ -39,7 +39,7 @@ public class HttpCrewPartyStatusAdapter implements CrewPartyStatusPort {
 		} catch (RestClientException exception) {
 			log.warn("주문 서비스에 파티 상태를 묻지 못했습니다. crewId={}, memberId={}, cause={}",
 				crewId, memberId, exception.toString());
-			throw new CrewPartyCheckFailedException(UNAVAILABLE_MESSAGE);
+			throw new CrewPartyCheckFailedException(UNAVAILABLE_MESSAGE, exception);
 		}
 		Status data = response == null ? null : response.data();
 		if (data == null || data.canLeave() == null || data.canKick() == null) {

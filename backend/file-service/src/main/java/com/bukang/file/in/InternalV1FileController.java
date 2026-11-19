@@ -64,8 +64,8 @@ public class InternalV1FileController {
 
 	@GetMapping("/files/{fileId}/uploader")
 	@Operation(summary = "파일을 올린 회원 조회",
-		description = "파일을 올린 회원 ID를 돌려준다. 연결 여부와 상관없이 늘 같은 답이다. "
-			+ "member가 기록증을 제출받을 때, 제출하는 회원이 올린 사진인지 확인하려고 부른다.")
+		description = "파일을 올린 회원 ID와 파일 용도 · 상태를 돌려준다. 연결 여부와 상관없이 답한다. "
+			+ "member가 기록증을 제출받을 때, 제출하는 회원이 기록증 용도로 올려 아직 연결되지 않은 사진인지 확인하려고 부른다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",
 			content = @Content(examples = @ExampleObject(value = FileInternalApiExamples.UPLOADER_SUCCESS))),

@@ -40,7 +40,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.bukang.common.shared.member.web.MemberIdHeader;
 import com.bukang.member.app.MemberFacade;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewInviteCommand;
+import com.bukang.member.crew.app.CrewManageCommand;
 import com.bukang.member.crew.out.CrewInviteRepository;
 import com.bukang.member.crew.out.CrewMemberRepository;
 import com.bukang.member.crew.out.CrewRepository;
@@ -77,7 +78,9 @@ class ApiV1CrewManageTest {
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
-	private CrewFacade crewFacade;
+	private CrewInviteCommand crewInviteCommand;
+	@Autowired
+	private CrewManageCommand crewManageCommand;
 	@Autowired
 	private MemberRepository memberRepository;
 	@Autowired
@@ -121,7 +124,7 @@ class ApiV1CrewManageTest {
 		managerId = joinMember();
 		memberId = joinMember();
 		outsiderId = joinMember();
-		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
+		crewId = crewManageCommand.createCrew(leaderId, "새벽한강크루").crewId();
 		joinCrew(crewId, leaderId, managerId);
 		joinCrew(crewId, leaderId, memberId);
 		jdbcTemplate.update("update member_crew_member set role = 'MANAGER' where member_id = ?", managerId);
@@ -165,7 +168,7 @@ class ApiV1CrewManageTest {
 				.value("크루장은 크루장을 넘긴 뒤 탈퇴할 수 있습니다. 다른 크루원이 없으면 크루를 없애주세요."));
 		assertThat(roleOf(crewId, leaderId)).isEqualTo("LEADER");
 
-		long soloCrewId = crewFacade.createCrew(outsiderId, "혼자크루").crewId();
+		long soloCrewId = crewManageCommand.createCrew(outsiderId, "혼자크루").crewId();
 		leave(outsiderId, soloCrewId)
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("CREW_LEADER_CANNOT_LEAVE"));
@@ -212,7 +215,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("내보낸 크루원은 내보내기 전에 만든 링크로 다시 가입할 수 없고 410 CREW_INVITE_REMOVED_MEMBER이다. 다른 사람은 그 링크로 가입한다")
 	void removedMemberCannotRejoinWithOldLink() throws Exception {
-		String oldToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		String oldToken = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 		now = now.plusSeconds(60);
 		remove(leaderId, crewId, memberId).andExpect(status().isOk());
 
@@ -231,7 +234,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("링크를 만든 시각과 내보낸 시각이 같으면 그 링크로는 다시 가입할 수 없다")
 	void removedAtSameInstantAsInviteBlocks() throws Exception {
-		String token = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		String token = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 		remove(leaderId, crewId, memberId).andExpect(status().isOk());
 
 		mockMvc.perform(post(JOIN, token).header(MemberIdHeader.NAME, memberId))
@@ -242,7 +245,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("내보낸 뒤 새 링크로 다시 들어온 회원이 옛 링크를 열면 410이 아니라 이미 크루원으로 200이다")
 	void rejoinedMemberOpensOldLinkAsMember() throws Exception {
-		String oldToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		String oldToken = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 		now = now.plusSeconds(60);
 		remove(leaderId, crewId, memberId).andExpect(status().isOk());
 		now = now.plusSeconds(60);
@@ -258,7 +261,7 @@ class ApiV1CrewManageTest {
 	void removedMemberRejoinsWithNewLink() throws Exception {
 		remove(leaderId, crewId, memberId).andExpect(status().isOk());
 		now = now.plusSeconds(60);
-		String newToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		String newToken = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 
 		mockMvc.perform(post(JOIN, newToken).header(MemberIdHeader.NAME, memberId))
 			.andExpect(status().isCreated());
@@ -267,7 +270,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("스스로 탈퇴한 크루원은 같은 링크로 다시 가입할 수 있다")
 	void leftMemberRejoinsWithSameLink() throws Exception {
-		String token = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		String token = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 		now = now.plusSeconds(60);
 		leave(memberId, crewId).andExpect(status().isOk());
 
@@ -309,7 +312,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("크루장이 자기 크루 ID로 다른 크루의 크루원을 내보내려 하면 404이고, 다른 크루 ID로는 403이다. 다른 크루는 그대로다")
 	void removeScopedToCrew() throws Exception {
-		long otherCrewId = crewFacade.createCrew(outsiderId, "판교점심런").crewId();
+		long otherCrewId = crewManageCommand.createCrew(outsiderId, "판교점심런").crewId();
 		long otherMemberId = joinMember();
 		joinCrew(otherCrewId, outsiderId, otherMemberId);
 
@@ -432,7 +435,7 @@ class ApiV1CrewManageTest {
 	void disbandWhenAlone() throws Exception {
 		remove(leaderId, crewId, managerId).andExpect(status().isOk());
 		remove(leaderId, crewId, memberId).andExpect(status().isOk());
-		String unusedToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		String unusedToken = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 
 		disband(leaderId, crewId)
 			.andExpect(status().isOk())
@@ -466,7 +469,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("다른 크루원이 있으면 409 CREW_HAS_OTHER_MEMBERS이고 아무것도 바뀌지 않는다")
 	void disbandWithOtherMembers() throws Exception {
-		crewFacade.createInvite(leaderId, crewId);
+		crewInviteCommand.createInvite(leaderId, crewId);
 
 		disband(leaderId, crewId)
 			.andExpect(status().isConflict())
@@ -496,7 +499,7 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("없앤 크루에는 다섯 관리 API 모두 404 CREW_NOT_FOUND로 답한다")
 	void disbandedCrewIsNotFound() throws Exception {
-		long soloCrewId = crewFacade.createCrew(outsiderId, "혼자크루").crewId();
+		long soloCrewId = crewManageCommand.createCrew(outsiderId, "혼자크루").crewId();
 		disband(outsiderId, soloCrewId).andExpect(status().isOk());
 
 		for (ResultActions result : List.of(
@@ -513,8 +516,8 @@ class ApiV1CrewManageTest {
 	@Test
 	@DisplayName("크루 없애기와 초대 가입이 동시에 오면 차례로 처리되어, 없앤 크루에 크루원이 남지 않는다")
 	void concurrentDisbandAndJoin() throws Exception {
-		long soloCrewId = crewFacade.createCrew(outsiderId, "혼자크루").crewId();
-		String token = crewFacade.createInvite(outsiderId, soloCrewId).inviteToken();
+		long soloCrewId = crewManageCommand.createCrew(outsiderId, "혼자크루").crewId();
+		String token = crewInviteCommand.createInvite(outsiderId, soloCrewId).inviteToken();
 		long joinerId = joinMember();
 
 		List<Integer> statuses = atOnce(
@@ -549,7 +552,7 @@ class ApiV1CrewManageTest {
 
 		assertThat(crewRepository.findActiveById(crewId).orElseThrow().getName()).isEqualTo("새벽한강러닝크루");
 		// 다른 크루와 이름이 겹쳐도 된다
-		long otherCrewId = crewFacade.createCrew(outsiderId, "판교점심런").crewId();
+		long otherCrewId = crewManageCommand.createCrew(outsiderId, "판교점심런").crewId();
 		rename(outsiderId, otherCrewId, "{\"name\":\"새벽한강러닝크루\"}").andExpect(status().isOk());
 	}
 
@@ -601,7 +604,7 @@ class ApiV1CrewManageTest {
 
 	// 초대를 만들어 그 링크로 가입시킨다
 	private void joinCrew(long targetCrewId, long senderId, long joinerId) {
-		crewFacade.join(joinerId, crewFacade.createInvite(senderId, targetCrewId).inviteToken());
+		crewInviteCommand.join(joinerId, crewInviteCommand.createInvite(senderId, targetCrewId).inviteToken());
 	}
 
 	private ResultActions leave(long requesterId, long targetCrewId) throws Exception {

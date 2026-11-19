@@ -176,9 +176,10 @@ public class FileFacade {
 		return toDto(findAlive(fileId));
 	}
 
-	// 내부 API: 올린 회원. 연결 여부와 상관없이 늘 같은 답이라, 연결 뒤 공개되는 조회 API의 403에 기대지 않는다 (BUK-274)
+	// 내부 API: 올린 회원과 용도 · 상태. 연결 여부와 상관없이 답하고, 받을 수 있는 사진인지는 부른 쪽이 정한다 (BUK-274)
 	public FileUploaderDto findUploader(long fileId) {
-		return new FileUploaderDto(findAlive(fileId).getCreateUser());
+		StoredFile file = findAlive(fileId);
+		return new FileUploaderDto(file.getCreateUser(), file.getFileType(), file.getStatus());
 	}
 
 	// 내부 API: 기록증 원본처럼 부른 서비스가 정한 파일을 지운다. 이미 없으면 아무것도 하지 않는다

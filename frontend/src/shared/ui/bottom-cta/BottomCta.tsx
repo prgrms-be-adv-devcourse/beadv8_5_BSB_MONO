@@ -18,7 +18,7 @@ export function BottomCta({ price, secondary, primary, className }: BottomCtaPro
   return (
     <div
       className={cn(
-        'flex items-center gap-2 border-t border-border-default bg-bg-surface px-4 pt-3 pb-[calc(--spacing(3)+env(safe-area-inset-bottom))]',
+        'flex items-center gap-2 bg-bg-surface px-5 pt-3 pb-[calc(--spacing(3)+env(safe-area-inset-bottom))]',
         className,
       )}
     >

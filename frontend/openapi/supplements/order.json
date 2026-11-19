@@ -2401,6 +2401,13 @@
             }
           ],
           "description": "키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null"
+        },
+        "kitTrackingUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-40). 구매자 주문 상세와 같은 규칙. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null"
         }
       }
     }

@@ -14,7 +14,7 @@ export function SellerAiPage() {
       placeholder="정산이나 주문, 대회 판매 현황을 물어보세요"
       scopeNote="내 판매자 정보로만 답해요"
       suggestions={['다음 정산', '송장 입력 대기 키트', '지급보류 이유']}
-      footnote="크루런 AI는 틀릴 수 있어요. 돈이 오가는 일은 각 화면에서 한 번 더 확인해 주세요."
+      footnote="크루런 AI는 틀릴 수 있어요"
     />
   )
 }

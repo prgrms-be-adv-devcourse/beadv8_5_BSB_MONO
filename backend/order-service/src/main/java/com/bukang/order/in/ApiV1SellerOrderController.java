@@ -47,6 +47,7 @@ public class ApiV1SellerOrderController {
 	@Operation(summary = "내 대회 주문 목록",
 		description = "판매자 대회의 주문 상품(참가권 1장)을 최근 주문부터 돌려준다. 키트 없는 참가권도 나오고, 기한이 지나 만료된 주문은 빠진다. "
 			+ "대회·종목·상태·주문일(from~to, 한 번에 12개월까지)로 거른다. 파티 번호(partyId)로 찾으면 주문일은 보지 않는다. "
+			+ "keyword로 찾으면 참가자 이름 또는 주문번호에 그 말이 든 주문만 나온다(다른 조건과 함께 걸린다). "
 			+ "대시보드 최근 주문은 size를 작게 줘서 같은 목록을 쓴다. 참가자 연락처·생년월일·배송지는 넣지 않는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
@@ -83,6 +84,8 @@ public class ApiV1SellerOrderController {
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 		@Parameter(description = "조회 종료일 (이날 주문까지 포함, 생략 가능)", example = "2026-10-31")
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+		@Parameter(description = "참가자 이름 또는 주문번호로 찾기 (한 칸, 부분 일치, 생략 가능)", example = "박파티")
+		@RequestParam(required = false) String keyword,
 		@Parameter(description = "페이지 번호 (0부터)", example = "0")
 		@RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
 		@Parameter(description = "페이지 크기 (1~100)", example = "20")
@@ -90,7 +93,8 @@ public class ApiV1SellerOrderController {
 		@Max(value = MAX_PAGE_SIZE, message = "한 번에 100개까지 조회할 수 있습니다.") int size
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "주문 목록을 조회했습니다.",
-			sellerOrderFacade.findOrders(memberId, raceId, raceCourseId, status, partyId, from, to, page, size)));
+			sellerOrderFacade.findOrders(memberId, raceId, raceCourseId, status, partyId, from, to, keyword, page,
+				size)));
 	}
 
 	@GetMapping("/orders/{orderItemId}")
@@ -100,6 +104,7 @@ public class ApiV1SellerOrderController {
 			+ "보내기 전에 취소된 키트 주문도 열린다(kitDeliveryStatus는 목록과 같이 PREPARING, status가 CANCELED). "
 			+ "키트가 없거나 결제 전이면 배송 칸은 모두 null이다. 배송지·연락처는 키트 배송 목록과 같은 범위다. "
 			+ "취소된 주문(보내기 전 취소, 취소 중)은 배송지·배송 요청사항이 null이다. 보낸 뒤 취소된 참가권은 보인다. "
+			+ "kitTrackingUrl은 「배송 조회」 버튼이 여는 Delivery Tracker 주소로, 구매자 주문 상세와 같이 송장이 있을 때만 채운다. "
 			+ "대회 이름·대회일·환불 마감은 상품 대회 상세 API로 붙인다. 기한이 지나 만료된 주문은 404다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",

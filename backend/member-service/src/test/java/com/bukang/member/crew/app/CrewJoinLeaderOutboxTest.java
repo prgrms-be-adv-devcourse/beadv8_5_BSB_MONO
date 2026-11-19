@@ -70,7 +70,9 @@ class CrewJoinLeaderOutboxTest {
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
-	private CrewFacade crewFacade;
+	private CrewInviteCommand crewInviteCommand;
+	@Autowired
+	private CrewManageCommand crewManageCommand;
 	@Autowired
 	private MemberOutboxEventRepository memberOutboxEventRepository;
 	@Autowired
@@ -110,11 +112,11 @@ class CrewJoinLeaderOutboxTest {
 		leaderId = joinMember();
 		memberId = joinMember();
 		joinerId = joinMember();
-		crewId = crewFacade.createCrew(leaderId, "새벽한강크루").crewId();
-		crewFacade.join(memberId, crewFacade.createInvite(leaderId, crewId).inviteToken());
+		crewId = crewManageCommand.createCrew(leaderId, "새벽한강크루").crewId();
+		crewInviteCommand.join(memberId, crewInviteCommand.createInvite(leaderId, crewId).inviteToken());
 		given(clock.instant()).willReturn(NOW);
 		// 초대 링크는 24시간 동안만 쓸 수 있으므로 요청 시각(NOW)에 만든다
-		inviteToken = crewFacade.createInvite(leaderId, crewId).inviteToken();
+		inviteToken = crewInviteCommand.createInvite(leaderId, crewId).inviteToken();
 		memberOutboxEventRepository.deleteAll();
 	}
 
@@ -142,7 +144,7 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("초대 링크로 가입하면 크루 가입 행이 보낼 차례로 하나 남고, 대상은 크루, 본문은 크루·회원·가입 시각이다")
 	void joinAppendsRow() {
-		crewFacade.join(joinerId, inviteToken);
+		crewInviteCommand.join(joinerId, inviteToken);
 
 		List<MemberOutboxEvent> rows = rows(KafkaTopics.CREW_MEMBER_JOINED);
 		assertThat(rows).hasSize(1);
@@ -162,7 +164,7 @@ class CrewJoinLeaderOutboxTest {
 	void joinedAtMatchesStoredRow() {
 		given(clock.instant()).willReturn(NOW.plusNanos(123_456_789));
 
-		crewFacade.join(joinerId, inviteToken);
+		crewInviteCommand.join(joinerId, inviteToken);
 
 		CrewMemberJoinedEvent body = jsonConverter.fromJson(
 			rows(KafkaTopics.CREW_MEMBER_JOINED).get(0).getPayload(), CrewMemberJoinedEvent.class);
@@ -172,7 +174,7 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("크루 가입 본문에는 이벤트 ID, 크루 ID, 회원 ID, 가입 시각만 있다")
 	void joinBodyKeys() {
-		crewFacade.join(joinerId, inviteToken);
+		crewInviteCommand.join(joinerId, inviteToken);
 
 		assertThat(keysOf(rows(KafkaTopics.CREW_MEMBER_JOINED).get(0)))
 			.containsExactlyInAnyOrder("eventId", "crewId", "memberId", "joinedAt");
@@ -181,7 +183,7 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("이미 크루원이 같은 링크로 다시 가입하면 409로 롤백되고 가입 행이 남지 않는다")
 	void alreadyMemberJoinAppendsNothing() {
-		assertThatThrownBy(() -> crewFacade.join(memberId, inviteToken))
+		assertThatThrownBy(() -> crewInviteCommand.join(memberId, inviteToken))
 			.isInstanceOf(CrewAlreadyMemberException.class);
 
 		assertThat(rows(KafkaTopics.CREW_MEMBER_JOINED)).isEmpty();
@@ -190,10 +192,10 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("없는 링크나 내보낸 뒤 옛 링크로 가입하려 하면 가입 행이 남지 않는다")
 	void failedJoinAppendsNothing() {
-		assertThatThrownBy(() -> crewFacade.join(joinerId, "없는-토큰")).isInstanceOf(RuntimeException.class);
-		crewFacade.removeMember(leaderId, crewId, memberId);
+		assertThatThrownBy(() -> crewInviteCommand.join(joinerId, "없는-토큰")).isInstanceOf(RuntimeException.class);
+		crewManageCommand.removeMember(leaderId, crewId, memberId);
 
-		assertThatThrownBy(() -> crewFacade.join(memberId, inviteToken)).isInstanceOf(RuntimeException.class);
+		assertThatThrownBy(() -> crewInviteCommand.join(memberId, inviteToken)).isInstanceOf(RuntimeException.class);
 
 		assertThat(rows(KafkaTopics.CREW_MEMBER_JOINED)).isEmpty();
 	}
@@ -202,8 +204,8 @@ class CrewJoinLeaderOutboxTest {
 	@DisplayName("같은 회원이 같은 링크로 동시에 두 번 가입해도 가입 행은 하나만 남는다")
 	void concurrentJoinAppendsOnce() throws Exception {
 		atOnce(
-			() -> crewFacade.join(joinerId, inviteToken),
-			() -> crewFacade.join(joinerId, inviteToken));
+			() -> crewInviteCommand.join(joinerId, inviteToken),
+			() -> crewInviteCommand.join(joinerId, inviteToken));
 
 		assertThat(crewMemberRepository.existsByCrewIdAndMemberId(crewId, joinerId)).isTrue();
 		assertThat(rows(KafkaTopics.CREW_MEMBER_JOINED)).hasSize(1);
@@ -212,7 +214,7 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("크루장을 넘기면 크루장 변경 행이 하나 남고, 본문은 크루·이전 크루장·새 크루장·바꾼 시각이다")
 	void transferAppendsRow() {
-		crewFacade.transferLeader(leaderId, crewId, memberId);
+		crewManageCommand.transferLeader(leaderId, crewId, memberId);
 
 		List<MemberOutboxEvent> rows = rows(KafkaTopics.CREW_LEADER_CHANGED);
 		assertThat(rows).hasSize(1);
@@ -231,7 +233,7 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("크루장 변경 본문에는 이벤트 ID, 크루 ID, 이전 크루장, 새 크루장, 바꾼 시각만 있다")
 	void transferBodyKeys() {
-		crewFacade.transferLeader(leaderId, crewId, memberId);
+		crewManageCommand.transferLeader(leaderId, crewId, memberId);
 
 		assertThat(keysOf(rows(KafkaTopics.CREW_LEADER_CHANGED).get(0)))
 			.containsExactlyInAnyOrder("eventId", "crewId", "previousLeaderId", "newLeaderId", "changedAt");
@@ -240,11 +242,11 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("크루장 넘기기가 실패하면(자기에게, 크루장이 아닌 사람이, 크루원이 아닌 사람에게) 크루장 변경 행이 남지 않는다")
 	void failedTransferAppendsNothing() {
-		assertThatThrownBy(() -> crewFacade.transferLeader(leaderId, crewId, leaderId))
+		assertThatThrownBy(() -> crewManageCommand.transferLeader(leaderId, crewId, leaderId))
 			.isInstanceOf(RuntimeException.class);
-		assertThatThrownBy(() -> crewFacade.transferLeader(memberId, crewId, leaderId))
+		assertThatThrownBy(() -> crewManageCommand.transferLeader(memberId, crewId, leaderId))
 			.isInstanceOf(RuntimeException.class);
-		assertThatThrownBy(() -> crewFacade.transferLeader(leaderId, crewId, joinerId))
+		assertThatThrownBy(() -> crewManageCommand.transferLeader(leaderId, crewId, joinerId))
 			.isInstanceOf(RuntimeException.class);
 
 		assertThat(rows(KafkaTopics.CREW_LEADER_CHANGED)).isEmpty();
@@ -253,12 +255,12 @@ class CrewJoinLeaderOutboxTest {
 	@Test
 	@DisplayName("크루장이 두 사람에게 동시에 넘겨도 크루장 변경 행은 하나만 남는다")
 	void concurrentTransferAppendsOnce() throws Exception {
-		crewFacade.join(joinerId, inviteToken);
+		crewInviteCommand.join(joinerId, inviteToken);
 		memberOutboxEventRepository.deleteAll();
 
 		atOnce(
-			() -> crewFacade.transferLeader(leaderId, crewId, memberId),
-			() -> crewFacade.transferLeader(leaderId, crewId, joinerId));
+			() -> crewManageCommand.transferLeader(leaderId, crewId, memberId),
+			() -> crewManageCommand.transferLeader(leaderId, crewId, joinerId));
 
 		assertThat(rows(KafkaTopics.CREW_LEADER_CHANGED)).hasSize(1);
 	}

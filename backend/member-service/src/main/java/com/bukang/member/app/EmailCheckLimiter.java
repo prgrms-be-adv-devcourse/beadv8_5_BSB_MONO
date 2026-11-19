@@ -22,7 +22,7 @@ public class EmailCheckLimiter {
 
 	private final EmailCheckStore store;
 
-	public void check(String clientIp) {
+	public void checkAndCount(String clientIp) {
 		if (!store.tryAcquire(Sha256.hex(clientIp), LIMIT, WINDOW)) {
 			throw new EmailCheckTooManyRequestsException(TOO_MANY_MESSAGE);
 		}

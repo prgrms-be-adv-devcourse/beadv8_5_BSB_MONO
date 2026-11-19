@@ -63,14 +63,14 @@ public class SellerOrderQueryUseCase {
 	 * 파티 번호(partyId)로 찾으면 기간은 보지 않는다 (기능명세 S-25, 정책 6장 조회·보관-2)
 	 */
 	public SellerOrderPageDto findOrders(long sellerId, Long raceId, Long raceCourseId, OrderItemStatus status,
-		Long partyId, LocalDate from, LocalDate to, int page, int size) {
+		Long partyId, LocalDate from, LocalDate to, String keyword, int page, int size) {
 		if (partyId != null) {
 			from = null;
 			to = null;
 		}
 		checkPeriod(from, to);
 		Page<SellerOrderDto> orders = orderItemRepository.findSellerOrders(sellerId, raceId, raceCourseId, status,
-			partyId, startOf(from), endOf(to), PageRequest.of(page, size));
+			partyId, startOf(from), endOf(to), likeKeyword(keyword), PageRequest.of(page, size));
 		Map<Long, List<KitOptionChoiceDto>> options = participationKitOptionRepository.findChoicesByParticipationIds(
 			orders.stream().map(SellerOrderDto::getParticipationId).toList());
 		orders.forEach(order -> order.attachKitOptions(options.getOrDefault(order.getParticipationId(), List.of())));
@@ -165,6 +165,15 @@ public class SellerOrderQueryUseCase {
 		if (to.isAfter(from.plusMonths(MAX_PERIOD_MONTHS))) {
 			throw new OrderSearchPeriodException("조회 기간은 한 번에 12개월까지입니다.");
 		}
+	}
+
+	// 참가자 이름·주문번호 통합 검색어를 %말% LIKE 패턴으로. 빈 값이면 null이라 거르지 않는다
+	// shortcut: 검색어 속 %·_는 LIKE 와일드카드로 샌다. 정확 일치가 필요해지면 ESCAPE 절을 더한다
+	private static String likeKeyword(String keyword) {
+		if (keyword == null || keyword.isBlank()) {
+			return null;
+		}
+		return "%" + keyword.strip() + "%";
 	}
 
 	private static LocalDateTime startOf(LocalDate from) {

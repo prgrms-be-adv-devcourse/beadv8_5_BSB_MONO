@@ -30,8 +30,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
-import com.bukang.member.app.MarketingUnsubscribeTokens;
 import com.bukang.member.app.MemberFacade;
+import com.bukang.member.app.UnsubscribeTokenSigner;
 import com.bukang.member.domain.MemberOutboxEvent;
 import com.bukang.member.domain.TermsAgreement;
 import com.bukang.member.domain.TermsType;
@@ -65,7 +65,7 @@ class ApiV1MarketingUnsubscribeTest {
 	@Autowired
 	private MemberFacade memberFacade;
 	@Autowired
-	private MarketingUnsubscribeTokens tokens;
+	private UnsubscribeTokenSigner tokens;
 	@Autowired
 	private MemberRepository memberRepository;
 	@Autowired

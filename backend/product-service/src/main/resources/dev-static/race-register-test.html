@@ -522,10 +522,8 @@
             <span class="hint">0원보다 커야 합니다(0원 참가권 불가). 판매 시작 뒤 바꿀 수 없습니다</span></label>
           <label><span class="required">키트 금액(원)</span><input data-field="kitPrice" type="number" min="0" value="${course.kitPrice ?? 0}">
             <span class="hint">0원 이상, 참가비 이하. 참가비 안에 포함된 금액입니다(따로 더하지 않음). 판매 시작 뒤 바꿀 수 없습니다</span></label>
-          <label><span class="required">참가 최소 나이</span><input data-field="minAge" type="number" min="14" value="${course.minAge ?? 14}">
-            <span class="hint">만 14세 이상 (대회 당일 만 나이)</span></label>
-          <label>참가 최대 나이<input data-field="maxAge" type="number" min="14" value="${course.maxAge ?? ''}">
-            <span class="hint">비우면 상한 없음. 최소 나이 이상</span></label>
+          <label><span class="required">참가 최소 나이</span><input data-field="minAge" type="number" min="14" max="19" value="${course.minAge ?? 14}">
+            <span class="hint">14는 제한 없음, 19는 성인만 (대회 당일 만 나이)</span></label>
           <label><span class="required">크루 몫 정원</span><input data-field="crewQuota" type="number" min="0" value="${course.crewQuota ?? 0}">
             <span class="hint">0 이상. 크루 예매가 없는 대회는 0</span></label>
           <label><span class="required">개인 몫 정원</span>
@@ -745,7 +743,6 @@
         kitIncluded: field(card, 'kitIncluded').checked,
         kitPrice: integer(value('kitPrice')),
         minAge: integer(value('minAge')),
-        maxAge: integer(value('maxAge')),
         crewQuota: integer(value('crewQuota')),
         individualQuota: integer(value('individualQuota')),
         images,

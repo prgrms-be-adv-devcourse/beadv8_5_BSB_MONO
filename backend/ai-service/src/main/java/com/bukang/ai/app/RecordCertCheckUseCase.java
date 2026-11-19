@@ -122,23 +122,33 @@ public class RecordCertCheckUseCase {
 		}
 	}
 
-	// common의 이벤트는 칸 이름을 키로 싣는다. CertReader는 float 좌표를 받는다
+	// common의 이벤트는 칸 이름을 키로 싣는다. CertReader는 float 좌표를 받는다.
+	// 참가자가 보낸 값이라 null이 섞일 수 있다. 그 칸은 null 상자로 넘겨 CertReader가 "읽지 못함"으로 둔다.
+	// 여기서 NPE가 나면 read()의 catch를 지나쳐 같은 요청을 끝없이 다시 처리하고 뒤의 요청도 멈춘다 (리뷰 #645)
 	private static Map<CertField, float[][]> boxes(Map<String, double[][]> named) {
 		Map<CertField, float[][]> boxes = new EnumMap<>(CertField.class);
 		if (named == null) {
 			return boxes;
 		}
-		named.forEach((name, points) -> {
-			float[][] box = new float[points.length][];
-			for (int i = 0; i < points.length; i++) {
-				box[i] = new float[points[i].length];
-				for (int j = 0; j < points[i].length; j++) {
-					box[i][j] = (float)points[i][j];
-				}
-			}
-			boxes.put(CertField.valueOf(name), box);
-		});
+		named.forEach((name, points) -> boxes.put(CertField.valueOf(name), toFloat(points)));
 		return boxes;
+	}
+
+	private static float[][] toFloat(double[][] points) {
+		if (points == null) {
+			return null;
+		}
+		float[][] box = new float[points.length][];
+		for (int i = 0; i < points.length; i++) {
+			if (points[i] == null) {
+				return null;
+			}
+			box[i] = new float[points[i].length];
+			for (int j = 0; j < points[i].length; j++) {
+				box[i][j] = (float)points[i][j];
+			}
+		}
+		return box;
 	}
 
 	private static void sleep(long millis) {

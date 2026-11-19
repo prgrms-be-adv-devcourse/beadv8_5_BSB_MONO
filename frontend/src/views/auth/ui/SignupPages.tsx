@@ -33,6 +33,7 @@ import {
   Divider,
   FOCUS_RING,
   Icon,
+  IconButton,
   Radio,
   RadioGroup,
   TextField,
@@ -523,15 +524,14 @@ export function SignupTermsSheet({
                 <span className="text-body2-medium">[필수] 크루런 이용약관과 개인정보 동의</span>
               }
             />
-            <button
-              type="button"
+            <IconButton
+              size="s"
               aria-expanded={bundledOpen}
               aria-label="약관 보기 펼치기"
               onClick={() => setBundledOpen((v) => !v)}
-              className={cn('rounded-sm text-text-primary', FOCUS_RING)}
             >
-              <Icon name={bundledOpen ? 'ChevronUp' : 'ChevronDown'} className="size-5" />
-            </button>
+              <Icon name={bundledOpen ? 'ChevronUp' : 'ChevronDown'} />
+            </IconButton>
           </div>
           {bundledOpen && (
             <div className="flex flex-col items-start gap-2 pb-3 pl-8 text-body2-regular text-text-secondary">
