@@ -55,12 +55,14 @@ import type {
   RsDataListSellerDto,
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
+  RsDataMyPayoutAccountDto,
   RsDataSellerDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
   RsDataVerifiedIdentityDto,
   RsDataVoid,
   SellerApplyRequestDto,
+  SellerPayoutAccountModifyRequestDto,
   SellerRejectRequestDto,
   SocialCallbackParams,
   SocialJoinRequestDto
@@ -1310,6 +1312,197 @@ export function useFindMine<TData = Awaited<ReturnType<typeof findMine>>, TError
 
 
 
+
+export const getFindMyPayoutAccountUrl = () => {
+
+
+
+
+  return `/api/v1/member/sellers/me/payout-account`
+}
+
+/**
+ * X-Member-Id 헤더의 회원이 자기 정산 계좌를 조회한다. 승인된 판매자만 볼 수 있다. 은행 코드, 예금주, 계좌번호 끝 4자리만 돌려주고 전체 계좌번호는 돌려주지 않는다. 계좌가 없으면 registered가 false이고, 이때 정산 지급은 보류된다.
+ * @summary 내 정산 계좌 조회
+ */
+export const findMyPayoutAccount = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataMyPayoutAccountDto> => {
+
+  return customFetch<RsDataMyPayoutAccountDto>(getFindMyPayoutAccountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindMyPayoutAccountQueryKey = () => {
+    return [
+    `/api/v1/member/sellers/me/payout-account`
+    ] as const;
+    }
+
+
+export const getFindMyPayoutAccountQueryOptions = <TData = Awaited<ReturnType<typeof findMyPayoutAccount>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyPayoutAccount>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindMyPayoutAccountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findMyPayoutAccount>>> = ({ signal }) => findMyPayoutAccount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findMyPayoutAccount>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindMyPayoutAccountQueryResult = NonNullable<Awaited<ReturnType<typeof findMyPayoutAccount>>>
+export type FindMyPayoutAccountQueryError = RsData
+
+
+export function useFindMyPayoutAccount<TData = Awaited<ReturnType<typeof findMyPayoutAccount>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyPayoutAccount>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findMyPayoutAccount>>,
+          TError,
+          Awaited<ReturnType<typeof findMyPayoutAccount>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindMyPayoutAccount<TData = Awaited<ReturnType<typeof findMyPayoutAccount>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyPayoutAccount>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findMyPayoutAccount>>,
+          TError,
+          Awaited<ReturnType<typeof findMyPayoutAccount>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindMyPayoutAccount<TData = Awaited<ReturnType<typeof findMyPayoutAccount>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyPayoutAccount>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 내 정산 계좌 조회
+ */
+
+export function useFindMyPayoutAccount<TData = Awaited<ReturnType<typeof findMyPayoutAccount>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findMyPayoutAccount>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindMyPayoutAccountQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getModifyMyPayoutAccountUrl = () => {
+
+
+
+
+  return `/api/v1/member/sellers/me/payout-account`
+}
+
+/**
+ * X-Member-Id 헤더의 승인된 판매자가 정산 계좌를 등록하거나 바꾼다. 관리자 승인은 거치지 않는다. 판매자 신청과 같은 오픈뱅킹 계좌실명조회를 통과해야 저장하고, 통과하지 못하면 기존 계좌를 그대로 둔다. 사업자 명의는 판매자 신청서의 사업자등록번호로, 본인 명의는 본인인증 생년월일로 조회한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있고, 신청 때 쓴 횟수와 합쳐 센다. 응답에는 전체 계좌번호 없이 끝 4자리만 담는다.
+ * @summary 내 정산 계좌 등록·수정
+ */
+export const modifyMyPayoutAccount = async (sellerPayoutAccountModifyRequestDto: SellerPayoutAccountModifyRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataMyPayoutAccountDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataMyPayoutAccountDto>(getModifyMyPayoutAccountUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sellerPayoutAccountModifyRequestDto)
+  }
+);}
+
+
+
+
+
+export const getModifyMyPayoutAccountMutationKey = () => ['modifyMyPayoutAccount'] as const;
+
+export const getModifyMyPayoutAccountMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyMyPayoutAccount>>, TError,ModifyMyPayoutAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof modifyMyPayoutAccount>>, TError,ModifyMyPayoutAccountMutationVariables, TContext> => {
+
+const mutationKey = getModifyMyPayoutAccountMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof modifyMyPayoutAccount>>, ModifyMyPayoutAccountMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  modifyMyPayoutAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ModifyMyPayoutAccountMutationResult = NonNullable<Awaited<ReturnType<typeof modifyMyPayoutAccount>>>
+    export type ModifyMyPayoutAccountMutationBody = SellerPayoutAccountModifyRequestDto
+    export type ModifyMyPayoutAccountMutationError = RsData
+    export type ModifyMyPayoutAccountMutationVariables = {data: SellerPayoutAccountModifyRequestDto}
+
+    /**
+ * @summary 내 정산 계좌 등록·수정
+ */
+export const useModifyMyPayoutAccount = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof modifyMyPayoutAccount>>, TError,ModifyMyPayoutAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof modifyMyPayoutAccount>>,
+        TError,
+        ModifyMyPayoutAccountMutationVariables,
+        TContext
+      > => {
+      return useMutation(getModifyMyPayoutAccountMutationOptions(options), queryClient);
+    }
 
 export const getFindAllUrl = (params?: FindAllParams,) => {
   const normalizedParams = new URLSearchParams();

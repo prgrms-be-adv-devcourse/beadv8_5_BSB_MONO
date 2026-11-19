@@ -32,6 +32,7 @@ import type {
   RsDataListSellerDto,
   RsDataMemberDto,
   RsDataMemberLoginResponseDto,
+  RsDataMyPayoutAccountDto,
   RsDataSellerDto,
   RsDataSocialSignupInfoDto,
   RsDataTokenReissueResponseDto,
@@ -60,6 +61,10 @@ export const getApproveResponseMock = (): RsDataSellerDto => ({"status":200,"mes
 export const getCheckMyResultResponseMock = (): RsDataSellerDto => ({"status":200,"message":"판매자 신청 결과를 확인했습니다.","data":{"id":1,"memberId":1,"sellerType":"BUSINESS","businessName":"크루런 스포츠","businessNumber":"123-45-67890","representativeName":"김러너","status":"APPROVED","requestedAt":"2026-10-05T21:25:35","reviewedAt":"2026-10-06T10:12:08","rejectReason":null,"resultCheckedAt":"2026-10-06T12:30:41"}})
 
 export const getFindMineResponseMock = (): RsDataSellerDto => ({"status":200,"message":"판매자 신청 내역을 조회했습니다.","data":{"id":1,"memberId":1,"sellerType":"BUSINESS","businessName":"크루런 스포츠","businessNumber":"123-45-67890","representativeName":"김러너","status":"REJECTED","requestedAt":"2026-10-05T21:25:35","reviewedAt":"2026-10-06T10:12:08","rejectReason":"사업자등록번호를 확인할 수 없습니다.","resultCheckedAt":null}})
+
+export const getFindMyPayoutAccountResponseMock = (): RsDataMyPayoutAccountDto => ({"status":200,"message":"정산 계좌를 조회했습니다.","data":{"registered":true,"bankCode":"004","accountHolderName":"김러너","accountHolderType":"PERSONAL","accountNumberLast4":"0678"}})
+
+export const getModifyMyPayoutAccountResponseMock = (): RsDataMyPayoutAccountDto => ({"status":200,"message":"정산 계좌를 저장했습니다.","data":{"registered":true,"bankCode":"088","accountHolderName":"김러너","accountHolderType":"PERSONAL","accountNumberLast4":"0123"}})
 
 export const getFindAllResponseMock = (): RsDataListSellerDto => ({"status":200,"message":"판매자 신청 목록을 조회했습니다.","data":[{"id":1,"memberId":1,"sellerType":"BUSINESS","businessName":"크루런 스포츠","businessNumber":"123-45-67890","representativeName":"김러너","status":"PENDING","requestedAt":"2026-10-05T21:25:35","reviewedAt":null,"rejectReason":null,"resultCheckedAt":null}]})
 
@@ -257,6 +262,30 @@ export const getFindMineMockHandler = (overrideResponse?: RsDataSellerDto | ((in
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getFindMineResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindMyPayoutAccountMockHandler = (overrideResponse?: RsDataMyPayoutAccountDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataMyPayoutAccountDto> | RsDataMyPayoutAccountDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/member/sellers/me/payout-account', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindMyPayoutAccountResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getModifyMyPayoutAccountMockHandler = (overrideResponse?: RsDataMyPayoutAccountDto | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<RsDataMyPayoutAccountDto> | RsDataMyPayoutAccountDto), options?: RequestHandlerOptions) => {
+  return http.put('*/api/v1/member/sellers/me/payout-account', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getModifyMyPayoutAccountResponseMock(),
       { status: 200
       })
   }, options)
@@ -624,6 +653,8 @@ export const getBukangMemberAPIMock = () => [
   getApproveMockHandler(),
   getCheckMyResultMockHandler(),
   getFindMineMockHandler(),
+  getFindMyPayoutAccountMockHandler(),
+  getModifyMyPayoutAccountMockHandler(),
   getFindAllMockHandler(),
   getAuthorizeSocialMockHandler(),
   getSocialCallbackMockHandler(),
