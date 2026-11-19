@@ -761,7 +761,7 @@
             <td>${escapeHtml(course.name)}</td>
             <td>${course.courseType} · ${course.surface}</td>
             <td>${course.distanceKm}km · ${course.timeLimitMinutes}분</td>
-            <td>${course.minAge} ~ ${course.maxAge ?? '상한 없음'}</td>
+            <td>${course.minAge >= 19 ? '성인만' : '제한 없음'}</td>
             <td>${won(course.price)}<div class="hint">키트 ${course.kitIncluded ? `포함 (${won(course.kitPrice)})` : '없음'}</div></td>
             <td class="${course.status === 'SOLD_OUT' ? 'fail' : 'ok'}">${courseStatusText(course.status)}</td>
             <td>${course.crewQuota} / ${course.crewRemaining}</td>

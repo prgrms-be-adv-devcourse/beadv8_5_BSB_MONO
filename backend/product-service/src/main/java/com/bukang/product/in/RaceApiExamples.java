@@ -564,7 +564,7 @@ final class RaceApiExamples {
 						"distanceKm": 10.00,
 						"timeLimitMinutes": 90,
 						"minAge": 14,
-						"maxAge": 70,
+						"maxAge": null,
 						"price": 45000,
 						"kitIncluded": true,
 						"kitPrice": 0,
