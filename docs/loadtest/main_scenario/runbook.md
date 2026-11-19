@@ -83,12 +83,12 @@ GRAFANA_PW='<비번>' python docs-local/ops/promsnap.py 15 40 > results/<stage>-
 ## 8. 로그인을 빨리 끝내기 (부하 PC만 /auth 제한에서 빼기)
 nginx가 `/auth`를 IP당 초당 1건으로 막아 1,000명 로그인에 20분이 걸리고, 그동안 먼저 받은 토큰(30분)이 닳는다. 부하를 돌리는 동안만 부하 PC IP를 제한에서 뺀다(11/19 파티 부하에서 1,600명 약 6분).
 ```bash
-ssh team05 'rm -f ~/nginx-config-backup.yaml'              # 옛 백업이 남아 있으면 닫을 때 옛 설정으로 덮어쓴다
-ssh team05 'bash -s' <부하PC 공인IP> < ops/nginx-open.sh   # 열기 (nginx 몇 초 재시작)
+ssh team05 'bash -s' <부하PC 공인IP> < ops/nginx-open.sh   # 열기 (nginx 몇 초 재시작, 열 때마다 백업을 새로 뜬다)
 powershell -File run-login.ps1 -Count 1000 -Interval 0.2    # 미니 PC에서
 # ... 부하 ...
-ssh team05 'bash -s' < ops/nginx-close.sh                   # 닫기 (실패해도 꼭)
+ssh team05 'bash -s' < ops/nginx-close.sh                   # 닫기 (실패해도 꼭, 되돌린 뒤 백업을 지운다)
 ```
+- ConfigMap의 파일(키)을 모두 꺼내 `upstreams.conf`만 고쳐 다시 만든다. 파일 이름을 적어 두지 않아서, `nginx.conf`(#670 연결 한도)처럼 키가 늘어도 빠지지 않는다.
 - 그 IP에서 오는 로그인만 제한이 풀린다. 다른 사용자는 그대로다.
 - 부하 도중 nginx를 다시 배포하면 설정이 원래대로 돌아간다.
 
