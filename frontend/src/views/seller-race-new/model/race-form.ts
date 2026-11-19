@@ -171,6 +171,8 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       individualOpenAt: date,
       applicationCloseAt: date,
       refundDeadline: date,
+      // 참가 가능 나이는 대회 하나에 하나. 등록 요청에서 모든 종목의 최소 나이로 보낸다
+      minAge: z.union([z.literal(14), z.literal(19)]),
       courses: z.array(courseSchema).min(1, RACE_FORM_ERRORS.coursesRequired),
       kitOptions: kitOptionsSchema,
     })
@@ -253,8 +255,6 @@ export type CourseDraft = {
   timeLimitMinutes: string
   price: string
   individualQuota: string
-  /** 체크하면 성인만(최소 나이 19), 아니면 제한 없음(14) */
-  adultOnly: boolean
 }
 
 export const COURSE_DRAFT_DEFAULTS: CourseDraft = {
@@ -264,7 +264,6 @@ export const COURSE_DRAFT_DEFAULTS: CourseDraft = {
   timeLimitMinutes: '',
   price: '',
   individualQuota: '',
-  adultOnly: false,
 }
 
 const numberText = (pattern: RegExp) =>
@@ -288,21 +287,17 @@ export const courseDraftSchema = z.object({
   // 서버 RaceCourseSaveRequestDto가 @Positive라 0원은 막는다 (orval zod는 min(0)뿐)
   price: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.pricePositive)),
   individualQuota: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.quotaPositive)),
-  adultOnly: z.boolean(),
 })
 
 export type CourseDraftInput = z.input<typeof courseDraftSchema>
 export type CourseDraftParsed = z.output<typeof courseDraftSchema>
 
 /** 검사를 통과한 종목 입력값에 고정값(노면 · 키트)을 붙여 종목 한 줄로 만든다 */
-export function toCourseInputFromParsed({
-  adultOnly,
-  ...data
-}: CourseDraftParsed): RaceCourseInput {
+export function toCourseInputFromParsed(data: CourseDraftParsed): RaceCourseInput {
   return {
     ...data,
-    // 서버는 14(제한 없음)와 19(성인만)만 받고 최대 나이는 비워야 한다
-    minAge: adultOnly ? ADULT_MIN_AGE : NO_LIMIT_MIN_AGE,
+    // 서버는 14(제한 없음)와 19(성인만)만 받고 최대 나이는 비워야 한다. 실제 값은 등록 요청에서 대회 나이로 덮는다
+    minAge: NO_LIMIT_MIN_AGE,
     surface: 'ROAD',
     kitIncluded: true,
     kitPrice: 0,
@@ -351,6 +346,7 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   individualOpenAt: '',
   applicationCloseAt: '',
   refundDeadline: '',
+  minAge: NO_LIMIT_MIN_AGE,
   courses: DRAFT_COURSES,
   // 시안의 기념 티셔츠 사이즈. 준비 수량을 비우면 맞춤 제작이다
   kitOptions: ['S', 'M', 'L', 'XL', 'XXL'].map((value) => ({ name: '티셔츠', value, stock: '' })),
@@ -379,6 +375,7 @@ export function toRaceSaveRequest(
     // 세미는 크루 예매가 없어 크루 예매 기간을 비우고 크루 몫 정원은 0으로 보낸다
     courses: values.courses.map((course, i) => ({
       ...course,
+      minAge: values.minAge,
       crewQuota: 0,
       images: courseImages[i] ?? [],
     })),

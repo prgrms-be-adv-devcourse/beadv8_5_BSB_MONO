@@ -113,7 +113,6 @@ describe('courseDraftSchema 종목 추가 창', () => {
     timeLimitMinutes: '180',
     price: '55000',
     individualQuota: '500',
-    adultOnly: false,
   }
 
   // 칸별 첫 오류 문구
@@ -136,11 +135,9 @@ describe('courseDraftSchema 종목 추가 창', () => {
       timeLimitMinutes: 180,
       price: 55000,
       individualQuota: 500,
-      minAge: 14,
       crewQuota: 0,
     })
     expect(course).not.toHaveProperty('maxAge')
-    expect(course).not.toHaveProperty('adultOnly')
 
     const request = toRaceSaveRequest(
       { ...base, courses: [...base.courses, course] },
@@ -156,23 +153,6 @@ describe('courseDraftSchema 종목 추가 창', () => {
       courseType: COURSE_FORM_ERRORS.courseTypeRequired,
       price: COURSE_FORM_ERRORS.number,
     })
-  })
-
-  it('성인만 받기를 체크하면 최소 나이 19, 안 하면 14로 만들고 최대 나이는 만들지 않는다', () => {
-    for (const [adultOnly, minAge] of [
-      [true, 19],
-      [false, 14],
-    ] as const) {
-      const result = courseDraftSchema.safeParse({ ...draft, adultOnly })
-      if (!result.success) throw new Error('종목이 만들어져야 한다')
-      const course = toCourseInputFromParsed(result.data)
-      expect(course.minAge).toBe(minAge)
-      expect(course).not.toHaveProperty('maxAge')
-    }
-  })
-
-  it('새 종목의 기본값은 성인만 받기 해제(최소 나이 14)다', () => {
-    expect(COURSE_DRAFT_DEFAULTS.adultOnly).toBe(false)
   })
 
   it('참가비 · 정원 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
@@ -274,16 +254,30 @@ describe('상세 주소 칸', () => {
   })
 })
 
-describe('기본 종목의 나이', () => {
-  it('화면에 없는 최대 나이를 보내지 않고, 최소 나이는 고를 수 있는 값(14 · 19)이다', () => {
-    const request = toRaceSaveRequest(
-      RACE_FORM_DEFAULTS,
+describe('참가 가능 나이', () => {
+  const request = (minAge: 14 | 19) =>
+    toRaceSaveRequest(
+      { ...base, minAge },
       [],
-      RACE_FORM_DEFAULTS.courses.map(() => []),
+      base.courses.map(() => []),
     )
-    for (const course of request.courses) {
-      expect(JSON.parse(JSON.stringify(course))).not.toHaveProperty('maxAge')
-      expect([14, 19]).toContain(course.minAge)
+
+  it('기본은 만 14세다', () => {
+    expect(RACE_FORM_DEFAULTS.minAge).toBe(14)
+  })
+
+  it('고른 나이가 모든 종목의 최소 나이가 되고, 최대 나이는 보내지 않는다', () => {
+    for (const minAge of [14, 19] as const) {
+      const courses = request(minAge).courses
+      expect(courses.length).toBeGreaterThan(1)
+      for (const course of courses) {
+        expect(course.minAge).toBe(minAge)
+        expect(JSON.parse(JSON.stringify(course))).not.toHaveProperty('maxAge')
+      }
     }
+  })
+
+  it('14 · 19 말고는 막는다', () => {
+    expect(raceFormSchema.safeParse({ ...base, minAge: 16 }).success).toBe(false)
   })
 })

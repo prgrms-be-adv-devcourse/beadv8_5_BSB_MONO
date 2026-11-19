@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 
-import { Checkbox, Dialog, digitsOnly, Select, TextField } from '@/shared/ui'
+import { Dialog, digitsOnly, Select, TextField } from '@/shared/ui'
 
 import {
   COURSE_DRAFT_DEFAULTS,
@@ -58,7 +58,7 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
   })
 
   // 숫자 칸은 inputMode로 숫자 자판을 띄우고, 검사는 zod 스키마가 한다
-  const field = (key: Exclude<keyof CourseDraftInput, 'adultOnly'>, label: string) => (
+  const field = (key: keyof CourseDraftInput, label: string) => (
     <TextField
       label={label}
       error={errors[key]?.message}
@@ -108,13 +108,6 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
             {field('price', '참가비 (원)')}
             {field('individualQuota', '모집 정원 (명)')}
           </div>
-          <Controller
-            control={control}
-            name="adultOnly"
-            render={({ field: { value, onChange } }) => (
-              <Checkbox label="성인만 받기" checked={value} onCheckedChange={onChange} />
-            )}
-          />
         </div>
       }
     />

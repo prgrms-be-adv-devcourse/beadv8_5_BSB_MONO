@@ -15,6 +15,7 @@ import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
+  Chip,
   DataTable,
   digitsOnly,
   ImageCropDialog,
@@ -28,7 +29,6 @@ import {
 } from '@/shared/ui'
 
 import {
-  ADULT_MIN_AGE,
   createRaceFormSchema,
   earliestSaleOpenDate,
   MAX_INTRO_IMAGES,
@@ -68,7 +68,6 @@ function courseRow(course: RaceCourseInput, id: string, index: number) {
     course: course.name,
     price: `${formatNumber(course.price)}원`,
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: course.minAge >= ADULT_MIN_AGE ? '성인만' : '',
     kit: course.kitIncluded ? '포함' : '없음',
   }
 }
@@ -352,12 +351,25 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                   })
                 }}
               />
-              <TextField
-                label="참가 가능 나이"
-                defaultValue="종목마다 성인만 받을지 정해요"
-                helper="대회 당일 만 나이 · 성인은 만 19세 이상"
-                readOnly
-              />
+              <div role="group" aria-labelledby="race-age-label" className="flex flex-col gap-2">
+                <span id="race-age-label" className="text-body1-medium text-text-primary">
+                  참가 가능 나이
+                </span>
+                <Controller
+                  control={control}
+                  name="minAge"
+                  render={({ field: { value, onChange } }) => (
+                    <div className="flex gap-2">
+                      {([14, 19] as const).map((age) => (
+                        <Chip key={age} selected={value === age} onClick={() => onChange(age)}>
+                          만 {age}세
+                        </Chip>
+                      ))}
+                    </div>
+                  )}
+                />
+                <p className="text-caption-regular text-text-tertiary">대회 당일 만 나이</p>
+              </div>
             </div>
           </ConsoleCard>
         </div>
@@ -521,7 +533,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               { key: 'course', header: '종목', render: (r) => r.course },
               { key: 'price', header: '참가비', align: 'right', render: (r) => r.price },
               { key: 'capacity', header: '모집 정원', align: 'right', render: (r) => r.capacity },
-              { key: 'age', header: '참가 나이 (최소 ~ 최대)', render: (r) => r.age },
               { key: 'kit', header: '키트 (참가권 포함)', render: (r) => r.kit },
               {
                 key: 'remove',
