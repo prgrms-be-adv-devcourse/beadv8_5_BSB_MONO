@@ -29,7 +29,8 @@ public record PartyDetailDto(
 	@Schema(name = "PartyDetailMemberDto", description = "파티 상세의 파티원 한 명")
 	public record Member(
 		@Schema(description = "회원 ID", example = "3") long memberId,
-		@Schema(description = "닉네임. 회원 서비스에 없으면 「탈퇴한 회원」", example = "러너A") String nickname,
+		@Schema(description = "닉네임. 회원 서비스에 없으면 「탈퇴한 회원」, 회원 서비스가 응답하지 않으면 「크루원」",
+			example = "러너A") String nickname,
 		@Schema(description = "파티장인지") boolean leader,
 		@Schema(description = "합류 시각") LocalDateTime joinedAt,
 		@Schema(description = "신청서 상태 PENDING(확보 전) / APPLIED(결제 대기) / CONFIRMED(참가 확정) / RELEASED(미결제 해제) "

@@ -2,6 +2,9 @@ package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.longThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,7 +17,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -87,7 +92,7 @@ class ApiV1PartyTest {
 	@Autowired
 	private PartyMemberRepository partyMemberRepository;
 
-	@Autowired
+	@MockitoSpyBean
 	private ParticipationRepository participationRepository;
 
 	@Autowired
@@ -478,6 +483,41 @@ class ApiV1PartyTest {
 
 		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
 		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("이웃한 두 파티에 동시에 합류해도 교착 없이 둘 다 합류된다 (CRU-74, MySQL 갭 잠금)")
+	void concurrentJoinsOnNeighborParties() throws Exception {
+		LocalDateTime now = LocalDateTime.now();
+		// 최대 인원이 있어야 합류가 파티원 줄을 잠가 읽는다
+		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null),
+			now.minusDays(1), now.plusDays(1), 1, 10));
+		// 파티원 색인(party_id, member_id) 순서: (A,50) (B,60). 두 합류가 모두 그 사이 틈에 줄을 넣는다
+		String tokenA = token(create(50, COURSE_10K));
+		String tokenB = token(create(60, COURSE_10K));
+		long joinerA = 70;
+		long joinerB = 55;
+		// 두 합류가 파티원 잠금 조회까지 마친 뒤 함께 줄을 넣게 한다 (교착이 나는 순서를 매번 만든다)
+		// 저장소 인터페이스라 실제 메서드를 부를 수 없어, 실제와 같은 답(같은 대회에 다른 신청 없음)을 준다
+		CyclicBarrier bothLocked = new CyclicBarrier(2);
+		doAnswer(invocation -> {
+			bothLocked.await(10, TimeUnit.SECONDS);
+			return Optional.empty();
+		}).when(participationRepository).findActiveIdByRaceIdAndMemberId(anyLong(),
+			longThat(memberId -> memberId == joinerA || memberId == joinerB));
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		List<Future<Integer>> results = new ArrayList<>();
+		try {
+			results.add(pool.submit(() -> join(joinerA, tokenA).andReturn().getResponse().getStatus()));
+			results.add(pool.submit(() -> join(joinerB, tokenB).andReturn().getResponse().getStatus()));
+			List<Integer> statuses = new ArrayList<>();
+			for (Future<Integer> result : results) {
+				statuses.add(result.get(30, TimeUnit.SECONDS));
+			}
+			assertThat(statuses).containsExactly(201, 201);
+		} finally {
+			pool.shutdownNow();
+		}
 	}
 
 	@Test
