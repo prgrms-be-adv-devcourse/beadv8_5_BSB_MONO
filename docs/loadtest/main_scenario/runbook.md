@@ -43,6 +43,14 @@ powershell -File run-stage.ps1 -Stage s2 -Tag 1119-pm-main-68f0336        # 조�
 powershell -File run-stage.ps1 -Stage s3 -Tag 1119-pm-main-68f0336        # 조회 330/s (여기서 붕괴)
 powershell -File run-stage.ps1 -Stage buystress -Tag 1119-pm-main-68f0336 # 쓰기 한계: 구매 15/s
 ```
+```powershell
+# 실제 흐름(rush.js): 같은 사람이 줄 서서 구매까지. 단계 = 몰리는 인원
+powershell -File run-stage.ps1 -Stage r300 -Tag <날짜-커밋> -Script rush.js
+powershell -File run-stage.ps1 -Stage r600 -Tag <날짜-커밋> -Script rush.js
+powershell -File run-stage.ps1 -Stage r990 -Tag <날짜-커밋> -Script rush.js
+```
+- 단계 사이에는 60~90초 쉰다. SSH가 끊겨도 k6는 계속 도니, `<stage>.window.txt`가 생겼는지 보고 다음 단계로 간다.
+- `.ps1`은 **UTF-8 BOM**으로 저장한다. BOM이 없으면 Windows PowerShell이 한글 주석을 잘못 읽어 다음 줄(`param`)을 삼킨다(2026-11-19: 50명 로그인이 1,000명으로 돌았다).
 - 결과는 `runs\<Tag>\`에 남는다: `<stage>.json`(요약), `<stage>-raw.csv`(요청별 원시), `<stage>.log`, `<stage>.window.txt`(시작·끝 UTC, 대회 ID), `<stage>.race.json`.
 - **Tag에 날짜와 main 커밋을 넣고**, 서비스별 이미지 태그를 `MANIFEST.md`에 적는다(재현용).
 - 자동멈춤: 실패율 5%(30초), 쓰기 p99 5초 2분 지속.

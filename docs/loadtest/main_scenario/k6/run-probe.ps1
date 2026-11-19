@@ -1,4 +1,4 @@
-param([int]$No = 950)
+﻿param([int]$No = 950)
 # race.json의 구매용 대회에서 계정 1개로 신청 → 주문 → 결제 1건을 확인한다
 Set-Location 'C:\Users\user\loadtest\prod-run'
 $k6 = 'C:\Users\user\loadtest\k6bin\k6-v0.54.0-windows-amd64\k6.exe'

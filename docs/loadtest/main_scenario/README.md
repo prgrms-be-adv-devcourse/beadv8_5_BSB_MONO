@@ -10,7 +10,8 @@ guide.md     일반 가이드 + 시나리오 템플릿 + "읽은 AI에게" (먼�
 runbook.md   예매 funnel 재현 단계별
 results.md   계획 + 실측 수치·병목 분석
 k6/
-  funnel.js         예매 funnel(대기열→신청→주문→결제). STAGE: smoke/s1/s2/s3/buystress
+  funnel.js         기준선(대기자·구매자 분리, 조회를 일정하게 유지하는 최악 가정). STAGE: smoke/s1/s2/s3/buystress
+  rush.js           실제 흐름: N명이 한 대회에 줄 서서 차례로 신청→주문→결제. STAGE: r30/r300/r600/r990
   login-prod.js     테스트 회원 throttle 로그인 → .accounts.json
   prepare-race.js   실행마다 새 대회 2개(구매용·대기용) 등록 + 판매 바로 시작 → race.json
   run-stage.ps1     미니PC(Windows) 실행 래퍼: 새 대회 생성 → funnel → 요약·원시 CSV·시간창을 runs\<태그>\ 에 저장

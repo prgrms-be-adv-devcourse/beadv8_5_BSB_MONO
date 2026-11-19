@@ -1,6 +1,8 @@
-param([string]$Stage, [string]$Tag, [switch]$PrepareOnly)
-# 한 단계를 돌린다: 새 대회 2개(구매용·대기용)를 만들고 → funnel.js 실행 → 요약(json)·원시(csv)·로그·시간창을 runs\<Tag>\ 에 남긴다
-# 먼저 run-login.ps1 -Count 1000 으로 토큰을 만들어 둔다 (판매자 계정 994번 포함)
+﻿param([string]$Stage, [string]$Tag, [switch]$PrepareOnly, [string]$Script = 'funnel.js')
+# -Script: funnel.js(대기자·구매자 분리, 기준선) 또는 rush.js(같은 사람이 줄 서서 구매, 실제 흐름)
+# 이 파일은 UTF-8 BOM으로 저장한다. BOM이 없으면 Windows PowerShell이 한글 주석을 잘못 읽어 다음 줄을 삼킨다
+# 한 단계를 돌린다: 새 대회 2개(구매용·대기용)를 만들고 → 부하 스크립트 실행 → 요약(json)·원시(csv)·로그·시간창을 runs\<Tag>\ 에 남긴다
+# 먼저 run-login.ps1 -Count 1000 으로 토큰을 만들어 둔다
 $ErrorActionPreference = 'Continue'
 Set-Location 'C:\Users\user\loadtest\prod-run'
 $k6 = 'C:\Users\user\loadtest\k6bin\k6-v0.54.0-windows-amd64\k6.exe'
@@ -20,9 +22,9 @@ Start-Sleep -Seconds 15
 $start = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 & $k6 run -e STAGE=$Stage -e BUY_RACE=$($r.buy.raceId) -e BUY_COURSE=$($r.buy.raceCourseId) `
 	-e WAIT_RACE=$($r.wait.raceId) -e WAIT_COURSE=$($r.wait.raceCourseId) `
-	--summary-export "$dir\$Stage.json" --out "csv=$dir\$Stage-raw.csv" funnel.js *> "$dir\$Stage.log"
+	--summary-export "$dir\$Stage.json" --out "csv=$dir\$Stage-raw.csv" $Script *> "$dir\$Stage.log"
 $code = $LASTEXITCODE
 $end = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-"stage=$Stage start_utc=$start end_utc=$end k6_exit=$code buy_race=$($r.buy.raceId) buy_course=$($r.buy.raceCourseId) wait_race=$($r.wait.raceId) wait_course=$($r.wait.raceCourseId)" |
+"stage=$Stage script=$Script start_utc=$start end_utc=$end k6_exit=$code buy_race=$($r.buy.raceId) buy_course=$($r.buy.raceCourseId) wait_race=$($r.wait.raceId) wait_course=$($r.wait.raceCourseId)" |
 	Out-File -Encoding ascii "$dir\$Stage.window.txt"
 Get-Content "$dir\$Stage.window.txt"
