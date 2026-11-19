@@ -3,6 +3,8 @@
 // 4) 결제→환불과 정산 지급을 1분 동안 섞기
 // 실행(backend/에서): k6 run -e RUN=1 loadtest/scenario-b/b0-integrity.js  →  ./loadtest/scenario-b/verify.sh 1
 // 판정은 verify.sh가 한다 (응답이 모두 200이어도 돈이 두 번 빠졌을 수 있으므로 DB로 확인)
+// MODE (2차 판정 기준 P8 묶음): full(기본, 위 1~4), again(4의 섞인 구간만 다시), split(결제→환불만 → 정산 지급만)
+//   again·split의 구간 길이는 MIX_SEC(기본 60)
 import http from 'k6/http';
 import { check } from 'k6';
 import { CASH_URL, INTERNAL, JSON_HEADERS, PAYMENT_AMOUNT, RUN, SAME_REF_ID, payerId, refId, sellerId } from './lib.js';
@@ -11,9 +13,25 @@ const SAME_ORDER_MEMBER = 900001;
 const SAME_PAYOUT_SELLER = 990001;
 // 잔액 0원인 충전 확인용 회원 (sql/01-seed.sql). 실행마다 충전 번호가 달라 잔액 상한에는 닿지 않는다
 const SAME_CHARGE_MEMBER = 902001;
+const MODE = __ENV.MODE || 'full';
+const MIX_SEC = Number(__ENV.MIX_SEC || 60);
 
-export const options = {
-	scenarios: {
+function payRefundAt(startSec, durationSec) {
+	return {
+		executor: 'constant-arrival-rate', rate: 30, timeUnit: '1s', duration: `${durationSec}s`,
+		preAllocatedVUs: 50, maxVUs: 200, exec: 'payThenRefund', startTime: `${startSec}s`,
+	};
+}
+
+function payoutAt(startSec, durationSec) {
+	return {
+		executor: 'constant-arrival-rate', rate: 10, timeUnit: '1s', duration: `${durationSec}s`,
+		preAllocatedVUs: 20, maxVUs: 100, exec: 'payout', startTime: `${startSec}s`,
+	};
+}
+
+const SCENARIOS = {
+	full: {
 		same_order: { executor: 'per-vu-iterations', vus: 100, iterations: 1, maxDuration: '30s', exec: 'sameOrder' },
 		same_payout: {
 			executor: 'per-vu-iterations', vus: 50, iterations: 1, maxDuration: '30s', exec: 'samePayout',
@@ -23,21 +41,28 @@ export const options = {
 			executor: 'per-vu-iterations', vus: 50, iterations: 1, maxDuration: '30s', exec: 'sameCharge',
 			startTime: '15s',
 		},
-		mixed_pay_refund: {
-			executor: 'constant-arrival-rate', rate: 30, timeUnit: '1s', duration: '1m',
-			preAllocatedVUs: 50, maxVUs: 200, exec: 'payThenRefund', startTime: '20s',
-		},
-		mixed_payout: {
-			executor: 'constant-arrival-rate', rate: 10, timeUnit: '1s', duration: '1m',
-			preAllocatedVUs: 20, maxVUs: 100, exec: 'payout', startTime: '20s',
-		},
+		mixed_pay_refund: payRefundAt(20, 60),
+		mixed_payout: payoutAt(20, 60),
 	},
-	thresholds: {
+	again: { mixed_pay_refund: payRefundAt(0, MIX_SEC), mixed_payout: payoutAt(0, MIX_SEC) },
+	split: { refund_only: payRefundAt(0, MIX_SEC), payout_only: payoutAt(MIX_SEC, MIX_SEC) },
+};
+if (!SCENARIOS[MODE]) {
+	throw new Error(`MODE는 full, again, split 중 하나: ${MODE}`);
+}
+
+export const options = {
+	scenarios: SCENARIOS[MODE],
+	thresholds: Object.assign({
 		http_req_failed: ['rate==0'],
 		checks: ['rate==1'],
 		// 판정 P8(결제 p95 2초)용. 기준을 걸어야 요약 파일에 결제만의 응답 시간이 따로 남는다
 		'http_req_duration{api:pay}': ['p(95)<2000'],
-	},
+	}, MODE === 'split' ? {
+		// 원인 고르기(R1): 구간마다 그 구간 요청의 p95를 따로 남긴다
+		'http_req_duration{scenario:refund_only}': ['p(95)<2000'],
+		'http_req_duration{scenario:payout_only}': ['p(95)<2000'],
+	} : {}),
 };
 
 function pay(orderId, memberId) {

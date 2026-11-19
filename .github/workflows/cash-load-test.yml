@@ -6,6 +6,7 @@ name: cash-load-test
 # - 그 전에는 PR에 라벨을 붙여 시작한다 (주문 측정의 load-test 라벨과 따로)
 #   cash-load-test    : 그 PR 커밋을 A로 3번 잰다
 #   cash-load-test-ab : B는 그 PR 커밋, A는 B에서 container/ab-fixes.txt의 커밋만 되돌린 코드. A·B를 번갈아 3번 잰다
+#   cash-load-test-2  : 그 PR 커밋을 A로 3번, 2차 판정 기준(docs/measurements/2026-11-18-예치금-부하-2차-판정기준.md) 순서로 잰다
 on:
   workflow_dispatch:
     inputs:
@@ -45,8 +46,9 @@ jobs:
       github.event_name == 'workflow_dispatch'
       || github.event.label.name == 'cash-load-test'
       || github.event.label.name == 'cash-load-test-ab'
+      || github.event.label.name == 'cash-load-test-2'
     runs-on: ubuntu-latest
-    # 한 바퀴 약 40분(B-1 한계 포함). A·B 번갈아 3번이면 약 4시간
+    # 한 바퀴 약 40분(B-1 한계 포함). A·B 번갈아 3번이면 약 4시간. 2차는 한 바퀴 약 60분, A만 3번이면 약 3시간
     timeout-minutes: 350
     # 측정끼리 같은 머신 자원을 나눠 쓰지 않게 하나씩만 돈다 (주문 측정과는 다른 실행 머신이라 따로 둔다)
     concurrency:
@@ -58,7 +60,8 @@ jobs:
       # A·B 라벨이면 A는 B에서 이 파일의 커밋만 되돌려 만든다
       A_REVERTS: ${{ github.event.label.name == 'cash-load-test-ab' && 'backend/loadtest/scenario-b/container/ab-fixes.txt' || '' }}
       REPEAT: ${{ inputs.repeat || '3' }}
-      SCENARIOS: ${{ inputs.scenarios }}
+      # 2차 라벨이면 2차 순서로 돈다 (B-1 한계는 LIMIT=1이 맨 끝에 붙인다)
+      SCENARIOS: ${{ inputs.scenarios || (github.event.label.name == 'cash-load-test-2' && 'warmup b0 b2 b0-again b0-split pg4 b6 proxy b7 b8 direct') || '' }}
       LIMIT: ${{ inputs.limit || '1' }}
       QUICK: ${{ inputs.quick || '0' }}
       OUT: ${{ github.workspace }}/cash-load-results
@@ -92,7 +95,8 @@ jobs:
           build a "$REF_A"
           if [ -n "$REF_B" ]; then build b "$REF_B"; fi
           for image in grafana/k6:1.0.0 prom/prometheus:v3.5.0 prom/mysqld-exporter:v0.21.0 mysql:8.4 \
-            redpandadata/redpanda:v26.2.3 redis:8.2; do docker pull -q "$image"; done
+            redpandadata/redpanda:v26.2.3 redis:8.2 gcr.io/cadvisor/cadvisor:v0.49.1 \
+            ghcr.io/shopify/toxiproxy:2.9.0; do docker pull -q "$image"; done
           # 그래프만 못 그릴 뿐 측정은 계속한다. 한글 글꼴이 없으면 그래프 글자가 네모로 나온다
           sudo apt-get install -y -qq fonts-noto-cjk >/dev/null || echo "::warning::한글 글꼴 설치 실패"
           pip install -q --break-system-packages matplotlib || echo "::warning::matplotlib 설치 실패, 그래프 없이 진행"

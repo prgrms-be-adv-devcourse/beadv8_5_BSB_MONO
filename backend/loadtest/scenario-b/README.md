@@ -69,13 +69,18 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 
 | 파일 | 하는 일 |
 |---|---|
-| `container/compose.load.yml` | 예치금 + MySQL·Kafka·Redis·mysqld-exporter·Prometheus (프로젝트 이름 `cashload`, 자원 제한 포함) |
+| `container/compose.load.yml` | 예치금 + MySQL·Kafka·Redis·mysqld-exporter·cAdvisor(앱 밖에서 잰 컨테이너 CPU)·Prometheus·toxiproxy(예치금 → MySQL·Redis 지연) (프로젝트 이름 `cashload`, 자원 제한 포함). 예치금은 JFR·GC 로그를 회차 폴더 `jvm/`에 남긴다 |
+| `container/toxiproxy.json` | toxiproxy가 여는 길 두 개(mysql, redis). 지연은 `run.sh`가 B-7·B-8에서만 넣는다 |
+| `sql/14-lock-waits-now.sql` | 지금 행 잠금을 기다리는 테이블·인덱스·SQL. `run.sh`가 시나리오 동안 5초마다 찍어 `<시나리오>.lock-waits.tsv`에 남긴다 |
+| `sql/15-lock-time-by-sql.sql` | 시나리오 동안 SQL별 잠금 대기 합. `run.sh`가 시나리오 전에 비우고 끝나면 읽어 `<시나리오>.lock-sql.txt`에 남긴다 |
 | `container/run.sh` | 한 바퀴: 빈 DB로 띄우기 → 시드 → 예열·B-0~B-5 → 시나리오마다 돈 확인 → 락 통계·그래프 → 내리기 |
 | `container/report.py` | 회차를 모아 3회 중앙값 표와 판정(P1~P8, 돈 확인 C)을 `summary.md`로 만든다 (`report.py summary <결과> <내보낼 폴더>`) |
 | `b1-payment-concurrency.js` | B-1 결제 동시 4·8개 (주문이 보내는 모양) |
 | `b5-charge.js`, `seed-charge.sh` | B-5 충전 승인 초당 48건, 1,000명 동시 |
+| `b6-external.js` | 2차 B-6·B-7·B-8: 충전 초당 25→50→75건 + 결제 동시 4개 + 잔액 조회, 같은 충전 두 번 5% (`seed-charge.sh`의 회원을 씀) |
+| `b0-integrity.js` `MODE=again·split` | 2차 P8 묶음: 섞인 구간만 다시, 결제→환불만 → 정산 지급만 |
 | `sql/12-verify-charge.sql` | 중복 충전 확인 (C6) |
-| `.github/workflows/cash-load-test.yml` | GitHub Actions에서 A만 3번, 또는 A·B를 번갈아 3번 |
+| `.github/workflows/cash-load-test.yml` | GitHub Actions에서 A만 3번, 또는 A·B를 번갈아 3번. 2차는 PR에 `cash-load-test-2` 라벨 |
 
 ```bash
 # 확인용으로 짧게 (지금 코드를 LABEL=local로 빌드, 약 10분)
