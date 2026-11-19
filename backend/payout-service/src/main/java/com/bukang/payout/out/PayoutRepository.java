@@ -45,6 +45,13 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	Optional<Payout> findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(long sellerId, long raceId,
 		PayoutStage payoutStage);
 
+	// 대회 취소로 닫히지 않은(취소가 아닌) 그 단계의 정산 내역. 만든 순서로 1차가 먼저다
+	// 지급 · 청구 · 상계 판단이 같은 "살아 있는 정산" 기준을 쓰도록 한곳에 둔다 (CRU-10)
+	default Optional<Payout> findLiveStage(long sellerId, long raceId, PayoutStage stage) {
+		return findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
+			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
+	}
+
 	// 회수 상계: 같은 판매자 × 대회의 지급 전 정산 내역을 잠가서 읽는다 (만든 순서대로, 1차가 먼저)
 	// 회수 요청 · 최종 생성 · 지급 배치가 같은 정산 내역 금액을 동시에 바꾸지 않게 한다 (PRO-214)
 	@Lock(LockModeType.PESSIMISTIC_WRITE)

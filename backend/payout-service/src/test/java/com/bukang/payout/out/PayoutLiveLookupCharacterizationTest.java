@@ -35,10 +35,9 @@ class PayoutLiveLookupCharacterizationTest {
 	@Autowired
 	private PayoutRepository payoutRepository;
 
-	// 6곳이 쓰는 현재 표현을 그대로 둔다. findLiveStage를 뽑은 뒤 이 한 줄만 바꾸고, 아래 기대값은 그대로다
+	// 살아 있는 정산 조회(취소 제외)의 한곳 (CRU-10). 기대값은 리팩터링 전후 그대로다
 	private Optional<Payout> live(long sellerId, long raceId, PayoutStage stage) {
-		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
-			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
+		return payoutRepository.findLiveStage(sellerId, raceId, stage);
 	}
 
 	private Payout first(long raceId) {

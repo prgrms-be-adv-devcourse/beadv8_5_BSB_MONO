@@ -92,9 +92,7 @@ public class PayoutPayStepUseCase {
 		if (payout.getPayoutStage() != PayoutStage.최종_정산) {
 			return Optional.empty();
 		}
-		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
-				payout.getSellerId(), payout.getRaceId(), PayoutStage.일차_정산)
-			.filter(first -> first.getStatus() != PayoutStatus.취소)
+		return payoutRepository.findLiveStage(payout.getSellerId(), payout.getRaceId(), PayoutStage.일차_정산)
 			.filter(first -> first.getStatus() != PayoutStatus.지급_완료);
 	}
 

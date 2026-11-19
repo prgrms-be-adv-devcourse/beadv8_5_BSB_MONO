@@ -77,7 +77,7 @@ public class PayoutLedgerUseCase {
 		if (existing.isPresent()) {
 			return existing;
 		}
-		if (findLive(sellerId, raceId, PayoutStage.최종_정산).isPresent()) {
+		if (payoutRepository.findLiveStage(sellerId, raceId, PayoutStage.최종_정산).isPresent()) {
 			// 최종 정산을 만든 뒤의 환불은 번 돈까지 되돌려야 해서 아직 정하지 않았다 (PRO-214 미룸)
 			// 주문이 정산 생성일부터 환불을 막으므로 생기면 안 되는 경우다. 구매자 환불은 이미 끝났으니
 			// 사람이 판매자에게서 돌려받을 수 있게 처리하는 자리에서 자세히 남긴다 (PR #265 리뷰)
@@ -85,7 +85,7 @@ public class PayoutLedgerUseCase {
 				+ "sellerId={}, raceId={}, orderItemId={}, price={}", sellerId, raceId, orderItemId, price);
 			throw new PayoutRecoveryConflictException("최종 정산을 만든 뒤의 환불은 아직 회수할 수 없습니다.");
 		}
-		if (findLive(sellerId, raceId, PayoutStage.일차_정산).isEmpty()) {
+		if (payoutRepository.findLiveStage(sellerId, raceId, PayoutStage.일차_정산).isEmpty()) {
 			return Optional.empty();
 		}
 
@@ -195,11 +195,5 @@ public class PayoutLedgerUseCase {
 		payoutItemRepository.save(
 			PayoutItem.ofRecovery(saved, PayoutRecordType.갚을_돈_추가, orderItemId, raceCourseId, amount));
 		return saved;
-	}
-
-	// 대회 취소로 닫히지 않은 그 단계의 정산 내역
-	private Optional<Payout> findLive(long sellerId, long raceId, PayoutStage stage) {
-		return payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
-			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
 	}
 }
