@@ -27,7 +27,6 @@ import {
   Alert,
   Button,
   Checkbox,
-  digitsOnly,
   FOCUS_RING,
   Icon,
   Select,
@@ -38,7 +37,14 @@ import {
   TextField,
 } from '@/shared/ui'
 
-import { missingTracking, rowKey, shipFormSchema, type ShipFormValues } from '../model/ship-form'
+import {
+  missingTracking,
+  rowKey,
+  shipFormSchema,
+  TRACKING_NOTICE,
+  trackingOnly,
+  type ShipFormValues,
+} from '../model/ship-form'
 
 type Kit = orderModel.SellerKitDto
 
@@ -354,8 +360,8 @@ export function SellerKitsPage() {
                           compact
                           aria-label={`${kit.orderNo} 송장 번호`}
                           placeholder="송장 번호"
-                          inputMode="numeric"
-                          filter={digitsOnly}
+                          filter={trackingOnly}
+                          filterMessage={TRACKING_NOTICE}
                           {...shipForm.register(`tracking.${rowKey(id)}`)}
                         />
                       ) : (

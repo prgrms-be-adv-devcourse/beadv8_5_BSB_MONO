@@ -46,12 +46,14 @@ describe('SellerKitsPage', () => {
     await tabCount('배송 중', '2')
   })
 
-  it('송장 번호 칸에 숫자가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
+  it('송장 번호 칸은 영문 · 숫자 · -를 받고, 그 밖의 글자는 막고 안내한다', async () => {
     renderPage()
     const input = await screen.findByLabelText('OD-20261004-0101 송장 번호')
-    await userEvent.type(input, '12a')
-    expect(input).toHaveValue('12')
-    expect((await screen.findAllByText('숫자만 입력할 수 있어요')).length).toBeGreaterThan(0)
+    await userEvent.type(input, 'AB12-3가!')
+    expect(input).toHaveValue('AB12-3')
+    expect((await screen.findAllByText('영문, 숫자, -만 입력할 수 있어요')).length).toBeGreaterThan(
+      0,
+    )
   })
 
   it('송장 입력 대기 표의 줄마다 택배사와 송장 번호 칸이 있다', async () => {
