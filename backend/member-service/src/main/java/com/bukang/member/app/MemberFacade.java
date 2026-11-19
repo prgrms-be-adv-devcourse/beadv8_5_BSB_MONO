@@ -55,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
 	public static final int MAX_REPLICA_PAGE_SIZE = 500;
+	static final String LOGIN_LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
@@ -190,7 +191,7 @@ public class MemberFacade {
 		// shortcut: ß=ss처럼 악센트 말고도 MySQL 정렬이 같다고 보는 글자는 맞추지 못함, 그런 우회가 보이면 DB 정렬로 키를 만든다
 		String emailHash = Sha256.hex(attemptKey(found.map(Member::getEmail).orElse(memberLoginRequestDto.getEmail())));
 		if (recordAttempt(emailHash) > loginAttemptProperties.maxFailures()) {
-			throw new LoginLockedException(loginLockedMessage());
+			throw new LoginLockedException(LOGIN_LOCKED_MESSAGE);
 		}
 
 		found.filter(member -> !member.hasPassword())
@@ -217,11 +218,6 @@ public class MemberFacade {
 		return Normalizer.normalize(email.trim(), Normalizer.Form.NFKD)
 			.replaceAll("\\p{M}", "")
 			.toLowerCase(Locale.ROOT);
-	}
-
-	private String loginLockedMessage() {
-		return "로그인을 %d번 실패해 %d분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요."
-			.formatted(loginAttemptProperties.maxFailures(), loginAttemptProperties.blockDuration().toMinutes());
 	}
 
 	// Redis 오류로 횟수를 못 세면 차단 없이 로그인을 계속한다. 토큰 발급도 Redis 오류에 로그인을 막지 않는다
