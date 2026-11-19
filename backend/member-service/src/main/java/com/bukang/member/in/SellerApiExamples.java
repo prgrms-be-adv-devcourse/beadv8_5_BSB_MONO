@@ -201,6 +201,61 @@ final class SellerApiExamples {
 		{ "status": 409, "code": "SELLER_NOT_REVIEWED", "message": "아직 심사 중인 판매자 신청입니다.", "data": null }
 		""";
 
+	static final String MY_PAYOUT_ACCOUNT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "정산 계좌를 조회했습니다.",
+			"data": {
+				"registered": true,
+				"bankCode": "004",
+				"accountHolderName": "김러너",
+				"accountHolderType": "PERSONAL",
+				"accountNumberLast4": "0678"
+			}
+		}
+		""";
+
+	static final String MY_PAYOUT_ACCOUNT_EMPTY = """
+		{
+			"status": 200,
+			"message": "정산 계좌를 조회했습니다.",
+			"data": {
+				"registered": false,
+				"bankCode": null,
+				"accountHolderName": null,
+				"accountHolderType": null,
+				"accountNumberLast4": null
+			}
+		}
+		""";
+
+	static final String MODIFY_PAYOUT_ACCOUNT_SUCCESS = """
+		{
+			"status": 200,
+			"message": "정산 계좌를 저장했습니다.",
+			"data": {
+				"registered": true,
+				"bankCode": "088",
+				"accountHolderName": "김러너",
+				"accountHolderType": "PERSONAL",
+				"accountNumberLast4": "0123"
+			}
+		}
+		""";
+
+	static final String SELLER_NOT_APPROVED = """
+		{ "status": 403, "code": "SELLER_NOT_APPROVED", "message": "승인된 판매자만 정산 계좌를 이용할 수 있습니다.", "data": null }
+		""";
+
+	static final String ACCOUNT_HOLDER_TYPE_INVALID = """
+		{
+			"status": 400,
+			"code": "SELLER_ACCOUNT_HOLDER_TYPE_INVALID",
+			"message": "사업자 명의 계좌는 사업자만 고를 수 있습니다.",
+			"data": null
+		}
+		""";
+
 	private SellerApiExamples() {
 	}
 }
