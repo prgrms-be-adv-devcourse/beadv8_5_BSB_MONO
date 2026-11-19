@@ -9,7 +9,7 @@ import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page
 import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { useToggleSale } from '@/features/seller-race'
 import {
-  daysUntil,
+  formatDDay,
   formatRaceDate,
   formatRaceDateTime,
   isRaceEditable,
@@ -201,24 +201,24 @@ function SaleSummary({ race }: { race: productModel.SellerRaceDto }) {
     courses.reduce((total, c) => total + (pick(c) ?? 0), 0)
   const sold = sum((c) => c.sold)
   const quota = sum((c) => c.quota)
+  const reserved = sum((c) => c.reserved)
   return (
     <StatStrip>
       <StatTile layout="cell" label="판매" value={n(sold)} unit={`/ ${n(quota)}명`} />
-      <StatTile layout="cell" label="결제 대기" value={n(sum((c) => c.reserved))} unit="명" />
-      <StatTile layout="cell" label="남은 자리" value={n(Math.max(0, quota - sold))} unit="자리" />
+      <StatTile layout="cell" label="결제 대기" value={n(reserved)} unit="명" />
+      <StatTile
+        layout="cell"
+        label="남은 자리"
+        value={n(Math.max(0, quota - sold - reserved))}
+        unit="자리"
+      />
       <StatTile
         layout="cell"
         label="접수 마감"
-        value={race.applicationCloseAt ? dDay(race.applicationCloseAt) : '-'}
+        value={race.applicationCloseAt ? formatDDay(race.applicationCloseAt) : '-'}
       />
     </StatStrip>
   )
-}
-
-function dDay(value: string): string {
-  const days = daysUntil(value)
-  if (days < 0) return '마감'
-  return days === 0 ? 'D-DAY' : `D-${days}`
 }
 
 function CourseSales({ race }: { race: productModel.SellerRaceDto }) {
@@ -238,6 +238,7 @@ function CourseSales({ race }: { race: productModel.SellerRaceDto }) {
           {(race.courses ?? []).map((course) => {
             const sold = course.sold ?? 0
             const quota = course.quota ?? 0
+            const reserved = course.reserved ?? 0
             return (
               <tr key={course.raceCourseId}>
                 <TableCell className="text-body1-medium">{course.name}</TableCell>
@@ -249,7 +250,7 @@ function CourseSales({ race }: { race: productModel.SellerRaceDto }) {
                   />
                 </TableCell>
                 <TableCell align="right" className="tabular-nums">
-                  {n(Math.max(0, quota - sold))}
+                  {n(Math.max(0, quota - sold - reserved))}
                 </TableCell>
               </tr>
             )
@@ -266,6 +267,24 @@ function KitSection({ raceId }: { raceId: number }) {
     queryFn: async () => unwrapData(await productApi.findKitOptions(raceId)),
   })
   const groups = kits.data?.kitOptions ?? []
+  if (kits.isPending) {
+    return (
+      <ConsoleCard title="키트">
+        <ConsoleLoading />
+      </ConsoleCard>
+    )
+  }
+  if (kits.isError) {
+    return (
+      <ConsoleCard title="키트">
+        <Alert
+          tone="danger"
+          title="키트를 불러오지 못했어요"
+          description="잠시 후 다시 시도해 주세요."
+        />
+      </ConsoleCard>
+    )
+  }
   return (
     <ConsoleCard title="키트">
       <table aria-label="키트" className="w-full table-fixed border-collapse">
