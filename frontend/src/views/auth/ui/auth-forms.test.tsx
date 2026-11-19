@@ -528,4 +528,15 @@ describe('이메일 찾기 숫자 칸', () => {
       expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
     },
   )
+
+  it('생년월일에 1995-03-02를 붙여 넣으면 숫자 8자리만 남는다', async () => {
+    const user = userEvent.setup()
+    render(withQueryClient(<FindEmailPage />))
+    const field = screen.getByLabelText('생년월일')
+    await user.click(field)
+    await user.paste('1995-03-02')
+    expect(field).toHaveValue('19950302')
+    await user.type(field, '9')
+    expect(field).toHaveValue('19950302')
+  })
 })

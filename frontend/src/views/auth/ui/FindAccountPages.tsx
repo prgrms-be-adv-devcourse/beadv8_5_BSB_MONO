@@ -325,9 +325,9 @@ export function FindEmailPage() {
             label="생년월일"
             placeholder="생년월일 8자리 (예: 19950302)"
             inputMode="numeric"
-            filter={digitsOnly}
+            // maxLength는 붙여 넣은 「1995-03-02」를 숫자만 남기기 전에 잘라 버려서 filter 안에서 8자로 자른다
+            filter={(value) => digitsOnly(value).slice(0, 8)}
             autoComplete="bday"
-            maxLength={8}
             error={errors.birth?.message}
             {...register('birth')}
           />
