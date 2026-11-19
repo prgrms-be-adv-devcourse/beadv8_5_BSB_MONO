@@ -11,11 +11,13 @@ import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.web.client.RestClient;
 
 class PaymentClientConfigTest {
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
+		.withBean(RestClient.Builder.class, RestClient::builder)
 		.withUserConfiguration(PaymentClientConfig.class, FakePaymentClient.class)
 		.withPropertyValues(
 			"cash.clients.pg.base-url=http://localhost",

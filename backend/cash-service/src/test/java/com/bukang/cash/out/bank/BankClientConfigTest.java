@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import com.bukang.common.global.web.InternalKeyHeader;
 import com.sun.net.httpserver.HttpServer;
@@ -20,7 +21,7 @@ class BankClientConfigTest {
 	@DisplayName("가짜 은행을 부를 때 내부 인증 키 헤더를 붙인다")
 	void sendsInternalKey() throws IOException {
 		String key = sendAndCaptureKey("{}", baseUrl -> new BankClientConfig()
-			.bankTransferClient(baseUrl, Duration.ofSeconds(2), "key-1")
+			.bankTransferClient(RestClient.builder(), baseUrl, Duration.ofSeconds(2), "key-1")
 			.transfer("transfer_1", 7, 10_000));
 
 		assertThat(key).isEqualTo("key-1");

@@ -1,0 +1,72 @@
+time="2026-11-19T01:03:26Z" level=warning msg="The test has generated metrics with 100030 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-19T01:04:36Z" level=warning msg="The test has generated metrics with 200034 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+
+
+  █ THRESHOLDS 
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    http_req_duration{api:pay,phase:after}
+    ✓ 'p(95)<200' p(95)=60.82ms
+
+    http_req_duration{api:pay,phase:before}
+    ✓ 'p(95)<200' p(95)=88.11ms
+
+    http_req_duration{api:pay,phase:during}
+    ✓ 'p(95)<200' p(95)=81.11ms
+    ✓ 'p(99)<1000' p(99)=108.5ms
+    ✓ 'p(95)<2000' p(95)=81.11ms
+
+    http_req_failed{api:pay}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:payout}
+    ✓ 'rate<0.01' rate=0.00%
+
+    iterations{phase:after}
+    ✓ 'count>=0' count=12262
+
+    iterations{phase:before}
+    ✓ 'count>=0' count=8825
+
+    iterations{phase:during}
+    ✓ 'count>=0' count=7847
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 32061   152.651216/s
+    checks_succeeded...................: 100.00% 32061 out of 32061
+    checks_failed......................: 0.00%   0 out of 32061
+
+    ✓ 결제 200·결제됨
+    ✓ 정산 지급 200
+
+    HTTP
+    http_req_duration.......................................................: avg=28.49ms med=14.05ms p(95)=89.59ms p(99)=107.58ms max=577.09ms
+      { api:pay,phase:after }...............................................: avg=18.75ms med=11.66ms p(95)=60.82ms p(99)=88.27ms  max=184.1ms 
+      { api:pay,phase:before }..............................................: avg=26.43ms med=12.69ms p(95)=88.11ms p(99)=97.51ms  max=194.42ms
+      { api:pay,phase:during }..............................................: avg=29.78ms med=16.56ms p(95)=81.11ms p(99)=108.5ms  max=480.27ms
+      { expected_response:true }............................................: avg=28.49ms med=14.05ms p(95)=89.59ms p(99)=107.58ms max=577.09ms
+    http_req_failed.........................................................: 0.00%  0 out of 32061
+      { api:pay }...........................................................: 0.00%  0 out of 30860
+      { api:payout }........................................................: 0.00%  0 out of 1201
+    http_reqs...............................................................: 32061  152.651216/s
+
+    EXECUTION
+    dropped_iterations......................................................: 0      0/s
+    iteration_duration......................................................: avg=29.28ms med=14.79ms p(95)=90.51ms p(99)=109.36ms max=577.89ms
+    iterations..............................................................: 32061  152.651216/s
+      { phase:after }.......................................................: 12262  58.382746/s
+      { phase:before }......................................................: 8825   42.018246/s
+      { phase:during }......................................................: 7847   37.36172/s
+    vus.....................................................................: 4      min=4          max=14
+    vus_max.................................................................: 48     min=48         max=48
+
+    NETWORK
+    data_received...........................................................: 6.8 MB 32 kB/s
+    data_sent...............................................................: 7.3 MB 35 kB/s
+
+
+

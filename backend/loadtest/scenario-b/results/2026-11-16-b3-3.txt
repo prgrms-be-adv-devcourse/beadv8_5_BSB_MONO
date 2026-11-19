@@ -1,0 +1,56 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{cards:1}
+    ✓ 'p(95)<1000' p(95)=374.03ms
+
+    http_req_duration{cards:3}
+    ✓ 'p(95)<1000' p(95)=993.66ms
+
+    http_req_duration{cards:5}
+    ✗ 'p(95)<1000' p(95)=1.61s
+
+    http_req_failed{cards:1}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{cards:3}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{cards:5}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 90      1.388732/s
+    checks_succeeded...: 100.00% 90 out of 90
+    checks_failed......: 0.00%   0 out of 90
+
+    ✓ 환급 200
+
+    HTTP
+    http_req_duration..............: avg=972.88ms med=968.8ms  p(95)=1.61s    max=1.61s   
+      { cards:1 }..................: avg=342.94ms med=332.51ms p(95)=374.03ms max=374.62ms
+      { cards:3 }..................: avg=973.77ms med=968.8ms  p(95)=993.66ms max=995.61ms
+      { cards:5 }..................: avg=1.6s     med=1.6s     p(95)=1.61s    max=1.61s   
+      { expected_response:true }...: avg=972.88ms med=968.8ms  p(95)=1.61s    max=1.61s   
+    http_req_failed................: 0.00% 0 out of 90
+      { cards:1 }..................: 0.00% 0 out of 30
+      { cards:3 }..................: 0.00% 0 out of 30
+      { cards:5 }..................: 0.00% 0 out of 30
+    http_reqs......................: 90    1.388732/s
+
+    EXECUTION
+    iteration_duration.............: avg=974.37ms med=968.93ms p(95)=1.61s    max=1.61s   
+    iterations.....................: 90    1.388732/s
+    vus............................: 10    min=0       max=10
+    vus_max........................: 30    min=30      max=30
+
+    NETWORK
+    data_received..................: 33 kB 507 B/s
+    data_sent......................: 19 kB 296 B/s
+
+
+
+time="2026-11-16T15:32:44+09:00" level=error msg="thresholds on metrics 'http_req_duration{cards:5}' have been crossed"

@@ -33,15 +33,21 @@ public class CashRefundableChargeQueryUseCase {
 	@Transactional(readOnly = true)
 	public RefundableChargesResponseDto findRefundableCharges(long memberId, LocalDateTime now) {
 		Wallet wallet = cashSupport.findWalletByHolderId(memberId);
+		return refundable(wallet.getBalance(),
+			walletChargeRepository.findByWalletAndStatus(wallet, ChargeStatus.COMPLETED), now);
+	}
 
-		List<WalletCharge> latestFirst = walletChargeRepository.findByWalletAndStatus(wallet, ChargeStatus.COMPLETED)
-			.stream()
+	// 조회한 잔액·완료된 충전으로 계산만 한다. 기한 알림 배치도 회원들을 한 번에 읽은 뒤 이 함수로 같은 금액을 낸다
+	public static RefundableChargesResponseDto refundable(
+		long balance, List<WalletCharge> completedCharges, LocalDateTime now
+	) {
+		List<WalletCharge> latestFirst = completedCharges.stream()
 			.sorted(Comparator.comparing(WalletCharge::approvedAtOrChargeDate)
 				.thenComparing(WalletCharge::getId)
 				.reversed())
 			.toList();
 
-		long unfilled = wallet.getBalance();
+		long unfilled = balance;
 		List<RefundableChargeDto> charges = new ArrayList<>();
 
 		for (WalletCharge charge : latestFirst) {
@@ -64,6 +70,6 @@ public class CashRefundableChargeQueryUseCase {
 			.min(Comparator.naturalOrder())
 			.orElse(null);
 
-		return new RefundableChargesResponseDto(wallet.getBalance(), earliest, charges);
+		return new RefundableChargesResponseDto(balance, earliest, charges);
 	}
 }
