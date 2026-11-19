@@ -14,6 +14,7 @@
 # 두 번째 값(gateway)을 주면 인프라는 건드리지 않고 게이트웨이 2(bukang-gateway2)만 바꾼다
 #   메인 k3s의 게이트웨이 1과 같은 커밋 이미지를 써야 해서, 메인 배포(k8s-cd) 바로 뒤에 같은 SHA로 부른다
 #   GHCR 이미지가 비공개라 .env의 GHCR_USER·GHCR_TOKEN으로 로그인해 받고, 받은 뒤 로그아웃한다
+#   게이트웨이 코드가 그대로면(CI가 새 커밋 태그만 붙인 같은 이미지) 컨테이너를 다시 만들지 않는다. 게이트웨이 1도 바뀐 앱만 교체한다
 #   그 커밋에 게이트웨이 2 정의가 없으면(CRU-75 전 커밋으로 되돌린 경우) 게이트웨이 2를 내린다. 그 커밋의 nginx도 게이트웨이 1만 쓴다
 #
 # 이 스크립트는 1단계에서 git checkout으로 자기 파일을 바꾼다 (infra/main-node/deploy.sh와 같은 처리)
@@ -127,9 +128,24 @@ deploy_gateway() {
 	fi
 	docker logout ghcr.io >/dev/null || true
 
+	# 게이트웨이 코드가 바뀌지 않은 배포면 CI(k8s-cd retag)가 같은 이미지에 새 커밋 태그만 붙인다
+	# 태그 이름이 바뀌면 compose는 같은 이미지라도 컨테이너를 새로 만들어(1~2분 비고, 보조 EC2에서 JVM 시작 CPU를 씀)
+	# 지금 돌고 있는 컨테이너와 이미지 ID가 같으면 지금 태그를 그대로 쓴다. 그러면 compose 설정(환경 변수·메모리 한도 등)이
+	# 바뀐 커밋일 때만 다시 만들어진다
+	local tag="$SHA" new_ref new_id cur_id cur_ref
+	# config --images는 depends_on의 redis 이미지도 함께 찍어서 게이트웨이 줄만 고른다
+	new_ref=$(GATEWAY_TAG="$SHA" "${COMPOSE[@]}" config --images bukang-gateway2 | grep '/bukang-gateway:')
+	new_id=$(docker image inspect -f '{{.Id}}' "$new_ref")
+	cur_id=$(docker inspect -f '{{.Image}}' bukang-gateway2 2>/dev/null || true)
+	if [ -n "$cur_id" ] && [ "$cur_id" = "$new_id" ]; then
+		cur_ref=$(docker inspect -f '{{.Config.Image}}' bukang-gateway2)
+		tag="${cur_ref##*:}"
+		log "게이트웨이 이미지가 그대로라 지금 태그(${tag:0:8})를 유지합니다. 설정이 바뀌었을 때만 다시 만듭니다"
+	fi
+
 	# --no-deps: Redis 등 인프라는 다시 만들지 않는다. 바뀐 게 없으면 그대로 둔다
-	log "게이트웨이 2 바꾸기"
-	GATEWAY_TAG="$SHA" "${COMPOSE[@]}" up -d --no-deps --wait --wait-timeout 300 bukang-gateway2
+	log "게이트웨이 2 맞추기"
+	GATEWAY_TAG="$tag" "${COMPOSE[@]}" up -d --no-deps --wait --wait-timeout 300 bukang-gateway2
 	"${COMPOSE[@]}" ps bukang-gateway2 --format 'table {{.Name}}\t{{.Image}}\t{{.Status}}'
 	log "게이트웨이 2 완료"
 }
