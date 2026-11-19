@@ -39,9 +39,10 @@ export function TextField({
   disabled,
   className,
   onChange,
+  onCompositionEnd,
   ...props
 }: TextFieldProps) {
-  const { notice, apply } = useInputFilter(filter, filterMessage)
+  const { notice, apply, finish } = useInputFilter(filter, filterMessage)
   const shownNotice = error ? undefined : notice
   const description = error ?? shownNotice ?? helper
   return (
@@ -60,6 +61,10 @@ export function TextField({
           onChange={(event) => {
             apply(event)
             onChange?.(event)
+          }}
+          onCompositionEnd={(event) => {
+            finish(event)
+            onCompositionEnd?.(event)
           }}
           {...props}
         />
