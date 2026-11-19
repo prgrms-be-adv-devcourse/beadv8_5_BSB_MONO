@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import { CONSOLE_BOX, ConsoleCard, ConsoleMessage, ConsolePage } from '@/widgets/console-page'
 import { formatMonthDay } from '@/entities/payout'
+import { daysUntil } from '@/entities/race'
 import { ApiError, memberApi, payoutApi, unwrapData, type payoutModel } from '@/shared/api'
 import { cn, formatWon, useSearchParamsState } from '@/shared/lib'
 import {
@@ -17,6 +18,8 @@ import {
   KeyValue,
   Pagination,
   Skeleton,
+  StatStrip,
+  StatTile,
   TextField,
   useToast,
 } from '@/shared/ui'
@@ -97,9 +100,43 @@ export function AdminClaimsPage() {
     setUrl({ code: '' })
   }
 
+  // 숫자 요약은 어느 칩을 보든 청구 중 목록으로 센다. 청구 중 칩이면 위 목록과 같은 요청이라 한 번만 간다.
+  // shortcut: 첫 50건만 센다, 청구 중이 50건을 넘으면 서버가 기한 지난 건수를 주게 한다
+  const claiming = payoutApi.useAdminClaims(
+    { status: '청구_중', page: 0, size: PAGE_SIZE },
+    { query: { select: unwrapData, placeholderData: keepPreviousData } },
+  )
+  const overdue = (claiming.data?.claims.content ?? []).filter((c) => daysUntil(c.dueDate) < 0)
+  const overdueAmount = overdue.reduce((total, c) => total + c.amount, 0)
   const summary = claims.data?.summary
   return (
     <ConsolePage title="회수 관리">
+      {claiming.data ? (
+        <StatStrip role="group" aria-label="회수 요약">
+          <StatTile
+            layout="cell"
+            label="회수할 금액"
+            value={formatWon(claiming.data.summary.claimingAmount)}
+          />
+          <StatTile
+            layout="cell"
+            label="입금 기한 지난 청구"
+            value={String(overdue.length)}
+            unit="건"
+            caption={formatWon(overdueAmount)}
+            danger={overdue.length > 0}
+          />
+        </StatStrip>
+      ) : claiming.isError ? (
+        <StatStrip role="group" aria-label="회수 요약">
+          <StatTile layout="cell" label="회수할 금액" value="-" />
+          <StatTile layout="cell" label="입금 기한 지난 청구" value="-" />
+        </StatStrip>
+      ) : (
+        <div role="status" aria-label="회수 요약 불러오는 중">
+          <Skeleton className="h-24 w-full" />
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <div role="group" aria-label="청구 상태" className="flex items-center gap-2">
           {(

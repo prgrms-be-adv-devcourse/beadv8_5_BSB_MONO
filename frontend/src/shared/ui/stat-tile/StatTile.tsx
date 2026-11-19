@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 import { cn } from '@/shared/lib'
 
@@ -105,9 +105,17 @@ export function StatTile({
 }
 
 // 숫자 칸(StatTile layout="cell") 여러 개를 한 카드에 담고 칸 사이에 세로선을 긋는다.
-export function StatStrip({ children, className }: { children: ReactNode; className?: string }) {
+export function StatStrip({
+  children,
+  className,
+  ...rest
+}: { children: ReactNode; className?: string } & Omit<
+  ComponentProps<'div'>,
+  'children' | 'className'
+>) {
   return (
     <div
+      {...rest}
       className={cn(
         'flex w-full rounded-md bg-bg-surface py-6 shadow-sm inset-ring inset-ring-border-default [&>*+*]:border-l [&>*+*]:border-border-default',
         className,
