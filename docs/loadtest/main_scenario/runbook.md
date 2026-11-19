@@ -91,3 +91,10 @@ ssh team05 'bash -s' < ops/nginx-close.sh                   # 닫기 (실패해�
 ```
 - 그 IP에서 오는 로그인만 제한이 풀린다. 다른 사용자는 그대로다.
 - 부하 도중 nginx를 다시 배포하면 설정이 원래대로 돌아간다.
+
+## 9. k6 지표를 Grafana에서 보기
+`run-stage.ps1`은 미니 PC의 `prod-run\.prom-rw-password.txt`가 있으면 k6 지표를 수집 서버(Prometheus)로도 보낸다. 없으면 보내지 않고 파일로만 남긴다.
+- 보내는 곳: `https://prom.bukang-devops.duckdns.org/api/v1/write` (team05 수집기와 같은 주소, 사용자 `crewrun`). 비밀번호는 team05의 Secret `monitoring-remote-write`와 같은 값이고, 파일은 커밋하지 않는다.
+- Grafana `k6 Prometheus` 대시보드에서 **testid**로 실행을 고른다. 값은 `<Tag>-<Stage>`(예: `1120-main-abc1234-r990`)이고 `<stage>.window.txt`의 `grafana_testid`에도 남는다.
+- 여러 사람이 같은 시간에 부하를 넣어도 testid가 다르면 따로 보인다.
+- 부하를 넣은 시각(시작·끝 UTC)은 `<stage>.window.txt`에 남는다. 같은 구간을 Grafana에서 다시 볼 때 쓴다.

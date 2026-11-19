@@ -19,12 +19,23 @@ if ($PrepareOnly) { Get-Content race.json; exit 0 }
 # 판매 시작 알림이 대기열 서비스에 닿을 시간을 준다
 Start-Sleep -Seconds 15
 
+# k6 지표를 수집 서버(Prometheus)로도 보내 Grafana의 k6 대시보드에서 실시간으로 본다
+# 비밀번호 파일(.prom-rw-password.txt, 커밋하지 않음)이 있을 때만 켠다. 대시보드에서는 testid로 이 실행을 고른다
+$rw = @()
+if (Test-Path '.prom-rw-password.txt') {
+	$env:K6_PROMETHEUS_RW_SERVER_URL = 'https://prom.bukang-devops.duckdns.org/api/v1/write'
+	$env:K6_PROMETHEUS_RW_USERNAME = 'crewrun'
+	$env:K6_PROMETHEUS_RW_PASSWORD = (Get-Content '.prom-rw-password.txt' -Raw).Trim()
+	$env:K6_PROMETHEUS_RW_TREND_STATS = 'p(95),p(99),avg,max'
+	$rw = @('-o', 'experimental-prometheus-rw', '--tag', "testid=$Tag-$Stage")
+}
+
 $start = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 & $k6 run -e STAGE=$Stage -e BUY_RACE=$($r.buy.raceId) -e BUY_COURSE=$($r.buy.raceCourseId) `
 	-e WAIT_RACE=$($r.wait.raceId) -e WAIT_COURSE=$($r.wait.raceCourseId) `
-	--summary-export "$dir\$Stage.json" --out "csv=$dir\$Stage-raw.csv" $Script *> "$dir\$Stage.log"
+	--summary-export "$dir\$Stage.json" --out "csv=$dir\$Stage-raw.csv" @rw $Script *> "$dir\$Stage.log"
 $code = $LASTEXITCODE
 $end = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-"stage=$Stage script=$Script start_utc=$start end_utc=$end k6_exit=$code buy_race=$($r.buy.raceId) buy_course=$($r.buy.raceCourseId) wait_race=$($r.wait.raceId) wait_course=$($r.wait.raceCourseId)" |
+"stage=$Stage script=$Script grafana_testid=$(if ($rw.Count) { "$Tag-$Stage" } else { 'none' }) start_utc=$start end_utc=$end k6_exit=$code buy_race=$($r.buy.raceId) buy_course=$($r.buy.raceCourseId) wait_race=$($r.wait.raceId) wait_course=$($r.wait.raceCourseId)" |
 	Out-File -Encoding ascii "$dir\$Stage.window.txt"
 Get-Content "$dir\$Stage.window.txt"
