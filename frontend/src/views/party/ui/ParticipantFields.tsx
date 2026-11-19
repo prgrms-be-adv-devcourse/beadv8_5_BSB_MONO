@@ -5,7 +5,7 @@ import { Controller, type UseFormReturn } from 'react-hook-form'
 
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
 import { BirthDateField } from '@/entities/member'
-import { Checkbox, digitsOnly, PhoneField, Radio, RadioGroup, TextField } from '@/shared/ui'
+import { Checkbox, digitsOnly, PhoneField, Radio, RadioGroup, Select, TextField } from '@/shared/ui'
 
 import type { ParticipantValues } from '../model/participant-form'
 
@@ -22,10 +22,13 @@ export function ParticipantFields({
   form,
   course,
   kit = false,
+  sizes = [],
 }: {
   form: UseFormReturn<ParticipantValues>
   /** 키트가 든 종목이면 키트 배송지를 받는다 */
   kit?: boolean
+  /** 티셔츠를 주는 종목이면 고를 수 있는 사이즈. 비어 있으면 사이즈를 받지 않는다 */
+  sizes?: readonly string[]
   /** 합류 화면에서 파티장이 정한 종목을 읽기 전용으로 보여 준다 (시안 파티 08) */
   course?: string
 }) {
@@ -119,6 +122,21 @@ export function ParticipantFields({
           )}
         </fieldset>
         <PhoneField label="휴대폰 번호" error={errors.phone?.message} {...register('phone')} />
+        {sizes.length > 0 && (
+          <Controller
+            control={control}
+            name="tshirtSize"
+            render={({ field }) => (
+              <Select
+                label="기념 티셔츠 사이즈"
+                items={sizes.map((size) => ({ value: size, label: size }))}
+                value={field.value || null}
+                onValueChange={(size) => field.onChange(size ?? '')}
+                error={errors.tshirtSize?.message}
+              />
+            )}
+          />
+        )}
       </section>
       <section className="flex flex-col gap-4">
         <h3 className="text-body1-bold">비상 연락처</h3>

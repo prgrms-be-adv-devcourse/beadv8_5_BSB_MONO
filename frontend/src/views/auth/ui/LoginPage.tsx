@@ -22,15 +22,7 @@ import {
 } from '@/features/auth'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import {
-  BottomCta,
-  Button,
-  buttonClassName,
-  Dialog,
-  FOCUS_RING,
-  Logo,
-  TextField,
-} from '@/shared/ui'
+import { Button, buttonClassName, Dialog, FOCUS_RING, Logo, TextField } from '@/shared/ui'
 
 import { AUTH_ERRORS, loginSchema, type LoginValues } from '../model/schemas'
 
@@ -86,90 +78,94 @@ export function LoginPage({
     <>
       <AppHeader type="sub" title="로그인" />
       <main className="flex flex-1 flex-col bg-bg-surface">
-        <div className="h-22 shrink-0" />
-        <form
-          id="login-form"
-          className="flex flex-col items-center px-4"
-          noValidate
-          onSubmit={handleSubmit((values) =>
-            login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
-          )}
-        >
-          <Logo className="h-11 w-36" />
-          <div className="mt-12 flex w-full flex-col gap-3">
-            <TextField
-              aria-label="이메일"
-              type="email"
-              autoComplete="email"
-              placeholder="이메일"
-              error={errors.email?.message}
-              hideErrorBorder
-              {...register('email', { onChange: clearLoginError })}
-            />
-            <TextField
-              aria-label="비밀번호"
-              type="password"
-              autoComplete="current-password"
-              placeholder="비밀번호"
-              hideErrorBorder
-              error={
-                errors.password?.message ??
-                (failed ? AUTH_ERRORS.loginFailed : loginErrorMessage(login.error))
-              }
-              {...register('password', { onChange: clearLoginError })}
-            />
-            <div className="flex gap-2">
-              <Link
-                href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
-                className={buttonClassName({
-                  variant: 'secondary',
-                  size: 's',
-                  className: 'flex-1',
-                })}
-              >
-                회원가입
-              </Link>
-              <Link
-                href="/find-email"
-                className={buttonClassName({
-                  variant: 'secondary',
-                  size: 's',
-                  className: 'flex-1',
-                })}
-              >
-                계정 찾기
-              </Link>
-            </div>
-          </div>
-          <p className="mt-8 mb-3 text-caption-regular text-text-secondary">
-            SNS 계정으로 시작하기
-          </p>
-          <SocialLoginButtons next={next} />
-          {demoAvailable && (
-            <div className="mt-6 flex w-full flex-col gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="m"
-                disabled={demoLogin.isPending}
-                onClick={() =>
-                  demoLogin.mutate(undefined, {
-                    onSuccess: () => router.replace(safeNextPath(next)),
-                  })
+        <div className="flex flex-1 flex-col justify-center py-8">
+          <form
+            id="login-form"
+            className="flex flex-col items-center px-4"
+            noValidate
+            onSubmit={handleSubmit((values) =>
+              login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
+            )}
+          >
+            <Logo className="h-11 w-36" />
+            <div className="mt-12 flex w-full flex-col gap-3">
+              <TextField
+                aria-label="이메일"
+                type="email"
+                autoComplete="email"
+                placeholder="이메일"
+                error={errors.email?.message}
+                hideErrorBorder
+                {...register('email', { onChange: clearLoginError })}
+              />
+              <TextField
+                aria-label="비밀번호"
+                type="password"
+                autoComplete="current-password"
+                placeholder="비밀번호"
+                hideErrorBorder
+                error={
+                  errors.password?.message ??
+                  (failed ? AUTH_ERRORS.loginFailed : loginErrorMessage(login.error))
                 }
-              >
-                테스트 계정으로 로그인
+                {...register('password', { onChange: clearLoginError })}
+              />
+              <Button type="submit" size="l" disabled={!isValid || login.isPending}>
+                로그인
               </Button>
-              {demoLogin.isError && (
-                <p role="alert" className="text-center text-body1-regular text-text-danger">
-                  {(demoLogin.error instanceof ApiError && demoLogin.error.serverMessage) ||
-                    AUTH_ERRORS.loginUnavailable}
-                </p>
+              <div className="flex gap-2">
+                <Link
+                  href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
+                  className={buttonClassName({
+                    variant: 'secondary',
+                    size: 's',
+                    className: 'flex-1 enabled:hover:bg-bg-surface',
+                  })}
+                >
+                  회원가입
+                </Link>
+                <Link
+                  href="/find-email"
+                  className={buttonClassName({
+                    variant: 'secondary',
+                    size: 's',
+                    className: 'flex-1 enabled:hover:bg-bg-surface',
+                  })}
+                >
+                  계정 찾기
+                </Link>
+              </div>
+              {demoAvailable && (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="m"
+                    className="enabled:hover:bg-bg-surface"
+                    disabled={demoLogin.isPending}
+                    onClick={() =>
+                      demoLogin.mutate(undefined, {
+                        onSuccess: () => router.replace(safeNextPath(next)),
+                      })
+                    }
+                  >
+                    테스트 계정으로 로그인
+                  </Button>
+                  {demoLogin.isError && (
+                    <p role="alert" className="text-center text-body1-regular text-text-danger">
+                      {(demoLogin.error instanceof ApiError && demoLogin.error.serverMessage) ||
+                        AUTH_ERRORS.loginUnavailable}
+                    </p>
+                  )}
+                </>
               )}
             </div>
-          )}
-        </form>
-        <div className="h-30 shrink-0" />
+            <p className="mt-8 mb-3 text-caption-regular text-text-secondary">
+              SNS 계정으로 시작하기
+            </p>
+            <SocialLoginButtons next={next} />
+          </form>
+        </div>
         <footer className="flex items-center justify-center gap-2 pb-6">
           {FOOTER_LINKS.map((link) => (
             <Link
@@ -185,14 +181,6 @@ export function LoginPage({
           ))}
         </footer>
       </main>
-      <BottomCta
-        className="sticky bottom-0 z-10"
-        primary={
-          <Button type="submit" form="login-form" size="l" disabled={!isValid || login.isPending}>
-            로그인
-          </Button>
-        }
-      />
       {/* M03-S3 같은 이메일 계정 있음 */}
       <Dialog
         open={!!socialError && social?.error === 'AUTH_SOCIAL_EMAIL_TAKEN' && !socialDismissed}

@@ -4,16 +4,16 @@ import { cn } from '@/shared/lib'
 
 // 피그마 Logo 페이지에서 받은 파일(public/brand). 글자색이 정해진 SVG라 바탕에 맞는 파일을 고른다.
 const LOGO = {
-  /** 밝은 바탕 헤더용 글자 로고 95.6×28 */
-  wordmark: { src: '/brand/wordmark.svg', width: 95.6073, height: 28 },
+  /** 밝은 바탕 헤더용 글자 로고 90.7×28 */
+  wordmark: { src: '/brand/wordmark.svg', width: 90.66, height: 28 },
   /** 네이비(Hero) 바탕 사이드바용 글자 로고 */
-  wordmarkOnHero: { src: '/brand/wordmark-on-hero.svg', width: 95.6073, height: 28 },
+  wordmarkOnHero: { src: '/brand/wordmark-on-hero.svg', width: 90.66, height: 28 },
   /** 하단 탭 가운데 홈 버튼 48 */
   navHome: { src: '/brand/nav-home.svg', width: 48, height: 48 },
   /** 접힌 사이드바용 정사각 로고 32 */
   symbol: { src: '/brand/symbol-on-hero.svg', width: 32, height: 32 },
   /** 빈 화면·불러오기 실패 화면용 회색 글자 로고. 판매자 센터 글자 로고와 모양이 같다 */
-  wordmarkMuted: { src: '/brand/wordmark-muted.svg', width: 95.6073, height: 28 },
+  wordmarkMuted: { src: '/brand/wordmark-muted.svg', width: 90.66, height: 28 },
 } as const
 
 export type LogoVariant = keyof typeof LOGO

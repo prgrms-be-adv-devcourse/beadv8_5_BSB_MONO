@@ -1,0 +1,163 @@
+# 보조 EC2의 게이트웨이 2(infra/data-node/compose.data.yml의 bukang-gateway2)가 서비스에 닿는 입구 (CRU-75)
+#   k3s 밖에 있는 게이트웨이 2는 Service 이름(bukang-member-service 등)을 찾지 못한다
+#   그래서 서비스마다 메인 EC2의 고정 포트(NodePort)를 하나씩 열고, 게이트웨이 2는 10.0.1.145:<포트>로 보낸다
+#   기존 ClusterIP Service는 그대로 둔다. 게이트웨이 1·서비스끼리는 지금처럼 이름으로 부른다
+#
+# 포트는 「30000 + 앱 포트 뒤 두 자리」로 맞춰 외우기 쉽게 했다 (member 8080 → 30080, ai 8092 → 30092)
+#
+# !! 서비스는 X-Member-Id 헤더를 로그인한 회원으로 그대로 믿는다 (JWT는 게이트웨이만 검사)
+#    이 포트들은 메인 EC2 보안 그룹에서 「보조 EC2 보안 그룹에서 오는 30080~30092」만 허용한다
+#    인터넷(0.0.0.0/0)에 열면 JWT 없이 아무 회원 행세를 할 수 있다. 절대 넓히지 않는다
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-member-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: member-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-cash-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: cash-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+      nodePort: 30081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-payout-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: payout-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+      nodePort: 30082
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-file-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: file-service
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+      nodePort: 30083
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-order-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: order-service
+  ports:
+    - name: http
+      port: 8084
+      targetPort: 8084
+      nodePort: 30084
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-product-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: product-service
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+      nodePort: 30085
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-queue-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: queue-service
+  ports:
+    - name: http
+      port: 8086
+      targetPort: 8086
+      nodePort: 30086
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-notification-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: notification-service
+  ports:
+    - name: http
+      port: 8087
+      targetPort: 8087
+      nodePort: 30087
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-inquiry-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: inquiry-service
+  ports:
+    - name: http
+      port: 8088
+      targetPort: 8088
+      nodePort: 30088
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-board-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: board-service
+  ports:
+    - name: http
+      port: 8089
+      targetPort: 8089
+      nodePort: 30089
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bukang-ai-service-node
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: ai-service
+  ports:
+    - name: http
+      port: 8092
+      targetPort: 8092
+      nodePort: 30092
