@@ -16,7 +16,6 @@ import org.springframework.test.context.ActiveProfiles;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutStage;
-import com.bukang.payout.domain.PayoutStatus;
 
 /**
  * CRU-10 특성 테스트: 리팩터링 전에 지금 동작을 못박는다.
@@ -92,8 +91,7 @@ class PayoutLiveLookupCharacterizationTest {
 	@DisplayName("판매자 요약: 1차를 기다리는 최종 제외 (findPayableForSummary)")
 	class PayableForSummary {
 		private java.util.List<Payout> summary() {
-			return payoutRepository.findPayableForSummary(1, PayoutStatus.지급_예정,
-				PayoutStage.최종_정산, PayoutStage.일차_정산, PayoutStatus.지급_완료, PayoutStatus.취소);
+			return payoutRepository.findPayableForSummary(1);
 		}
 
 		@Test
