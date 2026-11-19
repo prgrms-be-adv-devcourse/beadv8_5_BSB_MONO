@@ -16,6 +16,8 @@ public final class KafkaTopics {
 	public static final String MARKETING_CONSENT_CHANGED = "queuing.member.consentchanged";
 	// 판매자 정보가 바뀌었다 (등록 신청, 승인·반려). 상품 서비스가 판매자 복제본에 저장한다
 	public static final String SELLER_CHANGED = "queuing.seller.changed";
+	// 판매자가 정산 계좌를 등록했다. 정산 서비스가 계좌 미등록 자동 보류를 푼다 (member → payout, key 판매자 ID)
+	public static final String SELLER_ACCOUNT_REGISTERED = "queuing.seller.accountregistered";
 	// 크루원이 크루에서 빠졌다 (떠나기·내보내기·없애기·회원 탈퇴). 주문 서비스가 그 사람을 파티에서 뺀다
 	public static final String CREW_MEMBER_LEFT = "queuing.crew.memberleft";
 	// 회원이 초대 링크로 크루에 가입했다. 알림 서비스가 받는다 (BUK-99)

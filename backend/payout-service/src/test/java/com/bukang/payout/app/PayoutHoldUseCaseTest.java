@@ -39,6 +39,7 @@ import jakarta.persistence.EntityManager;
 class PayoutHoldUseCaseTest {
 	private static final long ADMIN_ID = 99;
 	private static final LocalDateTime HELD_AT = LocalDateTime.of(2026, 10, 12, 10, 0);
+	private static final LocalDateTime RELEASE_AT = LocalDateTime.of(2026, 11, 23, 9, 0);
 	// 보류가 트랜잭션 안에서 발행한 보류 이벤트를 모은다. 판매자 찾기 · 알림은 커밋 뒤 리스너가 한다
 	private final List<PayoutHeldEvent> heldEvents = new ArrayList<>();
 
@@ -100,6 +101,12 @@ class PayoutHoldUseCaseTest {
 		entityManager.flush();
 		entityManager.clear();
 		return payoutRepository.findById(payout.getId()).orElseThrow();
+	}
+
+	// 한 판매자에게 보류를 하나만 건 테스트에서 그 보류를 다시 읽는다 (해제돼도 heldAt 범위로 잡힌다)
+	private PayoutHold sellerHold(long sellerId) {
+		return payoutHoldRepository.findSellerHolds(sellerId, LocalDateTime.of(2026, 10, 1, 0, 0),
+			LocalDateTime.of(2026, 11, 1, 0, 0)).get(0);
 	}
 
 	@Test
@@ -267,5 +274,64 @@ class PayoutHoldUseCaseTest {
 		readByBatch.pay(LocalDateTime.of(2026, 11, 20, 4, 0));
 		assertThatThrownBy(() -> payoutRepository.saveAndFlush(readByBatch))
 			.isInstanceOf(ObjectOptimisticLockingFailureException.class);
+	}
+
+	@Test
+	@DisplayName("정산 계좌를 등록하면 그 판매자의 계좌 미등록 자동 보류가 풀리고 정산 내역이 지급 예정으로 돌아간다")
+	void releaseAccountHoldsReleasesHeldAccountHolds() {
+		Payout payout = saveFinalPayout(5);
+		useCase().holdNew(payout, false, HELD_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase().releaseAccountHolds(5, RELEASE_AT);
+
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(sellerHold(5).getStatus()).isEqualTo(PayoutHoldStatus.해제);
+	}
+
+	@Test
+	@DisplayName("계좌 등록 이벤트를 다시 받아도(이미 풀린 보류) 두 번째 호출은 아무것도 바꾸지 않는다")
+	void releaseAccountHoldsIsIdempotent() {
+		Payout payout = saveFinalPayout(6);
+		useCase().holdNew(payout, false, HELD_AT);
+		useCase().releaseAccountHolds(6, RELEASE_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase().releaseAccountHolds(6, LocalDateTime.of(2026, 11, 25, 9, 0));
+
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급_예정);
+		assertThat(sellerHold(6).getStatus()).isEqualTo(PayoutHoldStatus.해제);
+	}
+
+	@Test
+	@DisplayName("관리자가 다른 사유로 건 보류는 계좌 등록으로 풀리지 않는다")
+	void releaseAccountHoldsSkipsOtherReasons() {
+		Payout payout = saveFinalPayout(7);
+		useCase().hold(payout.getId(), PayoutHoldReason.대사_불일치, "확인 중", ADMIN_ID, HELD_AT);
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase().releaseAccountHolds(7, RELEASE_AT);
+
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.지급보류);
+		assertThat(sellerHold(7).getStatus()).isEqualTo(PayoutHoldStatus.지급보류);
+	}
+
+	@Test
+	@DisplayName("취소로 닫힌 정산 내역의 계좌 미등록 보류는 계좌 등록으로 풀리지 않는다 (예외 없이 건너뛴다)")
+	void releaseAccountHoldsSkipsCanceledPayout() {
+		Payout payout = saveFinalPayout(8);
+		useCase().holdNew(payout, false, HELD_AT);
+		payout.cancel(ADMIN_ID, HELD_AT, "대회 취소");
+		payoutRepository.save(payout);
+		entityManager.flush();
+		entityManager.clear();
+
+		useCase().releaseAccountHolds(8, RELEASE_AT);
+
+		assertThat(reload(payout).getStatus()).isEqualTo(PayoutStatus.취소);
+		assertThat(sellerHold(8).getStatus()).isNotEqualTo(PayoutHoldStatus.해제);
 	}
 }

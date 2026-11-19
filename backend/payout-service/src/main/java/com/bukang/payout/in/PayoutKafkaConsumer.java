@@ -17,8 +17,10 @@ import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.common.shared.order.event.RaceRefundEvent;
 import com.bukang.common.shared.order.event.RaceRefundKind;
 import com.bukang.common.shared.race.event.RaceCancelEvent;
+import com.bukang.common.shared.seller.event.SellerAccountRegisteredEvent;
 import com.bukang.payout.app.PayoutClaimUseCase;
 import com.bukang.payout.app.PayoutDltFacade;
+import com.bukang.payout.app.PayoutHoldUseCase;
 import com.bukang.payout.app.PayoutKafkaRetry;
 import com.bukang.payout.app.PayoutRaceCancelUseCase;
 import com.bukang.payout.app.PayoutRefundUseCase;
@@ -58,6 +60,7 @@ public class PayoutKafkaConsumer {
 	private final PayoutRaceCancelUseCase payoutRaceCancelUseCase;
 	private final PayoutRefundUseCase payoutRefundUseCase;
 	private final PayoutClaimUseCase payoutClaimUseCase;
+	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutDltFacade payoutDltFacade;
 	private final JsonConverter jsonConverter;
 
@@ -144,6 +147,26 @@ public class PayoutKafkaConsumer {
 		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
 		ClaimDepositedEvent event = jsonConverter.fromJson(payload, ClaimDepositedEvent.class);
 		payoutClaimUseCase.confirmByDeposit(event.claimCode(), event.amount(), event.depositedAt());
+		payoutDltFacade.completeByResend(messageId);
+	}
+
+	// 판매자가 정산 계좌를 등록했다 (회원 서비스가 발행, key는 판매자 ID). 계좌 미등록으로 자동 보류된 정산을 푼다
+	// 지급보류인 것만 풀므로 같은 메시지를 다시 처리해도 안전하다
+	@KafkaListener(topics = KafkaTopics.SELLER_ACCOUNT_REGISTERED, groupId = GROUP_ID)
+	@RetryableTopic(
+		attempts = RETRY_ATTEMPTS,
+		backOff = @BackOff(delay = RETRY_DELAY_MILLIS, multiplier = RETRY_MULTIPLIER),
+		// 깨진 JSON은 다시 해도 실패하므로 재시도 없이 바로 DLT로 보낸다
+		exclude = IllegalArgumentException.class,
+		numPartitions = PARTITIONS,
+		retryTopicSuffix = RETRY_TOPIC_SUFFIX,
+		dltTopicSuffix = DLT_TOPIC_SUFFIX,
+		autoStartDltHandler = AUTO_START_DEFAULT_DLT_HANDLER
+	)
+	public void handleSellerAccountRegistered(String payload,
+		@Header(name = KafkaMessageId.HEADER, required = false) String messageId) {
+		SellerAccountRegisteredEvent event = jsonConverter.fromJson(payload, SellerAccountRegisteredEvent.class);
+		payoutHoldUseCase.releaseAccountHolds(event.sellerId(), LocalDateTime.now(ZONE));
 		payoutDltFacade.completeByResend(messageId);
 	}
 }
