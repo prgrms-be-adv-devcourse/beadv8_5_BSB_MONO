@@ -234,13 +234,14 @@ public class Payout extends BaseIdAndTime {
 		if (payoutStage != PayoutStage.최종_정산) {
 			throw new IllegalStateException("1차 정산은 참가권 줄 없이 recordAdvance로 만듭니다. raceId=%d".formatted(raceId));
 		}
-		long fee = TwoStagePayoutCalculator.rate(price, feeRate);
+		// 수수료는 판매 줄이 스스로 계산한다 (DTO 표시도 같은 feeAmount를 쓴다, CRU-13)
+		PayoutItem sale = PayoutItem.ofPayout(this, PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate,
+			payoutCreateDate);
+		long fee = sale.feeAmount();
 		salesAmount += price;
 		feeAmount += fee;
 		payoutAmount += price - fee;
-		return List.of(
-			PayoutItem.ofPayout(this, PayoutRecordType.판매, orderItemId, raceCourseId, price, feeRate,
-				payoutCreateDate),
+		return List.of(sale,
 			PayoutItem.ofPayout(this, PayoutRecordType.수수료, orderItemId, raceCourseId, -fee, feeRate,
 				payoutCreateDate));
 	}

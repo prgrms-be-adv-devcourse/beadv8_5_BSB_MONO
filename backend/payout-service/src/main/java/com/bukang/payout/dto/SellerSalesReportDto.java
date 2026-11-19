@@ -22,7 +22,7 @@ public record SellerSalesReportDto(
 	long taxableTaxAmount
 ) {
 	public static SellerSalesReportDto of(YearMonth month, long salesAmount) {
-		long tax = PayoutTaxInvoice.taxOf(salesAmount);
-		return new SellerSalesReportDto(month.toString(), salesAmount, salesAmount - tax, tax);
+		return new SellerSalesReportDto(month.toString(), salesAmount, PayoutTaxInvoice.supplyOf(salesAmount),
+			PayoutTaxInvoice.taxOf(salesAmount));
 	}
 }
