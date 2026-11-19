@@ -381,4 +381,25 @@ describe('RaceChangeNoticePage', () => {
     expect(screen.getByText('10/20 (화) 23:59까지 전액 환불돼요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '전액 환불받기' })).toBeInTheDocument()
   })
+
+  it('새 날짜 라벨에 대회일의 연도를 붙인다 (해가 바뀌어도 날짜가 잘리지 않는다)', async () => {
+    const race = productMock.getFindRaceResponseMock()
+    server.use(
+      http.get('*/api/v1/product/races/:raceId', () =>
+        HttpResponse.json({
+          ...race,
+          data: {
+            ...race.data,
+            raceDate: '2027-01-09T08:00:00',
+            refundDeadline: '2026-10-10',
+            scheduleChangedAt: '2026-10-14T10:00:00',
+          },
+        }),
+      ),
+    )
+    renderWithClient(<RaceChangeNoticePage ticketId="1-1" />)
+
+    expect(await screen.findByText('새 날짜 · 2027년')).toBeInTheDocument()
+    expect(screen.getByText('1.9')).toBeInTheDocument()
+  })
 })

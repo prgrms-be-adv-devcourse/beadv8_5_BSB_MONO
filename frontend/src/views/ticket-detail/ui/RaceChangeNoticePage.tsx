@@ -1,5 +1,6 @@
 'use client'
 
+import { parseISO } from 'date-fns'
 import { useRouter } from 'next/navigation'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -57,7 +58,9 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
           <Box>
             {race.raceDate && (
               <div className="flex flex-col gap-1 border-b border-border-default pb-3">
-                <span className="text-caption-regular text-text-secondary">새 날짜</span>
+                <span className="text-caption-regular text-text-secondary">
+                  새 날짜 · {parseISO(race.raceDate.slice(0, 10)).getFullYear()}년
+                </span>
                 <span className="font-display text-number-s">
                   {formatRaceDate(race.raceDate).split(' ')[0].replace('/', '.')}
                 </span>
