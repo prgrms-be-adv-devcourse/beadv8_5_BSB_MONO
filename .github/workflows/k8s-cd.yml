@@ -1,12 +1,17 @@
 name: k8s-cd
 
 # 운영 배포. 메인 EC2의 k3s에 앱을 올린다 (2026-11-15 compose에서 전환, BUK-220. 옛 app-cd.yml을 대신한다)
-# 1) build: GitHub 러너에서 앱 이미지 12개를 빌드해 GHCR에 커밋 SHA 태그로 올린다
-# 2) deploy: AWS에 OIDC로 들어가(키를 저장하지 않음) SSM으로 메인 EC2에 deploy.sh <SHA>를 실행시키고 끝날 때까지 기다린다
+# 1) plan: 직전 main 커밋 이후 소스가 바뀐 앱을 고른다 (규칙: infra/main-node/changed-apps.sh, CRU-31)
+# 2) build: 바뀐 앱만 GitHub 러너에서 이미지를 빌드해 GHCR에 커밋 SHA 태그로 올린다
+#    retag: 안 바뀐 앱은 빌드하지 않고, 직전 커밋 이미지에 이번 커밋 SHA 태그만 붙인다 → 모든 배포 커밋에 이미지 13개가 다 있다
+# 3) deploy: AWS에 OIDC로 들어가(키를 저장하지 않음) SSM으로 메인 EC2에 deploy.sh <SHA>를 실행시키고 끝날 때까지 기다린다
+#    deploy.sh는 앱마다 지금 떠 있는 태그와 비교해 바뀐 앱만 하나씩 교체한다 (RollingUpdate. 13개를 한꺼번에 바꾸면 메모리가 넘친다)
 #    서버에 셀프호스티드 러너가 필요 없고, 22번 포트도 쓰지 않는다
 #
 # main에 push되면(매일 05:00 KST dev→main 자동 머지 포함) 돈다. Actions에서 손으로 실행할 수도 있다
+#   손으로 실행하고 sha를 비우면 지금 main 커밋으로 앱 13개를 모두 빌드한다 (비교할 직전 커밋이 없으므로)
 #   되돌리기: Run workflow에서 sha에 예전 main 커밋을 넣으면 빌드 없이 그 이미지로 배포한다
+#     deploy.sh가 그 커밋과 다른 앱만 바꾼다. 그 커밋의 k8s-cd가 빌드·태그 붙이기까지 성공했어야 이미지가 다 있다
 #
 # 저장소 Variables: AWS_DEPLOY_ROLE_ARN(배포 역할), MAIN_INSTANCE_ID(메인 EC2). 만드는 법은 infra/README.md
 on:
@@ -31,9 +36,43 @@ env:
   REGISTRY: ghcr.io/prgrms-be-adv-devcourse
 
 jobs:
-  build:
-    # 되돌리기(sha를 준 경우)는 이미 있는 이미지를 쓰므로 빌드하지 않는다
+  plan:
+    # 되돌리기(sha를 준 경우)는 이미 있는 이미지를 쓰므로 고를 것이 없다
     if: inputs.sha == ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      build: ${{ steps.plan.outputs.build }}
+      retag: ${{ steps.plan.outputs.retag }}
+    steps:
+      # 직전 커밋과 비교하려면 이력이 필요하다 (기본값은 마지막 커밋 하나만 받는다)
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: docker/setup-buildx-action@v3
+
+      # 직전 커밋 이미지가 GHCR에 있는지 보려고 로그인한다
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # github.event.before: push 직전 main 커밋. 손으로 실행하면 비어 있어 13개 모두 빌드한다
+      - name: 빌드할 앱 고르기
+        id: plan
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: bash .github/scripts/k8s-cd-plan.sh "$BEFORE" "$GITHUB_SHA"
+
+  build:
+    needs: plan
+    # 바뀐 앱이 없으면(문서·설정만 바뀐 커밋) 건너뛴다. 빈 matrix는 오류가 나므로 job 자체를 건너뛴다
+    if: needs.plan.outputs.build != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,22 +84,9 @@ jobs:
       # 한 번에 4개씩만 빌드한다. Dockerfile이 바뀌어 캐시가 무효가 되면 13개가 동시에 라이브러리를 처음부터 받다가
       # Maven 중앙 저장소의 요청 제한(429 Too Many Requests)에 걸려 배포가 멈췄다 (2026-11-16)
       max-parallel: 4
-      matrix:
-        include:
-          - { name: gateway, context: backend, module: gateway }
-          - { name: member-service, context: backend, module: member-service }
-          - { name: cash-service, context: backend, module: cash-service }
-          - { name: payout-service, context: backend, module: payout-service }
-          - { name: file-service, context: backend, module: file-service }
-          - { name: order-service, context: backend, module: order-service }
-          - { name: product-service, context: backend, module: product-service }
-          - { name: queue-service, context: backend, module: queue-service }
-          - { name: notification-service, context: backend, module: notification-service }
-          - { name: inquiry-service, context: backend, module: inquiry-service }
-          - { name: board-service, context: backend, module: board-service }
-          - { name: ai-service, context: backend, module: ai-service }
-          # web은 공개 설정(NEXT_PUBLIC_* 등)을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
-          - { name: web, context: frontend, module: '' }
+      # plan이 고른 앱만. 항목 형식은 { name, context(backend|frontend), module(web은 빈 값) }
+      # web은 공개 설정(NEXT_PUBLIC_* 등)을 빌드할 때 이미지에 고정한다 (저장소 Variables에서 읽음)
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v5
 
@@ -94,14 +120,50 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
+  retag:
+    needs: plan
+    # 안 바뀐 앱이 없으면(13개 모두 빌드) 건너뛴다
+    if: needs.plan.outputs.retag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 이미지를 다시 받거나 올리지 않고, GHCR에 있는 직전 커밋 이미지에 태그만 하나 더 붙인다 (앱당 몇 초)
+      - name: 안 바뀐 앱에 이번 커밋 태그 붙이기
+        env:
+          BEFORE: ${{ github.event.before }}
+          APPS: ${{ needs.plan.outputs.retag }}
+        run: |
+          for app in $APPS; do
+            echo "bukang-$app: ${BEFORE:0:8} → ${GITHUB_SHA:0:8}"
+            docker buildx imagetools create \
+              -t "$REGISTRY/bukang-$app:$GITHUB_SHA" "$REGISTRY/bukang-$app:$BEFORE"
+          done
+
   deploy:
-    needs: build
-    # 빌드가 성공했거나, 되돌리기라 빌드를 건너뛴 경우에만. main에서 실행했을 때만 (AWS 역할도 main만 믿는다)
+    needs: [plan, build, retag]
+    # 빌드·태그 붙이기가 모두 성공했거나 건너뛴 경우에만. main에서 실행했을 때만 (AWS 역할도 main만 믿는다)
+    #   plan을 건너뛴 경우: 되돌리기. 이미 있는 이미지로 배포한다
+    #   build·retag를 건너뛴 경우: 그 job에 맡길 앱이 없었다
     if: >-
       !cancelled()
       && github.ref == 'refs/heads/main'
+      && (needs.plan.result == 'success' || needs.plan.result == 'skipped')
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
+      && (needs.retag.result == 'success' || needs.retag.result == 'skipped')
     runs-on: ubuntu-latest
+    # 보조 EC2의 게이트웨이 2(gateway2 job)도 같은 커밋으로 맞춘다
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
     permissions:
       contents: read
       id-token: write   # OIDC 토큰을 받아 AWS 역할로 바꾼다
@@ -130,9 +192,39 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
-      # Spring 앱 11개가 CPU 2개에서 함께 뜨므로 넉넉히 30분
+      # 바뀐 앱을 하나씩 교체하므로(앱당 2~3분) 설정·공통 모듈이 바뀌어 13개를 모두 바꾸면 30~40분 걸린다. 넉넉히 50분
+      # 60분을 넘기지 않는다: 위 AWS 자격 증명이 1시간 뒤 끝나 ssm-run.sh가 결과를 더 읽지 못한다
       - name: 메인 EC2에서 deploy.sh 실행
         env:
           INSTANCE_ID: ${{ vars.MAIN_INSTANCE_ID }}
           SHA: ${{ steps.target.outputs.sha }}
-        run: bash .github/scripts/ssm-run.sh "$INSTANCE_ID" 1800 "bash /opt/crewrun/infra/main-node/deploy.sh $SHA"
+        run: bash .github/scripts/ssm-run.sh "$INSTANCE_ID" 3000 "bash /opt/crewrun/infra/main-node/deploy.sh $SHA"
+
+  # 보조 EC2의 게이트웨이 2를 메인과 같은 커밋 이미지로 바꾼다 (CRU-75)
+  #   메인 nginx가 게이트웨이 1(k3s)·2(보조 EC2)에 요청을 나눠 보내므로, 둘의 버전이 어긋나지 않게 메인 배포 바로 뒤에 돈다
+  #   deploy job과 나눈 이유: 메인 배포가 최대 50분이라, 같은 job에 넣으면 AWS 자격 증명(1시간)이 모자랄 수 있다
+  #   인프라(MySQL 등)는 건드리지 않는다 (deploy.sh <SHA> gateway). 실패해도 메인 배포는 이미 끝난 상태이고,
+  #   nginx는 게이트웨이 2가 응답하지 않으면 게이트웨이 1로만 보낸다
+  gateway2:
+    needs: deploy
+    # !cancelled()가 없으면 앞 단계(build·retag) 중 하나라도 건너뛰었을 때 이 job도 함께 건너뛴다
+    #   (바뀐 앱이 없어 build가 skipped인 배포에서 게이트웨이 2가 안 바뀌던 문제. deploy job과 같은 처리)
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC 토큰을 받아 AWS 역할로 바꾼다
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      # 이미지 받기 + 앱 시작(최대 3분) + 상태 확인. 넉넉히 10분
+      - name: 보조 EC2에서 게이트웨이 2 바꾸기
+        env:
+          INSTANCE_ID: ${{ vars.DATA_INSTANCE_ID }}
+          SHA: ${{ needs.deploy.outputs.sha }}
+        run: bash .github/scripts/ssm-run.sh "$INSTANCE_ID" 600 "bash /opt/crewrun/infra/data-node/deploy.sh $SHA gateway"

@@ -39,6 +39,7 @@ import type {
   RsDataListSellerPayoutHoldDto,
   RsDataPayoutAdminClaimsDto,
   RsDataPayoutClaimDto,
+  RsDataPayoutCreateFailuresDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -1183,9 +1184,9 @@ export const getCreateFailuresUrl = (params: CreateFailuresParams,) => {
  * 정산 생성 배치가 남긴 실패 기록(대사 불일치 · 주문 조회 실패 등)을 실행일 기간으로 최근 것부터 돌려준다. 카드 숫자(대사 불일치 · 자동으로 채운 참가권 · 주문 조회 실패 건수)는 종류 선택과 상관없이 기간 전체로 센다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월). 기록이 없으면 빈 목록과 카드 0을 돌려준다.
  * @summary 이상 감지 기록 조회
  */
-export const createFailures = async (params: CreateFailuresParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+export const createFailures = async (params: CreateFailuresParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutCreateFailuresDto> => {
 
-  return customFetch<unknown>(getCreateFailuresUrl(params),
+  return customFetch<RsDataPayoutCreateFailuresDto>(getCreateFailuresUrl(params),
   {
     ...options,
     method: 'GET'

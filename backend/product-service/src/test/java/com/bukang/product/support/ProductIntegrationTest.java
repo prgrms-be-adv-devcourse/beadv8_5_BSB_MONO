@@ -77,7 +77,7 @@ import jakarta.persistence.PersistenceContext;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Testcontainers(disabledWithoutDocker = true)
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, StubPortsConfig.class})
 public abstract class ProductIntegrationTest {
 	protected static final long SELLER_MEMBER_ID = 9001;
 	protected static final long SELLER_ID = 7001;
@@ -116,6 +116,9 @@ public abstract class ProductIntegrationTest {
 	protected RaceDocumentSyncEventRepository raceDocumentSyncEventRepository;
 	@Autowired
 	protected RaceEmbeddingSyncEventRepository raceEmbeddingSyncEventRepository;
+	// 관리자 확인용 회원 서비스. 테스트가 admin(회원 ID)으로 정한 회원만 관리자다
+	@Autowired
+	protected StubMemberAdminPort memberAdminPort;
 	@Autowired
 	private RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
 	@Autowired
@@ -147,6 +150,7 @@ public abstract class ProductIntegrationTest {
 	// FK 순서대로 지운다: 자리·키트 옵션 → 대회(종목은 함께 지워진다) → 판매자 → 회원, 그리고 아웃박스·인박스·동기화 이벤트와 검색 문서
 	@AfterEach
 	void cleanUpProductTest() {
+		memberAdminPort.clear();
 		participationHoldRepository.deleteAll();
 		kitOptionRepository.deleteAll();
 		raceRepository.deleteAll();
@@ -278,7 +282,7 @@ public abstract class ProductIntegrationTest {
 			plusDays(request.getCrewSaleStartAt(), days), plusDays(request.getCrewSaleEndAt(), days),
 			request.getIndividualOpenAt().plusDays(days), request.getApplicationCloseAt().plusDays(days),
 			request.getRefundDeadline().plusDays(days), request.getRefundPolicy(), request.getCrewMinCount(),
-			request.getCrewMaxCount(), request.getCourses());
+			request.getCrewMaxCount(), request.getCourses(), request.getImages());
 	}
 
 	private static LocalDateTime plusDays(LocalDateTime dateTime, long days) {

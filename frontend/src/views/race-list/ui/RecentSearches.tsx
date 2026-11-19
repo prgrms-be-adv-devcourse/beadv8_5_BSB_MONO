@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/shared/lib'
-import { FOCUS_RING, Icon } from '@/shared/ui'
+import { Button, FOCUS_RING, Icon } from '@/shared/ui'
 
 // 피그마 「검색 시작」의 최근 검색어: 하나씩 또는 전체 삭제.
 // 인기 검색어 · 맞춤 추천 대회는 서버 API가 없어 그리지 않는다.
@@ -29,19 +29,15 @@ export function RecentSearches({
         <h2 id="recent-searches" className="text-title3">
           최근 검색어
         </h2>
-        <button
-          type="button"
-          onClick={onClear}
-          className={cn('rounded-sm text-body2-regular text-text-tertiary', FOCUS_RING)}
-        >
+        <Button variant="ghost" size="s" onClick={onClear} className="text-text-danger">
           전체 삭제
-        </button>
+        </Button>
       </div>
       <ul className="flex flex-wrap gap-2">
         {terms.map((term) => (
           <li
             key={term}
-            className="flex items-center gap-1 rounded-full bg-bg-subtle py-1.5 pr-2 pl-3 text-body2-medium text-text-secondary"
+            className="flex items-center gap-1 rounded-full border border-border-default bg-bg-surface py-1.5 pr-2 pl-3 text-body2-medium text-text-secondary shadow-sm"
           >
             <button
               type="button"

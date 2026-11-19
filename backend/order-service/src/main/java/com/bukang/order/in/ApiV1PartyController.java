@@ -75,13 +75,15 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "없는 크루", value = PartyApiExamples.CREW_NOT_FOUND)
 			})),
 		@ApiResponse(responseCode = "409",
-			description = "같은 대회에 개인 신청(data.participationId)·다른 파티 신청(data.partyId)이 있음, 취소된 대회, 접수 마감",
+			description = "같은 대회에 개인 신청(data.participationId)·다른 파티 신청(data.partyId)이 있음, 취소된 대회, 접수 마감, "
+				+ "본인인증 값(이름·생년월일·휴대폰)이 빈 회원",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "개인 신청 있음", value = PartyApiExamples.INDIVIDUAL_PARTICIPATION_EXISTS),
 				@ExampleObject(name = "다른 파티로 신청함", value = PartyApiExamples.OTHER_PARTY_JOINED),
 				@ExampleObject(name = "동시에 같은 대회 신청", value = PartyApiExamples.DUPLICATE_PARTICIPATION),
 				@ExampleObject(name = "취소된 대회", value = PartyApiExamples.RACE_CANCELED),
-				@ExampleObject(name = "접수 마감", value = PartyApiExamples.APPLICATION_CLOSED)
+				@ExampleObject(name = "접수 마감", value = PartyApiExamples.APPLICATION_CLOSED),
+				@ExampleObject(name = "본인인증 필요", value = PartyApiExamples.IDENTITY_VERIFICATION_REQUIRED)
 			})),
 		@ApiResponse(responseCode = "503", description = "회원·상품 서비스에 연결하지 못함",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -157,7 +159,7 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND)
 			})),
 		@ApiResponse(responseCode = "409", description = "링크 만료, 모집 중이 아님, 파티장이 신청하는 중, 이미 합류함, "
-			+ "최대 인원이 참, 다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감",
+			+ "최대 인원이 참, 다른 파티로 신청함, 개인 신청 있음, 취소된 대회, 접수 마감, 본인인증 값이 빈 회원",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "링크 만료", value = PartyApiExamples.LINK_EXPIRED),
 				@ExampleObject(name = "모집 중이 아님", value = PartyApiExamples.NOT_RECRUITING),
@@ -168,7 +170,8 @@ public class ApiV1PartyController {
 				@ExampleObject(name = "개인 신청 있음", value = PartyApiExamples.INDIVIDUAL_PARTICIPATION_EXISTS),
 				@ExampleObject(name = "동시에 같은 대회 신청", value = PartyApiExamples.DUPLICATE_PARTICIPATION),
 				@ExampleObject(name = "취소된 대회", value = PartyApiExamples.RACE_CANCELED),
-				@ExampleObject(name = "접수 마감", value = PartyApiExamples.APPLICATION_CLOSED)
+				@ExampleObject(name = "접수 마감", value = PartyApiExamples.APPLICATION_CLOSED),
+				@ExampleObject(name = "본인인증 필요", value = PartyApiExamples.IDENTITY_VERIFICATION_REQUIRED)
 			})),
 		@ApiResponse(responseCode = "503", description = "회원·상품 서비스에 연결하지 못함",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {

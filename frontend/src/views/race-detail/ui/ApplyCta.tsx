@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 
 import { loginHref, useAuthStatus } from '@/features/auth'
+import { useEnterQueue } from '@/features/queue-admission'
 import { type PartyRaceStatus } from '@/entities/party'
 import { formatRaceDateTime, parseKstDateTime, type RaceDetail } from '@/entities/race'
 import { useNow } from '@/shared/lib'
@@ -49,16 +50,23 @@ export function ApplyCta({ race, optionId, alreadyApplied, reapplyBlocked, party
       )
     }
     // 로그인 전이면 로그인(M03)으로 보내고, 로그인 뒤 대기열로 이어 간다. 시트 없이 바로 간다(⑨-1)
-    if (authStatus !== 'authenticated' || !race.crew) {
+    if (authStatus === 'anonymous') {
       return (
-        <Link
-          href={authStatus === 'anonymous' ? loginHref(queueHref) : queueHref}
-          className={buttonClassName({ size: 'l' })}
-        >
+        <Link href={loginHref(queueHref)} className={buttonClassName({ size: 'l' })}>
           신청하기
         </Link>
       )
     }
+    // 로그인 확인 중에는 대기열 화면으로 보낸다. 그 화면이 등록하고 로그인이 필요하면 로그인으로 보낸다
+    if (authStatus === 'pending') {
+      return (
+        <Link href={queueHref} className={buttonClassName({ size: 'l' })}>
+          신청하기
+        </Link>
+      )
+    }
+    // 로그인했고 크루 자리가 없으면 시트 없이 대기열 등록을 요청한다
+    if (!race.crew) return <EnterButton race={race} optionId={optionId} />
     if (party?.role === 'MEMBER') {
       // 결제 기한을 놓치면 참가가 확정되지 않아서 하단 버튼에 바로 보여 준다(④)
       if (party.partyStatus === 'PAYING' && !party.myPaid && party.paymentDueAt) {
@@ -73,7 +81,7 @@ export function ApplyCta({ race, optionId, alreadyApplied, reapplyBlocked, party
       }
       return disabled('파티로 신청 중이에요')
     }
-    return <HowToApply race={race} queueHref={queueHref} party={party} />
+    return <HowToApply race={race} optionId={optionId} party={party} />
   }
 }
 
@@ -85,16 +93,26 @@ function disabled(label: string) {
   )
 }
 
+function EnterButton({ race, optionId }: { race: RaceDetail; optionId: string }) {
+  const { enter, pending } = useEnterQueue(race.id, optionId)
+  return (
+    <Button size="l" loading={pending} onClick={() => void enter()}>
+      신청하기
+    </Button>
+  )
+}
+
 function HowToApply({
   race,
-  queueHref,
+  optionId,
   party,
 }: {
   race: RaceDetail
-  queueHref: string
+  optionId: string
   party?: PartyRaceStatus
 }) {
   const router = useRouter()
+  const { enter, pending } = useEnterQueue(race.id, optionId)
   const [open, setOpen] = useState(false)
   const go = (href: string) => {
     setOpen(false)
@@ -103,11 +121,17 @@ function HowToApply({
 
   return (
     <>
-      <Button size="l" onClick={() => setOpen(true)}>
+      <Button size="l" loading={pending} onClick={() => setOpen(true)}>
         신청하기
       </Button>
       <BottomSheet open={open} onOpenChange={setOpen} title="어떻게 신청할까요?">
-        <SheetRow icon="User" onClick={() => go(queueHref)}>
+        <SheetRow
+          icon="User"
+          onClick={() => {
+            setOpen(false)
+            void enter()
+          }}
+        >
           개인으로 신청
         </SheetRow>
         {party && <PartyRow race={race} party={party} go={go} />}
@@ -192,7 +216,7 @@ function SheetRow({
   return (
     <BottomSheetOption {...props}>
       <span className="flex items-center gap-3">
-        <Icon name={icon} className="size-5 shrink-0" />
+        <Icon name={icon} className="size-6 shrink-0" />
         <span className="flex min-w-0 flex-1 flex-col">
           {children}
           {sub && <span className="text-caption-regular text-text-tertiary">{sub}</span>}

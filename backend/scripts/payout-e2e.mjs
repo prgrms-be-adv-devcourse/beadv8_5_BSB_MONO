@@ -119,7 +119,11 @@ sql(`update order_order_item set race_date = case race_id
 	where race_id in (${A}, ${C}, ${B})`);
 
 // ── 2. 판매 내역 (배치처럼 대회 ID로 묻는다) ─────────────────────
-const soldOf = async raceId => (await call('GET', `${ORDER}/internal/v1/order/sold-entries?raceId=${raceId}`)).json.data;
+// 응답은 코스 묶음이라(BUK-244) 정산 어댑터처럼 참가권 줄로 풀어 비교한다
+const soldOf = async raceId => {
+	const data = (await call('GET', `${ORDER}/internal/v1/order/sold-entries?raceId=${raceId}`)).json.data;
+	return data.courses.flatMap(c => [...c.paidIds, ...c.blockingIds].map(orderItemId => ({ orderItemId, price: c.price })));
+};
 const soldA = await soldOf(A);
 const soldC = await soldOf(C);
 const sold = [...soldA, ...soldC];

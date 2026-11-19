@@ -11,7 +11,7 @@ export type RaceShareSheetProps = {
   url: string
 }
 
-// 피그마 「대회 공유 시트」: 카카오톡 · 링크 복사 · 다른 앱. 대회 상세와 대회 찾기 더보기가 같이 쓴다.
+// 피그마 「대회 공유 시트」: 카카오톡 · 링크 복사 · 다른 앱. 대회 상세가 쓴다.
 // 카카오톡 · 다른 앱은 기기 공유 창(navigator.share)을 연다. 공유 창이 없으면 링크를 복사한다.
 export function RaceShareSheet({ open, onOpenChange, title, url }: RaceShareSheetProps) {
   const toast = useToast()
@@ -63,7 +63,7 @@ function ShareAction({
           </svg>
         </span>
       ) : (
-        <span className="flex size-13 items-center justify-center rounded-full bg-bg-subtle">
+        <span className="flex size-13 items-center justify-center rounded-full bg-bg-surface shadow-sm">
           <Icon name={icon} className="size-5" />
         </span>
       )}

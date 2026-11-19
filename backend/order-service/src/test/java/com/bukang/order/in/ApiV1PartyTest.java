@@ -2,6 +2,9 @@ package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.longThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,10 +13,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -49,8 +55,11 @@ import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 import com.bukang.order.support.StubCrewPort;
 import com.bukang.order.support.StubCrewPortConfig;
+import com.bukang.order.support.StubMemberPorts;
+import com.bukang.order.support.StubMemberPortsConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.jayway.jsonpath.JsonPath;
@@ -58,7 +67,7 @@ import com.jayway.jsonpath.JsonPath;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class})
+@Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class, StubMemberPortsConfig.class})
 class ApiV1PartyTest {
 	private static final String BASE_URL = "/api/v1/order/parties";
 	private static final String RACE_STATUS_URL = BASE_URL + "/me/race-status";
@@ -83,7 +92,7 @@ class ApiV1PartyTest {
 	@Autowired
 	private PartyMemberRepository partyMemberRepository;
 
-	@Autowired
+	@MockitoSpyBean
 	private ParticipationRepository participationRepository;
 
 	@Autowired
@@ -94,6 +103,9 @@ class ApiV1PartyTest {
 
 	@Autowired
 	private StubCrewPort crewPort;
+
+	@Autowired
+	private StubMemberPorts memberPorts;
 
 	@MockitoSpyBean
 	private NotificationKafkaSender notificationSender;
@@ -112,6 +124,7 @@ class ApiV1PartyTest {
 		orderOutboxKafkaEventRepository.deleteAll();
 		raceCoursePort.clear();
 		crewPort.clear();
+		memberPorts.clear();
 	}
 
 	@Test
@@ -246,6 +259,27 @@ class ApiV1PartyTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_ALREADY_JOINED"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId));
+	}
+
+	@Test
+	@DisplayName("파티 만들기·합류도 참가자 이름·생년월일·휴대폰을 회원 본인인증 값으로 저장하고, 회원 서비스가 실패하면 503이고 합류가 남지 않는다 (CRU-59)")
+	void partyParticipantFromMemberIdentity() throws Exception {
+		memberPorts.identity(LEADER, new MemberIdentity("박파티장", LocalDate.of(1990, 3, 3), "010-5555-6666"));
+		memberPorts.identity(MEMBER, new MemberIdentity("최파티원", LocalDate.of(1991, 4, 4), "010-7777-8888"));
+		String token = token(create(LEADER, COURSE_HALF));
+
+		memberPorts.setUnavailable(true);
+		join(MEMBER, token).andExpect(status().isServiceUnavailable());
+		assertThat(participationRepository.findFirstByMemberIdOrderByIdDesc(MEMBER)).isEmpty();
+		assertThat(partyMemberRepository.count()).isEqualTo(1);
+
+		memberPorts.setUnavailable(false);
+		join(MEMBER, token).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.participant.name").value("최파티원"));
+		assertThat(participationRepository.findFirstByMemberIdOrderByIdDesc(LEADER).orElseThrow().getParticipant()
+			.getPhone()).isEqualTo("010-5555-6666");
+		assertThat(participationRepository.findFirstByMemberIdOrderByIdDesc(MEMBER).orElseThrow().getParticipant()
+			.getBirth()).isEqualTo(LocalDate.of(1991, 4, 4));
 	}
 
 	@Test
@@ -449,6 +483,41 @@ class ApiV1PartyTest {
 
 		assertThat(statuses).containsExactlyInAnyOrder(201, 409);
 		assertThat(partyMemberRepository.findAll()).filteredOn(row -> row.getMemberId() == MEMBER).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("이웃한 두 파티에 동시에 합류해도 교착 없이 둘 다 합류된다 (CRU-74, MySQL 갭 잠금)")
+	void concurrentJoinsOnNeighborParties() throws Exception {
+		LocalDateTime now = LocalDateTime.now();
+		// 최대 인원이 있어야 합류가 파티원 줄을 잠가 읽는다
+		raceCoursePort.put(StubRaceCoursePort.withCrewSale(StubRaceCoursePort.openCourse(COURSE_10K, RACE_ID, 14, null),
+			now.minusDays(1), now.plusDays(1), 1, 10));
+		// 파티원 색인(party_id, member_id) 순서: (A,50) (B,60). 두 합류가 모두 그 사이 틈에 줄을 넣는다
+		String tokenA = token(create(50, COURSE_10K));
+		String tokenB = token(create(60, COURSE_10K));
+		long joinerA = 70;
+		long joinerB = 55;
+		// 두 합류가 파티원 잠금 조회까지 마친 뒤 함께 줄을 넣게 한다 (교착이 나는 순서를 매번 만든다)
+		// 저장소 인터페이스라 실제 메서드를 부를 수 없어, 실제와 같은 답(같은 대회에 다른 신청 없음)을 준다
+		CyclicBarrier bothLocked = new CyclicBarrier(2);
+		doAnswer(invocation -> {
+			bothLocked.await(10, TimeUnit.SECONDS);
+			return Optional.empty();
+		}).when(participationRepository).findActiveIdByRaceIdAndMemberId(anyLong(),
+			longThat(memberId -> memberId == joinerA || memberId == joinerB));
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		List<Future<Integer>> results = new ArrayList<>();
+		try {
+			results.add(pool.submit(() -> join(joinerA, tokenA).andReturn().getResponse().getStatus()));
+			results.add(pool.submit(() -> join(joinerB, tokenB).andReturn().getResponse().getStatus()));
+			List<Integer> statuses = new ArrayList<>();
+			for (Future<Integer> result : results) {
+				statuses.add(result.get(30, TimeUnit.SECONDS));
+			}
+			assertThat(statuses).containsExactly(201, 201);
+		} finally {
+			pool.shutdownNow();
+		}
 	}
 
 	@Test

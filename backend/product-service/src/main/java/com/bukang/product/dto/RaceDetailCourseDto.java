@@ -32,11 +32,14 @@ public class RaceDetailCourseDto {
 	private final int individualQuota;
 	private final int crewRemaining;
 	private final int individualRemaining;
+	// 기록증 규칙이 있는 종목인지 (참가권 상세의 기록증 제출 버튼용). 규칙 값은 공개하지 않는다 (BUK-270)
+	private final boolean recordCertRequired;
 
 	public static RaceDetailCourseDto from(RaceCourse course) {
 		return new RaceDetailCourseDto(course.getId(), course.getName(), course.getCourseType(), course.getSurface(),
 			course.getDistanceKm(), course.getTimeLimitMinutes(), course.getMinAge(), course.getMaxAge(),
 			course.getPrice(), course.isKitIncluded(), course.getKitPrice(), course.getStatus(), course.getCrewQuota(),
-			course.getIndividualQuota(), course.crewRemaining(), course.individualRemaining());
+			course.getIndividualQuota(), course.crewRemaining(), course.individualRemaining(),
+			course.hasRecordCertRule());
 	}
 }

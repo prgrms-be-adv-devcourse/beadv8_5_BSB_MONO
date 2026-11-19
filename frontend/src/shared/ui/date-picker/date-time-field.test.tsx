@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef } from 'react'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import { dateTimeText, formatTimeTyping, padTime, rangeDateText } from './date-time'
@@ -128,5 +129,27 @@ describe('DateTimeField', () => {
     expect(time).toHaveValue('18:30')
     expect(time).toHaveAttribute('inputmode', 'numeric')
     expect(onValueChange).toHaveBeenLastCalledWith('2026-10-18 18:30')
+  })
+
+  it('시간 칸에 숫자가 아닌 글자를 치면 안내가 보이고, 숫자를 치면 사라진다', async () => {
+    render(<DateTimeField mode="single" label="대회 일시" />)
+    const time = screen.getByRole('textbox', { name: '대회 일시 시간' })
+
+    await userEvent.type(time, 'a')
+    expect(time).toHaveValue('')
+    expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
+
+    await userEvent.type(time, '1')
+    expect(time).toHaveValue('1')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+  })
+
+  it('ref로 날짜 칸을 넘기면 그 칸에 초점을 줄 수 있다', () => {
+    const ref = createRef<HTMLButtonElement>()
+    render(<DateTimeField mode="single" withTime={false} label="생년월일" ref={ref} />)
+
+    ref.current?.focus()
+
+    expect(screen.getByRole('button', { name: /생년월일/ })).toHaveFocus()
   })
 })

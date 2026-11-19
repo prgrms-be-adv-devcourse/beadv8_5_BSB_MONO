@@ -64,7 +64,6 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.SeatOutboxMessages;
@@ -100,9 +99,6 @@ class ApiV1OrderCancelTest {
 
 	@Autowired
 	private ParticipationRepository participationRepository;
-
-	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -151,7 +147,6 @@ class ApiV1OrderCancelTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		orderOutboxKafkaEventRepository.deleteAll();
@@ -201,7 +196,7 @@ class ApiV1OrderCancelTest {
 		// 취소한 참가권은 정산용 판매 내역에서 빠지고, 같은 대회에 다시 신청할 수 있다
 		long raceId = raceCoursePort.findCourse(COURSE_ID).orElseThrow().raceId();
 		mockMvc.perform(get("/internal/v1/order/sold-entries").param("raceId", String.valueOf(raceId)))
-			.andExpect(jsonPath("$.data.length()").value(0));
+			.andExpect(jsonPath("$.data.courses.length()").value(0));
 		applyAndGetId(MEMBER_ID);
 	}
 
@@ -417,9 +412,9 @@ class ApiV1OrderCancelTest {
 			Participation participation = participationRepository.findById(paid.participationId()).orElseThrow();
 			assertThat(participation.getStatus()).isEqualTo(ParticipationStatus.CANCELED);
 			assertThat(participation.getActiveFlag()).isNull();
-			// 정보 수정이 성공했으면 고친 이름도 남아 있어야 한다 (취소가 옛 값으로 덮지 않음)
+			// 정보 수정이 성공했으면 고친 비상 연락처 이름도 남아 있어야 한다 (취소가 옛 값으로 덮지 않음)
 			if (statuses.get(1) == 200) {
-				assertThat(participation.getParticipant().getName()).isEqualTo("박러너");
+				assertThat(participation.getParticipant().getEmergencyContactName()).isEqualTo("박러너");
 			}
 		}
 	}
@@ -735,9 +730,8 @@ class ApiV1OrderCancelTest {
 		cancel(MEMBER_ID, paid.orderId(), paid.orderItemId()).andExpect(status().isAccepted());
 
 		mockMvc.perform(get("/internal/v1/order/sold-entries").param("raceId", String.valueOf(RACE_ID)))
-			.andExpect(jsonPath("$.data.length()").value(1))
-			.andExpect(jsonPath("$.data[0].orderItemId").value(paid.orderItemId()))
-			.andExpect(jsonPath("$.data[0].status").value("CANCELING"));
+			.andExpect(jsonPath("$.data.courses[0].paidIds.length()").value(0))
+			.andExpect(jsonPath("$.data.courses[0].blockingIds[0]").value(paid.orderItemId()));
 		mockMvc.perform(get("/internal/v1/order/sold-summary").param("raceId", String.valueOf(RACE_ID)))
 			.andExpect(jsonPath("$.data[0].ticketCount").value(1));
 		mockMvc.perform(get("/internal/v1/order/members/" + MEMBER_ID + "/active-tickets/count"))
@@ -801,8 +795,8 @@ class ApiV1OrderCancelTest {
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "name": "%s", "birth": "1994-06-25", "gender": "MALE", "phone": "010-1234-5678",
-					"emergencyContactName": "김가족", "emergencyContactPhone": "010-9876-5432", "tshirtSize": "L",
+				{ "gender": "MALE", "emergencyContactName": "%s", "emergencyContactPhone": "010-9876-5432",
+					"tshirtSize": "L",
 						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } }
 				""".formatted(name)));

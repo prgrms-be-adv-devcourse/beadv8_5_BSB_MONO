@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
-import com.bukang.member.crew.app.CrewFacade;
+import com.bukang.member.crew.app.CrewManageCommand;
 import com.bukang.member.crew.app.CrewPartyGuard;
 import com.bukang.member.crew.dto.CrewHomeDto;
 import com.bukang.member.crew.dto.CrewLeaderTransferRequestDto;
@@ -35,7 +35,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/member/crews")
 public class ApiV1CrewManageController {
-	private final CrewFacade crewFacade;
+	private final CrewManageCommand crewManageCommand;
 	private final CrewPartyGuard crewPartyGuard;
 
 	@DeleteMapping("/{crewId}/members/me")
@@ -70,7 +70,7 @@ public class ApiV1CrewManageController {
 	) {
 		// 파티 확인은 크루원 행을 지우는 트랜잭션보다 먼저 한다
 		crewPartyGuard.checkLeave(memberId, crewId);
-		crewFacade.leave(memberId, crewId);
+		crewManageCommand.leave(memberId, crewId);
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루를 탈퇴했습니다.", null));
 	}
@@ -111,8 +111,8 @@ public class ApiV1CrewManageController {
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId,
 		@Parameter(description = "내보낼 크루원의 회원 ID", example = "2") @PathVariable long memberId
 	) {
-		crewPartyGuard.checkKick(loginMemberId, crewId, memberId);
-		crewFacade.removeMember(loginMemberId, crewId, memberId);
+		crewPartyGuard.checkRemove(loginMemberId, crewId, memberId);
+		crewManageCommand.removeMember(loginMemberId, crewId, memberId);
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루원을 내보냈습니다.", null));
 	}
@@ -152,7 +152,7 @@ public class ApiV1CrewManageController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루장을 넘겼습니다.",
-				crewFacade.transferLeader(memberId, crewId, request.getMemberId())));
+				crewManageCommand.transferLeader(memberId, crewId, request.getMemberId())));
 	}
 
 	@DeleteMapping("/{crewId}")
@@ -182,7 +182,7 @@ public class ApiV1CrewManageController {
 		@LoginMemberId long memberId,
 		@Parameter(description = "크루 ID", example = "1") @PathVariable long crewId
 	) {
-		crewFacade.disband(memberId, crewId);
+		crewManageCommand.disband(memberId, crewId);
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루를 없앴습니다.", null));
 	}
@@ -218,6 +218,6 @@ public class ApiV1CrewManageController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "크루 이름을 바꿨습니다.",
-				crewFacade.rename(memberId, crewId, request.getName())));
+				crewManageCommand.rename(memberId, crewId, request.getName())));
 	}
 }

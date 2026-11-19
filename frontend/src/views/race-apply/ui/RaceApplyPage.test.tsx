@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -11,6 +11,7 @@ import {
   type BookingFlowInitial,
 } from '@/features/booking'
 import { RACE_DETAIL, type RaceOption } from '@/entities/race'
+import { type orderModel } from '@/shared/api'
 import {
   completePostcode,
   installPostcodeFake,
@@ -20,6 +21,7 @@ import {
   server,
 } from '@/shared/testing'
 
+import { PARTICIPANT_ERRORS } from '../model/participant-form'
 import { RaceApplyPage } from './RaceApplyPage'
 
 const push = vi.fn()
@@ -75,11 +77,39 @@ beforeEach(() => {
       data: { raceId: 1, kitOptions: [] },
     }),
   )
+  // 기본은 결제 대기 주문이 없는 회원
+  server.use(pendingTickets([]))
   push.mockClear()
   replace.mockClear()
   sessionStorage.clear()
   installPostcodeFake()
 })
+
+/** 내 참가권 목록(살아 있는 신청) 응답. 필요한 칸만 덮어쓴 줄을 돌려준다 */
+function ticket(overrides: Partial<orderModel.MyTicketDto>): orderModel.MyTicketDto {
+  return {
+    ...orderMock.getFindMyTicketsResponseMock().data!.tickets![0],
+    participationType: 'INDIVIDUAL',
+    status: 'APPLIED',
+    orderId: 9,
+    orderStatus: 'CREATED',
+    orderItemStatus: 'ORDERED',
+    participationId: 12,
+    // 결제 기한이 아직 남은 신청
+    paymentDueAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    raceCourseId: 3,
+    canceledAt: null,
+    ...overrides,
+  }
+}
+
+function pendingTickets(tickets: orderModel.MyTicketDto[]) {
+  return orderMock.getFindMyTicketsMockHandler({
+    status: 200,
+    message: '',
+    data: { tickets, page: 0, size: 20, totalElements: tickets.length, totalPages: 1 },
+  })
+}
 
 // 결제 · 장바구니 화면이 읽을 스토어 값을 그대로 꺼내 본다.
 function StoreProbe() {
@@ -87,6 +117,8 @@ function StoreProbe() {
   const applications = useBookingFlow((s) => s.applications)
   return <output data-testid="store">{JSON.stringify({ selection, applications })}</output>
 }
+
+let lastClient: QueryClient
 
 function renderPage(
   initialState: BookingFlowInitial = {},
@@ -96,6 +128,7 @@ function renderPage(
   }: { race?: typeof RACE; previewRemainingSeconds?: number } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  lastClient = client
   render(
     <QueryClientProvider client={client}>
       <BookingFlowProvider initialState={initialState}>
@@ -132,8 +165,13 @@ describe('참가 신청 · 참가자 정보', () => {
     renderPage()
 
     // 명세 예시의 지난 신청 값
-    expect(await screen.findByLabelText('이름')).toHaveValue('김러너')
-    expect(screen.getByLabelText('키트 배송 우편번호')).toHaveValue('04700')
+    // 이름 · 생년월일은 회원 정보를 글로만 보여 주고, 휴대폰 번호와 우편번호는 화면에 없다
+    expect(await screen.findByText('김러너')).toBeInTheDocument()
+    expect(screen.getByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('휴대폰 번호')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('키트 배송 우편번호')).not.toBeInTheDocument()
+    expect(screen.getByText(/서울 성동구 왕십리로 00/)).toBeInTheDocument()
 
     const emergencyName = screen.getByLabelText('비상 연락처 이름')
     await user.clear(emergencyName)
@@ -148,7 +186,7 @@ describe('참가 신청 · 참가자 정보', () => {
       thirdPartyConsent: true,
       participant: {
         name: '김러너',
-        birth: '1994-06-25',
+        birth: '1995-04-12',
         gender: 'FEMALE',
         phone: '010-1234-5678',
         emergencyContactName: '박가족',
@@ -189,7 +227,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('같은 주문 요청을 처리하고 있습니다.')).toBeInTheDocument()
@@ -212,7 +250,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -233,7 +271,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage({}, { race: { ...RACE, id: '1' } })
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -244,24 +282,82 @@ describe('참가 신청 · 참가자 정보', () => {
     expect(replace).not.toHaveBeenCalledWith('/checkout?orderId=1')
   })
 
-  it('지난 신청이 없으면 회원 정보의 휴대폰 번호만 채운다', async () => {
+  it('지난 신청이 없어도 이름 · 생년월일은 회원 정보 값이고, 받는 사람 칸은 비어 있다', async () => {
+    const bodies = captureApply()
+    // 지난 신청에서 받는 사람 · 주소만 비운다 (사이즈는 남겨 둔다)
+    const example = orderMock.getFindLatestParticipantResponseMock()
     server.use(
       orderMock.getFindLatestParticipantMockHandler({
-        status: 200,
-        message: '이전에 신청한 참가자 정보가 없습니다.',
-        data: null,
+        ...example,
+        data: {
+          ...example.data,
+          emergencyContactName: '',
+          emergencyContactPhone: '',
+          shippingAddress: undefined,
+        },
       }),
     )
+    const user = userEvent.setup()
     renderPage()
 
-    expect(await screen.findByLabelText('휴대폰 번호')).toHaveValue('010-1234-5678')
-    expect(screen.getByLabelText('이름')).toHaveValue('')
+    expect(await screen.findByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.getByLabelText('받는 사람')).toHaveValue('')
+    await user.type(screen.getByLabelText('받는 사람'), '박받는')
+    await user.type(screen.getByLabelText('받는 사람 연락처'), '01055556666')
+    await user.type(screen.getByLabelText('비상 연락처 이름'), '박가족')
+    await user.type(screen.getByLabelText('비상 연락처 전화번호'), '01098765432')
+    await user.click(screen.getByRole('radio', { name: '남성' }))
+    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    // 회원 정보의 이름 · 생년월일 · 휴대폰 번호를 그대로 보내고, 키트 받는 사람은 입력값을 보낸다
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toMatchObject({
+      participant: {
+        name: '김러너',
+        birth: '1995-04-12',
+        phone: '010-1234-5678',
+        shippingAddress: { recipientName: '박받는', recipientPhone: '010-5555-6666' },
+      },
+    })
+  })
+
+  it('회원 정보를 불러오지 못하면 안내와 다시 시도를 보여 주고 다음을 누를 수 없다', async () => {
+    let fail = true
+    server.use(
+      http.get('*/api/v1/member/members/me', () =>
+        fail
+          ? HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+          : HttpResponse.json({
+              status: 200,
+              message: '',
+              data: { id: 1, name: '김러너', birthDate: '1995-04-12', phone: '010-1234-5678' },
+            }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText('회원 정보를 불러오지 못했어요')).toBeInTheDocument()
+    await agree(user)
+    expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+
+    fail = false
+    await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
+
+    expect(await screen.findByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.queryByText('회원 정보를 불러오지 못했어요')).not.toBeInTheDocument()
+    // 폼을 다시 만들므로 동의는 다시 받는다
+    await agree(user)
+    expect(screen.getByRole('button', { name: '다음' })).toBeEnabled()
   })
 
   it('장바구니 담기 버튼은 없고 하단 버튼은 다음 하나다', async () => {
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     expect(screen.queryByRole('button', { name: '장바구니 담기' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeInTheDocument()
   })
@@ -272,7 +368,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     // 티셔츠 사이즈는 키트 옵션 단계에서 고른다
     expect(screen.queryByLabelText('기념 티셔츠 사이즈')).not.toBeInTheDocument()
     await agree(user)
@@ -321,7 +417,7 @@ describe('참가 신청 · 참가자 정보', () => {
     fail = false
     await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
 
-    expect(await screen.findByLabelText('이름')).toBeInTheDocument()
+    expect(await screen.findByLabelText('비상 연락처 이름')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다음' })).toBeInTheDocument()
   })
 
@@ -335,9 +431,60 @@ describe('참가 신청 · 참가자 정보', () => {
     await user.type(emergencyName, '박가족')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
-    await user.click(await screen.findByRole('button', { name: '참가자 정보' }))
+    // 헤더의 뒤로 가기는 키트 옵션 단계에서 참가자 정보 단계로 돌아간다
+    await user.click(await screen.findByRole('button', { name: '뒤로 가기' }))
 
     expect(await screen.findByLabelText('비상 연락처 이름')).toHaveValue('박가족')
+  })
+
+  it('키트 옵션 단계에서 결제를 저장하는 중에는 뒤로 가기로 단계를 바꿀 수 없다', async () => {
+    server.use(
+      KIT_OPTIONS,
+      http.post('*/api/v1/order/participations', async () => {
+        await delay('infinite')
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('비상 연락처 이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByRole('group', { name: '기념 티셔츠' })
+    await user.click(screen.getByRole('button', { name: 'M' }))
+    await user.click(screen.getByRole('button', { name: '255-280' }))
+    await user.click(screen.getByRole('button', { name: '결제하기' }))
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+
+    expect(screen.getByRole('group', { name: '기념 티셔츠' })).toBeInTheDocument()
+  })
+
+  it('키트 옵션 단계에서 키트 조회 오류 화면이 떠 있으면 뒤로 가기는 단계가 아니라 이전 페이지로 보낸다', async () => {
+    server.use(KIT_OPTIONS)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByLabelText('비상 연락처 이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByRole('button', { name: '결제하기' })
+
+    // 키트 옵션을 다시 받다가 실패한다
+    server.use(
+      http.get('*/api/v1/product/races/:raceId/kit-options', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    await act(() =>
+      lastClient
+        .refetchQueries({
+          predicate: (query) => String(query.queryKey[0]).endsWith('/kit-options'),
+        })
+        .catch(() => undefined),
+    )
+    expect(await screen.findByText('키트 옵션을 불러오지 못했어요')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/')
   })
 
   it('같은 대회에 이미 신청했으면(409) 서버 문구를 보여 주고 넘어가지 않는다', async () => {
@@ -352,7 +499,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -370,7 +517,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -385,7 +532,7 @@ describe('참가 신청 · 참가자 정보', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -416,7 +563,7 @@ describe('참가 신청 · 참가자 정보', () => {
       },
     })
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
 
@@ -426,16 +573,16 @@ describe('참가 신청 · 참가자 정보', () => {
   })
 })
 
-describe('RaceApplyPage 대기열 남은 시간 띠', () => {
-  it('시안 미리보기는 시안의 남은 초로 헤더 아래에 mm:ss 띠를 붙인다', () => {
+describe('RaceApplyPage 대기열 남은 시간', () => {
+  it('시안 미리보기는 시안의 남은 초를 헤더 아래 남은 시간 띠에 mm:ss로 보여 준다', () => {
     renderPage({}, { previewRemainingSeconds: 583 })
 
-    expect(screen.getByRole('timer')).toHaveTextContent(
-      '남은 시간차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요09:43',
-    )
+    expect(screen.getByRole('timer')).toHaveTextContent(/09:43/)
+    expect(screen.getByText('자리를 잡아 뒀어요. 시간 안에 결제해 주세요')).toBeInTheDocument()
+    expect(screen.queryByText(/시간 안에 신청과 결제를 마쳐 주세요/)).not.toBeInTheDocument()
   })
 
-  it('대기열에 입장 중이 아니면 띠를 그리지 않는다', async () => {
+  it('대기열에 입장 중이 아니면 남은 시간을 그리지 않는다', async () => {
     server.use(
       orderMock.getFindAdmissionMockHandler({
         status: 200,
@@ -444,11 +591,11 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
     )
     renderPage({}, { race: { ...RACE, id: '1' } })
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
-  it('대기열에서 받은 남은 시간을 이어 받아 띠를 붙이고, 0이 되면 입장 시간 만료 화면(M07-1)으로 간다', async () => {
+  it('대기열에서 받은 남은 시간을 이어 받아 헤더에 보여 주고, 0이 되면 입장 시간 만료 화면(M07-1)으로 간다', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       server.use(
@@ -459,9 +606,7 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
       )
       renderPage({}, { race: { ...RACE, id: '1' } })
 
-      expect(await screen.findByRole('timer')).toHaveTextContent(
-        '남은 시간차례가 됐어요. 시간 안에 신청과 결제를 마쳐 주세요00:02',
-      )
+      expect(await screen.findByRole('timer')).toHaveTextContent(/00:02/)
       await act(() => vi.advanceTimersByTimeAsync(2000))
       await vi.waitFor(() =>
         expect(replace).toHaveBeenCalledWith('/checkout?result=timeout&raceId=1'),
@@ -472,26 +617,111 @@ describe('RaceApplyPage 대기열 남은 시간 띠', () => {
   })
 })
 
+describe('참가 신청 v3 배치', () => {
+  it('참가자 정보 단계는 단계 제목 · 대회 요약(변경) · 회원 정보 묶음 순이고 진행 막대는 없다', async () => {
+    renderPage()
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: '참가자 정보' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '선택한 대회' })).not.toBeInTheDocument()
+    expect(document.querySelector('[aria-current="step"]')).toBeNull()
+    expect(screen.getByRole('link', { name: '변경' })).toHaveAttribute('href', `/races/${RACE.id}`)
+    expect(screen.getByRole('heading', { level: 2, name: '회원 정보' })).toBeInTheDocument()
+    // v4 시안: 회원 정보 제목 오른쪽의 「변경」은 회원 정보 수정으로 간다
+    expect(screen.getByRole('link', { name: '회원 정보 변경' })).toHaveAttribute('href', '/me/edit')
+    expect(screen.getByRole('link', { name: '회원 정보 변경' })).toHaveTextContent('변경')
+  })
+
+  it('개인정보 제3자 제공은 카드 없이 받는 곳 · 목적 · 항목 · 보유 기간 줄이고, 시안에 없는 양도 안내는 없다', async () => {
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { name: '개인정보 제3자 제공' })
+    const block = heading.closest('section')!
+    for (const label of ['받는 곳', '목적', '항목', '보유 기간']) {
+      expect(within(block).getByText(label)).toBeInTheDocument()
+    }
+    expect(within(block).getByText('대회 종료 후 1년')).toBeInTheDocument()
+    expect(within(block).getByText('동의하지 않으면 신청할 수 없어요.')).toBeInTheDocument()
+    expect(screen.queryByText(/양도할 수 없어요/)).not.toBeInTheDocument()
+  })
+
+  it('키트 옵션 단계는 단계 제목 아래에 옵션 이름마다 칩 묶음을 보여 준다', async () => {
+    server.use(KIT_OPTIONS)
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('비상 연락처 이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: '키트 옵션' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '기념 티셔츠' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '양말' })).toBeInTheDocument()
+    // 키트 옵션 단계에는 회원 정보 묶음이 없다
+    expect(screen.queryByRole('link', { name: '회원 정보 변경' })).not.toBeInTheDocument()
+  })
+})
+
 describe('참가 신청 · 키트 배송 주소 검색', () => {
   const noLatest = () =>
     server.use(
       orderMock.getFindLatestParticipantMockHandler({ status: 200, message: '', data: null }),
     )
 
-  it('우편번호 · 주소는 주소 검색으로만 채우고, 상세 주소만 직접 입력해 보낸다', async () => {
+  it('지난 신청에 우편번호가 없으면 요약 대신 입력 칸을 연다', async () => {
+    const example = orderMock.getFindLatestParticipantResponseMock()
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({
+        ...example,
+        data: {
+          ...example.data,
+          shippingAddress: { ...example.data?.shippingAddress, zipcode: '' },
+        },
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByLabelText('받는 사람')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '변경' })).not.toBeInTheDocument()
+  })
+
+  it('요약으로 보이던 배송지에 검증 오류가 나면 입력 칸을 열어 오류를 보여 준다', async () => {
+    const bodies = captureApply()
+    const example = orderMock.getFindLatestParticipantResponseMock()
+    server.use(
+      orderMock.getFindLatestParticipantMockHandler({
+        ...example,
+        data: {
+          ...example.data,
+          shippingAddress: { ...example.data?.shippingAddress, addressDetail: 'ㄱ'.repeat(256) },
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('checkbox', { name: /제3자 제공 동의/ }))
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    expect(await screen.findByLabelText('상세 주소')).toBeInTheDocument()
+    expect(screen.getByText(PARTICIPANT_ERRORS.addressLength)).toBeInTheDocument()
+    expect(bodies).toHaveLength(0)
+  })
+
+  it('주소는 주소 검색으로만 채우고, 고른 뒤에는 글로 보이며 다시 검색할 수 있다', async () => {
     const bodies = captureApply()
     const user = userEvent.setup()
     renderPage()
 
-    const zipcode = await screen.findByLabelText('키트 배송 우편번호')
-    expect(zipcode).toHaveAttribute('readonly')
-    expect(screen.getByLabelText('키트 배송 주소')).toHaveAttribute('readonly')
-
-    // 지난 신청 값(04700)이 있어도 다시 검색하면 바뀐다
-    await user.click(screen.getByRole('button', { name: '주소 검색' }))
+    // 지난 신청 값이 있으면 배송지 요약으로 보이고, 「변경」을 누르면 입력 칸이 열려 버튼은 「다시 검색」이다
+    expect(await screen.findByText(/서울 성동구 왕십리로 00/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('키트 배송 주소')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '변경' }))
+    await user.click(screen.getByRole('button', { name: '다시 검색' }))
     completePostcode()
-    expect(zipcode).toHaveValue('04768')
-    expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
+    expect(await screen.findByText('서울특별시 성동구 뚝섬로 273')).toBeInTheDocument()
 
     const detail = screen.getByLabelText('상세 주소')
     expect(detail).toHaveValue('')
@@ -516,7 +746,7 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await agree(user)
     await user.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('키트를 받을 주소를 입력해 주세요.')).toBeInTheDocument()
@@ -539,14 +769,207 @@ describe('참가 신청 · 키트 배송 주소 검색', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('이름')
+    await screen.findByLabelText('비상 연락처 이름')
     await user.click(screen.getByRole('button', { name: '주소 검색' }))
 
-    const zipcode = screen.getByLabelText('키트 배송 우편번호')
-    await vi.waitFor(() => expect(zipcode).not.toHaveAttribute('readonly'))
+    const zipcode = await screen.findByLabelText('키트 배송 우편번호')
     await user.type(zipcode, '04768')
     await user.type(screen.getByLabelText('키트 배송 주소'), '서울특별시 성동구 뚝섬로 273')
     expect(zipcode).toHaveValue('04768')
     expect(screen.getByLabelText('키트 배송 주소')).toHaveValue('서울특별시 성동구 뚝섬로 273')
+    // 우편번호는 숫자만 받고, 막힌 글자를 치면 값은 그대로이고 안내가 보인다
+    await user.type(zipcode, 'a')
+    expect(zipcode).toHaveValue('04768')
+    expect(screen.getAllByText('숫자만 입력할 수 있어요').length).toBeGreaterThan(0)
+  })
+})
+
+describe('참가 신청 · 결제 대기 주문 이어 가기', () => {
+  /** 주문 만들기 요청 본문을 받아 두고 새 주문(ID 1)으로 답한다 */
+  function captureOrders() {
+    const orders: unknown[] = []
+    server.use(
+      http.post('*/api/v1/order/orders', async ({ request }) => {
+        orders.push(await request.json())
+        return HttpResponse.json(orderMock.getCreateResponseMock(), { status: 201 })
+      }),
+    )
+    return orders
+  }
+
+  async function pressNext(user: ReturnType<typeof userEvent.setup>) {
+    await screen.findByLabelText('비상 연락처 이름')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+  }
+
+  it('같은 종목에 결제 대기 주문이 있으면 새로 만들지 않고 그 주문의 결제로 간다', async () => {
+    const applies = captureApply()
+    const orders = captureOrders()
+    server.use(pendingTickets([ticket({ orderId: 9 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=9'))
+    expect(applies).toHaveLength(0)
+    expect(orders).toHaveLength(0)
+  })
+
+  /** 참가자 정보 수정 요청을 받아 두고 명세 예시로 답한다 */
+  function captureChanges() {
+    const changes: { participationId: string; body: unknown }[] = []
+    server.use(
+      http.put(
+        '*/api/v1/order/participations/:participationId/participant',
+        async ({ params, request }) => {
+          changes.push({
+            participationId: String(params.participationId),
+            body: await request.json(),
+          })
+          return HttpResponse.json(orderMock.getChangeParticipantResponseMock())
+        },
+      ),
+    )
+    return changes
+  }
+
+  it('결제 대기 주문을 이어 갈 때 고친 참가자 정보를 먼저 저장하고 결제로 간다', async () => {
+    const changes = captureChanges()
+    server.use(pendingTickets([ticket({ orderId: 9, participationId: 12 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByLabelText('비상 연락처 이름')
+    const emergencyName = screen.getByLabelText('비상 연락처 이름')
+    await user.clear(emergencyName)
+    await user.type(emergencyName, '박가족')
+    await agree(user)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=9'))
+    expect(changes).toHaveLength(1)
+    expect(changes[0].participationId).toBe('12')
+    expect(changes[0].body).toMatchObject({ emergencyContactName: '박가족' })
+  })
+
+  it('참가자 정보 수정이 실패하면 결제로 가지 않고 오류를 보여 준다', async () => {
+    server.use(
+      pendingTickets([ticket({ orderId: 9 })]),
+      http.put('*/api/v1/order/participations/:participationId/participant', () =>
+        HttpResponse.json(
+          { status: 409, message: '접수 기간이 아닙니다.', data: null },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    expect(await screen.findByText('접수 기간이 아닙니다.')).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('키트 단계에서 사이즈를 바꾸면 참가자 정보 수정에 tshirtSize가 함께 간다', async () => {
+    const changes = captureChanges()
+    server.use(KIT_OPTIONS, pendingTickets([ticket({ orderId: 9 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+    await user.click(await screen.findByRole('button', { name: 'M' }))
+    await user.click(screen.getByRole('button', { name: '255-280' }))
+    await user.click(screen.getByRole('button', { name: '결제하기' }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=9'))
+    expect(changes[0].body).toMatchObject({ tshirtSize: 'M' })
+  })
+
+  it('결제 기한이 지난 주문은 이어 가지 않고 새 주문을 만든다', async () => {
+    captureApply()
+    const orders = captureOrders()
+    const changes = captureChanges()
+    server.use(
+      pendingTickets([
+        ticket({ orderId: 9, paymentDueAt: new Date(Date.now() - 1000).toISOString() }),
+      ]),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+    expect(changes).toHaveLength(0)
+  })
+
+  it('다른 종목의 결제 대기 주문은 이어 가지 않고 새 주문을 만든다', async () => {
+    captureApply()
+    const orders = captureOrders()
+    server.use(pendingTickets([ticket({ orderId: 9, raceCourseId: 4 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+  })
+
+  it.each([
+    ['결제 완료', { orderStatus: 'PAID', orderItemStatus: 'PAID' }],
+    ['기한 만료', { orderStatus: 'EXPIRED', orderItemStatus: 'ORDERED' }],
+    ['결제 중', { orderStatus: 'PAYING', orderItemStatus: 'ORDERED' }],
+    ['주문 전', { orderId: null, orderStatus: null, orderItemStatus: null }],
+  ] as const)('같은 종목이어도 주문이 %s이면 이어 가지 않고 새로 만든다', async (_, overrides) => {
+    captureApply()
+    const orders = captureOrders()
+    server.use(pendingTickets([ticket(overrides)]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+  })
+
+  it('내 참가권을 불러오지 못하면 기존처럼 새 주문을 만든다', async () => {
+    captureApply()
+    const orders = captureOrders()
+    server.use(
+      http.get('*/api/v1/order/participations/me', () =>
+        HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=1'))
+    expect(orders).toHaveLength(1)
+  })
+
+  it('키트 옵션을 고른 뒤 결제하기도 결제 대기 주문으로 이어 가고, 고른 옵션을 그 주문에 남긴다', async () => {
+    const applies = captureApply()
+    const orders = captureOrders()
+    server.use(KIT_OPTIONS, pendingTickets([ticket({ orderId: 9 })]))
+    const user = userEvent.setup()
+    renderPage()
+
+    await pressNext(user)
+    await user.click(await screen.findByRole('button', { name: 'M' }))
+    await user.click(screen.getByRole('button', { name: '255-280' }))
+    await user.click(screen.getByRole('button', { name: '결제하기' }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout?orderId=9'))
+    expect(applies).toHaveLength(0)
+    expect(orders).toHaveLength(0)
+    expect(readKitOptionIds(9)).toEqual([11, 22])
   })
 })

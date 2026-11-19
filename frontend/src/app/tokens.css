@@ -124,7 +124,8 @@
   --color-bg-info-subtle: var(--color-violet-50);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-500);
-  --color-text-tertiary: var(--color-neutral-400);
+  /* 글자 회색은 두 단계만 쓴다(날짜·보조 글자도 secondary). */
+  --color-text-tertiary: var(--color-neutral-500);
   --color-text-inverse: var(--color-neutral-0);
   --color-text-on-brand: var(--color-neutral-0);
   --color-text-on-danger: var(--color-neutral-0);
@@ -285,7 +286,7 @@
     --color-bg-info-subtle: var(--color-violet-900);
     --color-text-primary: var(--color-neutral-25);
     --color-text-secondary: var(--color-navy-200);
-    --color-text-tertiary: var(--color-navy-300);
+    --color-text-tertiary: var(--color-navy-200);
     --color-text-inverse: var(--color-navy-900);
     --color-text-brand: var(--color-brand-300);
     --color-text-disabled: var(--color-neutral-500);

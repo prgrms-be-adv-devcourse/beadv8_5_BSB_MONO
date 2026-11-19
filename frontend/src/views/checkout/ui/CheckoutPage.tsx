@@ -1,9 +1,10 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { forgetKitOptionIds, readKitOptionIds, SAMPLE_PARTICIPANT } from '@/features/booking'
@@ -14,19 +15,24 @@ import {
   requestCharge,
 } from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
-import { parseKstDateTime, RACE_DETAIL, raceDetailQueryOptions } from '@/entities/race'
+import {
+  parseKstDateTime,
+  RACE_DETAIL,
+  raceDetailQueryOptions,
+  RacePoster,
+  type RaceDetail,
+} from '@/entities/race'
 import { invalidateTicketQueries, orderQueryOptions } from '@/entities/ticket'
 import { orderApi, orderModel, unwrapData } from '@/shared/api'
-import { cn, formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
+import { formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
-  Badge,
   BottomCta,
   Button,
   buttonClassName,
   Checkbox,
   EmptyState,
-  KeyValue,
+  Icon,
   Radio,
   RadioGroup,
   Skeleton,
@@ -159,7 +165,7 @@ function CheckoutResult({
   return (
     <>
       <AppHeader type="sub" title="결제" close backHref="/" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6">
+      <main className="flex flex-1 flex-col px-4 pt-(--layout-content-start) pb-6">
         <EmptyState icon={result.icon} title={result.title} description={result.description} />
       </main>
       <BottomCta
@@ -191,7 +197,10 @@ function PayingResult() {
   return (
     <>
       <AppHeader type="sub" title="결제" close backHref="/" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6" aria-live="polite">
+      <main
+        className="flex flex-1 flex-col px-4 pt-(--layout-content-start) pb-6"
+        aria-live="polite"
+      >
         <EmptyState
           icon="Clock"
           title={late ? '결제 확인이 늦어지고 있어요' : '결제를 확인하고 있어요'}
@@ -228,14 +237,24 @@ function OfflinePreviewBody({ expiresAt }: { expiresAt: number }) {
   const race = RACE_DETAIL
   const option = race.options[0]
   if (remaining === 0) return <CheckoutResult view="timeout" />
+  const participant = SAMPLE_PARTICIPANT
   return (
     <CheckoutForm
       offline
       remaining={remaining}
-      summary={`${race.title} · ${option.name} · ${SAMPLE_PARTICIPANT.name}`}
+      race={{
+        title: race.title,
+        meta: [race.startsAt, race.place, option.name].join(' · '),
+        image: race.images[0],
+      }}
+      participant={participantLine(participant)}
+      emergency={emergencyLabel(
+        participant.emergencyContactName,
+        participant.emergencyContactPhone,
+      )}
       amount={option.price}
       balance={OFFLINE_PREVIEW_BALANCE}
-      refund={race.refund}
+      refundDeadline={refundDeadlineOf(race)}
       agreed={agreed}
       onAgreedChange={setAgreed}
       action={
@@ -427,16 +446,25 @@ function OrderCheckout({
   return (
     <CheckoutForm
       remaining={remaining}
-      summary={orderSummary(
-        order.data,
-        race.data ?? undefined,
-        participation.data?.participant?.name,
+      race={raceSummary(order.data, race.data ?? undefined)}
+      participant={participantLine(
+        participation.data?.participant,
+        order.data.shippingAddress?.recipientName,
+      )}
+      shipTo={shipToLabel(order.data.shippingAddress)}
+      changeHref={
+        raceId !== undefined && order.data.items?.[0]?.raceCourseId !== undefined
+          ? (`/races/${raceId}/apply?option=${order.data.items[0].raceCourseId}` as const)
+          : undefined
+      }
+      emergency={emergencyLabel(
+        participation.data?.participant?.emergencyContactName,
+        participation.data?.participant?.emergencyContactPhone,
       )}
       amount={amount}
       balance={balance}
-      refund={race.data?.refund}
+      refundDeadline={race.data ? refundDeadlineOf(race.data) : undefined}
       kitOption={kitOptionLabel(participation.data?.participant?.tshirtSize)}
-      shipTo={shipToLabel(order.data.shippingAddress)}
       agreed={agreed || charged}
       onAgreedChange={setAgreed}
       notice={chargeHeld && <ChargeHeldAlert />}
@@ -450,8 +478,8 @@ function OrderCheckout({
           onClick={() => pay.mutate({ auto: false })}
         >
           {payment && payment.charge > 0
-            ? `${won(payment.charge)} 충전하고 결제`
-            : `${won(amount)} 결제`}
+            ? `${won(payment.charge)} 충전하고 결제하기`
+            : `${won(amount)} 결제하기`}
         </Button>
       }
     />
@@ -461,45 +489,49 @@ function OrderCheckout({
 /** 1회 충전 한도 안내. 충전 버튼이 이 안내로 설명된다 (화면 낭독기가 버튼과 함께 읽는다) */
 const CHARGE_LIMIT_NOTICE_ID = 'checkout-charge-limit-notice'
 
-/** 대회 · 종목 · 참가자. 대회 상세를 아직 못 받았으면 주문 상품 이름을 쓴다. */
-function orderSummary(
+/** 대회 요약. 대회 상세를 아직 못 받았으면 주문 상품 이름만 쓴다. */
+function raceSummary(
   order: orderModel.OrderDto,
-  race: { title: string; options: { id: string; name: string }[] } | undefined,
-  participantName: string | undefined,
-) {
+  race: RaceDetail | undefined,
+): { title: string; meta: string; image?: string } {
   const item = order.items?.[0]
-  const option = race?.options.find((o) => o.id === String(item?.raceCourseId))
-  const name = race && option ? `${race.title} · ${option.name}` : (item?.itemName ?? '')
-  const participant = participantName ?? order.shippingAddress?.recipientName
-  return participant ? `${name} · ${participant}` : name
+  if (!race) return { title: item?.itemName ?? '', meta: '' }
+  const option = race.options.find((o) => o.id === String(item?.raceCourseId))
+  const meta = [race.startsAt, race.place, option?.name].filter(Boolean).join(' · ')
+  return { title: race.title, meta, image: race.images[0] }
 }
+
+// 매퍼는 기한이 없으면 '-'를 넣는다. 날짜 문장에는 쓰지 않는다.
+const refundDeadlineOf = (race: RaceDetail) => {
+  const value = race.schedule.find((row) => row.label === '전액 환불 기한')?.value
+  return value === '-' ? undefined : value
+}
+
+const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성' }
+
+/** 이름 · 생년월일 · 성별. 모르는 값은 빼고 잇는다. */
+function participantLine(
+  participant?: { name?: string; birth?: string; gender?: string } | null,
+  fallbackName?: string,
+) {
+  const line = [
+    participant?.name ?? fallbackName,
+    participant?.birth?.replaceAll('-', '.'),
+    participant?.gender ? GENDER_LABEL[participant.gender] : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return line || undefined
+}
+
+const emergencyLabel = (name?: string, phone?: string) =>
+  name && phone ? `비상 연락처 ${name} (${phone})` : undefined
 
 const kitOptionLabel = (tshirtSize?: string | null) =>
   tshirtSize ? `티셔츠 ${tshirtSize}` : undefined
 
 const shipToLabel = (address?: orderModel.ShippingAddressDto | null) =>
   address?.address ? [address.address, address.addressDetail].filter(Boolean).join(' ') : undefined
-
-/** 결제 단계 막대 (피그마 M07: 단계마다 위에 막대, 지금 단계만 굵은 글씨) */
-function StepBars({ steps, current }: { steps: string[]; current: number }) {
-  return (
-    <ol className="flex gap-2">
-      {steps.map((label, i) => (
-        <li
-          key={label}
-          aria-current={i === current ? 'step' : undefined}
-          className={cn(
-            'flex flex-1 flex-col gap-2 border-t-4 pt-2 text-body2-regular',
-            i <= current ? 'border-border-brand' : 'border-border-default',
-            i === current ? 'font-bold text-text-primary' : 'text-text-secondary',
-          )}
-        >
-          {label}
-        </li>
-      ))}
-    </ol>
-  )
-}
 
 function CheckoutSkeleton() {
   return (
@@ -512,90 +544,91 @@ function CheckoutSkeleton() {
   )
 }
 
+/** 결제 화면 구역: 제목 + 내용. 화면 낭독기가 구역 이름을 읽도록 제목에 이어 둔다. */
+function Block({
+  title,
+  aside,
+  children,
+}: {
+  title: string
+  /** 제목 오른쪽 (변경 버튼) */
+  aside?: ReactNode
+  children: ReactNode
+}) {
+  const id = useId()
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id={id} className="text-title3">
+          {title}
+        </h2>
+        {aside}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+const BOX = 'flex flex-col rounded-md border border-border-default bg-bg-surface'
+
+function Row({ label, value, strong }: { label: string; value: ReactNode; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2 text-body1-regular">
+      <span className="shrink-0 text-text-secondary">{label}</span>
+      <span className={strong ? 'text-body1-bold' : 'text-body1-medium'}>{value}</span>
+    </div>
+  )
+}
+
 function CheckoutForm({
   offline = false,
   remaining,
-  summary,
+  race,
+  participant,
+  shipTo,
+  emergency,
+  kitOption,
   amount,
   balance,
-  refund,
-  kitOption,
-  shipTo,
+  refundDeadline,
   agreed,
   onAgreedChange,
   notice,
   action,
+  changeHref,
 }: {
   offline?: boolean
   remaining: number
-  summary: string
+  race: { title: string; meta: string; image?: string }
+  /** 이름 · 생년월일 · 성별. 모르면 줄을 그리지 않는다 */
+  participant?: string
+  shipTo?: string
+  emergency?: string
+  kitOption?: string
   amount: number
   /** 예치금 잔액. 불러오지 못하면 undefined */
   balance?: number
-  refund?: { label: string; value: string }[]
-  /** 키트 옵션 · 배송지. 모르면 줄을 그리지 않는다 */
-  kitOption?: string
-  shipTo?: string
+  /** 전액 환불 기한 (대회 상세 일정). 모르면 환불 줄을 그리지 않는다 */
+  refundDeadline?: string
   agreed: boolean
   onAgreedChange: (agreed: boolean) => void
   /** 결제창 위에 보여 줄 안내 */
   notice?: ReactNode
   action: ReactNode
+  /** 참가자 정보를 고치러 가는 참가 신청 화면. 모르면 변경 버튼을 그리지 않는다 */
+  changeHref?: `/races/${number}/apply?option=${number}`
 }) {
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
   // 1회 충전 한도보다 많이 모자라 한 번 충전으로는 결제할 수 없다
   const overLimit = payment !== undefined && payment.balanceAfter < 0
-  const calc = (
-    <div key="calc" className="flex flex-col gap-3 border-t border-border-default pt-4">
-      <KeyValue label="예치금에서" value={payment ? won(payment.fromDeposit) : '-'} />
-      <KeyValue label="충전 (최소 1만 원)" value={payment ? `+${won(payment.charge)}` : '-'} />
-      <KeyValue
-        label="결제 뒤 남는 예치금"
-        value={payment && !overLimit ? won(payment.balanceAfter) : '-'}
-      />
-      {overLimit && (
-        <p id={CHARGE_LIMIT_NOTICE_ID} className="text-caption-medium text-text-primary">
-          한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은 다시 충전해
-          주세요.
-        </p>
-      )}
-    </div>
-  )
-  const method = (
-    <fieldset key="method" className="flex flex-col gap-3">
-      <legend className="mb-3 text-body2-bold">{offline ? '충전 수단' : '결제 수단'}</legend>
-      {offline ? (
-        <RadioGroup defaultValue="toss">
-          <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
-        </RadioGroup>
-      ) : (
-        <div className="flex flex-col gap-2 rounded-md bg-bg-brand-subtle p-4 inset-ring-2 inset-ring-border-brand">
-          <p className="text-body2-bold">예치금</p>
-          <p className="text-body1-bold">{balance === undefined ? '-' : won(balance)}</p>
-          {payment && payment.charge > 0 && (
-            <Badge tone="warning" className="self-start">
-              {`${won(amount - payment.fromDeposit)} 부족`}
-            </Badge>
-          )}
-        </div>
-      )}
-    </fieldset>
-  )
   return (
     <>
       <AppHeader type="sub" title="결제" />
-      {/* 대기열 내 차례(M05-Q2)에서 이어지는 남은 시간 띠 */}
       <TimerBar
-        message={
-          offline
-            ? '연결이 끊긴 동안에도 시간은 흘러요'
-            : '자리를 잡아 뒀어요. 시간 안에 결제해 주세요'
-        }
+        message="자리를 잡아 뒀어요. 시간 안에 결제해 주세요"
         remainingSeconds={remaining}
       />
-      <main className="flex flex-1 flex-col gap-7 px-8 py-6">
-        <StepBars steps={['참가자 정보', '키트 옵션', '결제']} current={2} />
-
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-4 pb-6">
         {offline && (
           <Alert
             tone="info"
@@ -605,38 +638,143 @@ function CheckoutForm({
         )}
         {notice}
 
-        <div className="flex flex-col gap-1">
-          {/* 참가자 이름이 들어 있어 Clarity 화면 녹화에서 가린다 */}
-          <p className="text-body2-regular text-text-secondary" data-clarity-mask="true">
-            {summary}
-          </p>
-          <p className="text-[32px] leading-11 font-bold tracking-[-0.015em]">{won(amount)}</p>
-        </div>
-
-        {offline ? [calc, method] : [method, calc]}
-        {(kitOption || shipTo) && (
-          // 받는 곳 주소가 들어 있어 Clarity 화면 녹화에서 가린다
-          <div className="flex flex-col gap-3" data-clarity-mask="true">
-            {kitOption && <KeyValue label="키트 옵션" value={kitOption} />}
-            {shipTo && <KeyValue label="키트 배송지" value={shipTo} />}
-          </div>
+        {(participant || shipTo || emergency) && (
+          <Block
+            title="참가자 · 배송"
+            aside={
+              changeHref && (
+                <Link
+                  href={changeHref}
+                  className={buttonClassName({ variant: 'ghost', size: 's' })}
+                >
+                  변경
+                </Link>
+              )
+            }
+          >
+            {/* 참가자 이름 · 받는 곳 주소가 들어 있어 Clarity 화면 녹화에서 가린다 */}
+            <div className={`${BOX} gap-1 p-4`} data-clarity-mask="true">
+              {participant && <p className="text-body1-medium">{participant}</p>}
+              {shipTo && <p className="text-body1-regular">{shipTo}</p>}
+              {emergency && <p className="text-body1-regular text-text-secondary">{emergency}</p>}
+            </div>
+          </Block>
         )}
 
-        <div className="flex flex-col gap-3">
-          {refund && (
-            <div className="flex flex-col gap-2 rounded-md px-4 pt-3 pb-4 inset-ring inset-ring-border-default">
-              <p className="text-body2-regular text-text-secondary">환불 규정</p>
-              {refund.map((row) => (
-                <KeyValue key={row.label} label={row.label} value={row.value} />
-              ))}
+        <Block title="신청 대회">
+          <div className={`${BOX} gap-3 p-4`}>
+            <div className="flex items-center gap-3">
+              {race.image ? (
+                <Image
+                  src={race.image}
+                  alt=""
+                  width={72}
+                  height={54}
+                  className="h-13.5 w-18 shrink-0 rounded-sm object-cover"
+                />
+              ) : (
+                <RacePoster
+                  seed={race.title}
+                  title=""
+                  label=""
+                  className="h-13.5 w-18 shrink-0 rounded-sm"
+                />
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-body1-bold">{race.title}</p>
+                <p className="text-caption-regular text-text-secondary">{race.meta}</p>
+              </div>
             </div>
-          )}
+            {kitOption && (
+              <p className="border-t border-border-default pt-3 text-body1-regular">
+                키트 {kitOption}
+              </p>
+            )}
+            <div className="border-t border-border-default pt-2">
+              <div className="flex items-center justify-between gap-4 py-2">
+                <span className="text-body1-regular">참가비</span>
+                <span className="text-body1-bold">{won(amount)}</span>
+              </div>
+            </div>
+          </div>
+        </Block>
+
+        <Block title="예치금">
+          <div className={`${BOX} px-4 py-2`}>
+            <Row label="보유 예치금" value={payment ? won(balance ?? 0) : '-'} />
+            <Row
+              label="이번에 쓸 예치금"
+              strong
+              value={
+                payment
+                  ? `${won(payment.fromDeposit)}${payment.fromDeposit > 0 && payment.fromDeposit === balance ? ' (전액)' : ''}`
+                  : '-'
+              }
+            />
+          </div>
+        </Block>
+
+        {payment && payment.charge > 0 && (
+          <Block title="충전 수단">
+            <div className={`${BOX} p-4`}>
+              <RadioGroup defaultValue="toss">
+                <Radio value="toss" label="카드 · 간편결제 (토스페이먼츠)" />
+              </RadioGroup>
+            </div>
+          </Block>
+        )}
+
+        <Block title="결제 금액">
+          <div className={`${BOX} px-4 py-3`}>
+            <Row label="참가비" value={won(amount)} />
+            <Row label="예치금 사용" value={payment ? `-${won(payment.fromDeposit)}` : '-'} />
+            <Row label="남은 금액" value={payment ? won(amount - payment.fromDeposit) : '-'} />
+            {payment && payment.charge > 0 && (
+              <>
+                <div className="mt-1 flex items-center justify-between gap-4 border-t border-border-default pt-3 pb-1">
+                  <span className="text-body1-bold">카드로 충전할 금액</span>
+                  <span className="text-title2">{won(payment.charge)}</span>
+                </div>
+                {overLimit ? (
+                  <p id={CHARGE_LIMIT_NOTICE_ID} className="text-right text-caption-regular">
+                    한 번에 {MAX_CHARGE / 10_000}만 원까지 충전할 수 있어요. 충전한 뒤 남은 금액은
+                    다시 충전해 주세요.
+                  </p>
+                ) : (
+                  <p className="text-right text-caption-regular text-text-secondary">
+                    {payment.balanceAfter > 0
+                      ? `최소 1만 원부터 충전해요. 남는 ${won(payment.balanceAfter)}은 예치금으로 남아요.`
+                      : '최소 1만 원부터 충전해요.'}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </Block>
+
+        <Block title="결제 동의">
           <Checkbox
             checked={agreed}
             onCheckedChange={onAgreedChange}
-            label="[필수] 환불 기한을 확인했어요"
+            label={<span className="font-bold">주문 내용 확인 및 결제 동의</span>}
           />
-        </div>
+          <ul className="flex flex-col gap-2 pl-8 text-body1-regular text-text-secondary">
+            {refundDeadline && (
+              <li className="flex gap-2">
+                <Icon name="Check" className="mt-0.5 size-4 shrink-0" aria-hidden />
+                (필수) {refundDeadline} 뒤에는 취소해도 환불되지 않아요
+              </li>
+            )}
+            <li className="flex gap-2">
+              <Icon name="Check" className="mt-0.5 size-4 shrink-0" aria-hidden />
+              (필수) 결제대행 서비스 이용약관 동의
+            </li>
+          </ul>
+          <p className="border-t border-border-default pt-2 text-body2-regular text-text-secondary">
+            크루런은 통신판매중개자이며 거래 당사자가 아니에요. 대회 운영과 환불 책임은 판매자에게
+            있어요.
+          </p>
+        </Block>
       </main>
       <BottomCta className="sticky bottom-0 z-10" primary={action} />
     </>

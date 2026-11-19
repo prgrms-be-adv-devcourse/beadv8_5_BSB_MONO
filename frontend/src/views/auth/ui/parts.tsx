@@ -8,7 +8,7 @@ import { FOCUS_RING, Icon, IconButton, Logo, type IconName } from '@/shared/ui'
 export function AuthIntro({ title, size = 'm' }: { title: string; size?: 's' | 'm' }) {
   return (
     <div className="flex flex-col items-center gap-1 pb-3">
-      <Logo className="h-11 w-[150px]" />
+      <Logo className="h-11 w-38" />
       <div className="h-2" />
       <p className={size === 's' ? 'text-body1-bold' : 'text-title3'}>{title}</p>
     </div>
@@ -16,20 +16,43 @@ export function AuthIntro({ title, size = 'm' }: { title: string; size?: 's' | '
 }
 
 // 가입 단계 제목 (왼쪽 정렬)
-export function StepIntro({ title, description }: { title: string; description?: string }) {
+export function StepIntro({
+  title,
+  description,
+  compact = false,
+}: {
+  title: string
+  description?: string
+  /** 아래에 입력 칸이 바로 이어지는 소제목이면 아래 여백을 줄인다 */
+  compact?: boolean
+}) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', !compact && 'pb-8')}>
       <h2 className="text-title2 whitespace-pre-line">{title}</h2>
       {description && <p className="text-body2-regular text-text-tertiary">{description}</p>}
     </div>
   )
 }
 
-// 회원 화면 본문이 짧을 때 가운데로 모으는 판 (bg-default, 옆 16 · 위아래 24, 칸 사이 20)
-export function CenterBody({ children, center = true }: { children: ReactNode; center?: boolean }) {
+// 회원 화면 본문 판 (옆 16 · 위 24 또는 32, 묶음 사이 12). center면 위 여백을 화면 높이의 10%로 둔다.
+// 버튼은 내용 바로 아래에 붙으므로 세로 가운데 정렬은 하지 않는다(CRU-77).
+export function CenterBody({
+  children,
+  center = true,
+  top = 6,
+}: {
+  children: ReactNode
+  center?: boolean
+  /** 위 여백. 가입 단계는 8(32), 계정 찾기는 6(24) */
+  top?: 6 | 8
+}) {
   return (
-    <main className={center ? 'flex flex-1 flex-col justify-center' : 'flex flex-1 flex-col'}>
-      <div className="flex flex-col gap-5 px-4 py-6">{children}</div>
+    <main className={cn('flex flex-1 flex-col', center && 'pt-(--layout-content-start)')}>
+      <div
+        className={cn('flex flex-col gap-3 px-4 pb-6', !center && (top === 8 ? 'pt-8' : 'pt-6'))}
+      >
+        {children}
+      </div>
     </main>
   )
 }
@@ -41,7 +64,7 @@ export function AccountTabs({ current }: { current: 'email' | 'password' }) {
     { key: 'password', href: '/password-reset', label: '비밀번호 찾기' },
   ] as const
   return (
-    <nav aria-label="계정 찾기" className="flex border-b border-border-default bg-bg-surface">
+    <nav aria-label="계정 찾기" className="flex bg-bg-surface">
       {tabs.map((tab) => (
         <Link
           key={tab.key}
@@ -83,7 +106,7 @@ export function StepHeader({ onBack, title }: { onBack?: () => void; title?: str
 
 type LineHint = { ok: boolean; text: string }
 
-// 가입 단계의 밑줄 입력 칸. 아래에 오류 문구(빨강)와 조건 확인 줄(맞으면 초록 체크)을 둔다.
+// 가입 단계의 입력 칸(흰 면 + 얇은 선). 아래에 오류 문구(빨강)와 조건 확인 줄(맞으면 초록 체크)을 둔다.
 export function LineField({
   error,
   hints,
@@ -97,48 +120,66 @@ export function LineField({
   onClear?: () => void
 }) {
   const messageId = useId()
+  const hintsId = useId()
   return (
-    <div className="flex flex-col gap-2">
-      <div
-        className={cn(
-          'flex items-center gap-2 border-b-2',
-          error ? 'border-border-danger' : 'border-text-primary',
-        )}
-      >
-        <input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={messageId}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <div
           className={cn(
-            'min-w-0 flex-1 bg-transparent py-3 text-title3 outline-none placeholder:text-text-tertiary',
-            className,
+            'flex items-center gap-2 border-b-2 pb-3',
+            error ? 'border-border-danger' : 'border-text-primary',
           )}
-          {...props}
-        />
-        {onClear && (
-          <IconButton size="s" variant="secondary" aria-label="지우기" onClick={onClear}>
-            <Icon name="X" />
-          </IconButton>
-        )}
-      </div>
-      <div id={messageId} className="flex flex-col gap-1">
-        {error && (
-          <p role="alert" className="text-caption-regular text-text-danger">
-            {error}
-          </p>
-        )}
-        {hints?.map((hint) => (
-          <p
-            key={hint.text}
+        >
+          <input
+            aria-invalid={error ? true : undefined}
+            aria-describedby={hints?.length ? `${messageId} ${hintsId}` : messageId}
             className={cn(
-              'flex items-center gap-1 text-caption-regular',
-              hint.ok ? 'text-text-success' : 'text-text-tertiary',
+              'min-w-0 flex-1 bg-transparent text-title3 outline-none placeholder:text-text-tertiary',
+              className,
             )}
-          >
-            <Icon name="Check" className="size-4" />
-            {hint.text}
-          </p>
-        ))}
+            {...props}
+          />
+          {onClear && (
+            <button
+              type="button"
+              aria-label="지우기"
+              onClick={onClear}
+              className={cn(
+                // 보이는 동그라미는 20px, 누르는 영역은 24px
+                'flex size-6 shrink-0 items-center justify-center rounded-full',
+                FOCUS_RING,
+              )}
+            >
+              <span className="flex size-5 items-center justify-center rounded-full bg-text-tertiary text-text-on-brand">
+                <Icon name="X" className="size-3" />
+              </span>
+            </button>
+          )}
+        </div>
+        <div id={messageId}>
+          {error && (
+            <p role="alert" className="text-caption-regular text-text-danger">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
+      {hints && hints.length > 0 && (
+        <div id={hintsId} className="flex flex-col gap-3">
+          {hints.map((hint) => (
+            <p
+              key={hint.text}
+              className={cn(
+                'flex items-center gap-1 text-caption-medium',
+                hint.ok ? 'text-text-success' : 'text-text-tertiary',
+              )}
+            >
+              <Icon name="Check" className="size-4" />
+              {hint.text}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -154,13 +195,13 @@ export function StatusScreen({
   description?: string
 }) {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-      <span className="flex size-16 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
+    <main className="flex flex-1 flex-col items-center gap-4 px-6 pt-(--layout-content-start) pb-6 text-center">
+      <span className="flex size-18 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
         <Icon name={icon} className="size-6" />
       </span>
       <div className="flex flex-col gap-1">
-        <h2 className="text-title3">{title}</h2>
-        {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
+        <h2 className="text-title2">{title}</h2>
+        {description && <p className="text-caption-regular text-text-secondary">{description}</p>}
       </div>
     </main>
   )

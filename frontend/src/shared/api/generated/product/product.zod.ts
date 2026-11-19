@@ -111,6 +111,10 @@ export const updateBodyCoursesItemImagesItemFileIdMin = 0;
 export const updateBodyCoursesItemImagesItemSortNoMin = 0;
 
 
+export const updateBodyImagesItemFileIdMin = 0;
+
+export const updateBodyImagesItemSortNoMin = 0;
+
 
 
 export const UpdateBody = zod.object({
@@ -146,8 +150,13 @@ export const UpdateBody = zod.object({
   "fileId": zod.int().min(updateBodyCoursesItemImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
   "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
   "sortNo": zod.int().min(updateBodyCoursesItemImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
-}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)')
-}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (소개 이미지·소개 영상·코스 안내·키트 이미지, 대표 이미지는 받지 않음)')
+}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록'),
+  "images": zod.array(zod.object({
+  "fileId": zod.int().min(updateBodyImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
+  "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
+  "sortNo": zod.int().min(updateBodyImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('대회에 붙이는 이미지 (대표 이미지 1장)')
 }).describe('대회 등록·수정 요청 (수정할 때도 대회 전체를 보낸다)')
 
 export const UpdateResponse = zod.object({
@@ -481,6 +490,10 @@ export const registerBodyCoursesItemImagesItemFileIdMin = 0;
 export const registerBodyCoursesItemImagesItemSortNoMin = 0;
 
 
+export const registerBodyImagesItemFileIdMin = 0;
+
+export const registerBodyImagesItemSortNoMin = 0;
+
 
 
 export const RegisterBody = zod.object({
@@ -516,8 +529,13 @@ export const RegisterBody = zod.object({
   "fileId": zod.int().min(registerBodyCoursesItemImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
   "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
   "sortNo": zod.int().min(registerBodyCoursesItemImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
-}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)')
-}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('종목 이미지 목록 (소개 이미지·소개 영상·코스 안내·키트 이미지, 대표 이미지는 받지 않음)')
+}).describe('종목 등록·수정 요청')).min(1).describe('종목 목록'),
+  "images": zod.array(zod.object({
+  "fileId": zod.int().min(registerBodyImagesItemFileIdMin).describe('업로드 완료된 파일 ID'),
+  "fileType": zod.enum(['THUMBNAIL', 'DETAIL', 'COURSE', 'KIT', 'INTRO_VIDEO', 'ROSTER']).describe('파일 용도 (업로드 URL 발급 때 정한 값)'),
+  "sortNo": zod.int().min(registerBodyImagesItemSortNoMin).describe('같은 용도 안에서의 노출 순서 (0부터)')
+}).describe('연결할 이미지 하나 (file-service에 업로드를 마친 파일)')).describe('대회에 붙이는 이미지 (대표 이미지 1장)')
 }).describe('대회 등록·수정 요청 (수정할 때도 대회 전체를 보낸다)')
 
 export const RegisterResponse = zod.unknown()
@@ -531,7 +549,16 @@ export const StopParams = zod.object({
   "raceId": zod.int().describe('대회 ID')
 })
 
-export const StopResponse = zod.unknown()
+export const StopResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
+}).optional()
+})
 
 
 /**
@@ -542,7 +569,16 @@ export const ResumeParams = zod.object({
   "raceId": zod.int().describe('대회 ID')
 })
 
-export const ResumeResponse = zod.unknown()
+export const ResumeResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
+}).optional()
+})
 
 
 /**
@@ -660,6 +696,10 @@ export const FindMineResponse = zod.object({
   "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
   "saleOpenDate": zod.iso.date().optional(),
   "applicationCloseAt": zod.iso.datetime({"offset":true}).optional(),
+  "sellerName": zod.string().optional(),
+  "crewSaleStartAt": zod.iso.datetime({"offset":true}).nullish(),
+  "individualOpenAt": zod.iso.datetime({"offset":true}).optional(),
+  "refundDeadline": zod.iso.date().optional(),
   "courses": zod.array(zod.object({
   "raceCourseId": zod.int().optional(),
   "name": zod.string().optional(),
@@ -670,4 +710,115 @@ export const FindMineResponse = zod.object({
   "sold": zod.int().optional()
 })).optional()
 })).optional()
+})
+
+
+/**
+ * 본인이 등록한 판매 예정 대회의 판매를 지금 시작한다(판매 중). 크루 예매가 있으면 크루 예매 시작을, 없으면 개인 예매 오픈을 지금(분 단위)으로 당기고, 판매 시작일을 오늘로 바꾼다. 나머지 일정은 그대로다. 당길 일정이 이미 지났거나 접수 마감이 지났으면 열 수 없다.
+ * @summary 판매 바로 시작
+ */
+export const OpenParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const OpenResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
+}).optional()
+})
+
+
+/**
+ * 모든 판매자의 대회를 최근 등록 순으로 모두 돌려준다(취소된 대회 포함). 판매자 이름, 판매 상태, 종목별 정원·결제 대기·판매 수, 대회일, 접수 기간, 환불 기준일을 함께 준다.
+ * @summary 관리자 대회 목록
+ */
+export const FindAdminRacesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "raceId": zod.int().optional(),
+  "title": zod.string().optional(),
+  "raceDate": zod.iso.datetime({"offset":true}).optional(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
+  "saleOpenDate": zod.iso.date().optional(),
+  "applicationCloseAt": zod.iso.datetime({"offset":true}).optional(),
+  "sellerName": zod.string().optional(),
+  "crewSaleStartAt": zod.iso.datetime({"offset":true}).nullish(),
+  "individualOpenAt": zod.iso.datetime({"offset":true}).optional(),
+  "refundDeadline": zod.iso.date().optional(),
+  "courses": zod.array(zod.object({
+  "raceCourseId": zod.int().optional(),
+  "name": zod.string().optional(),
+  "price": zod.int().optional(),
+  "status": zod.enum(['OPEN', 'SOLD_OUT']).optional(),
+  "quota": zod.int().optional(),
+  "reserved": zod.int().optional(),
+  "sold": zod.int().optional()
+})).optional()
+})).optional()
+})
+
+
+/**
+ * 판매 예정 대회의 판매를 지금 시작한다(판매 중). 판매자 API와 같은 규칙으로 판매 시작 일정을 지금으로 당기고 판매 시작일을 오늘로 바꾼다.
+ * @summary 관리자 판매 바로 시작
+ */
+export const OpenByAdminParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const OpenByAdminResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
+}).optional()
+})
+
+
+/**
+ * 판매 중인 대회의 판매를 멈춘다(판매 중지). 판매자 API와 같이 접수 마감 전까지만 멈출 수 있다.
+ * @summary 관리자 판매 중지
+ */
+export const StopByAdminParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const StopByAdminResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
+}).optional()
+})
+
+
+/**
+ * 판매 중지 대회의 판매를 다시 연다(판매 중). 판매자 API와 같이 접수 마감 전까지만 열 수 있다.
+ * @summary 관리자 판매 다시 열기
+ */
+export const ResumeByAdminParams = zod.object({
+  "raceId": zod.int().describe('대회 ID')
+})
+
+export const ResumeByAdminResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "raceId": zod.int(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "saleOpenDate": zod.iso.date(),
+  "courseIds": zod.array(zod.int())
+}).optional()
 })

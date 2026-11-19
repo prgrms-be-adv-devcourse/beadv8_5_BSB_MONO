@@ -22,6 +22,10 @@ dependencies {
 	// 대화 기록을 Redis에 둔다 (DB 표 없음)
 	implementation("org.springframework.ai:spring-ai-starter-model-chat-memory-repository-redis")
 
+	// 기록증 다시 읽기(BUK-272): 인식 모델 실행 · 사진 자르기. 골든 세트를 만든 기준 구현(Python ORT)과 같은 버전
+	implementation("com.microsoft.onnxruntime:onnxruntime:1.31.1")
+	implementation("org.openpnp:opencv:4.9.0-0")
+
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)
 	developmentOnly("org.springframework.boot:spring-boot-docker-compose")

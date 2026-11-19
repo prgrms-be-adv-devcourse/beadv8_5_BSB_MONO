@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -10,7 +10,7 @@ import { z } from 'zod'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { ApiError, createIdempotencyKey, unwrapData } from '@/shared/api'
+import { ApiError, cashApi, createIdempotencyKey, unwrapData } from '@/shared/api'
 import { cashZod } from '@/shared/api-zod'
 import {
   Alert,
@@ -21,11 +21,10 @@ import {
   KeyValue,
   Select,
   Skeleton,
-  Stepper,
   TextField,
 } from '@/shared/ui'
 
-import { refundPlanQueryOptions, requestRefund, type RefundPlan } from '../api/refund-contract'
+import { refundPlanQueryOptions, requestRefund } from '../api/refund-contract'
 import {
   bankName,
   BANKS,
@@ -36,44 +35,22 @@ import {
   readLastWithdrawalRaw,
   saveLastWithdrawal,
   type BankCode,
-  type LastWithdrawal,
 } from '../lib/refund'
 
-const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`
-// 환급 변경안 시안은 정책 문장대로 「65,000원」으로 쓴다. 앱 전체 표기(₩)와 맞출지는 정해지지 않았다
 const wonText = (n: number) => `${n.toLocaleString('ko-KR')}원`
+// 피그마 v4: 이름 칸 폭 160 · 88
+const WIDE_KEY = '[&>span:first-child]:w-40'
+const KEY_160 = '[&>span:first-child]:w-40'
+const KEY_88 = '[&>span:first-child]:w-22'
+const KEY_200 = '[&>span:first-child]:w-50'
 
-// 제목 아래 설명: 카드 · 계좌 · 처리 중 몫마다 한 문장씩 잇는다
-function withdrawalSummary(w: LastWithdrawal): string {
-  if (w.accountAmount === w.amount) return '남은 예치금 전부를 아래 계좌로 보냈어요.'
-  const sentences: string[] = []
-  if (w.cardAmount > 0) {
-    const part =
-      w.cardAmount === w.amount ? `${wonText(w.amount)} 전부` : `${wonText(w.cardAmount)}은`
-    sentences.push(
-      `${part} 결제한 카드의 결제취소를 요청했어요. 카드사에 따라 반영까지 며칠 걸릴 수 있어요.`,
-    )
-  }
-  if (w.accountAmount > 0) sentences.push(`${wonText(w.accountAmount)}은 아래 계좌로 보냈어요.`)
-  if (w.processingAmount > 0) {
-    sentences.push(
-      `${wonText(w.processingAmount)}은 아직 처리 중이에요. 끝나면 알림으로 알려 드려요.`,
-    )
-  }
-  return sentences.join(' ')
-}
-
-/** 맨 위 문장. 기한은 서버 값 그대로, 금액은 refundPlanSchema가 나눈 값을 넣는다 */
-function refundSentence(plan: RefundPlan) {
-  if (plan.balance <= 0) return null
-  // 계좌로만 돌려받을 때 문장은 정책에 없어 임시 문장을 쓴다(정해지면 바꾼다)
-  if (plan.cardRefundAmount === 0)
-    return `${wonText(plan.accountRefundAmount)} 전부 계좌로 돌아가요.`
-  const until = `${plan.earliestCardCancelDate}까지 신청하면`
-  if (plan.accountRefundAmount === 0) {
-    return `${until} ${wonText(plan.cardRefundAmount)} 전부 결제한 카드로 돌아가요.`
-  }
-  return `${until} ${wonText(plan.cardRefundAmount)}은 카드로, ${wonText(plan.accountRefundAmount)}은 계좌로 돌아가요.`
+// 환급이 끝나면 잔액 · 예치금 내역 · 환급 가능한 충전만 다시 불러온다
+function refreshDeposit(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: cashApi.getGetBalanceQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: cashApi.getGetLedgersQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: cashApi.getGetRefundableChargesQueryKey() }),
+  ])
 }
 
 // 시안에 입력 오류 문구가 없어, 다 채우기 전에는 버튼만 막는다 (서버 길이 제한은 생성된 zod 값을 쓴다)
@@ -115,7 +92,7 @@ function usePendingWithdrawal() {
   }
 }
 
-// 피그마 V2 · M22 예치금 돌려받기. 신청하면 바로 환급이 끝난다(백엔드 PRO-84, 1차는 모의 처리).
+// 피그마 v4 · M22 예치금 환급받기. 신청하면 바로 환급이 끝난다(백엔드 PRO-84, 1차는 모의 처리).
 export function DepositRefundPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -125,7 +102,11 @@ export function DepositRefundPage() {
   })
   const [detailOpen, setDetailOpen] = useState(false)
   const pending = usePendingWithdrawal()
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{
+    title: string
+    description?: string
+    info?: boolean
+  } | null>(null)
   // 서버가 계좌로 보낼 몫이 있다고 알려 오면, 다시 불러온 충전 내역과 상관없이 계좌를 받는다
   const [needAccount, setNeedAccount] = useState(false)
   // 두 번 누르기: 버튼이 꺼지는 렌더보다 두 번째 클릭이 먼저 올 수 있어 요청 중인지를 바로 적어 둔다
@@ -154,7 +135,7 @@ export function DepositRefundPage() {
     onSuccess: ({ result, values }) => {
       pending.reset()
       // 잔액이 바뀐 것을 예치금 화면들이 다시 불러오게 한다
-      void queryClient.invalidateQueries()
+      void refreshDeposit(queryClient)
       // 카드로 돌려줄 수 없는 몫이 계좌 정보가 없어 예치금에 되돌아왔다. 계좌를 받아 다시 신청하게 한다
       if (result.accountRequired) {
         setNeedAccount(true)
@@ -165,7 +146,7 @@ export function DepositRefundPage() {
           result.processingAmount > 0
             ? `확인 중인 ${wonText(result.processingAmount)}이 정해진 뒤 다시 신청할 수 있어요.`
             : '계좌 정보를 넣고 다시 신청해 주세요.'
-        setNotice(`${card}남은 금액은 계좌로 보내야 해요. ${retry}`)
+        setNotice({ title: `${card}남은 금액은 계좌로 보내야 해요. ${retry}` })
         return
       }
       saveLastWithdrawal({
@@ -190,18 +171,22 @@ export function DepositRefundPage() {
       if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
         pending.reset()
         // 계좌 필요(400)면 바뀐 충전 내역을 다시 불러온다
-        void queryClient.invalidateQueries()
+        void refreshDeposit(queryClient)
       } else {
         pending.lock()
       }
       if (error instanceof ApiError && error.code === 'WITHDRAWAL_ACCOUNT_REQUIRED') {
         setNeedAccount(true)
-        setNotice('계좌로 돌려드릴 금액이 있어요. 계좌를 입력하고 다시 신청해 주세요.')
+        setNotice({ title: '계좌로 돌려드릴 금액이 있어요. 계좌를 입력하고 다시 신청해 주세요.' })
       } else if (error instanceof ApiError && error.code === 'WITHDRAWAL_IN_PROGRESS') {
-        setNotice('처리 중인 환급이 끝난 뒤 다시 신청할 수 있어요.')
+        setNotice({
+          title: '처리 중인 환급이 끝나야 다시 신청할 수 있어요',
+          description: '끝나면 알림으로 알려 드려요.',
+          info: true,
+        })
       } else {
         // 시안에 환급 실패 문구가 없어 결제 실패(M07-3)의 안내 문구를 쓴다
-        setNotice('잠시 뒤 다시 시도해 주세요.')
+        setNotice({ title: '잠시 뒤 다시 시도해 주세요.' })
       }
     },
   })
@@ -224,12 +209,10 @@ export function DepositRefundPage() {
   const disabled =
     withdraw.isPending ||
     (!pending.locked && (!data || data.balance <= 0 || (accountRequired && !isValid)))
-  // 서버가 계좌를 요구했으면 다시 불러온 내역이 카드로 나와도 카드로 돌아간다고 쓰지 않는다
-  const sentence = data && !needAccount && refundSentence(data)
 
   return (
     <>
-      <AppHeader type="sub" title="예치금 돌려받기" />
+      <AppHeader type="sub" title="예치금 환급받기" />
       <form
         className="flex flex-1 flex-col"
         onSubmit={(event) => {
@@ -241,9 +224,15 @@ export function DepositRefundPage() {
         }}
       >
         <main className="flex flex-1 flex-col gap-4 px-4 py-6">
-          {notice && <Alert tone="danger" title={notice} />}
-          <section className="flex flex-col gap-1 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <p className="text-body2-medium text-text-secondary">돌려받을 금액</p>
+          {notice && (
+            <Alert
+              tone={notice.info ? 'info' : 'danger'}
+              title={notice.title}
+              description={notice.description}
+            />
+          )}
+          <section className="flex flex-col gap-1">
+            <p className="text-body1-regular text-text-secondary">환급받을 금액</p>
             {plan.isPending ? (
               <Skeleton shape="rect" className="h-11 w-36" />
             ) : (
@@ -251,19 +240,43 @@ export function DepositRefundPage() {
             )}
             {plan.isError && (
               <p className="text-body2-regular text-text-secondary">
-                돌려받을 금액을 불러오지 못했어요.
+                환급받을 금액을 불러오지 못했어요.
               </p>
             )}
-            {sentence && <p className="text-body2-regular text-text-secondary">{sentence}</p>}
           </section>
+          {data && !needAccount && data.balance > 0 && (
+            <section className="flex flex-col gap-2 rounded-md border border-border-default bg-bg-surface p-4">
+              {data.cardRefundAmount > 0 && (
+                <KeyValue
+                  label="카드로 돌아가는 금액"
+                  value={wonText(data.cardRefundAmount)}
+                  className={WIDE_KEY}
+                />
+              )}
+              {data.accountRefundAmount > 0 && (
+                <KeyValue
+                  label="계좌로 받는 금액"
+                  value={wonText(data.accountRefundAmount)}
+                  className={WIDE_KEY}
+                />
+              )}
+              {data.cardRefundAmount > 0 && (
+                <KeyValue
+                  label="카드 취소 신청 기한"
+                  value={`${data.earliestCardCancelDate}까지`}
+                  className={WIDE_KEY}
+                />
+              )}
+            </section>
+          )}
           {data && data.charges.length > 0 && (
-            <section className="flex flex-col rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+            <section className="flex flex-col">
               <button
                 type="button"
                 aria-expanded={detailOpen}
                 aria-controls="refund-charges"
                 onClick={() => setDetailOpen((open) => !open)}
-                className="flex items-center justify-between text-body1-bold"
+                className="flex items-center justify-between py-4 text-body1-bold"
               >
                 충전별 내역 상세보기
                 <Icon name={detailOpen ? 'ChevronUp' : 'ChevronDown'} className="size-5" />
@@ -295,7 +308,7 @@ export function DepositRefundPage() {
             </section>
           )}
           {accountRequired && (
-            <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
+            <section className="flex flex-col gap-4 pt-4">
               <h2 className="text-body1-bold">환급 계좌</h2>
               <Controller
                 control={control}
@@ -313,6 +326,9 @@ export function DepositRefundPage() {
               <TextField
                 label="계좌번호"
                 inputMode="numeric"
+                // 숫자와 -만 받는다. 은행마다 -를 넣는 자리가 달라 -는 막지 않는다
+                filter={(v) => v.replace(/[^\d-]/g, '')}
+                filterMessage="숫자와 -만 입력할 수 있어요"
                 readOnly={pending.locked}
                 {...register('accountNumber')}
               />
@@ -329,7 +345,7 @@ export function DepositRefundPage() {
           className="sticky bottom-0 z-10"
           primary={
             <Button type="submit" size="l" disabled={disabled}>
-              {data ? `${wonText(data.balance)} 돌려받기 신청` : '돌려받기 신청'}
+              {data ? `${wonText(data.balance)} 환급 신청` : '환급 신청'}
             </Button>
           }
         />
@@ -341,7 +357,7 @@ export function DepositRefundPage() {
 /** 이 화면에 있는 동안 저장 값은 바뀌지 않아 구독할 것이 없다 */
 const noSubscribe = () => () => {}
 
-// 피그마 V2 · M22-1 예치금 돌려받기 · 환급 완료 (10/16 즉시 완료로 시안 문구 수정)
+// 피그마 v4 · M22-1 예치금 환급받기 · 환급 완료 (10/16 즉시 완료로 시안 문구 수정)
 export function DepositRefundDonePage() {
   const router = useRouter()
   // sessionStorage는 브라우저에만 있다. 서버 렌더에서는 undefined(로딩)로 두고, 브라우저에서 읽는다
@@ -382,75 +398,154 @@ export function DepositRefundDonePage() {
   const allReverted =
     withdrawal.revertedAmount > 0 && withdrawal.revertedAmount === withdrawal.amount
 
-  const summary = withdrawalSummary(withdrawal)
+  const noAccount = !withdrawal.maskedAccount
+  // 되돌아온 몫이 있는데 계좌를 넣지 않았으면 계좌를 넣고 다시 신청하게 한다 (피그마 2070:39011)
+  const retryWithAccount = withdrawal.revertedAmount > 0 && noAccount
+  // 라벨이 긴 줄(카드 결제취소 금액 · 처리 중인 금액)이 있으면 이름 칸을 넓힌다
+  const keyWidth =
+    withdrawal.revertedAmount > 0
+      ? KEY_200
+      : withdrawal.cardAmount > 0 || withdrawal.processingAmount > 0
+        ? KEY_160
+        : KEY_88
 
   return (
     <>
-      <AppHeader type="sub" title="환급 완료" close backHref="/me/deposit" />
-      <main className="flex flex-1 flex-col justify-center-safe gap-6 px-4 pt-6 pb-8">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-title2">
-            {done
-              ? `예치금 ${wonText(withdrawal.amount)}을 돌려받았어요`
-              : allReverted
-                ? '예치금으로 되돌아왔어요'
-                : `예치금 ${wonText(withdrawal.amount)} 환급을 신청했어요`}
-          </h2>
-          {summary && <p className="text-body2-regular text-text-secondary">{summary}</p>}
-        </div>
-        {!allReverted && (
-          <section className="flex flex-col gap-4 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-            <h3 className="text-body1-bold">진행 단계</h3>
-            <Stepper steps={['신청', '처리 중', '환급 완료']} current={done ? 2 : 1} />
+      <AppHeader
+        type="sub"
+        title={done ? '환급 완료' : '환급 신청 완료'}
+        close
+        backHref="/me/deposit"
+      />
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-(--layout-content-start) pb-8">
+        <h2 className="text-title2">
+          {done
+            ? withdrawal.cardAmount > 0
+              ? `예치금 ${wonText(withdrawal.amount)}을 환급받았어요`
+              : '예치금을 환급받았어요'
+            : allReverted
+              ? '예치금으로 되돌아왔어요'
+              : `예치금 ${wonText(withdrawal.amount)} 환급을 신청했어요`}
+        </h2>
+        <section className="flex flex-col gap-4">
+          <h3 className="text-body1-bold">{done ? '환급받은 내역' : '신청한 내역'}</h3>
+          <div className="flex flex-col gap-3 rounded-md border border-border-default bg-bg-surface p-4">
+            {withdrawal.cardAmount > 0 && (
+              <KeyValue
+                label="카드 결제취소 금액"
+                value={wonText(withdrawal.cardAmount)}
+                className={keyWidth}
+              />
+            )}
+            {withdrawal.accountAmount > 0 && (
+              <KeyValue
+                label={withdrawal.cardAmount > 0 ? '계좌로 보낸 금액' : '환급 금액'}
+                value={wonText(withdrawal.accountAmount)}
+                className={keyWidth}
+              />
+            )}
+            {withdrawal.processingAmount > 0 && (
+              <KeyValue
+                label="처리 중인 금액"
+                value={wonText(withdrawal.processingAmount)}
+                className={keyWidth}
+              />
+            )}
+            {withdrawal.revertedAmount > 0 && (
+              <KeyValue
+                label="예치금으로 되돌린 금액"
+                value={wonText(withdrawal.revertedAmount)}
+                className={keyWidth}
+              />
+            )}
+            {/* 계좌 · 예금주 이름은 Clarity 화면 녹화에서 가린다 */}
+            {withdrawal.accountAmount > 0 && withdrawal.maskedAccount && (
+              <div className="contents" data-clarity-mask="true">
+                <KeyValue
+                  label="받을 계좌"
+                  value={`${withdrawal.bankName} ${withdrawal.maskedAccount}`}
+                  className={keyWidth}
+                />
+                <KeyValue label="예금주" value={withdrawal.accountHolder} className={keyWidth} />
+              </div>
+            )}
+            <KeyValue
+              label="지금 예치금"
+              value={wonText(withdrawal.balance)}
+              className={keyWidth}
+            />
+            <KeyValue
+              label={done ? '환급 일시' : '신청 일시'}
+              value={formatKstShort(withdrawal.at)}
+              className={keyWidth}
+            />
+          </div>
+        </section>
+        {(withdrawal.cardAmount > 0 ||
+          withdrawal.switchedToAccountAmount > 0 ||
+          withdrawal.revertedAmount > 0 ||
+          withdrawal.processingAmount > 0) && (
+          <section className="flex flex-col gap-4">
+            <h3 className="text-body1-bold">알아 두세요</h3>
+            <div className="flex flex-col gap-1 rounded-md border border-border-default bg-bg-surface p-4 text-body1-regular">
+              {withdrawal.revertedAmount > 0 && (
+                <>
+                  <p className="text-text-warning">
+                    일부 금액은 결제사 사정으로 카드 취소가 되지 않아 예치금으로 돌려드렸어요.
+                  </p>
+                  <p className="text-text-warning">
+                    {noAccount
+                      ? '계좌 정보를 넣고 다시 신청해 주세요.'
+                      : '잠시 후 다시 신청해 주세요.'}
+                  </p>
+                </>
+              )}
+              {withdrawal.processingAmount > 0 && (
+                <p className="text-text-warning">
+                  {wonText(withdrawal.processingAmount)}은 아직 처리 중이에요. 끝나면 알림으로 알려
+                  드려요.
+                </p>
+              )}
+              {withdrawal.switchedToAccountAmount > 0 && (
+                <p>
+                  {wonText(withdrawal.switchedToAccountAmount)}은 카드 결제취소가 되지 않아 입력하신
+                  계좌로 보냈어요.
+                </p>
+              )}
+              {withdrawal.cardAmount > 0 && (
+                <p>카드 결제취소는 카드사에 따라 며칠 걸릴 수 있어요.</p>
+              )}
+            </div>
           </section>
         )}
-        <section className="flex flex-col gap-3 rounded-lg bg-bg-surface p-5 shadow-sm inset-ring inset-ring-border-default">
-          {withdrawal.accountAmount > 0 && (
-            <KeyValue label="계좌로 보낸 금액" value={won(withdrawal.accountAmount)} />
-          )}
-          {withdrawal.switchedToAccountAmount > 0 && (
-            <p className="text-caption-regular text-text-tertiary">
-              {wonText(withdrawal.switchedToAccountAmount)}은 카드 결제취소가 되지 않아 입력하신
-              계좌로 보냈어요.
-            </p>
-          )}
-          {withdrawal.processingAmount > 0 && (
-            <KeyValue label="확인 중인 금액" value={won(withdrawal.processingAmount)} />
-          )}
-          {withdrawal.revertedAmount > 0 && (
-            <>
-              <KeyValue label="예치금으로 되돌린 금액" value={won(withdrawal.revertedAmount)} />
-              <p className="text-caption-regular text-text-tertiary">
-                일부 금액은 결제사 사정으로 카드 취소가 되지 않아 예치금으로 돌려드렸어요. 잠시 후
-                다시 신청해 주세요.
-              </p>
-            </>
-          )}
-          {/* 계좌 · 예금주 이름은 Clarity 화면 녹화에서 가린다 */}
-          {withdrawal.accountAmount > 0 && withdrawal.maskedAccount && (
-            <div className="contents" data-clarity-mask="true">
-              <KeyValue
-                label="받을 계좌"
-                value={`${withdrawal.bankName} ${withdrawal.maskedAccount}`}
-              />
-              <KeyValue label="예금주" value={withdrawal.accountHolder} />
-            </div>
-          )}
-          <KeyValue label="지금 예치금" value={won(withdrawal.balance)} />
-          <KeyValue label="환급 일시" value={formatKstShort(withdrawal.at)} />
-        </section>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
         secondary={
-          <Link href="/" replace className={buttonClassName({ variant: 'secondary', size: 'l' })}>
-            홈으로
-          </Link>
+          retryWithAccount ? (
+            <Link
+              href="/me/deposit"
+              replace
+              className={buttonClassName({ variant: 'secondary', size: 'l' })}
+            >
+              예치금 보기
+            </Link>
+          ) : (
+            <Link href="/" replace className={buttonClassName({ variant: 'ghost', size: 'l' })}>
+              홈으로
+            </Link>
+          )
         }
         primary={
-          <Link href="/me/deposit" replace className={buttonClassName({ size: 'l' })}>
-            예치금 보기
-          </Link>
+          retryWithAccount ? (
+            <Link href="/me/deposit/refund" replace className={buttonClassName({ size: 'l' })}>
+              계좌 넣고 다시 신청
+            </Link>
+          ) : (
+            <Link href="/me/deposit" replace className={buttonClassName({ size: 'l' })}>
+              예치금 보기
+            </Link>
+          )
         }
       />
     </>

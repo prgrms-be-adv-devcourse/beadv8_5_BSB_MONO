@@ -13,16 +13,26 @@ import { myTicketCountQueryOptions } from '@/entities/ticket'
 import { useMyBalance } from '@/entities/wallet'
 import { memberApi, unwrapData } from '@/shared/api'
 import { cn, formatNumber } from '@/shared/lib'
-import { Avatar, buttonClassName, Dialog, Divider, FOCUS_RING, Skeleton } from '@/shared/ui'
+import {
+  Avatar,
+  Button,
+  buttonClassName,
+  Dialog,
+  FOCUS_RING,
+  Icon,
+  Skeleton,
+  type IconName,
+} from '@/shared/ui'
 
 import { EMPTY, MenuGroup, MenuRow } from './MenuRow'
 
-// 피그마 v2 · 마이(1639:16187 내 문의 메뉴가 붙은 최신판, 1333:22460) + 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
+// 피그마 V3 · 마이 · 일반 회원(1949:20850) · 관리자 계정(1950:609), v2 로딩(1333:21220) · 불러오지 못함(1333:21252) · 로그아웃 확인 창(1459:15984)
 // 회원 정보는 내 정보 조회(GET /api/v1/member/members/me)로 불러온다.
 // 예치금은 지갑 잔액 API(useMyBalance)로 불러온다.
 // 참가 대회 수는 내 참가권 화면과 같은 목록(주문 API)에서 취소한 참가권만 빼고 센다.
 // 판매자 메뉴는 내 판매자 신청 조회(GET /api/v1/member/sellers/me) 상태로 갈 곳을 정한다(SellerMenuRow).
 // 마이는 보기만 한다. 회원 정보 수정 · 계정 연결 · 탈퇴는 계정 설정(/me/settings) 안에서 한다.
+// TODO(api): v4 시안의 「기본 배송지」 줄은 배송지 화면 · API가 없어 두지 않았다.
 // TODO(api): 시안의 「주문·배송 내역」은 구매자용 배송 상태 · 수령 확인 API가 없어 두지 않았다(주문 API는 판매자용 키트 조회뿐).
 export function MyPage() {
   const logout = useLogout()
@@ -39,81 +49,104 @@ export function MyPage() {
   if (me.isError) {
     return (
       <>
-        <AppHeader type="sub" title="마이" />
+        <AppHeader search={false} className="border-b-0" />
         <LoadErrorBody onRetry={() => me.refetch()} retrying={me.isFetching} />
+        <BottomNav />
       </>
     )
   }
   if (!member) {
     return (
       <>
-        <AppHeader type="sub" title="마이" />
+        <AppHeader search={false} className="border-b-0" />
         <MyPageSkeleton />
+        <BottomNav />
       </>
     )
   }
 
   return (
     <>
-      <AppHeader />
-      <main className="flex flex-1 flex-col pt-(--layout-content-start) pb-6">
+      <AppHeader search={false} className="border-b-0" />
+      <main className="flex flex-1 flex-col pt-4 pb-8">
         {/* 회원 정보 글자는 Clarity 화면 녹화에서 가린다 */}
-        <div className="flex items-center gap-3 px-4" data-clarity-mask="true">
+        <Link
+          href="/me/edit"
+          aria-label="프로필 수정"
+          className={cn('mx-4 flex items-center gap-3 rounded-md', FOCUS_RING)}
+          data-clarity-mask="true"
+        >
           <Avatar size="xl" name={member.nickname} />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="truncate text-title3">
               {member.nickname}
               <span> 님</span>
             </p>
             <p className="truncate text-caption-regular text-text-secondary">{member.email}</p>
           </div>
-          <Link
-            href="/me/settings"
-            className={buttonClassName({ variant: 'secondary', size: 's' })}
-          >
-            계정 설정
-          </Link>
-        </div>
+          <Icon name="ChevronRight" className="size-5 shrink-0" />
+        </Link>
 
-        <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-bg-surface p-3 pl-4 inset-ring inset-ring-border-default">
-          <span className="text-body2-regular text-text-secondary">예치금</span>
-          <span className="flex-1 text-body2-bold">
-            {balance === undefined ? EMPTY : `${formatNumber(balance)}원`}
-          </span>
-          <Link href="/me/deposit/charge" className={buttonClassName({ size: 's' })}>
-            충전하기
-          </Link>
+        <div className="mx-4 mt-8 flex flex-col overflow-hidden rounded-md border border-border-default shadow-sm">
+          <div className="flex flex-col gap-1 p-4">
+            <span className="text-caption-regular text-text-secondary">예치금</span>
+            <span className="text-title2">
+              {balance === undefined ? EMPTY : `${formatNumber(balance)}원`}
+            </span>
+          </div>
+          <div className="flex gap-2 px-4 pb-4">
+            <Link
+              href="/me/deposit/charge"
+              className={buttonClassName({ variant: 'ghost', className: 'flex-1' })}
+            >
+              충전하기
+            </Link>
+            <Link
+              href="/me/deposit/refund"
+              className={buttonClassName({ variant: 'ghost', className: 'flex-1' })}
+            >
+              환급받기
+            </Link>
+          </div>
         </div>
 
         <MenuGroup title="나의 참가">
           <MenuRow
             href="/tickets"
-            icon="TicketCheck"
+            icon="Orders"
             label="내 참가권"
             value={ticketCount.data === undefined ? undefined : `${ticketCount.data}개`}
           />
           <MenuRow href="/me/deposit" icon="Wallet" label="예치금 내역" />
           <MenuRow href="/crews" icon="Users" label="내 크루" />
-          <MenuRow href="/me/inquiries" icon="Inbox" label="내 문의" />
-          <MenuRow href="/me/inquiries/new" icon="Info" label="참가 · 결제 문의하기" />
         </MenuGroup>
 
-        <Divider />
+        <MenuGroup title="문의">
+          <MenuRow href="/me/inquiries" icon="Inbox" label="내 문의" />
+          <MenuRow href="/me/inquiries/new" icon="Message" label="참가 · 결제 문의하기" />
+          <MenuRow href="/me/support" icon="Help" label="고객센터" />
+        </MenuGroup>
+
+        <MenuGroup title="설정">
+          <MenuRow href="/me/settings" icon="Settings" label="계정 설정" />
+          <MenuRow href="/me/notification-settings" icon="Bell" label="알림 설정" />
+          <MenuRow href="/me/accounts" icon="Link" label="연결된 계정" />
+          <MenuRow href="/me/settings/terms" icon="FileText" label="약관 · 정책" />
+        </MenuGroup>
+
         <MenuGroup title="판매">
           <SellerMenuRow />
         </MenuGroup>
+        <AdminMenuGroup />
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setLogoutOpen(true)}
           disabled={logout.isPending}
-          className={cn(
-            'mt-6 self-start rounded-sm px-4 py-2 text-caption-regular text-text-secondary',
-            FOCUS_RING,
-          )}
+          className="mx-4 mt-8"
         >
           로그아웃
-        </button>
+        </Button>
       </main>
       <BottomNav />
       <Dialog
@@ -129,23 +162,38 @@ export function MyPage() {
   )
 }
 
-// 피그마 마이 · 로딩: 회색 상자로 자리만 잡는다
+// 피그마 마이 · 로딩: 실제 화면과 같은 자리에 회색 상자를 둔다(줄 아이콘은 그대로 보인다)
+const SKELETON_GROUPS: IconName[][] = [
+  ['Orders', 'Wallet', 'Package', 'Users'],
+  ['Inbox', 'Message', 'Help'],
+  ['Bell', 'Link', 'FileText'],
+  ['Dashboard'],
+]
+
 function MyPageSkeleton() {
   return (
-    <main aria-busy="true" className="flex flex-1 flex-col gap-3 px-4 pt-6">
-      <Skeleton className="h-5 w-65" />
-      <Skeleton className="h-3 w-45" />
-      <Skeleton shape="rect" className="h-12" />
-      <Skeleton shape="rect" className="h-45" />
-      <div className="flex flex-col gap-3 pt-8">
-        <Skeleton className="h-5 w-30" />
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3">
-            <Skeleton shape="circle" className="size-8 shrink-0" />
-            <Skeleton className="h-3 flex-1" />
-          </div>
-        ))}
+    <main aria-busy="true" className="flex flex-1 flex-col pt-4 pb-8">
+      <div className="mx-4 flex items-center gap-3">
+        <Skeleton shape="circle" className="size-13 shrink-0" />
+        <div className="flex flex-1 flex-col gap-2">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-3 w-44" />
+        </div>
+        <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
       </div>
+      <Skeleton shape="rect" className="mx-4 mt-8 h-34" />
+      {SKELETON_GROUPS.map((icons, g) => (
+        <section key={g} className="flex flex-col px-4 pt-8">
+          <Skeleton className="h-4 w-48" />
+          {icons.map((icon) => (
+            <div key={icon} className="flex items-center gap-3 py-4">
+              <Icon name={icon} className="size-6 shrink-0" />
+              <Skeleton className="h-3 flex-1" />
+              <Icon name="ChevronRight" className="size-5 shrink-0 text-text-tertiary" />
+            </div>
+          ))}
+        </section>
+      ))}
     </main>
   )
 }
@@ -166,7 +214,6 @@ function SellerMenuRow() {
         href={mine.data.resultCheckedAt ? '/seller' : '/seller-apply/result'}
         icon="Dashboard"
         label="판매자 센터"
-        description="대회 등록 · 판매 현황 · 정산을 관리해요"
       />
     )
   }
@@ -175,7 +222,22 @@ function SellerMenuRow() {
       href={mine.isError && isNoApplication(mine.error) ? '/seller-apply' : '/seller-apply/result'}
       icon="Dashboard"
       label="판매자 등록 신청"
-      description="대회를 열고 참가권을 팔 수 있어요"
     />
+  )
+}
+
+// 피그마 M30-A(1861:19016): 관리자만 「관리」 묶음에 관리자 센터 줄을 본다.
+// shortcut: 내 정보 응답에 역할이 없어 관리자 전용 신청 목록이 응답하는지로 판단한다(관리자가 아니면 403).
+// 회원 응답에 역할을 더하면 그 값으로 바꾼다.
+function AdminMenuGroup() {
+  const admin = memberApi.useFindAll(
+    { status: 'PENDING' },
+    { query: { enabled: useAuthStatus() === 'authenticated', retry: false } },
+  )
+  if (!admin.isSuccess) return null
+  return (
+    <MenuGroup title="관리">
+      <MenuRow href="/admin" icon="Settings" label="관리자 센터" />
+    </MenuGroup>
   )
 }

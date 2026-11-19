@@ -142,6 +142,11 @@ member:
     login-attempt:
       max-failures: 5
       block-duration: 10m
+    # 테스트 계정 로그인 (DemoLoginProperties). 켜져 있는 동안은 누구나 아래 계정(관리자 겸 판매자)으로 로그인해 쓰기까지 한다
+    # 기본은 꺼짐이다. 운영은 k8s/overlays/aws/app-config.yaml의 DEMO_LOGIN_ENABLED·DEMO_LOGIN_EMAIL로 켠다
+    demo-login:
+      enabled: ${DEMO_LOGIN_ENABLED:false}
+      email: ${DEMO_LOGIN_EMAIL:admin@crewrun.com}
     # 비밀번호 재설정 (PasswordResetProperties, BUK-40). 숫자는 정책 회의 전 초안 값이다
     password-reset:
       # 메일 링크 앞부분. 운영은 크루런 공개 주소를 넣는다. 요청 Host 헤더로 만들지 않는다
@@ -201,3 +206,9 @@ member:
     # 크루 파티 만들기 제한에 쓰는 결제율 미달 크루 조회 (BUK-187)
     product:
       base-url: http://localhost:8085
+    # 판매자 탈퇴 전 지급 안 된 정산금 확인 (CRU-23)
+    payout:
+      base-url: http://localhost:8082
+    # 끝난 지 30일 지난 제출의 기록증 사진 삭제 (BUK-278)
+    file:
+      base-url: http://localhost:8083

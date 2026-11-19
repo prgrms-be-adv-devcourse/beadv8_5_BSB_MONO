@@ -214,6 +214,11 @@ final class PartyApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "요청 본문 형식이 올바르지 않습니다.", "data": null }
 		""";
 
+	static final String IDENTITY_VERIFICATION_REQUIRED = """
+		{ "status": 409, "code": "ORDER_IDENTITY_VERIFICATION_REQUIRED",
+			"message": "본인인증을 먼저 해 주세요. 참가자 이름·생년월일·휴대폰은 본인인증 정보로 채웁니다.", "data": null }
+		""";
+
 	static final String AGE_RESTRICTED = """
 		{ "status": 400, "code": "ORDER_AGE_RESTRICTED",
 			"message": "참가할 수 있는 나이가 아닙니다(대회 당일 만 14세 이상, 신청자 만 12세).", "data": null }

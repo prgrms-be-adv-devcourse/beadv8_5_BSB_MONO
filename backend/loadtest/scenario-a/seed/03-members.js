@@ -34,7 +34,7 @@ export default function () {
 	if (login.status === 401) {
 		const join = http.post(`${BASE_URL}/api/v1/auth/join`, JSON.stringify({
 			email, password: PASSWORD, nickname: `load${String(i).padStart(5, '0')}`,
-			agreedTerms: ['SERVICE', 'PRIVACY'], verificationToken: `loadtest-${i}`,
+			agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14'], verificationToken: `loadtest-${i}`,
 		}), { headers: JSON_HEADERS });
 		check(join, { '가입됨': (r) => r.status === 201 });
 		login = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({ email, password: PASSWORD }),

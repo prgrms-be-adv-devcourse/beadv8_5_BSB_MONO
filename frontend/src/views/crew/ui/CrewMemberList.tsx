@@ -4,9 +4,10 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useState, type ReactNode } from 'react'
 
-import { CREW_ROLE_LABEL, CREW_ROLE_TONE } from '@/entities/crew'
+import { CREW_ROLE_LABEL } from '@/entities/crew'
 import type { memberModel } from '@/shared/api'
-import { Avatar, Badge, Button, buttonClassName } from '@/shared/ui'
+import { cn } from '@/shared/lib'
+import { Avatar, Button, buttonClassName } from '@/shared/ui'
 
 /** 크루원 목록에서 처음 보여 주는 수. 나머지는 「크루원 N명 더 보기」로 펼친다. */
 const VISIBLE_MEMBERS = 5
@@ -36,26 +37,47 @@ export function CrewMemberList({
   const hidden = members.length - shown.length
   return (
     <>
-      {/* 닉네임 칸 폭을 고정해 닉네임 길이와 상관없이 역할 뱃지가 늘 같은 자리에 온다.
-          8rem(시안 128px)은 한글 닉네임 7자가 들어가는 폭이다. 더 긴 영문 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
-      <ul className="flex flex-col gap-3">
-        {shown.map((member) => (
-          <li
-            key={member.memberId}
-            className="grid grid-cols-[auto_8rem_auto_1fr] items-center gap-3"
-          >
-            <Avatar size="m" name={member.nickname} />
+      {/* 크루 관리(action 있음)는 역할이 닉네임 바로 옆, 크루 홈은 줄 오른쪽 끝에 온다.
+          긴 닉네임은 말줄임으로 자르고 전체 이름은 title로 보여 준다. */}
+      <ul className={cn('flex flex-col', action ? 'gap-6' : 'gap-3')}>
+        {shown.map((member) => {
+          const name = (
             <span
               id={labelId?.(member)}
               title={member.nickname}
-              className="min-w-0 truncate text-body2-medium"
+              className="min-w-0 truncate text-body1-medium"
             >
               {member.nickname}
             </span>
-            <Badge tone={CREW_ROLE_TONE[member.role]}>{CREW_ROLE_LABEL[member.role]}</Badge>
-            <div className="justify-self-end">{action?.(member)}</div>
-          </li>
-        ))}
+          )
+          const role = (
+            <span className="shrink-0 text-caption-regular text-text-secondary">
+              {CREW_ROLE_LABEL[member.role]}
+            </span>
+          )
+          return (
+            <li
+              key={member.memberId}
+              className={cn('flex items-center gap-3', action && 'min-h-11')}
+            >
+              <Avatar size="m" name={member.nickname} />
+              {action ? (
+                <>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {name}
+                    {role}
+                  </div>
+                  <div>{action(member)}</div>
+                </>
+              ) : (
+                <>
+                  <div className="flex min-w-0 flex-1">{name}</div>
+                  {role}
+                </>
+              )}
+            </li>
+          )
+        })}
       </ul>
       {hidden > 0 &&
         (moreHref ? (

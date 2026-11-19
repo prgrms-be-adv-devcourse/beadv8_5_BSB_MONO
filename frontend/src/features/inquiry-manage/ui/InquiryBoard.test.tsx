@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { resetNavigationMock, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
 import { InquiryBoard, type RenderAnswer } from './InquiryBoard'
@@ -94,6 +94,7 @@ const manage = (inquiries: unknown[]) => ({
 
 beforeEach(() => {
   replace.mockClear()
+  resetNavigationMock()
   server.use(
     http.get('*/api/v1/inquiry/seller/inquiries', () => ok(manage([row()]))),
     http.get('*/api/v1/inquiry/seller/inquiries/1', () => ok(row({ order: order(null) }))),
@@ -216,7 +217,7 @@ describe('판매자 문의', () => {
       ),
     )
     const { unmount } = renderBoard('seller')
-    expect(await screen.findByText('문의가 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('답변을 기다리는 문의가 없어요')).toBeInTheDocument()
     unmount()
 
     server.use(
@@ -278,5 +279,88 @@ describe('관리자 문의', () => {
 
     expect(await screen.findByText('₩50,000 · 예치금 결제')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: '답변 내용' })).toBeInTheDocument()
+  })
+})
+
+describe('판매자가 보낸 문의', () => {
+  const sent = row({
+    id: 7,
+    raceId: null,
+    orderId: null,
+    type: 'SELLER_SUPPORT',
+    assignee: 'ADMIN',
+    title: '정산 계좌를 바꾸고 싶어요',
+    status: 'ANSWERED',
+    answer: '판매자 정보에서 바꿀 수 있어요.',
+    answeredAt: '2026-11-11T10:00:00',
+    memberNickname: null,
+  })
+  const asBuyer = row({ id: 8, title: '참가권을 취소하고 싶어요', assignee: 'ADMIN', type: 'ETC' })
+  const mine = (inquiries: unknown[]) => ({
+    inquiries,
+    page: 0,
+    size: 20,
+    totalElements: inquiries.length,
+    totalPages: 1,
+  })
+
+  beforeEach(() => {
+    server.use(
+      http.get('*/api/v1/inquiry/inquiries/me', () => ok(mine([asBuyer, sent]))),
+      http.get('*/api/v1/inquiry/inquiries/7', () => ok(sent)),
+    )
+  })
+
+  it('보낸 문의 탭에는 크루런에 보낸 판매자 문의만 보이고, 관리자 답변을 볼 수 있다', async () => {
+    const user = userEvent.setup()
+    renderBoard('seller')
+
+    await user.click(await screen.findByRole('button', { name: '보낸 문의' }))
+
+    expect(
+      await screen.findByRole('heading', { name: '정산 계좌를 바꾸고 싶어요' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('판매자 정보에서 바꿀 수 있어요.')).toBeInTheDocument()
+    // 구매자로 남긴 문의는 판매자 콘솔에 섞지 않는다
+    expect(screen.queryByText('참가권을 취소하고 싶어요')).not.toBeInTheDocument()
+    // 내가 보낸 문의에는 답변칸이 없다
+    expect(screen.queryByRole('textbox', { name: '답변 내용' })).not.toBeInTheDocument()
+  })
+
+  it('보낸 문의를 고르면 주소에 보낸 문의 탭이 남는다', async () => {
+    const user = userEvent.setup()
+    renderBoard('seller')
+
+    await user.click(await screen.findByRole('button', { name: '보낸 문의' }))
+    await user.click(await screen.findByRole('button', { name: /정산 계좌를/ }))
+
+    expect(replace).toHaveBeenCalledWith('/seller/inquiries/7?filter=SENT')
+  })
+
+  it('보낸 문의가 없으면 빈 상태를 보여 준다', async () => {
+    const user = userEvent.setup()
+    server.use(http.get('*/api/v1/inquiry/inquiries/me', () => ok(mine([asBuyer]))))
+    renderBoard('seller')
+
+    await user.click(await screen.findByRole('button', { name: '보낸 문의' }))
+
+    expect(await screen.findByText('보낸 문의가 없어요')).toBeInTheDocument()
+  })
+
+  it('관리자 주소에 보낸 문의 탭이 있어도 답변 대기로 연다', async () => {
+    resetNavigationMock('filter=SENT')
+    renderBoard('admin')
+
+    expect(await screen.findByRole('button', { name: '답변 대기 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('관리자 화면에는 보낸 문의 탭이 없다', async () => {
+    renderBoard('admin')
+
+    expect(await screen.findByRole('button', { name: '답변 대기 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '보낸 문의' })).not.toBeInTheDocument()
   })
 })

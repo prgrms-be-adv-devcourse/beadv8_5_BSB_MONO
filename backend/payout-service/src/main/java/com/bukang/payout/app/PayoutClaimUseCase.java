@@ -22,7 +22,6 @@ import com.bukang.payout.domain.PayoutRecovery;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutRecoveryStatus;
 import com.bukang.payout.domain.PayoutStage;
-import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutClaimConflictException;
 import com.bukang.payout.domain.exception.PayoutClaimNotFoundException;
 import com.bukang.payout.out.ClaimVirtualAccount;
@@ -249,9 +248,8 @@ public class PayoutClaimUseCase {
 	// shortcut: 환불 완료와 참가권 환불 알림은 토픽이 달라 순서가 보장되지 않는다. 참가권 알림이 DLT에 남은 채
 	// 환불 완료가 먼저 오면 청구 뒤에 회수가 늘 수 있다. 그때는 입금 확인이 거부하고 사람이 맞춘다 (checkReceivableMatches)
 	private Optional<LocalDate> claimStartDate(SellerRace target, LocalDate today) {
-		Optional<Payout> finalPayout = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
-				target.sellerId(), target.raceId(), PayoutStage.최종_정산)
-			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
+		Optional<Payout> finalPayout = payoutRepository.findLiveStage(
+			target.sellerId(), target.raceId(), PayoutStage.최종_정산);
 		if (finalPayout.isPresent()) {
 			return Optional.of(finalPayout.get().getSettledAt().toLocalDate());
 		}

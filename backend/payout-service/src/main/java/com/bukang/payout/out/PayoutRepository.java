@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -13,10 +15,19 @@ import org.springframework.data.jpa.repository.Query;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
+import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Long> {
+public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
+	// 최종 대사: 정산 내역들의 판매 줄을 엔티티가 아닌 값으로 읽는다 (BUK-252). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		""")
+	List<SaleLine> findSaleLines(Collection<Payout> payouts);
+
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
 		PayoutStage payoutStage);
@@ -26,10 +37,20 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	// 최종이 먼저 생겼으면 1차를 만들지 않는다
 	boolean existsBySellerIdAndRaceIdAndPayoutStage(long sellerId, long raceId, PayoutStage payoutStage);
 
+	// 판매자 탈퇴 제한: 아직 받지 않은 정산(정산 예정 · 지급보류 · 지급 중)이 있는지 본다. 지급 완료 · 취소는 뺀다
+	boolean existsBySellerIdAndStatusIn(long sellerId, Collection<PayoutStatus> statuses);
+
 	// 최종 정산 생성: 같은 판매자 × 대회의 1차 정산 내역 (1차 정산금 차감과 보류 여부를 읽는다)
 	// 1차 정산은 정산 월과 상관없이 판매자 × 대회마다 하나만 만든다 (PRO-232)
 	Optional<Payout> findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(long sellerId, long raceId,
 		PayoutStage payoutStage);
+
+	// 대회 취소로 닫히지 않은(취소가 아닌) 그 단계의 정산 내역. 만든 순서로 1차가 먼저다
+	// 지급 · 청구 · 상계 판단이 같은 "살아 있는 정산" 기준을 쓰도록 한곳에 둔다 (CRU-10)
+	default Optional<Payout> findLiveStage(long sellerId, long raceId, PayoutStage stage) {
+		return findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(sellerId, raceId, stage)
+			.filter(payout -> payout.getStatus() != PayoutStatus.취소);
+	}
 
 	// 회수 상계: 같은 판매자 × 대회의 지급 전 정산 내역을 잠가서 읽는다 (만든 순서대로, 1차가 먼저)
 	// 회수 요청 · 최종 생성 · 지급 배치가 같은 정산 내역 금액을 동시에 바꾸지 않게 한다 (PRO-214)
@@ -83,10 +104,11 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	// 엔티티 대신 ID만 읽고, 한 건씩 새 트랜잭션에서 다시 읽어 그 사이 바뀐 상태(보류 등)를 보고 처리한다
 	@Query("""
 		select p.id from Payout p
-		where (p.status = :calculated and p.scheduledPayDate <= :today) or p.status = :paying
+		where (p.status = com.bukang.payout.domain.PayoutStatus.지급_예정 and p.scheduledPayDate <= :today)
+			or p.status = com.bukang.payout.domain.PayoutStatus.지급_중
 		order by p.id
 		""")
-	List<Long> findPayTargetIds(LocalDate today, PayoutStatus calculated, PayoutStatus paying);
+	List<Long> findPayTargetIds(LocalDate today);
 
 	// 판매자 정산 내역 조회: 정산 월(YYYY-MM)은 문자열이어도 자릿수가 같아 사전순 비교가 달 순서와 같다
 	// 유일 조건 (seller_id, race_id, payout_month, payout_stage)의 인덱스는 seller_id로 시작하므로 판매자 범위를 이 인덱스로 찾는다
@@ -98,15 +120,16 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 	// (PRO-188, PayoutPayStepUseCase.findWaitingFirst와 같은 기준. 1차가 없거나 취소됐으면 기다리지 않는다)
 	@Query("""
 		select p from Payout p
-		where p.sellerId = :sellerId and p.status = :calculated
-		and not (p.payoutStage = :finalStage and exists (
+		where p.sellerId = :sellerId and p.status = com.bukang.payout.domain.PayoutStatus.지급_예정
+		and not (p.payoutStage = com.bukang.payout.domain.PayoutStage.최종_정산 and exists (
 			select f.id from Payout f
-			where f.sellerId = p.sellerId and f.raceId = p.raceId and f.payoutStage = :firstStage
-			and f.status <> :paid and f.status <> :canceled))
+			where f.sellerId = p.sellerId and f.raceId = p.raceId
+			and f.payoutStage = com.bukang.payout.domain.PayoutStage.일차_정산
+			and f.status <> com.bukang.payout.domain.PayoutStatus.지급_완료
+			and f.status <> com.bukang.payout.domain.PayoutStatus.취소))
 		order by p.scheduledPayDate, p.id
 		""")
-	List<Payout> findPayableForSummary(long sellerId, PayoutStatus calculated, PayoutStage finalStage,
-		PayoutStage firstStage, PayoutStatus paid, PayoutStatus canceled);
+	List<Payout> findPayableForSummary(long sellerId);
 
 	// 판매자 요약: 지급보류 중인 정산 내역 수. 보류가 여러 개 걸린 정산 내역도 한 건으로 센다 (BUK-67 H3)
 	long countBySellerIdAndStatus(long sellerId, PayoutStatus status);
@@ -123,4 +146,22 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
 
 	record SellerFee(long sellerId, long feeAmount) {
 	}
+
+	// 관리자 정산 목록 (BUK-168): 지급 예정일 하루의 정산. status가 null이면 그날의 모든 상태
+	@Query(value = """
+		select p from Payout p
+		where p.scheduledPayDate = :payDate and (:status is null or p.status = :status)
+		order by p.id""",
+		countQuery = """
+			select count(p) from Payout p
+			where p.scheduledPayDate = :payDate and (:status is null or p.status = :status)""")
+	Page<Payout> findAdminPayouts(LocalDate payDate, PayoutStatus status, Pageable pageable);
+
+	// 관리자 정산 목록 카드: 그날의 상태별 건수 · 지급액 합. 정산이 없는 상태는 줄이 없다
+	@Query("""
+		select new com.bukang.payout.dto.PayoutStatusSummaryDto(p.status, count(p), coalesce(sum(p.payoutAmount), 0))
+		from Payout p
+		where p.scheduledPayDate = :payDate
+		group by p.status""")
+	List<PayoutStatusSummaryDto> sumByStatusOn(LocalDate payDate);
 }

@@ -14,6 +14,14 @@ export function myRacesQueryOptions() {
   })
 }
 
+/** 관리자 대회 관리: 모든 판매자의 대회 (취소 포함) */
+export function adminRacesQueryOptions() {
+  return queryOptions({
+    queryKey: productApi.getFindAdminRacesQueryKey(),
+    queryFn: async () => unwrapData(await productApi.findAdminRaces()),
+  })
+}
+
 export type RaceForEdit = {
   race: productModel.RaceDetailDto
   /** 지금 상태 그대로의 수정 요청. 바꿀 값만 덮어써 PUT 한다 */
@@ -21,7 +29,7 @@ export type RaceForEdit = {
 }
 
 /**
- * 수정할 대회: 상세와 종목별 이미지를 함께 받는다.
+ * 수정할 대회: 상세와 대회 이미지(대표 이미지) · 종목별 이미지를 함께 받는다.
  * 수정은 이미지 목록도 통째로 바꾸므로, 이미지를 못 받으면 빈 목록으로 덮어쓰지 않게 실패로 둔다.
  */
 export async function fetchRaceForEdit(raceId: number): Promise<RaceForEdit> {
@@ -29,13 +37,16 @@ export async function fetchRaceForEdit(raceId: number): Promise<RaceForEdit> {
   const courseIds = (race.courses ?? []).flatMap((c) =>
     c.raceCourseId === undefined ? [] : [c.raceCourseId],
   )
-  const files = await Promise.all(
-    courseIds.map(async (id) =>
-      unwrapData(await fileApi.findByRef({ refType: 'RaceCourse', refId: id })),
+  const [raceFiles, files] = await Promise.all([
+    fileApi.findByRef({ refType: 'Race', refId: raceId }).then(unwrapData),
+    Promise.all(
+      courseIds.map(async (id) =>
+        unwrapData(await fileApi.findByRef({ refType: 'RaceCourse', refId: id })),
+      ),
     ),
-  )
+  ])
   const filesByCourse = Object.fromEntries(courseIds.map((id, i) => [id, files[i]]))
-  return { race, request: toRaceEditRequest(race, filesByCourse) }
+  return { race, request: toRaceEditRequest(race, raceFiles, filesByCourse) }
 }
 
 export function raceForEditQueryOptions(raceId: number) {

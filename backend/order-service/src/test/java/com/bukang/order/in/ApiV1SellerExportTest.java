@@ -34,10 +34,12 @@ import com.bukang.order.domain.SellerExportLog;
 import com.bukang.order.domain.SellerExportType;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.SellerExportLogRepository;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
+import com.bukang.order.support.StubMemberPorts;
+import com.bukang.order.support.StubMemberPortsConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.bukang.order.support.StubRefundEligibilityPortConfig;
@@ -56,7 +58,7 @@ import com.jayway.jsonpath.JsonPath;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
-	StubRefundEligibilityPortConfig.class, StubSellerLookupPortConfig.class})
+	StubRefundEligibilityPortConfig.class, StubSellerLookupPortConfig.class, StubMemberPortsConfig.class})
 class ApiV1SellerExportTest {
 	private static final String ROSTER_URL = "/api/v1/order/seller/orders/roster-export";
 	private static final String KIT_URL = "/api/v1/order/seller/kits/export";
@@ -70,6 +72,9 @@ class ApiV1SellerExportTest {
 	private static final long NOT_SELLER_MEMBER_ID = 97;
 
 	@Autowired
+	private StubMemberPorts memberPorts;
+
+	@Autowired
 	private MockMvc mockMvc;
 
 	@Autowired
@@ -77,9 +82,6 @@ class ApiV1SellerExportTest {
 
 	@Autowired
 	private ParticipationRepository participationRepository;
-
-	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
 
 	@Autowired
 	private SellerExportLogRepository sellerExportLogRepository;
@@ -110,9 +112,9 @@ class ApiV1SellerExportTest {
 
 	@AfterEach
 	void tearDown() {
+		memberPorts.clear();
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		sellerExportLogRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
@@ -254,6 +256,8 @@ class ApiV1SellerExportTest {
 	}
 
 	private long apply(long buyerId, long courseId, String name) throws Exception {
+		// 참가자 이름은 회원 본인인증 값으로 들어간다 (CRU-59)
+		memberPorts.identity(buyerId, new MemberIdentity(name, LocalDate.of(1994, 6, 25), "010-1234-5678"));
 		QueueEntry.enter(mockMvc, buyerId, courseId);
 		String body = mockMvc.perform(post("/api/v1/order/participations")
 				.header("X-Member-Id", buyerId)

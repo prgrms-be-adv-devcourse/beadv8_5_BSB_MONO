@@ -1,8 +1,10 @@
 package com.bukang.file.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,6 +84,39 @@ class FileFormatTest {
 		assertThat(FileFormat.labelsOf(FileKind.IMAGE)).isEqualTo("JPG, PNG, WebP");
 		assertThat(FileFormat.labelsOf(FileKind.VIDEO)).isEqualTo("MP4, MOV");
 		assertThat(FileFormat.labelsOf(FileKind.EXCEL)).isEqualTo("XLSX, XLS");
+	}
+
+	@Test
+	@DisplayName("JPG·PNG·WebP(손실·무손실·확장) 파일 머리에서 가로·세로를 읽는다")
+	void readSize() {
+		// given
+		byte[] jpeg = TestImages.jpeg(1200, 800);
+		byte[] png = TestImages.png(1080, 3000);
+		byte[] webpLossy = TestImages.webpLossy(1125, 1125);
+		byte[] webpLossless = TestImages.webpLossless(4000, 1);
+		byte[] webpExtended = TestImages.webpExtended(1500, 900);
+
+		// when · then
+		assertSoftly(softly -> {
+			softly.assertThat(FileFormat.JPEG.readSize(jpeg)).contains(new ImageSize(1200, 800));
+			softly.assertThat(FileFormat.PNG.readSize(png)).contains(new ImageSize(1080, 3000));
+			softly.assertThat(FileFormat.WEBP.readSize(webpLossy)).contains(new ImageSize(1125, 1125));
+			softly.assertThat(FileFormat.WEBP.readSize(webpLossless)).contains(new ImageSize(4000, 1));
+			softly.assertThat(FileFormat.WEBP.readSize(webpExtended)).contains(new ImageSize(1500, 900));
+		});
+	}
+
+	@Test
+	@DisplayName("휴대폰 사진처럼 사진 정보(EXIF) 칸이 크기 칸보다 앞에 있는 JPEG도 가로·세로를 읽는다")
+	void readSizeOfJpegWithPhotoInfo() {
+		// given
+		byte[] photo = TestImages.jpegWithPhotoInfo(800, 1600, 8 * 1024);
+
+		// when
+		Optional<ImageSize> size = FileFormat.JPEG.readSize(photo);
+
+		// then
+		assertThat(size).contains(new ImageSize(800, 1600));
 	}
 
 	// supports 검사를 뺐으므로, 형식이 없는 종류를 추가하면 여기서 알 수 있다

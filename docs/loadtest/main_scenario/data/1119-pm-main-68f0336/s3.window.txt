@@ -1,0 +1,1 @@
+stage=s3 start_utc=2026-11-19T07:33:54Z end_utc=2026-11-19T07:37:28Z k6_exit=99 buy_race=64 buy_course=184 wait_race=65 wait_course=185

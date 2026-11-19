@@ -6,6 +6,7 @@ import static com.bukang.product.support.RaceRequests.race;
 import static com.bukang.product.support.RaceRequests.thumbnail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -80,7 +81,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 				.surface(CourseSurface.TRAIL)
 				.distanceKm("21.1")
 				.timeLimitMinutes(180)
-				.age(20, 60)
+				.age(19, null)
 				.kit(5_000))
 			.build();
 
@@ -101,8 +102,8 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getSurface()).isEqualTo(CourseSurface.TRAIL);
 		assertThat(course.getDistanceKm()).isEqualByComparingTo(new BigDecimal("21.1"));
 		assertThat(course.getTimeLimitMinutes()).isEqualTo(180);
-		assertThat(course.getMinAge()).isEqualTo(20);
-		assertThat(course.getMaxAge()).isEqualTo(60);
+		assertThat(course.getMinAge()).isEqualTo(19);
+		assertThat(course.getMaxAge()).isNull();
 		assertThat(course.isKitIncluded()).isTrue();
 		Race race = findRace(registered.raceId());
 		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(5).toLocalDate());
@@ -211,6 +212,24 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("수정으로 최소 나이를 16세로, 또는 최대 나이를 70세로 바꾸려 하면 400이고 종목은 그대로다")
+	void rejectNonAdultOnlyAgeOnUpdate() throws Exception {
+		RegisteredRace registered = register(scheduledRace().build());
+
+		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId()).age(16, null)).build())
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message")
+				.value("참가 최소 나이는 14(제한 없음) 또는 19(성인만)로 작성해주세요. (종목: 10K)"));
+		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId()).age(14, 70)).build())
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("참가 최대 나이는 받지 않습니다. 비워주세요. (종목: 10K)"));
+
+		RaceCourse course = findCourse(registered.courseId());
+		assertThat(course.getMinAge()).isEqualTo(14);
+		assertThat(course.getMaxAge()).isNull();
+	}
+
+	@Test
 	@DisplayName("크루 예매가 있는 판매 중 종목의 크루 정원을 10에서 9로 줄이면 409이다 (개인 정원 100은 그대로)")
 	void rejectCrewQuotaDecreaseAfterSaleStarted() throws Exception {
 		RegisteredRace registered = registerOnSale(withPassedCrewSale(sameRace())
@@ -232,9 +251,10 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			conditionChange("종목 구분", "KM_10 → HALF", builder -> builder.type(CourseType.HALF)),
 			conditionChange("노면", "ROAD → TRAIL", builder -> builder.surface(CourseSurface.TRAIL)),
 			conditionChange("제한 시간", "90분 → 100분", builder -> builder.timeLimitMinutes(100)),
-			conditionChange("나이 제한", "최소 14세 → 20세", builder -> builder.age(20, null)),
-			conditionChange("나이 제한", "최대 없음 → 60세", builder -> builder.age(14, 60)),
-			conditionChange("키트 포함 여부", "키트 없음 → 포함", builder -> builder.kit(0))
+			conditionChange("나이 제한", "제한 없음 → 성인만", builder -> builder.age(19, null)),
+			conditionChange("키트 포함 여부", "키트 없음 → 포함", builder -> builder.kit(0)),
+			conditionChange("기록증 규칙", "규칙 없음 → 있음",
+				builder -> builder.recordCertRule(LocalDate.of(2025, 1, 1), 7200, CourseType.HALF))
 		);
 	}
 
@@ -552,8 +572,9 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		RaceCourse added = findCourse(newCourseId);
 		assertThat(added.getName()).isEqualTo("5K");
 		assertThat(added.getStatus()).isEqualTo(CourseStatus.OPEN);
-		// 새 종목의 이미지도 요청 순서대로 연결을 요청한다
+		// 새 종목의 이미지도 요청 순서대로 연결을 요청한다 (맨 앞의 대회 Ref 다음에 종목 Ref가 온다)
 		assertThat(lastFileLink().refs())
+			.filteredOn(ref -> ref.refType().equals("RaceCourse"))
 			.extracting(FileLinkRequestedEvent.Ref::refId)
 			.containsExactly(newCourseId, registered.courseId());
 	}
@@ -565,7 +586,10 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		long halfCourseId = registered.courseIds().get(1);
 		assertThat(raceCourseDocumentRepository.existsById(String.valueOf(halfCourseId))).isTrue();
 
-		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId())).build())
+		// 남긴 종목에는 소개 이미지 1장을 보내, 뺀 종목만 빈 목록이 되는지 본다
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).images(image(FileType.DETAIL, 0)))
+			.build())
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.courseIds.length()").value(1))
 			.andExpect(jsonPath("$.data.courseIds[0]").value(registered.courseId()));
@@ -694,7 +718,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	// ---------- 수정 뒤 파일 연결 메시지·검색 문서·종목 상태 ----------
 
 	@Test
-	@DisplayName("수정이 커밋되면 새 이미지 목록(대표·소개 이미지)으로 파일 연결 메시지를 보내고 검색 문서를 새 대회명·참가비로 다시 만든다")
+	@DisplayName("수정이 커밋되면 새 대표 이미지는 대회에, 소개 이미지는 종목에 파일 연결 메시지를 보내고 검색 문서를 새 대회명·참가비로 다시 만든다")
 	void publishFileLinkAndReindexAfterUpdate() throws Exception {
 		RegisteredRace registered = register(scheduledRace().build());
 		RaceImageRequestDto newThumbnail = thumbnail();
@@ -702,7 +726,8 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 
 		update(registered.raceId(), scheduledRace()
 			.title("2026 부산 바다 런")
-			.course(sameCourse(registered.courseId()).price(50_000).images(newThumbnail, detail))
+			.images(newThumbnail)
+			.course(sameCourse(registered.courseId()).price(50_000).images(detail))
 			.build())
 			.andExpect(status().isOk());
 
@@ -710,13 +735,15 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(fileLinkMessages()).hasSize(2);
 		FileLinkRequestedEvent fileLink = lastFileLink();
 		assertThat(fileLink.ownerId()).isEqualTo(SELLER_MEMBER_ID);
-		assertThat(fileLink.refs()).hasSize(1);
-		FileLinkRequestedEvent.Ref ref = fileLink.refs().getFirst();
-		assertThat(ref.refType()).isEqualTo("RaceCourse");
-		assertThat(ref.refId()).isEqualTo(registered.courseId());
-		assertThat(ref.files())
+		// 대회 Ref가 먼저, 종목 Ref가 다음이다
+		assertThat(fileLink.refs()).extracting(FileLinkRequestedEvent.Ref::refType)
+			.containsExactly("Race", "RaceCourse");
+		assertThat(raceRefOf(fileLink, registered.raceId()).files())
 			.extracting(FileLinkRequestedEvent.Item::fileId)
-			.containsExactly(newThumbnail.getFileId(), detail.getFileId());
+			.containsExactly(newThumbnail.getFileId());
+		assertThat(refOf(fileLink, registered.courseId()).files())
+			.extracting(FileLinkRequestedEvent.Item::fileId)
+			.containsExactly(detail.getFileId());
 
 		syncRaceDocuments();
 		RaceCourseDocument document = findDocument(registered.courseId());
@@ -775,7 +802,140 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 			.containsExactly(tuple("T-shirt", "L", 100));
 	}
 
+	// ---------- 기록증 규칙 (BUK-270) ----------
+
+	private static final LocalDate RULE_SINCE = LocalDate.of(2025, 1, 1);
+
+	@Test
+	@DisplayName("판매 예정 대회는 기록증 규칙을 넣고(하프 · 풀), 고치고(풀만 · 1시간 50분), 규칙 칸을 빼면 그대로 두고, {}로 지울 수 있다")
+	void changeRecordCertRuleBeforeSaleOpen() throws Exception {
+		RegisteredRace registered = register(scheduledRace().build());
+
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId())
+				.recordCertRule(RULE_SINCE, 7200, CourseType.HALF, CourseType.FULL))
+			.build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.recognizedSince").value("2025-01-01"))
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(7200))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("HALF", "FULL")));
+
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).recordCertRule(RULE_SINCE, 6600, CourseType.FULL))
+			.build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(6600))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("FULL")));
+
+		update(registered.raceId(), scheduledRace().course(sameCourse(registered.courseId())).build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(6600))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("FULL")));
+
+		update(registered.raceId(), scheduledRace()
+			.course(sameCourse(registered.courseId()).noRecordCertRule())
+			.build())
+			.andExpect(status().isOk());
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule").isEmpty());
+	}
+
+	static Stream<Arguments> partialRecordCertRules() {
+		return Stream.of(
+			Arguments.of("기록 인정 시작일 없음", course().recordCertRule(null, 7200, CourseType.HALF),
+				"기록 인정 시작일을 작성해주세요."),
+			Arguments.of("기준 넷타임 없음", course().recordCertRule(RULE_SINCE, null, CourseType.HALF),
+				"기준 넷타임을 작성해주세요."),
+			Arguments.of("인정 종목 구분 없음", course().recordCertRule(RULE_SINCE, 7200),
+				"인정 종목 구분을 하나 이상 골라주세요.")
+		);
+	}
+
+	@ParameterizedTest(name = "{0} → 400")
+	@MethodSource("partialRecordCertRules")
+	@DisplayName("기록증 규칙의 세 칸 중 일부만 넣으면 400이고 규칙은 그대로 없다")
+	void rejectPartialRecordCertRule(String situation, CourseBuilder partial, String message) throws Exception {
+		RegisteredRace registered = register(scheduledRace().build());
+
+		update(registered.raceId(), scheduledRace().course(partial.courseId(registered.courseId())).build())
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value(message));
+
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule").isEmpty());
+	}
+
+	@Test
+	@DisplayName("판매 중 종목에 같은 기록증 규칙을 다시 보내면 200이고, 인정 종목 구분만 바꿔도(하프 · 풀 → 풀) 409이다")
+	void keepRecordCertRuleAfterSaleStarted() throws Exception {
+		RegisteredRace registered = registerOnSale(sameRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF, CourseType.FULL))
+			.build());
+
+		update(registered.raceId(), sameRace()
+			.course(sameCourse(registered.courseId())
+				.recordCertRule(RULE_SINCE, 7200, CourseType.FULL, CourseType.HALF))
+			.build())
+			.andExpect(status().isOk());
+
+		update(registered.raceId(), sameRace()
+			.course(sameCourse(registered.courseId()).recordCertRule(RULE_SINCE, 7200, CourseType.FULL))
+			.build())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("판매가 시작된 종목은 참가 조건(기록증 규칙)을 바꿀 수 없습니다. (종목: 10K)"));
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("HALF", "FULL")));
+	}
+
+	@Test
+	@DisplayName("판매 중 종목의 기록증 규칙을 {}로 지우면 409이다")
+	void rejectRemovingRecordCertRuleAfterSaleStarted() throws Exception {
+		RegisteredRace registered = registerOnSale(sameRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF))
+			.build());
+
+		update(registered.raceId(), sameRace().course(sameCourse(registered.courseId()).noRecordCertRule()).build())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.message").value("판매가 시작된 종목은 참가 조건(기록증 규칙)을 바꿀 수 없습니다. (종목: 10K)"));
+	}
+
+	@Test
+	@DisplayName("판매 중 종목을 규칙 칸 없이 이름만 바꾸면(10K → 10K 코스) 200이고 기록증 규칙은 그대로다")
+	void keepRecordCertRuleWhenOmittedAfterSaleStarted() throws Exception {
+		RegisteredRace registered = registerOnSale(sameRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF))
+			.build());
+
+		update(registered.raceId(), sameRace().course(sameCourse(registered.courseId()).name("10K 코스")).build())
+			.andExpect(status().isOk());
+
+		findRule(registered.courseId())
+			.andExpect(jsonPath("$.data.rule.maxNetSeconds").value(7200))
+			.andExpect(jsonPath("$.data.rule.allowedCourseTypes", contains("HALF")));
+	}
+
+	@Test
+	@DisplayName("판매 예정 대회에서 기록증 규칙이 있는 종목을 빼면 200이고 그 종목은 조회되지 않는다(404)")
+	void removeCourseWithRecordCertRule() throws Exception {
+		RegisteredRace registered = register(scheduledRace()
+			.course(course().recordCertRule(RULE_SINCE, 7200, CourseType.HALF))
+			.build());
+
+		update(registered.raceId(), scheduledRace().course(halfCourse()).build())
+			.andExpect(status().isOk());
+
+		findRule(registered.courseId())
+			.andExpect(status().isNotFound());
+	}
+
 	// ---------- 도우미 ----------
+
+	private ResultActions findRule(long courseId) throws Exception {
+		return getAs("/internal/v1/product/courses/" + courseId + "/record-cert-rule", null);
+	}
 
 	// 기본 요청과 같은 일정 (대회 15일 뒤, 개인 예매 한 시간 전 오픈, 접수 마감 10일 뒤, 환불 기준일 = 대회 날짜)
 	// 판매 시작일이 오늘이므로 registerOnSale()로 판매 중 대회를 만든다
@@ -842,9 +1002,17 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		return jsonConverter.fromJson(fileLinkMessages().getLast(), FileLinkRequestedEvent.class);
 	}
 
+	// 대회 Ref와 종목 Ref의 ID가 같은 숫자일 수 있어 대상 종류도 함께 본다
 	private FileLinkRequestedEvent.Ref refOf(FileLinkRequestedEvent fileLink, long courseId) {
 		return fileLink.refs().stream()
-			.filter(ref -> ref.refId() == courseId)
+			.filter(ref -> ref.refType().equals("RaceCourse") && ref.refId() == courseId)
+			.findFirst()
+			.orElseThrow();
+	}
+
+	private FileLinkRequestedEvent.Ref raceRefOf(FileLinkRequestedEvent fileLink, long raceId) {
+		return fileLink.refs().stream()
+			.filter(ref -> ref.refType().equals("Race") && ref.refId() == raceId)
 			.findFirst()
 			.orElseThrow();
 	}

@@ -26,7 +26,7 @@ class ApiV1AiInquiryDraftTest extends AiTestBase {
 		""";
 	private static final String GLOSSARY = "용어 「취소」·「환불」·「환급」 뜻";
 	// 신청·결제 문의에서 「대회가 취소되면」을 물을 때 붙는 정책 출처
-	private static final String RACE_CANCEL = "정책 5장 2차 2-3·2-5 대회 취소";
+	private static final String RACE_CANCEL = "정책 5장 2차 2-3·2-5 대회 취소 (잠정)";
 	private static final OpsPort.InquiryOrder ORDER = new OpsPort.InquiryOrder("OD-20261030-0217", 45000L, "PAID",
 		List.of(new OpsPort.InquiryOrderItem("춘천 호수 하프마라톤", "10K", "티셔츠 M", "PREPARING")));
 

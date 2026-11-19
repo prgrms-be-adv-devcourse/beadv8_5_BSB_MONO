@@ -6,20 +6,21 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
-import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
 import { parseRaceDateInput } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
-import { cn, formatNumber, formatWon, type SellerRaceFormEntry } from '@/shared/lib'
+import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
   DataTable,
-  FOCUS_RING,
+  digitsOnly,
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
+  Textarea,
   TextField,
   useImageList,
   type ImageUploadValue,
@@ -27,6 +28,7 @@ import {
 } from '@/shared/ui'
 
 import {
+  ADULT_MIN_AGE,
   createRaceFormSchema,
   earliestSaleOpenDate,
   MAX_INTRO_IMAGES,
@@ -58,17 +60,15 @@ function dayOf(text: string): Date | undefined {
   return day ? parseISO(day) : undefined
 }
 
-const LINK = cn('rounded-sm text-body2-medium text-text-brand', FOCUS_RING)
-
 // 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
 function courseRow(course: RaceCourseInput, id: string, index: number) {
   return {
     id,
     index,
     course: course.name,
-    price: formatWon(course.price),
+    price: `${formatNumber(course.price)}원`,
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: `만 ${course.minAge}세 ~ ${course.maxAge ? `만 ${course.maxAge}세` : '제한 없음'}`,
+    age: course.minAge >= ADULT_MIN_AGE ? '성인만' : '',
     kit: course.kitIncluded ? '포함' : '없음',
   }
 }
@@ -95,6 +95,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   const courseFields = useFieldArray({ control, name: 'courses' })
   const kitFields = useFieldArray({ control, name: 'kitOptions' })
   const [courseOpen, setCourseOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const location = useWatch({ control, name: 'location' })
   // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
   const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
   const schedule = useWatch({
@@ -207,10 +209,11 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   return (
     <ConsolePage
       title="대회 등록"
-      description="판매가 시작되면 가격과 취소 · 환불 정책은 바꿀 수 없어요. 구매자에게 유리하게 바꾸는 것만 돼요."
       actions={
         <>
-          <Button variant="secondary">미리보기</Button>
+          <Button variant="secondary" disabled>
+            미리보기
+          </Button>
           <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>
@@ -225,139 +228,289 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             description={registerErrorMessage(registerRace.error)}
           />
         )}
-        <ConsoleCard title="기본 정보">
-          <div className="flex gap-4">
-            <TextField
-              label="대회 이름"
-              placeholder="2026 용감한 쿠키RUN in 서울"
-              error={errors.title?.message}
-              className="flex-1"
-              {...register('title')}
-            />
-            <Controller
-              control={control}
-              name="raceDate"
-              render={({ field }) => (
-                <DateTimeField
-                  mode="single"
-                  withTime={false}
-                  label="대회 날짜"
-                  error={errors.raceDate?.message}
-                  isDateDisabled={isPast}
-                  startMonth={startOfToday()}
-                  onValueChange={field.onChange}
-                  className="flex-1"
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+          <ConsoleCard title="기본 정보">
+            <div className="flex flex-col gap-4">
+              <TextField
+                label="대회 이름"
+                placeholder="2026 용감한 쿠키RUN in 서울"
+                error={errors.title?.message}
+                {...register('title')}
+              />
+              <Controller
+                control={control}
+                name="raceDate"
+                render={({ field }) => (
+                  <DateTimeField
+                    mode="single"
+                    withTime={false}
+                    label="대회 날짜"
+                    error={errors.raceDate?.message}
+                    isDateDisabled={isPast}
+                    startMonth={startOfToday()}
+                    onValueChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              {manualRegion.sido ? (
+                <TextField
+                  label="장소"
+                  placeholder="서울숲 일대"
+                  error={errors.location?.message}
+                  {...register('location')}
+                />
+              ) : (
+                <>
+                  <span className="text-body2-medium">장소</span>
+                  {location && (
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-body2-regular">{location}</p>
+                      <Button variant="secondary" size="s" onClick={() => setSearching(true)}>
+                        다시 검색
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+              {(!location || searching || manualRegion.sido) && (
+                <AddressSearch
+                  defaultOpen={searching}
+                  onSelect={({ address, sido, sigungu }) => {
+                    setValue('location', address, { shouldValidate: true, shouldDirty: true })
+                    setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
+                    setValue('regionSigungu', sigungu, {
+                      shouldValidate: isSubmitted,
+                      shouldDirty: true,
+                    })
+                    setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
+                    setSearching(false)
+                  }}
+                  onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
                 />
               )}
+              {!manualRegion.sido && errors.location?.message && (
+                <p className="text-caption-regular text-text-danger">{errors.location.message}</p>
+              )}
+            </div>
+            {(manualRegion.sido || manualRegion.sigungu) && (
+              <div className="flex gap-4">
+                {manualRegion.sido && (
+                  <TextField
+                    label="시·도"
+                    placeholder="서울특별시"
+                    error={errors.regionSido?.message}
+                    className="flex-1"
+                    {...register('regionSido')}
+                  />
+                )}
+                <TextField
+                  label="시·군·구"
+                  placeholder="성동구"
+                  error={errors.regionSigungu?.message}
+                  className="flex-1"
+                  {...register('regionSigungu')}
+                />
+              </div>
+            )}
+            {(location || manualRegion.sido) && (
+              <TextField
+                label="상세 주소"
+                placeholder="건물명, 출입구 등"
+                error={errors.locationDetail?.message}
+                {...register('locationDetail')}
+              />
+            )}
+            <Textarea
+              label="대회 소개"
+              maxLength={2000}
+              error={errors.description?.message}
+              {...register('description')}
             />
-          </div>
-          <div className="flex gap-4">
-            <TextField
-              label="장소"
-              placeholder="서울숲 일대"
-              error={errors.location?.message}
-              className="flex-1"
-              {...register('location')}
-            />
-            <TextField
-              label="시·도"
-              placeholder="서울특별시"
-              helper="대회 찾기의 지역 필터에 쓰여요"
-              readOnly={!manualRegion.sido}
-              error={errors.regionSido?.message}
-              className="flex-1"
-              {...register('regionSido')}
-            />
-            <TextField
-              label="시·군·구"
-              placeholder="성동구"
-              readOnly={!manualRegion.sigungu}
-              error={errors.regionSigungu?.message}
-              className="flex-1"
-              {...register('regionSigungu')}
-            />
-          </div>
-          <AddressSearch
-            onSelect={({ sido, sigungu }) => {
-              setValue('regionSido', sido, { shouldValidate: true, shouldDirty: true })
-              setValue('regionSigungu', sigungu, { shouldValidate: isSubmitted, shouldDirty: true })
-              setManualRegion((manual) => ({ ...manual, sigungu: manual.sido || !sigungu }))
-            }}
-            onUnavailable={() => setManualRegion({ sido: true, sigungu: true })}
-          />
-          <div className="flex gap-4">
-            {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
-            <DateTimeField
-              mode="range"
-              withTime={false}
-              label="접수 기간"
-              helper="마감일 23:59까지 받아요 · 오늘로부터 이틀 뒤부터 · 대회 전날까지"
-              error={errors.individualOpenAt?.message ?? errors.applicationCloseAt?.message}
-              isDateDisabled={(date) =>
-                isBeforeSaleOpen(date) || (raceDay !== undefined && !isBefore(date, raceDay))
-              }
-              startMonth={startOfToday()}
-              onValueChange={(range) => {
-                setValue('individualOpenAt', range.from, {
-                  shouldValidate: isSubmitted,
-                })
-                setValue('applicationCloseAt', range.to, {
-                  shouldValidate: isSubmitted,
-                })
-              }}
-              className="flex-1"
-            />
-            <TextField
-              label="참가 가능 나이"
-              defaultValue="종목마다 최소 · 최대 나이를 정해요"
-              helper="대회 당일 만 나이 · 최소는 만 14세 이상"
-              readOnly
-              className="flex-1"
-            />
-          </div>
-        </ConsoleCard>
+          </ConsoleCard>
 
-        <ConsoleCard title="이미지">
-          <div className="flex gap-4">
-            <ImageUpload
-              label="대표 이미지 (필수 · 1장)"
-              helper="정사각(1:1) 1125×1125px 권장 · 대회 목록과 대회 상세 맨 위에 보여요"
-              value={cover}
-              error={coverError}
-              onOpen={() => {
-                setDropped(null)
-                setCropOpen(true)
-              }}
-              onFilesDrop={(files) => {
-                setDropped(files[0] ?? null)
-                setCropOpen(true)
-              }}
-              onRemove={() => {
-                setCover([])
-                setCoverFile(null)
-              }}
-              className="flex-1"
-            />
-            <ImageUpload
-              type="multiple"
-              label="소개 이미지 (여러 장)"
-              helper="코스 · 타임테이블 · 기념품 사이즈표를 넣어 주세요"
-              value={intro}
-              error={introError}
-              onOpen={() => openList()}
-              onFilesDrop={openList}
-              onRemove={(id) => setIntro((prev) => prev.filter((v) => v.id !== id))}
-              className="flex-1"
-            />
+          <ConsoleCard title="판매 일정">
+            <div className="flex flex-col gap-4">
+              {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
+              <DateTimeField
+                mode="range"
+                withTime={false}
+                label="접수 기간"
+                helper="마감일 23:59까지 받아요 · 오늘로부터 이틀 뒤부터 · 대회 전날까지"
+                error={errors.individualOpenAt?.message ?? errors.applicationCloseAt?.message}
+                isDateDisabled={(date) =>
+                  isBeforeSaleOpen(date) || (raceDay !== undefined && !isBefore(date, raceDay))
+                }
+                startMonth={startOfToday()}
+                onValueChange={(range) => {
+                  setValue('individualOpenAt', range.from, {
+                    shouldValidate: isSubmitted,
+                  })
+                  setValue('applicationCloseAt', range.to, {
+                    shouldValidate: isSubmitted,
+                  })
+                }}
+              />
+              <TextField
+                label="참가 가능 나이"
+                defaultValue="종목마다 성인만 받을지 정해요"
+                helper="대회 당일 만 나이 · 성인은 만 19세 이상"
+                readOnly
+              />
+            </div>
+          </ConsoleCard>
+        </div>
+
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+          <ConsoleCard title="이미지">
+            <div className="flex flex-col gap-4">
+              <ImageUpload
+                label="대표 이미지 (필수 · 1장)"
+                helper="정사각(1:1) 1125×1125px 권장 · 대회 목록과 대회 상세 맨 위에 보여요"
+                value={cover}
+                error={coverError}
+                onOpen={() => {
+                  setDropped(null)
+                  setCropOpen(true)
+                }}
+                onFilesDrop={(files) => {
+                  setDropped(files[0] ?? null)
+                  setCropOpen(true)
+                }}
+                onRemove={() => {
+                  setCover([])
+                  setCoverFile(null)
+                }}
+                className="flex-1"
+              />
+              <ImageUpload
+                type="multiple"
+                label="소개 이미지 (여러 장)"
+                helper="코스 · 타임테이블 · 기념품 사이즈표를 넣어 주세요"
+                value={intro}
+                error={introError}
+                onOpen={() => openList()}
+                onFilesDrop={openList}
+                onRemove={(id) => setIntro((prev) => prev.filter((v) => v.id !== id))}
+                className="flex-1"
+              />
+            </div>
+          </ConsoleCard>
+
+          <div className="flex flex-col gap-6">
+            <ConsoleCard title="취소 · 환불">
+              <Controller
+                control={control}
+                name="refundDeadline"
+                render={({ field }) => (
+                  // 백엔드는 날짜만 받고 그 날 23:59:59까지로 본다
+                  <DateTimeField
+                    mode="single"
+                    withTime={false}
+                    label="환불 기한"
+                    helper="이 날짜(23:59)까지 취소하면 전액 환불, 그 뒤 개인 사정 환불은 안 돼요. 결제 전에 구매자에게 보여 줘요."
+                    error={errors.refundDeadline?.message}
+                    isDateDisabled={(date) =>
+                      isPast(date) || (raceDay !== undefined && isAfter(date, raceDay))
+                    }
+                    startMonth={startOfToday()}
+                    onValueChange={field.onChange}
+                  />
+                )}
+              />
+            </ConsoleCard>
+
+            <ConsoleCard
+              title="키트"
+              aside={
+                <Button
+                  variant="secondary"
+                  size="s"
+                  onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
+                >
+                  옵션 추가
+                </Button>
+              }
+            >
+              <p className="text-caption-regular text-text-tertiary">
+                키트는 배송으로만 보내요. 환불 기한이 지난 뒤, 참가 신청 때 받은 주소로 보내요.
+                사이즈는 옵션마다 신청 때 받아요.
+              </p>
+              <DataTable
+                label="키트 옵션"
+                rows={kitFields.fields.map((f, index) => ({ id: f.id, index }))}
+                rowKey={(r) => r.id}
+                columns={[
+                  {
+                    key: 'name',
+                    header: '옵션 이름',
+                    render: ({ index }) => (
+                      <TextField
+                        aria-label={`옵션 이름 ${index + 1}`}
+                        placeholder="티셔츠"
+                        error={errors.kitOptions?.[index]?.name?.message}
+                        {...register(`kitOptions.${index}.name`)}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'value',
+                    header: '옵션 값',
+                    render: ({ index }) => (
+                      <TextField
+                        aria-label={`옵션 값 ${index + 1}`}
+                        placeholder="M"
+                        error={errors.kitOptions?.[index]?.value?.message}
+                        {...register(`kitOptions.${index}.value`)}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'stock',
+                    header: '준비 수량',
+                    render: ({ index }) => (
+                      <TextField
+                        aria-label={`준비 수량 ${index + 1}`}
+                        inputMode="numeric"
+                        filter={digitsOnly}
+                        placeholder="맞춤 제작"
+                        error={errors.kitOptions?.[index]?.stock?.message}
+                        {...register(`kitOptions.${index}.stock`)}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'remove',
+                    header: '',
+                    align: 'right',
+                    render: ({ index }) => (
+                      <Button
+                        variant="secondary"
+                        size="s"
+                        className="text-text-danger"
+                        aria-label={`키트 옵션 ${index + 1} 삭제`}
+                        onClick={() => kitFields.remove(index)}
+                      >
+                        삭제
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
+              <p className="text-caption-regular text-text-tertiary">
+                판매가 시작되면 옵션을 바꿀 수 없고 준비 수량만 늘릴 수 있어요.
+              </p>
+            </ConsoleCard>
           </div>
-        </ConsoleCard>
+        </div>
 
         <ConsoleCard
           title="종목 · 참가권"
           aside={
-            <button type="button" className={LINK} onClick={() => setCourseOpen(true)}>
+            <Button variant="secondary" size="s" onClick={() => setCourseOpen(true)}>
               종목 추가
-            </button>
+            </Button>
           }
         >
           <DataTable
@@ -375,14 +528,15 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                 header: '',
                 align: 'right',
                 render: (r) => (
-                  <button
-                    type="button"
-                    className={LINK}
+                  <Button
+                    variant="secondary"
+                    size="s"
+                    className="text-text-danger"
                     aria-label={`${r.course} 종목 삭제`}
                     onClick={() => courseFields.remove(r.index)}
                   >
                     삭제
-                  </button>
+                  </Button>
                 ),
               },
             ]}
@@ -390,113 +544,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           {errors.courses?.message && (
             <p className="text-body2-regular text-text-danger">{errors.courses.message}</p>
           )}
-          <Alert
-            className={CONSOLE_BOX}
-            title="다른 곳에서도 함께 팔 수 있어요"
-            description="정원에는 크루런에 배정할 수량만 적어 주세요. 한 사람 한 대회 1건 규칙은 크루런 안에서만 지켜져요."
-          />
-        </ConsoleCard>
-
-        <ConsoleCard title="취소 · 환불 정책">
-          <Controller
-            control={control}
-            name="refundDeadline"
-            render={({ field }) => (
-              // 백엔드는 날짜만 받고 그 날 23:59:59까지로 본다
-              <DateTimeField
-                mode="single"
-                withTime={false}
-                label="환불 기한"
-                helper="이 날짜(23:59)까지 취소하면 전액 환불, 그 뒤 개인 사정 환불은 안 돼요. 결제 전에 구매자에게 보여 줘요."
-                error={errors.refundDeadline?.message}
-                isDateDisabled={(date) =>
-                  isPast(date) || (raceDay !== undefined && isAfter(date, raceDay))
-                }
-                startMonth={startOfToday()}
-                onValueChange={field.onChange}
-              />
-            )}
-          />
-        </ConsoleCard>
-
-        <ConsoleCard
-          title="키트 배송"
-          aside={
-            <button
-              type="button"
-              className={LINK}
-              onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
-            >
-              옵션 추가
-            </button>
-          }
-        >
-          <p className="text-caption-regular text-text-tertiary">
-            키트는 배송으로만 보내요. 환불 기한이 지난 뒤, 참가 신청 때 받은 주소로 보내요. 사이즈는
-            옵션마다 신청 때 받아요.
-          </p>
-          <DataTable
-            label="키트 옵션"
-            rows={kitFields.fields.map((f, index) => ({ id: f.id, index }))}
-            rowKey={(r) => r.id}
-            columns={[
-              {
-                key: 'name',
-                header: '옵션 이름',
-                render: ({ index }) => (
-                  <TextField
-                    aria-label={`옵션 이름 ${index + 1}`}
-                    placeholder="티셔츠"
-                    error={errors.kitOptions?.[index]?.name?.message}
-                    {...register(`kitOptions.${index}.name`)}
-                  />
-                ),
-              },
-              {
-                key: 'value',
-                header: '옵션 값',
-                render: ({ index }) => (
-                  <TextField
-                    aria-label={`옵션 값 ${index + 1}`}
-                    placeholder="M"
-                    error={errors.kitOptions?.[index]?.value?.message}
-                    {...register(`kitOptions.${index}.value`)}
-                  />
-                ),
-              },
-              {
-                key: 'stock',
-                header: '준비 수량',
-                render: ({ index }) => (
-                  <TextField
-                    aria-label={`준비 수량 ${index + 1}`}
-                    inputMode="numeric"
-                    placeholder="맞춤 제작"
-                    error={errors.kitOptions?.[index]?.stock?.message}
-                    {...register(`kitOptions.${index}.stock`)}
-                  />
-                ),
-              },
-              {
-                key: 'remove',
-                header: '',
-                align: 'right',
-                render: ({ index }) => (
-                  <button
-                    type="button"
-                    className={LINK}
-                    aria-label={`키트 옵션 ${index + 1} 삭제`}
-                    onClick={() => kitFields.remove(index)}
-                  >
-                    삭제
-                  </button>
-                ),
-              },
-            ]}
-          />
-          <p className="text-caption-regular text-text-tertiary">
-            판매가 시작되면 옵션을 바꿀 수 없고 준비 수량만 늘릴 수 있어요.
-          </p>
         </ConsoleCard>
       </form>
 

@@ -247,14 +247,20 @@ class ApiV1PartyQueryTest {
 	}
 
 	@Test
-	@DisplayName("회원 서비스에 닉네임을 묻지 못하면 503")
+	@DisplayName("회원 서비스에 닉네임을 묻지 못해도 파티를 보여 주고 이름만 「크루원」으로 둔다 (CRU-74)")
 	void nicknameUnavailable() throws Exception {
-		create(LEADER, COURSE);
+		String token = create(LEADER, COURSE);
 		memberPorts.setUnavailable(true);
 
 		detail(LEADER, partyId())
-			.andExpect(status().isServiceUnavailable())
-			.andExpect(jsonPath("$.code").value("ORDER_EXTERNAL_SERVICE_UNAVAILABLE"));
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.members[0].nickname").value("크루원"));
+		crewActive(MEMBER)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data[0].leaderNickname").value("크루원"));
+		preview(OTHER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.leaderNickname").value("크루원"));
 	}
 
 	private void confirm(long memberId) {

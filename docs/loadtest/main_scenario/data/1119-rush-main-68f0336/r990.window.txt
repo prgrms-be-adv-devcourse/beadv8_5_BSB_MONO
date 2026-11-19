@@ -1,0 +1,1 @@
+stage=r990 script=rush.js start_utc=2026-11-19T10:07:43Z end_utc=2026-11-19T10:12:36Z k6_exit=99 buy_race=76 buy_course=196 wait_race=77 wait_course=197

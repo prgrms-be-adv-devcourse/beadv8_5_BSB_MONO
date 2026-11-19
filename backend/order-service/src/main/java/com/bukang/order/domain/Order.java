@@ -283,14 +283,6 @@ public class Order extends BaseIdAndTime {
 			.anyMatch(item -> item.getParticipationId() == participationId && item.isCanceling());
 	}
 
-	// 참가 신청의 키트를 이미 보냈는지 (배송 중·배송 완료). 보낸 뒤에는 키트 옵션을 바꾸지 못한다 (BUK-226)
-	public boolean isKitShipped(long participationId) {
-		return items.stream()
-			.filter(item -> item.getParticipationId() == participationId)
-			.map(this::findKitShipment)
-			.anyMatch(shipment -> shipment != null && shipment.isShipped());
-	}
-
 	// 주문 상품 하나를 취소한다. 모두 취소되면 CANCELED, 일부만이면 PARTIAL_CANCELED (정책 5장, ERD D3)
 	// 아직 보내지 않은 키트 배송도 함께 취소해 판매자 목록에서 뺀다. 보낸 배송은 그대로 둔다 (BUK-6)
 	public void cancelItem(OrderItem item, LocalDateTime canceledAt) {
@@ -393,7 +385,7 @@ public class Order extends BaseIdAndTime {
 	}
 
 	// 주문 상품이 든 배송. 재발송이 생기면 여러 건일 수 있어 가장 나중 것을 쓴다. 키트가 없거나 결제 전이면 null
-	private Shipment findKitShipment(OrderItem item) {
+	public Shipment findKitShipment(OrderItem item) {
 		return shipments.reversed().stream()
 			.filter(shipment -> shipment.contains(item))
 			.findFirst()

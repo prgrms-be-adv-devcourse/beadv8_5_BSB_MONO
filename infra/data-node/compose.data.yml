@@ -132,6 +132,52 @@ services:
     volumes:
       - /:/host:ro,rslave
 
+  # ── 게이트웨이 2 (CRU-75) ──
+  # 메인 EC2 CPU(2코어)를 가장 많이 쓰는 게이트웨이를 하나 더 두어, 메인 nginx가 요청을 반씩 나눠 보낸다 (k8s/overlays/aws/nginx-upstreams.conf)
+  # 메인 k3s의 게이트웨이 1과 같은 이미지·같은 커밋이다. k8s-cd가 메인 배포 뒤 deploy.sh <SHA> gateway로 이것만 바꾼다
+  #   인프라 배포(deploy.sh <SHA>)는 이 컨테이너를 건드리지 않는다. 버전이 게이트웨이 1과 어긋나지 않게 하려고
+  # 서비스는 k3s 안에만 있어, 메인 EC2의 NodePort(30080~30092, k8s/overlays/aws/gateway2-nodeports.yaml)로 보낸다
+  #   주소는 환경 변수 GATEWAY_SERVICES_*가 application-prod.yaml의 gateway.services.*를 덮어쓴다 (코드 변경 없음)
+  # 게이트웨이는 요청이 늘면 CPU를 쓰고 메모리는 거의 그대로다(운영 측정 257~323MB). 한도 512MB, 넘으면 이 컨테이너만 다시 뜬다
+  # 값이 없어도 인프라 배포가 멈추지 않게 :- 로 읽고, 빈 값은 deploy.sh gateway 단계에서 막는다
+  bukang-gateway2:
+    image: ghcr.io/prgrms-be-adv-devcourse/bukang-gateway:${GATEWAY_TAG:-not-set}
+    container_name: bukang-gateway2
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # 메인의 app-secret JWT_SECRET(Parameter Store /crewrun/prod/JWT_SECRET)과 같은 값이어야 토큰이 통과한다
+      JWT_SECRET: ${JWT_SECRET:-}
+      # 같은 서버의 Redis (compose 네트워크 이름). 게이트웨이 1도 이 Redis를 쓴다
+      REDIS_HOST: bukang-redis
+      REDIS_PORT: "6379"
+      GATEWAY_SERVICES_MEMBER: http://${MAIN_NODE_IP:-10.0.1.145}:30080
+      GATEWAY_SERVICES_CASH: http://${MAIN_NODE_IP:-10.0.1.145}:30081
+      GATEWAY_SERVICES_PAYOUT: http://${MAIN_NODE_IP:-10.0.1.145}:30082
+      GATEWAY_SERVICES_FILE: http://${MAIN_NODE_IP:-10.0.1.145}:30083
+      GATEWAY_SERVICES_ORDER: http://${MAIN_NODE_IP:-10.0.1.145}:30084
+      GATEWAY_SERVICES_PRODUCT: http://${MAIN_NODE_IP:-10.0.1.145}:30085
+      GATEWAY_SERVICES_QUEUE: http://${MAIN_NODE_IP:-10.0.1.145}:30086
+      GATEWAY_SERVICES_NOTIFICATION: http://${MAIN_NODE_IP:-10.0.1.145}:30087
+      GATEWAY_SERVICES_INQUIRY: http://${MAIN_NODE_IP:-10.0.1.145}:30088
+      GATEWAY_SERVICES_BOARD: http://${MAIN_NODE_IP:-10.0.1.145}:30089
+      GATEWAY_SERVICES_AI: http://${MAIN_NODE_IP:-10.0.1.145}:30092
+      # 메인 k3s의 Spring 앱과 같은 JVM 옵션 (k8s/base/patches/spring-common.yaml)
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k"
+    mem_limit: 512m
+    # 메인 nginx만 접속한다. 보안 그룹이 메인 EC2에서 오는 8000만 허용한다
+    ports:
+      - "${DATA_NODE_BIND_IP:?}:8000:8000"
+    # 지표(/actuator/prometheus)도 이 포트로 메인 수집기가 가져간다 (k8s/overlays/aws/monitoring/prometheus.yml)
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8000" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 180s
+    depends_on:
+      - bukang-redis
+
 volumes:
   # name을 정해 두어 프로젝트 이름이 바뀌어도 같은 볼륨을 쓴다. down -v 를 하면 데이터가 모두 사라진다
   bukang-db-data:

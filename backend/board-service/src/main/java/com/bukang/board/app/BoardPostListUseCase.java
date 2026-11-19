@@ -1,5 +1,6 @@
 package com.bukang.board.app;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +47,7 @@ public class BoardPostListUseCase {
 	private final BoardCommentRepository boardCommentRepository;
 	private final BoardMemberRepository boardMemberRepository;
 	private final BoardPostSearchPort boardPostSearchPort;
+	private final Clock clock;
 
 	public record Page(List<PostSummaryDto> items, String nextCursor) {
 	}
@@ -65,21 +67,20 @@ public class BoardPostListUseCase {
 		List<BoardCategory> categories = category == null ? List.of(BoardCategory.values()) : List.of(category);
 		PageRequest limit = PageRequest.of(0, pageSize + 1);
 
+		PostCursor after = PostCursor.parse(sort, cursor);
 		List<BoardPost> found;
 		if (sort == PostSort.POPULAR) {
-			long[] after = parsePopularCursor(cursor);
 			found = boardPostRepository.findPopular(categories, searching, matchedIds,
-				LocalDateTime.now().minusDays(POPULAR_DAYS), after[0], after[1], limit);
+				LocalDateTime.now(clock).minusDays(POPULAR_DAYS), after.likeCount(), after.postId(), limit);
 		} else {
-			found = boardPostRepository.findLatest(categories, searching, matchedIds, parseLatestCursor(cursor), limit);
+			found = boardPostRepository.findLatest(categories, searching, matchedIds, after.postId(), limit);
 		}
 
 		boolean hasNext = found.size() > pageSize;
 		List<BoardPost> posts = hasNext ? found.subList(0, pageSize) : found;
 		String nextCursor = null;
 		if (hasNext) {
-			BoardPost last = posts.getLast();
-			nextCursor = sort == PostSort.POPULAR ? last.getLikeCount() + "-" + last.getId() : "" + last.getId();
+			nextCursor = PostCursor.of(posts.getLast()).format(sort);
 		}
 		return new Page(toDtos(posts), nextCursor);
 	}
@@ -93,9 +94,8 @@ public class BoardPostListUseCase {
 		for (Object[] row : boardCommentRepository.countVisibleByPostIds(postIds)) {
 			commentCounts.put((Long)row[0], (Long)row[1]);
 		}
-		Map<Long, BoardMember> writers = new HashMap<>();
-		boardMemberRepository.findAllById(posts.stream().map(BoardPost::getMemberId).distinct().toList())
-			.forEach(member -> writers.put(member.getId(), member));
+		Map<Long, BoardMember> writers = boardMemberRepository
+			.writersOf(posts.stream().map(BoardPost::getMemberId).toList());
 		return posts.stream()
 			.map(post -> PostSummaryDto.of(post, WriterDto.of(writers.get(post.getMemberId())),
 				commentCounts.getOrDefault(post.getId(), 0L)))
@@ -109,54 +109,5 @@ public class BoardPostListUseCase {
 			throw new BoardInvalidListRequestException("검색어는 " + QUERY_MAX + "자 이하로 입력해주세요.");
 		}
 		return trimmed;
-	}
-
-	private long parseLatestCursor(String cursor) {
-		if (isFirstPage(cursor)) {
-			return Long.MAX_VALUE;
-		}
-		return parsePositive(cursor);
-	}
-
-	// [좋아요 수, 글 ID]. 처음 쪽은 [MAX, MAX]라 모든 글이 뒤에 온다
-	private long[] parsePopularCursor(String cursor) {
-		if (isFirstPage(cursor)) {
-			return new long[] {Long.MAX_VALUE, Long.MAX_VALUE};
-		}
-		String[] parts = cursor.split("-", -1);
-		if (parts.length != 2) {
-			throw invalidCursor();
-		}
-		long likes = parseNumber(parts[0]);
-		return new long[] {likes, parsePositive(parts[1])};
-	}
-
-	// cursor를 비워서(cursor=) 보내도 첫 쪽이다
-	private boolean isFirstPage(String cursor) {
-		return cursor == null || cursor.isBlank();
-	}
-
-	private long parsePositive(String text) {
-		long value = parseNumber(text);
-		if (value < 1) {
-			throw invalidCursor();
-		}
-		return value;
-	}
-
-	private long parseNumber(String text) {
-		try {
-			long value = Long.parseLong(text);
-			if (value < 0) {
-				throw invalidCursor();
-			}
-			return value;
-		} catch (NumberFormatException exception) {
-			throw invalidCursor();
-		}
-	}
-
-	private BoardInvalidListRequestException invalidCursor() {
-		return new BoardInvalidListRequestException("cursor가 올바르지 않습니다.");
 	}
 }

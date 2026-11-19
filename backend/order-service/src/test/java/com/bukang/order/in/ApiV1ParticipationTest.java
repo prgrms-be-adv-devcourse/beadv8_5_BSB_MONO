@@ -39,7 +39,10 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
+import com.bukang.order.out.member.MemberIdentityPort.MemberIdentity;
 import com.bukang.order.support.SeatOutboxMessages;
+import com.bukang.order.support.StubMemberPorts;
+import com.bukang.order.support.StubMemberPortsConfig;
 import com.bukang.order.support.StubRaceCoursePort;
 import com.bukang.order.support.StubRaceCoursePortConfig;
 import com.bukang.order.support.StubSeatHoldPort;
@@ -48,7 +51,7 @@ import com.bukang.order.support.StubSeatHoldPortConfig;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class})
+@Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubMemberPortsConfig.class})
 class ApiV1ParticipationTest {
 	private static final String BASE_URL = "/api/v1/order/participations";
 	private static final long MEMBER_ID = 1;
@@ -73,6 +76,9 @@ class ApiV1ParticipationTest {
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
 
+	@Autowired
+	private StubMemberPorts memberPorts;
+
 	@BeforeEach
 	void setUp() {
 		orderOutboxKafkaEventRepository.deleteAll();
@@ -84,6 +90,7 @@ class ApiV1ParticipationTest {
 		participationRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
+		memberPorts.clear();
 		orderOutboxKafkaEventRepository.deleteAll();
 	}
 
@@ -115,6 +122,7 @@ class ApiV1ParticipationTest {
 	@Test
 	@DisplayName("휴대폰 번호는 010-1234-5678 형식으로, 티셔츠 사이즈는 대문자로, 빈 상세 주소는 null로, 배송지는 앞뒤 공백을 빼고 저장한다")
 	void applyNormalizesInput() throws Exception {
+		memberPorts.identity(MEMBER_ID, new MemberIdentity(" 김러너 ", LocalDate.of(1994, 6, 25), "01012345678"));
 		String body = """
 			{ "raceCourseId": %d, "thirdPartyConsent": true,
 				"participant": { "name": " 김러너 ", "birth": "1994-06-25", "gender": "FEMALE",
@@ -206,13 +214,8 @@ class ApiV1ParticipationTest {
 	}
 
 	@Test
-	@DisplayName("필수 항목(참가자 정보, 비상 연락처, 제3자 제공 동의)이 빠지면 400이고 저장되지 않는다")
+	@DisplayName("필수 항목(비상 연락처, 제3자 제공 동의)이 빠지면 400이고 저장되지 않는다")
 	void applyWithoutRequired() throws Exception {
-		apply(MEMBER_ID, applyBody(COURSE_ID, participant("", "1994-06-25", "L"), true))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.message").value("참가자 이름을 작성해주세요."))
-			.andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-
 		String noEmergency = """
 			{ "raceCourseId": %d, "thirdPartyConsent": true,
 				"participant": { "name": "김러너", "birth": "1994-06-25", "gender": "MALE",
@@ -231,11 +234,57 @@ class ApiV1ParticipationTest {
 	}
 
 	@Test
+	@DisplayName("참가자 이름·생년월일·휴대폰은 요청 값이 아니라 회원 본인인증 값으로 저장한다 (신청·수정 모두, CRU-59)")
+	void participantFromMemberIdentity() throws Exception {
+		memberPorts.identity(MEMBER_ID, new MemberIdentity("이본인", LocalDate.of(1990, 3, 3), "01055556666"));
+
+		apply(MEMBER_ID, applyBody(COURSE_ID, participant("남의이름", "2000-01-01", "L"), true))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.participant.name").value("이본인"))
+			.andExpect(jsonPath("$.data.participant.birth").value("1990-03-03"))
+			.andExpect(jsonPath("$.data.participant.phone").value("010-5555-6666"));
+		long id = participationRepository.findFirstByMemberIdOrderByIdDesc(MEMBER_ID).orElseThrow().getId();
+
+		// 이름·생년월일·휴대폰을 빼고 보내도 신청된다
+		String withoutIdentity = """
+			{ "gender": "MALE", "emergencyContactName": "김가족", "emergencyContactPhone": "010-9876-5432",
+				"tshirtSize": "XL", "shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
+				"zipcode": "04700", "address": "%s" } }
+			""".formatted(ADDRESS);
+		change(MEMBER_ID, id, withoutIdentity)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.participant.name").value("이본인"));
+
+		ParticipantInfo saved = participationRepository.findById(id).orElseThrow().getParticipant();
+		assertThat(saved.getName()).isEqualTo("이본인");
+		assertThat(saved.getBirth()).isEqualTo(LocalDate.of(1990, 3, 3));
+		assertThat(saved.getPhone()).isEqualTo("010-5555-6666");
+		assertThat(saved.getTshirtSize()).isEqualTo("XL");
+	}
+
+	@Test
+	@DisplayName("본인인증 값이 빈 회원은 409로 본인인증을 먼저 하게 하고, 회원 서비스에 연결하지 못하면 503이다. 둘 다 아무것도 남지 않는다")
+	void applyWithoutMemberIdentity() throws Exception {
+		memberPorts.identity(MEMBER_ID, new MemberIdentity("이본인", LocalDate.of(1990, 3, 3), null));
+		apply(MEMBER_ID, applyBody(COURSE_ID, participant("김러너", "1994-06-25", "L"), true))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_IDENTITY_VERIFICATION_REQUIRED"));
+
+		memberPorts.clear();
+		memberPorts.setUnavailable(true);
+		apply(MEMBER_ID, applyBody(COURSE_ID, participant("김러너", "1994-06-25", "L"), true))
+			.andExpect(status().isServiceUnavailable());
+
+		assertThat(participationRepository.count()).isZero();
+		assertThat(orderOutboxKafkaEventRepository.count()).isZero();
+	}
+
+	@Test
 	@DisplayName("대회 당일 만 나이가 종목의 나이 제한 밖이면 400이다")
 	void applyOutOfAgeRange() throws Exception {
-		String birth = LocalDate.now().minusYears(12).toString();
+		memberPorts.identity(MEMBER_ID, new MemberIdentity("김어린", LocalDate.now().minusYears(12), "010-1234-5678"));
 
-		apply(MEMBER_ID, applyBody(COURSE_ID, participant("김어린", birth, "S"), true))
+		apply(MEMBER_ID, applyBody(COURSE_ID, participant("김어린", "1994-06-25", "S"), true))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("참가할 수 있는 나이가 아닙니다(대회 당일 만 14세 이상, 신청자 만 12세)."))
 			.andExpect(jsonPath("$.code").value("ORDER_AGE_RESTRICTED"));
@@ -254,7 +303,7 @@ class ApiV1ParticipationTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.status").value("PENDING"))
 			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_ID + 1))
-			.andExpect(jsonPath("$.data.participant.name").value("박러너"));
+			.andExpect(jsonPath("$.data.participant.name").value("김러너"));
 
 		Participation replaced = participationRepository.findById(first).orElseThrow();
 		assertThat(replaced.getStatus()).isEqualTo(ParticipationStatus.CANCELED);
@@ -271,9 +320,9 @@ class ApiV1ParticipationTest {
 	@DisplayName("다시 신청한 내용이 잘못되면(나이 제한 밖) 400이고, 남아 있던 결제 전 신청서는 취소하지 않는다")
 	void invalidApplyKeepsPendingParticipation() throws Exception {
 		long first = applyAndGetId(MEMBER_ID);
-		String birth = LocalDate.now().minusYears(12).toString();
+		memberPorts.identity(MEMBER_ID, new MemberIdentity("김어린", LocalDate.now().minusYears(12), "010-1234-5678"));
 
-		apply(MEMBER_ID, applyBody(COURSE_ID, participant("김어린", birth, "S"), true))
+		apply(MEMBER_ID, applyBody(COURSE_ID, participant("김어린", "1994-06-25", "S"), true))
 			.andExpect(status().isBadRequest());
 
 		assertThat(participationRepository.findById(first).orElseThrow().getStatus())
@@ -536,10 +585,12 @@ class ApiV1ParticipationTest {
 		change(OTHER_MEMBER_ID, id, participant("박러너", "1990-01-01", "M"))
 			.andExpect(status().isForbidden());
 
-		change(MEMBER_ID, id, participant("김러너", LocalDate.now().minusYears(10).toString(), "L"))
+		memberPorts.identity(MEMBER_ID, new MemberIdentity("김러너", LocalDate.now().minusYears(10), "010-1234-5678"));
+		change(MEMBER_ID, id, participant("김러너", "1994-06-25", "L"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("참가할 수 있는 나이가 아닙니다(대회 당일 만 14세 이상, 신청자 만 10세)."))
 			.andExpect(jsonPath("$.code").value("ORDER_AGE_RESTRICTED"));
+		memberPorts.clear();
 
 		finish(id, ParticipationStatus.CANCELED);
 		change(MEMBER_ID, id, participant("김러너", "1994-06-25", "XL"))

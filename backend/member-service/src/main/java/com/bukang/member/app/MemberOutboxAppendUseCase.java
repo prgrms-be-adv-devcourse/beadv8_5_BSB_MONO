@@ -2,6 +2,7 @@ package com.bukang.member.app;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -12,17 +13,21 @@ import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.crew.event.CrewLeaderChangedEvent;
 import com.bukang.common.shared.crew.event.CrewMemberJoinedEvent;
 import com.bukang.common.shared.crew.event.CrewMemberLeftEvent;
+import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
 import com.bukang.common.shared.kafka.KafkaTopics;
 import com.bukang.common.shared.member.event.MarketingConsentChangedEvent;
 import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
 import com.bukang.common.shared.member.event.MemberWithdrawnEvent;
+import com.bukang.common.shared.recordcert.event.RecordCertCheckRequestedEvent;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.crew.domain.Crew;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.MemberOutboxEvent;
 import com.bukang.member.domain.Seller;
 import com.bukang.member.out.MemberOutboxEventRepository;
+import com.bukang.member.recordcert.domain.RecordCert;
+import com.bukang.member.recordcert.domain.RecordCertSubmission;
 
 import lombok.RequiredArgsConstructor;
 
@@ -41,6 +46,8 @@ public class MemberOutboxAppendUseCase {
 	// 크루원 이탈·가입·크루장 변경 이벤트는 대상이 Crew:크루ID라, 릴레이가 같은 크루의 이벤트를 저장한 순서대로 보낸다.
 	// 다만 토픽이 서로 달라서, 받는 쪽에 도착하는 순서는 토픽 사이에서 보장하지 못한다 (Kafka key = 크루 ID)
 	private static final String CREW = Crew.class.getSimpleName();
+	private static final String RECORD_CERT = RecordCert.class.getSimpleName();
+	private static final String RECORD_CERT_SUBMISSION = RecordCertSubmission.class.getSimpleName();
 
 	private final MemberOutboxEventRepository memberOutboxEventRepository;
 	private final JsonConverter jsonConverter;
@@ -83,6 +90,18 @@ public class MemberOutboxAppendUseCase {
 	@EventListener
 	public void appendCrewLeaderChanged(CrewLeaderChangedEvent event) {
 		append(KafkaTopics.CREW_LEADER_CHANGED, CREW, event.crewId(), event.eventId(), event);
+	}
+
+	// 기록증 서버 확인 요청 (BUK-274). 제출 저장과 같은 트랜잭션에서 직접 부른다. key = 제출 ID
+	public void appendRecordCertCheckRequested(RecordCertCheckRequestedEvent event) {
+		append(KafkaTopics.RECORD_CERT_CHECK_REQUESTED, RECORD_CERT_SUBMISSION, event.submissionId(), event.eventId(),
+			event);
+	}
+
+	// 기록증 사진 연결 요청 (BUK-274). product와 같은 계약이라 본문에 이벤트 ID 칸이 없어 행의 이벤트 ID를 새로 만든다.
+	// file 인박스는 행마다 정해지는 message-id 헤더로 중복을 거른다. key = 기록증 ID
+	public void appendRecordCertFileLink(long recordCertId, FileLinkRequestedEvent event) {
+		append(KafkaTopics.RACE_FILE_LINK_REQUESTED, RECORD_CERT, recordCertId, UUID.randomUUID().toString(), event);
 	}
 
 	// 이벤트 ID가 비면(받는 쪽용 옛 생성자) 받는 쪽이 중복을 거르지 못하므로 막는다. 예외로 회원 데이터도 롤백된다

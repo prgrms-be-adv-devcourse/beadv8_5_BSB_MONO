@@ -24,10 +24,13 @@ export function StatsBlock({
 }) {
   const id = useId()
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-4">
+    <section
+      aria-labelledby={id}
+      className="flex flex-col gap-4 rounded-md border border-border-default bg-bg-surface p-6 shadow-sm"
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h2 id={id} className="text-body1-bold">
+          <h2 id={id} className="text-title3">
             {title}
           </h2>
           {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
@@ -51,12 +54,15 @@ export function SectionState<T>({
   result,
   name,
   skeletonClassName = 'h-40',
+  errorClassName = 'py-8',
   children,
 }: {
   result: UseQueryResult<StatsResponse<T>>
   /** 「구매 단계를 불러오지 못했어요」의 「구매 단계를」 자리 */
   name: string
   skeletonClassName?: string
+  /** 불러오지 못했을 때 안내가 놓이는 영역의 크기 */
+  errorClassName?: string
   children: (data: T) => ReactNode
 }) {
   if (result.isPending) {
@@ -83,12 +89,12 @@ export function SectionState<T>({
     return (
       <EmptyState
         role="alert"
-        className="py-8"
+        icon={null}
+        className={cn('justify-center', errorClassName)}
         title={`${name} 불러오지 못했어요`}
-        description="잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요."
         action={
           <Button variant="secondary" onClick={() => result.refetch()}>
-            다시 시도
+            다시 시도하기
           </Button>
         }
       />

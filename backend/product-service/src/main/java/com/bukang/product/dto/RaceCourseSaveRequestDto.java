@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -66,13 +65,13 @@ public class RaceCourseSaveRequestDto {
 	@PositiveOrZero(message = "키트 금액은 0원 이상이어야 합니다.")
 	private final Long kitPrice;
 
-	// 대회 당일 만 나이. 최소 나이는 만 14세보다 낮게 정할 수 없다 (listing-gaps.md 2장 '등록 정보')
-	@Schema(description = "참가 최소 나이 (대회 당일 만 나이)", example = "14")
+	// 가입에서 만 14세 미만을 막으므로 14는 제한 없음이다. 값 검사는 RaceRequestValidator가 한다 (CRU-54)
+	@Schema(description = "참가 최소 나이 (대회 당일 만 나이). 14는 제한 없음, 19는 성인만이며 다른 값은 받지 않는다",
+		example = "14")
 	@NotNull(message = "참가 최소 나이를 작성해주세요.")
-	@Min(value = 14, message = "참가 최소 나이는 만 14세 이상이어야 합니다.")
 	private final Integer minAge;
 
-	@Schema(description = "참가 최대 나이 (비우면 상한 없음, 최소 나이 이상)", example = "70")
+	@Schema(description = "참가 최대 나이. 받지 않으므로 항상 비운다", example = "null")
 	private final Integer maxAge;
 
 	@Schema(description = "크루 몫 정원 (크루 예매가 없으면 0)", example = "0")
@@ -88,4 +87,10 @@ public class RaceCourseSaveRequestDto {
 	@Schema(description = "종목 이미지 목록 (대표 이미지 1장 필수, 소개 이미지·소개 영상·코스 안내·키트 이미지는 선택)")
 	@NotNull(message = "종목 이미지 목록을 작성해주세요.")
 	private final List<@Valid @NotNull(message = "이미지 항목을 작성해주세요.") RaceImageRequestDto> images;
+
+	// 칸이 없으면(null) 기존 규칙을 그대로 둔다(새 종목은 규칙 없음). 지우려면 세 칸을 모두 비운 {}를 보낸다 (11/17)
+	@Schema(description = "기록증 규칙. 보내지 않으면 기존 규칙 유지(새 종목은 규칙 없음), {}를 보내면 규칙 삭제. "
+		+ "판매 시작 뒤에는 바꿀 수 없다")
+	@Valid
+	private final RecordCertRuleRequestDto recordCertRule;
 }

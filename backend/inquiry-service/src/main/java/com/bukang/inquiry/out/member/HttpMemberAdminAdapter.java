@@ -1,9 +1,7 @@
 package com.bukang.inquiry.out.member;
 
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.inquiry.domain.exception.InquiryExternalServiceUnavailableException;
@@ -31,42 +29,23 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 		new ParameterizedTypeReference<>() {
 		};
 
+	private static final InternalHttpClients.Endpoint ENDPOINT = new InternalHttpClients.Endpoint("회원 서비스",
+		"관리자 여부 요청", MEMBER_NOT_FOUND_CODE, UNAVAILABLE_MESSAGE);
+
 	private final RestClient restClient;
 
 	@Override
 	public boolean isAdmin(long memberId) {
-		RsData<AdminResponse> response;
-		try {
-			response = restClient.get()
-				.uri(PATH, memberId)
-				.retrieve()
-				.body(RESPONSE_TYPE);
-		} catch (HttpClientErrorException.NotFound exception) {
-			if (isMemberNotFound(exception)) {
-				return false;
-			}
-			log.error("회원 서비스가 관리자 여부 요청에 회원 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. memberId={}, body={}",
-				memberId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()), exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		} catch (HttpClientErrorException exception) {
-			// 4xx는 다시 시도해도 풀리지 않는다. 경로 계약이 어긋났을 수 있어 장애와 구분해 남긴다
-			log.error("회원 서비스가 관리자 여부 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, memberId={}",
-				exception.getStatusCode(), memberId, exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		} catch (RestClientException exception) {
-			log.error("회원 서비스에 관리자 여부를 묻지 못했습니다. memberId={}", memberId, exception);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		}
-		if (response == null || response.data() == null || response.data().admin() == null) {
-			log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
-			throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
-		}
-		return response.data().admin();
-	}
-
-	// 회원 서비스가 회원을 찾지 못했다고 답한 404인지 (오류 응답 RsData의 code)
-	static boolean isMemberNotFound(HttpClientErrorException exception) {
-		return InternalHttpClients.hasErrorCode(exception, MEMBER_NOT_FOUND_CODE);
+		// 404 MEMBER_NOT_FOUND는 없거나 탈퇴한 회원이라 관리자가 아니다
+		return InternalHttpClients.getData(restClient, ENDPOINT, RESPONSE_TYPE, PATH, memberId)
+			.map(data -> {
+				if (data.admin() == null) {
+					log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}, data={}", memberId, data);
+					throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
+				}
+				return data.admin();
+			})
+			.orElse(false);
 	}
 
 	// 회원 서비스 응답의 data (member MemberAdminDto). 빈 응답을 구분하려고 Boolean으로 받는다

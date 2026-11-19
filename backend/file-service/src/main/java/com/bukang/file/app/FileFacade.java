@@ -17,6 +17,7 @@ import com.bukang.file.domain.FileDltKafkaEvent;
 import com.bukang.file.domain.FileStatus;
 import com.bukang.file.domain.StoredFile;
 import com.bukang.file.domain.exception.FileAccessDeniedException;
+import com.bukang.file.domain.exception.FileDeleteFailedException;
 import com.bukang.file.domain.exception.InvalidFileException;
 import com.bukang.file.domain.exception.StoredFileNotFoundException;
 import com.bukang.file.dto.FileDto;
@@ -24,12 +25,15 @@ import com.bukang.file.dto.FileLinkItemDto;
 import com.bukang.file.dto.FileLinkRequestDto;
 import com.bukang.file.dto.FileUploadDto;
 import com.bukang.file.dto.FileUploadRequestDto;
+import com.bukang.file.dto.FileUploaderDto;
 import com.bukang.file.out.StoredFileRepository;
 import com.bukang.file.out.storage.FileStorage;
 import com.bukang.file.out.storage.PresignedUpload;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -144,24 +148,74 @@ public class FileFacade {
 		return DltKafkaEventDto.from(fileDltUseCase.completeManually(id, memo, LocalDateTime.now()));
 	}
 
-	// 대상에 연결된 파일만 돌려준다
-	public List<FileDto> findByRef(String refType, long refId) {
+	// 대상에 연결된 파일만 돌려준다. 기록증은 올린 회원에게만 보인다
+	public List<FileDto> findByRef(String refType, long refId, Long memberId) {
 		return storedFileRepository.findAllByRefTypeAndRefIdAndStatus(refType, refId, FileStatus.ACTIVE).stream()
+			.filter(file -> !file.isRecordCert() || isOwner(file, memberId))
 			.sorted(StoredFile.DISPLAY_ORDER)
 			.map(this::toDto)
 			.toList();
 	}
 
 	// 대상에 연결된 파일은 누구나, 연결 전 파일은 올린 회원만 볼 수 있다
+	// 기록증은 개인정보가 있어 연결돼도 올린 회원만 본다. 판매자 · ai-service는 member를 거쳐 보기 주소를 받는다
 	public FileDto findById(long fileId, Long memberId) {
-		StoredFile file = storedFileRepository.findById(fileId)
-			.filter(found -> !found.isDeleted())
-			.orElseThrow(() -> new StoredFileNotFoundException("존재하지 않는 파일입니다."));
-		if (!file.isActive() && (memberId == null || !file.isOwnedBy(memberId))) {
+		StoredFile file = findAlive(fileId);
+		if (file.isRecordCert() && !isOwner(file, memberId)) {
+			throw new FileAccessDeniedException("기록증은 본인이 올린 파일만 볼 수 있습니다.");
+		}
+		if (!file.isActive() && !isOwner(file, memberId)) {
 			throw new FileAccessDeniedException("연결된 파일이 아닙니다(현재 상태: %s). 본인이 올린 파일만 볼 수 있습니다."
 				.formatted(file.getStatus().getLabel()));
 		}
 		return toDto(file);
+	}
+
+	// 내부 API: 소유 · 판매자 확인은 부른 서비스(member)가 이미 했으므로 여기서는 보지 않는다
+	public FileDto findForView(long fileId) {
+		return toDto(findAlive(fileId));
+	}
+
+	// 내부 API: 올린 회원과 용도 · 상태. 연결 여부와 상관없이 답하고, 받을 수 있는 사진인지는 부른 쪽이 정한다 (BUK-274)
+	public FileUploaderDto findUploader(long fileId) {
+		StoredFile file = findAlive(fileId);
+		return new FileUploaderDto(file.getCreateUser(), file.getFileType(), file.getStatus());
+	}
+
+	// 내부 API: 기록증 원본처럼 부른 서비스가 정한 파일을 지운다. 이미 없으면 아무것도 하지 않는다
+	// 정리 배치와 달리 S3 객체를 먼저 지운다. 행을 먼저 지우면 S3 삭제가 실패했을 때 다시 불러도 "이미 없음"이 되어
+	// 객체(개인정보)가 영영 남는다. S3를 지우지 못하면 503으로 답하고 행을 남겨, 부른 쪽이 다시 부르면 이어서 지운다
+	// S3는 지웠는데 행 삭제가 실패해도, 다시 부르면 없는 키 삭제는 성공으로 치므로 행까지 지운다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public void delete(long fileId) {
+		storedFileRepository.findById(fileId).ifPresent(file -> {
+			deleteObjectOrThrow(file.getS3Key());
+			storedFileRepository.deleteById(fileId);
+		});
+	}
+
+	private void deleteObjectOrThrow(String key) {
+		List<String> failedKeys;
+		try {
+			failedKeys = fileStorage.deleteAll(List.of(key));
+		} catch (RuntimeException exception) {
+			log.warn("S3 객체 삭제 요청이 실패했습니다. key={}, cause={}", key, exception.toString());
+			throw new FileDeleteFailedException();
+		}
+		if (!failedKeys.isEmpty()) {
+			log.warn("S3 객체를 지우지 못했습니다. key={}", key);
+			throw new FileDeleteFailedException();
+		}
+	}
+
+	private StoredFile findAlive(long fileId) {
+		return storedFileRepository.findById(fileId)
+			.filter(found -> !found.isDeleted())
+			.orElseThrow(() -> new StoredFileNotFoundException("존재하지 않는 파일입니다."));
+	}
+
+	private boolean isOwner(StoredFile file, Long memberId) {
+		return memberId != null && file.isOwnedBy(memberId);
 	}
 
 	// 보기 URL(presigned GET)은 만료가 있어 DB에 저장하지 않고, 응답을 만들 때마다 새로 만든다

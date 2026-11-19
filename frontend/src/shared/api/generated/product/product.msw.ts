@@ -37,11 +37,25 @@ export const getSearchResponseMock = (): RsDataRacePageDto => ({"status":200,"me
 
 export const getRegisterResponseMock = (): RsDataRaceSaveDto => ({"status":201,"message":"대회를 등록했습니다. 10월 20일 0시부터 판매 중으로 표시되고, 개인 예매는 10월 20일 09:00에 열립니다.","data":{"raceId":1,"saleStatus":"SCHEDULED","saleOpenDate":"2026-10-20","courseIds":[1]}})
 
+export const getStopResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 멈췄습니다.","data":{"raceId":1,"saleStatus":"STOPPED","saleOpenDate":"2026-10-20","courseIds":[1]}})
+
+export const getResumeResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 다시 열었습니다.","data":{"raceId":1,"saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","courseIds":[1]}})
+
 export const getCancelResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회를 취소했습니다.","data":{"raceId":1,"saleStatus":"CANCELED","saleOpenDate":"2026-10-20","courseIds":[1]}})
 
 export const getSuggestResponseMock = (): RsDataRaceSuggestionDto => ({"status":200,"message":"연관검색어를 조회했습니다.","data":{"races":[{"raceId":1,"title":"2026 용감한 쿠키RUN in 서울"}],"courses":[{"raceCourseId":1,"raceId":1,"label":"2026 용감한 쿠키RUN in 서울 10K"}]}})
 
-export const getFindMineResponseMock = (): RsDataListSellerRaceDto => ({"status":200,"message":"내 대회 목록을 조회했습니다.","data":[{"raceId":1,"title":"2026 용감한 쿠키RUN in 서울","raceDate":"2026-11-01T08:00:00","saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","applicationCloseAt":"2026-10-31T18:00:00","courses":[{"raceCourseId":1,"name":"10K","price":45000,"status":"OPEN","quota":600,"reserved":5,"sold":15}]}]})
+export const getFindMineResponseMock = (): RsDataListSellerRaceDto => ({"status":200,"message":"내 대회 목록을 조회했습니다.","data":[{"raceId":1,"title":"2026 용감한 쿠키RUN in 서울","raceDate":"2026-11-01T08:00:00","saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","applicationCloseAt":"2026-10-31T18:00:00","sellerName":"(주)러닝컴퍼니","crewSaleStartAt":null,"individualOpenAt":"2026-10-20T09:00:00","refundDeadline":"2026-10-25","courses":[{"raceCourseId":1,"name":"10K","price":45000,"status":"OPEN","quota":600,"reserved":5,"sold":15}]}]})
+
+export const getOpenResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 시작했습니다.","data":{"raceId":1,"saleStatus":"ON_SALE","saleOpenDate":"2026-10-18","courseIds":[1]}})
+
+export const getFindAdminRacesResponseMock = (): RsDataListSellerRaceDto => ({"status":200,"message":"대회 목록을 조회했습니다.","data":[{"raceId":1,"title":"2026 용감한 쿠키RUN in 서울","raceDate":"2026-11-01T08:00:00","saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","applicationCloseAt":"2026-10-31T18:00:00","sellerName":"(주)러닝컴퍼니","crewSaleStartAt":null,"individualOpenAt":"2026-10-20T09:00:00","refundDeadline":"2026-10-25","courses":[{"raceCourseId":1,"name":"10K","price":45000,"status":"OPEN","quota":600,"reserved":5,"sold":15}]}]})
+
+export const getOpenByAdminResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 시작했습니다.","data":{"raceId":1,"saleStatus":"ON_SALE","saleOpenDate":"2026-10-18","courseIds":[1]}})
+
+export const getStopByAdminResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 멈췄습니다.","data":{"raceId":1,"saleStatus":"STOPPED","saleOpenDate":"2026-10-20","courseIds":[1]}})
+
+export const getResumeByAdminResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 다시 열었습니다.","data":{"raceId":1,"saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","courseIds":[1]}})
 
 
 export const getFindRaceMockHandler = (overrideResponse?: RsDataRaceDetailDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataRaceDetailDto> | RsDataRaceDetailDto), options?: RequestHandlerOptions) => {
@@ -178,21 +192,25 @@ export const getRegisterMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((
   }, options)
 }
 
-export const getStopMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+export const getStopMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataRaceSaveDto> | RsDataRaceSaveDto), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/product/races/:raceId/stop', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
-    return new HttpResponse(null,
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getStopResponseMock(),
       { status: 200
       })
   }, options)
 }
 
-export const getResumeMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+export const getResumeMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataRaceSaveDto> | RsDataRaceSaveDto), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/product/races/:raceId/resume', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
-    return new HttpResponse(null,
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getResumeResponseMock(),
       { status: 200
       })
   }, options)
@@ -273,6 +291,66 @@ export const getFindMineMockHandler = (overrideResponse?: RsDataListSellerRaceDt
       })
   }, options)
 }
+
+export const getOpenMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataRaceSaveDto> | RsDataRaceSaveDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/product/races/:raceId/open', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getOpenResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindAdminRacesMockHandler = (overrideResponse?: RsDataListSellerRaceDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListSellerRaceDto> | RsDataListSellerRaceDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/product/admin/races', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindAdminRacesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getOpenByAdminMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataRaceSaveDto> | RsDataRaceSaveDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/product/admin/races/:raceId/open', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getOpenByAdminResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getStopByAdminMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataRaceSaveDto> | RsDataRaceSaveDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/product/admin/races/:raceId/stop', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getStopByAdminResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getResumeByAdminMockHandler = (overrideResponse?: RsDataRaceSaveDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataRaceSaveDto> | RsDataRaceSaveDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/product/admin/races/:raceId/resume', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getResumeByAdminResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangProductAPIMock = () => [
   getFindRaceMockHandler(),
   getUpdateMockHandler(),
@@ -294,5 +372,10 @@ export const getBukangProductAPIMock = () => [
   getListMockHandler(),
   getFindCourseInfoMockHandler(),
   getSuggestMockHandler(),
-  getFindMineMockHandler()
+  getFindMineMockHandler(),
+  getOpenMockHandler(),
+  getFindAdminRacesMockHandler(),
+  getOpenByAdminMockHandler(),
+  getStopByAdminMockHandler(),
+  getResumeByAdminMockHandler()
 ]

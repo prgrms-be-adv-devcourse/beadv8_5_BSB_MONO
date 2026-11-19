@@ -27,7 +27,7 @@ export function SimilarRaces({ raceId }: { raceId: string }) {
       <h2 id="similar-races" className="text-title3">
         비슷한 대회
       </h2>
-      <ul className="flex flex-col gap-4">
+      <ul className="flex flex-col gap-6">
         {races.map((race) => (
           <li key={race.id}>
             <Row race={race} />
@@ -38,31 +38,41 @@ export function SimilarRaces({ raceId }: { raceId: string }) {
   )
 }
 
+// 피그마: 대회 찾기 목록 줄과 같은 모양(사진 96×72 위 상태 칩)
 function Row({ race }: { race: RaceListItem }) {
   return (
-    <Link href={`/races/${race.id}`} className={cn('flex gap-3 rounded-md', FOCUS_RING)}>
-      {race.image ? (
-        <Image
-          src={race.image}
-          alt=""
-          width={80}
-          height={80}
-          className="size-20 shrink-0 rounded-md object-cover"
-        />
-      ) : (
-        <RacePoster
-          seed={race.id}
-          title=""
-          label={race.posterLabel}
-          className="size-20 shrink-0 rounded-md"
-        />
-      )}
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-        <Badge tone={race.badge.tone}>{race.badge.label}</Badge>
-        <p className="text-body1-bold">{race.title}</p>
-        <p className="text-body2-regular text-text-secondary">{race.meta}</p>
-        <span className="pt-1 text-body2-medium">{race.price}</span>
-      </div>
+    <Link
+      href={`/races/${race.id}`}
+      className={cn('flex items-center gap-4 rounded-md', FOCUS_RING)}
+    >
+      <span className="relative block h-18 w-24 shrink-0">
+        {race.image ? (
+          <Image
+            src={race.image}
+            alt=""
+            width={96}
+            height={72}
+            className="h-18 w-24 rounded-md object-cover"
+          />
+        ) : (
+          <RacePoster
+            seed={race.id}
+            title=""
+            label={race.posterLabel}
+            className="h-18 w-24 rounded-md"
+          />
+        )}
+        {race.badge && (
+          <Badge tone={race.badge.tone} className="absolute top-2 left-2">
+            {race.badge.label}
+          </Badge>
+        )}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate text-body1-bold">{race.title}</span>
+        <span className="truncate text-caption-regular text-text-secondary">{race.meta}</span>
+        <span className="text-body1-medium">{race.price}</span>
+      </span>
     </Link>
   )
 }

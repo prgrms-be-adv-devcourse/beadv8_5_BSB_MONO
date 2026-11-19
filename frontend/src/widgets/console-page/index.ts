@@ -1,4 +1,5 @@
 export { ConsoleCard, type ConsoleCardProps } from './ui/ConsoleCard'
 export { ConsolePage, type ConsolePageProps } from './ui/ConsolePage'
+export { ConsoleMessage, type ConsoleMessageProps } from './ui/ConsoleMessage'
 export { ConsoleLoading, ConsoleOffline } from './ui/ConsoleStates'
 export { CONSOLE_BOX } from './ui/consoleBox'

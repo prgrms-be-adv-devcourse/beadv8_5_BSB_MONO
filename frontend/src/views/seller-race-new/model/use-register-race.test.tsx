@@ -31,7 +31,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('useRegisterRace', () => {
-  it('종목마다 사진을 따로 올리고, 받은 파일 ID로 대회를 등록한다', async () => {
+  it('대표 이미지는 대회에 한 번, 소개 이미지는 종목마다 따로 올리고 받은 파일 ID로 대회를 등록한다', async () => {
     let body: productModel.RaceSaveRequestDto | undefined
     server.use(
       http.post('*/api/v1/product/races', async ({ request }) => {
@@ -64,17 +64,18 @@ describe('useRegisterRace', () => {
       crewMinCount: 4,
     })
     expect(body?.crewSaleStartAt).toBeUndefined()
+    // 대표 이미지는 대회에 1장만, 종목에는 소개 이미지만 붙인다 (CRU-6)
+    expect(body?.images.map((i) => [i.fileType, i.sortNo])).toEqual([['THUMBNAIL', 0]])
     const courseImages = body?.courses.map((c) => c.images) ?? []
     expect(courseImages).toHaveLength(2)
     for (const list of courseImages) {
       expect(list.map((i) => [i.fileType, i.sortNo])).toEqual([
-        ['THUMBNAIL', 0],
         ['DETAIL', 0],
         ['DETAIL', 1],
       ])
     }
-    // 한 파일은 한 종목에만 연결되므로 파일 ID가 겹치지 않는다
-    const fileIds = courseImages.flat().map((i) => i.fileId)
+    // 한 파일은 한 대상에만 연결되므로 대회와 종목의 파일 ID가 겹치지 않는다
+    const fileIds = [...(body?.images ?? []), ...courseImages.flat()].map((i) => i.fileId)
     expect(new Set(fileIds).size).toBe(fileIds.length)
   })
 

@@ -1,9 +1,11 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import type { Route } from 'next'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { loginHref, useAuthStatus } from '@/features/auth'
@@ -12,12 +14,14 @@ import {
   BOARD_CATEGORIES,
   CONTENT_MAX,
   PHOTO_MAX,
+  postWriteSchema,
   TITLE_MAX,
   useCreatePost,
   usePost,
   usePostPhotos,
   useUpdatePost,
   type BoardCategory,
+  type PostWriteValues,
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
 import { cn, useGoBack } from '@/shared/lib'
@@ -56,7 +60,13 @@ export function CommunityWritePage({ postId }: { postId?: number }) {
 
   if (auth !== 'authenticated')
     return (
-      <AppHeader type="sub" close title={editing ? '글 수정' : '글쓰기'} backHref="/community" />
+      <AppHeader
+        type="sub"
+        close
+        titleAlign="center"
+        title={editing ? '글 수정' : '글쓰기'}
+        backHref="/community"
+      />
     )
   return editing ? <EditLoader postId={postId} /> : <WriteForm />
 }
@@ -69,7 +79,7 @@ function EditLoader({ postId }: { postId: number }) {
   if (post.isPending || photos.isPending) {
     return (
       <>
-        <AppHeader type="sub" close title="글 수정" backHref={back} />
+        <AppHeader type="sub" close titleAlign="center" title="글 수정" backHref={back} />
         <main role="status" aria-label="글 불러오는 중" className="flex flex-col gap-3 p-4">
           <Skeleton className="w-16" />
           <Skeleton className="h-11 w-full" />
@@ -82,7 +92,7 @@ function EditLoader({ postId }: { postId: number }) {
   if (post.isError || !post.data.mine || post.data.status === 'HIDDEN') {
     return (
       <>
-        <AppHeader type="sub" close title="글 수정" backHref="/community" />
+        <AppHeader type="sub" close titleAlign="center" title="글 수정" backHref="/community" />
         <main className="flex flex-1 items-center justify-center px-4 pb-16">
           <EmptyState role="alert" icon="CircleAlert" title="고칠 수 없는 글이에요" />
         </main>
@@ -118,9 +128,18 @@ function WriteForm({
   const toast = useToast()
   const create = useCreatePost()
   const update = useUpdatePost(postId ?? 0)
-  const [category, setCategory] = useState<BoardCategory>(initial?.category ?? 'FREE')
-  const [title, setTitle] = useState(initial?.title ?? '')
-  const [content, setContent] = useState(initial?.content ?? '')
+  const { control, register, handleSubmit } = useForm<PostWriteValues>({
+    resolver: zodResolver(postWriteSchema),
+    defaultValues: {
+      category: initial?.category ?? 'FREE',
+      title: initial?.title ?? '',
+      content: initial?.content ?? '',
+    },
+  })
+  const titleCountId = useId()
+  const contentCountId = useId()
+  const title = useWatch({ control, name: 'title' })
+  const content = useWatch({ control, name: 'content' })
   const [photos, setPhotos] = useState<Photo[]>(initial?.photos ?? [])
   const fileInput = useRef<HTMLInputElement>(null)
   // 화면을 떠나면 올리던 사진을 멈춘다
@@ -165,11 +184,9 @@ function WriteForm({
     )
   }
 
-  function submit() {
+  function submit(values: PostWriteValues) {
     const data = {
-      category,
-      title: title.trim(),
-      content: content.trim(),
+      ...values,
       fileIds: photos.flatMap((p) => (p.fileId === undefined ? [] : [p.fileId])),
     }
     const onError = (e: unknown) =>
@@ -188,52 +205,68 @@ function WriteForm({
     <form
       className="flex flex-1 flex-col"
       onSubmit={(e) => {
-        e.preventDefault()
-        if (canSubmit) submit()
+        void handleSubmit((values) => {
+          if (canSubmit) submit(values)
+        })(e)
       }}
     >
       <AppHeader
         type="sub"
         close
+        titleAlign="center"
         title={editing ? '글 수정' : '글쓰기'}
         backHref={editing ? (`/community/${postId}` as Route) : '/community'}
       />
-      <div className="flex flex-1 flex-col gap-6 px-4 py-5">
+      <div className="flex flex-1 flex-col gap-7 px-4 pt-4 pb-6">
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-body2-medium">말머리</legend>
-          <div className="flex flex-wrap gap-2">
-            {BOARD_CATEGORIES.map((c) => (
-              <Chip
-                key={c.value}
-                selected={category === c.value}
-                onClick={() => setCategory(c.value)}
-              >
-                {c.label}
-              </Chip>
-            ))}
-          </div>
+          <legend className="mb-3 text-body1-medium">말머리</legend>
+          <Controller
+            control={control}
+            name="category"
+            render={({ field }) => (
+              <div className="flex flex-wrap gap-2">
+                {BOARD_CATEGORIES.map((c) => (
+                  <Chip
+                    key={c.value}
+                    selected={field.value === c.value}
+                    onClick={() => field.onChange(c.value)}
+                  >
+                    {c.label}
+                  </Chip>
+                ))}
+              </div>
+            )}
+          />
         </fieldset>
         <div className="flex flex-col gap-2">
           <TextField
             label="제목"
-            value={title}
+            placeholder="제목"
             maxLength={TITLE_MAX}
-            onChange={(e) => setTitle(e.target.value)}
+            aria-describedby={titleCountId}
+            {...register('title')}
           />
-          <p className="text-right text-caption-regular text-text-tertiary">
+          <p id={titleCountId} className="text-right text-caption-regular text-text-secondary">
             {title.length}/{TITLE_MAX}
           </p>
         </div>
-        <Textarea
-          label="본문"
-          value={content}
-          maxLength={CONTENT_MAX}
-          showCounter
-          onChange={(e) => setContent(e.target.value)}
-          className="[&_textarea]:h-30"
-        />
+        <div className="flex flex-col gap-2">
+          <Textarea
+            label="본문"
+            placeholder="내용"
+            maxLength={CONTENT_MAX}
+            aria-describedby={contentCountId}
+            // 고치기에서 글자 수 표시가 처음부터 맞도록 초기값을 알려 준다
+            defaultValue={initial?.content}
+            className="[&_textarea]:h-30"
+            {...register('content')}
+          />
+          <p id={contentCountId} className="text-caption-regular text-text-secondary">
+            {content.length.toLocaleString('en-US')}/{CONTENT_MAX.toLocaleString('en-US')}
+          </p>
+        </div>
         <section aria-label="사진" className="flex flex-col gap-2">
-          <h2 className="text-body2-medium">사진</h2>
+          <h2 className="text-body1-medium">사진</h2>
           <ul className="flex flex-wrap gap-2">
             <li>
               <button
@@ -241,7 +274,7 @@ function WriteForm({
                 disabled={photos.length >= PHOTO_MAX}
                 onClick={() => fileInput.current?.click()}
                 className={cn(
-                  'flex size-22 flex-col items-center justify-center gap-1 rounded-md bg-bg-subtle text-caption-regular text-text-secondary disabled:opacity-50',
+                  'flex size-22 flex-col items-center justify-center gap-1 rounded-md bg-bg-surface text-caption-regular text-text-secondary inset-ring inset-ring-border-default disabled:opacity-50',
                   FOCUS_RING,
                 )}
               >

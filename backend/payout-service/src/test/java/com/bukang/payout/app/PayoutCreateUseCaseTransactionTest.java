@@ -26,6 +26,7 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
@@ -50,7 +51,8 @@ import com.bukang.payout.support.StubRacePort;
  */
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({PayoutCreateStepUseCase.class, BusinessDayCalendar.class, PayoutLedgerUseCase.class, PayoutHoldUseCase.class})
+@Import({PayoutCreateStepUseCase.class, BusinessDayCalendar.class, PayoutLedgerUseCase.class,
+	PayoutHoldUseCase.class, EventPublisher.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutCreateUseCaseTransactionTest {
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 9, 25);

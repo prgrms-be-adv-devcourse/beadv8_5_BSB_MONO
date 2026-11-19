@@ -16,6 +16,7 @@ import {
   BottomCta,
   Button,
   buttonClassName,
+  digitsOnly,
   Divider,
   KeyValue,
   PhoneField,
@@ -60,6 +61,7 @@ export function TicketEditPage({ ticketId }: { ticketId: string }) {
           title={[race.title, course?.name].filter(Boolean).join(' · ')}
           closeAt={race.applicationCloseAt}
           sizes={course?.tshirtSizeOption ?? []}
+          sizeLocked={participation.status === 'CONFIRMED' && participant.tshirtSize != null}
         />
       )}
     </>
@@ -75,6 +77,7 @@ function ParticipantForm({
   title,
   closeAt,
   sizes,
+  sizeLocked,
 }: {
   ticketId: string
   participationId: number
@@ -82,6 +85,8 @@ function ParticipantForm({
   title: string
   closeAt?: string
   sizes: string[]
+  // 결제할 때 고른 사이즈는 바꿀 수 없다. 서버도 400으로 막는다
+  sizeLocked: boolean
 }) {
   const goBack = useGoBack()
   const change = useChangeParticipant()
@@ -139,15 +144,24 @@ function ParticipantForm({
           <Section
             title="참가자 정보"
             aside={
-              <Link href="/me/edit" className={buttonClassName({ variant: 'ghost', size: 's' })}>
-                회원 정보에서 바꾸기
+              <Link
+                href="/me/edit"
+                aria-label="회원 정보 변경"
+                className={buttonClassName({ variant: 'ghost', size: 's' })}
+              >
+                변경
               </Link>
             }
           >
             {/* 이름 · 생년월일은 Clarity 화면 녹화에서 가린다 */}
             <div className="flex flex-col gap-2" data-clarity-mask="true">
-              <KeyValue label="이름" value={participant.name ?? '-'} />
               <KeyValue
+                label="이름"
+                value={participant.name ?? '-'}
+                className="[&>span:first-child]:w-22"
+              />
+              <KeyValue
+                className="[&>span:first-child]:w-22"
                 label="생년월일"
                 value={participant.birth ? participant.birth.replaceAll('-', '.') : '-'}
               />
@@ -180,6 +194,12 @@ function ParticipantForm({
                     items={sizes.map((size) => ({ value: size, label: size }))}
                     value={field.value ?? null}
                     onValueChange={(value) => field.onChange(value ?? undefined)}
+                    disabled={sizeLocked}
+                    helper={
+                      sizeLocked
+                        ? '결제한 뒤에는 사이즈를 바꿀 수 없어요. 바꾸려면 환불 기한 안에 취소하고 다시 신청해 주세요.'
+                        : undefined
+                    }
                   />
                 )}
               />
@@ -206,6 +226,7 @@ function ParticipantForm({
               <TextField
                 label="우편번호"
                 inputMode="numeric"
+                filter={digitsOnly}
                 readOnly={!manualAddress}
                 error={errors.zipcode?.message}
                 {...register('zipcode')}

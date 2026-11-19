@@ -64,7 +64,7 @@ export function CrewNewPage() {
               label="크루 이름"
               autoComplete="off"
               maxLength={CREW_NAME_MAX}
-              helper={`1~${CREW_NAME_MAX}자 · 크루 홈과 초대 링크에 이 이름이 보여요`}
+              helper={`1~${CREW_NAME_MAX}자`}
               error={errors.name?.message}
               {...register('name')}
             />

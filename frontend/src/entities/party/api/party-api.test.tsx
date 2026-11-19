@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import { server } from '@/shared/testing'
 
-import { useApplyParty, useLeaveParty, usePartyDetail } from './party-api'
+import { useApplyParty, useLeaveParty, usePartyDetail } from '../model/use-party'
 
 function setup() {
   const client = new QueryClient({

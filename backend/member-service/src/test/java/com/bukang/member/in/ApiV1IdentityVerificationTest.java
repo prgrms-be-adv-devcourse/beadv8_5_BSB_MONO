@@ -191,7 +191,7 @@ class ApiV1IdentityVerificationTest {
 		store.saveVerified(token, new VerifiedIdentity("김러너", birthDate, "010-1234-5678", null,
 			hasher.identity("김러너", birthDate, "010-1234-5678"), hasher.nameBirth("김러너", birthDate), null));
 		memberFacade.join(new MemberJoinRequestDto("joined@crewrun.com", "password1234", "먼저가입", null,
-			List.of(TermsType.SERVICE, TermsType.PRIVACY), token));
+			List.of(TermsType.SERVICE, TermsType.PRIVACY, TermsType.AGE_OVER_14), token));
 	}
 
 	private String start() throws Exception {

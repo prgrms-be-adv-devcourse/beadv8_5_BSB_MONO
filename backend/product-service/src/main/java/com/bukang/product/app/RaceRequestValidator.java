@@ -27,9 +27,13 @@ import com.bukang.product.dto.RaceSaveRequestDto;
  */
 @Component
 public class RaceRequestValidator {
-	// 종목에 붙이는 이미지 용도 (세미는 이미지를 모두 종목에 붙이고, 대회에는 붙이지 않는다)
-	private static final Set<FileType> COURSE_IMAGE_TYPES = Set.of(FileType.THUMBNAIL, FileType.DETAIL,
-		FileType.INTRO_VIDEO, FileType.COURSE, FileType.KIT);
+	private static final int NO_AGE_LIMIT = 14;
+	private static final int ADULT_ONLY_AGE = 19;
+	// 대회에 붙이는 이미지 용도. 대표 이미지는 대회마다 1장이라 대회에만 붙인다
+	private static final Set<FileType> RACE_IMAGE_TYPES = Set.of(FileType.THUMBNAIL);
+	// 종목에 붙이는 이미지 용도. 대표 이미지는 받지 않는다
+	private static final Set<FileType> COURSE_IMAGE_TYPES = Set.of(FileType.DETAIL, FileType.INTRO_VIDEO,
+		FileType.COURSE, FileType.KIT);
 
 	public void validate(RaceSaveRequestDto request) {
 		validateSchedule(request);
@@ -90,8 +94,12 @@ public class RaceRequestValidator {
 
 	// 여러 종목 중 어느 종목이 문제인지 알 수 있게 메시지에 종목명을 붙인다
 	private void validateCourse(RaceCourseSaveRequestDto course, boolean hasCrewSale) {
-		if (course.getMaxAge() != null && course.getMaxAge() < course.getMinAge()) {
-			throw new InvalidRaceException(withCourse("참가 최대 나이는 최소 나이 이상이어야 합니다.", course));
+		// 나이 제한은 제한 없음(14)과 성인만(19) 둘뿐이다. 최대 나이는 받지 않는다
+		if (course.getMinAge() != NO_AGE_LIMIT && course.getMinAge() != ADULT_ONLY_AGE) {
+			throw new InvalidRaceException(withCourse("참가 최소 나이는 14(제한 없음) 또는 19(성인만)로 작성해주세요.", course));
+		}
+		if (course.getMaxAge() != null) {
+			throw new InvalidRaceException(withCourse("참가 최대 나이는 받지 않습니다. 비워주세요.", course));
 		}
 		// 키트 금액은 참가비 안에 들어 있는 금액이다
 		if (course.getKitPrice() > course.getPrice()) {
@@ -106,13 +114,15 @@ public class RaceRequestValidator {
 	}
 
 	private void validateImages(RaceSaveRequestDto request) {
+		// 대회에는 대표 이미지 1장 필수
+		validateImageTypes(request.getImages(), RACE_IMAGE_TYPES, "대회에는 대표 이미지만 연결할 수 있습니다.");
+		if (countByType(request.getImages()).getOrDefault(FileType.THUMBNAIL, 0L) != 1) {
+			throw new InvalidRaceException("대회의 대표 이미지를 1장 연결해주세요.");
+		}
 		for (RaceCourseSaveRequestDto course : request.getCourses()) {
 			String target = "%s 종목".formatted(course.getName());
-			validateImageTypes(course.getImages(), COURSE_IMAGE_TYPES, target + "에는 크루원 명단을 연결할 수 없습니다.");
-			// 종목마다 대표 이미지 1장 필수
-			if (countByType(course.getImages()).getOrDefault(FileType.THUMBNAIL, 0L) != 1) {
-				throw new InvalidRaceException(target + "의 대표 이미지를 1장 연결해주세요.");
-			}
+			validateImageTypes(course.getImages(), COURSE_IMAGE_TYPES,
+				target + "에는 대표 이미지·크루원 명단을 연결할 수 없습니다.");
 			validateMaxCounts(course.getImages(), target); // 각 이미지 성격별 개수 제한 검증
 		}
 		validateUniqueFiles(request);
@@ -138,9 +148,9 @@ public class RaceRequestValidator {
 		});
 	}
 
-	// 한 파일은 한 대상에만 연결된다. 두 종목에 같은 파일을 넣으면 file-service에서 연결이 모두 실패한다
+	// 한 파일은 한 대상에만 연결된다. 대회와 종목(또는 두 종목)에 같은 파일을 넣으면 file-service에서 연결이 모두 실패한다
 	private void validateUniqueFiles(RaceSaveRequestDto request) {
-		List<RaceImageRequestDto> allImages = new ArrayList<>();
+		List<RaceImageRequestDto> allImages = new ArrayList<>(request.getImages());
 		request.getCourses().forEach(course -> allImages.addAll(course.getImages()));
 
 		Set<Long> fileIds = new HashSet<>();

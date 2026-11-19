@@ -19,14 +19,14 @@ export function Checkbox({ label, className, ...props }: CheckboxProps) {
   return (
     <label
       className={cn(
-        'inline-flex cursor-pointer items-center gap-2 text-body2-regular text-text-primary has-data-disabled:cursor-not-allowed has-data-disabled:text-text-disabled',
+        'inline-flex cursor-pointer items-center gap-2 text-body1-regular text-text-primary has-data-disabled:cursor-not-allowed has-data-disabled:text-text-disabled',
         className,
       )}
     >
       <BaseCheckbox.Root
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-sm bg-bg-surface text-text-on-brand inset-ring-[1.5px] inset-ring-border-strong',
-          'data-checked:bg-bg-brand data-checked:inset-ring-0 data-indeterminate:bg-bg-brand data-indeterminate:inset-ring-0',
+          'flex size-6 shrink-0 items-center justify-center rounded-full bg-bg-surface text-text-inverse inset-ring-[1.5px] inset-ring-border-strong',
+          'data-checked:bg-bg-inverse data-checked:inset-ring-0 data-indeterminate:bg-bg-inverse data-indeterminate:inset-ring-0',
           'data-disabled:bg-bg-disabled data-disabled:text-text-disabled data-disabled:inset-ring-border-disabled',
           FOCUS_RING,
         )}
@@ -36,7 +36,7 @@ export function Checkbox({ label, className, ...props }: CheckboxProps) {
           className="flex data-unchecked:hidden"
           render={(indicatorProps, state) => (
             <span {...indicatorProps}>
-              <Icon name={state.indeterminate ? 'Minus' : 'Check'} className="size-4" />
+              <Icon name={state.indeterminate ? 'Minus' : 'Check'} className="size-5" />
             </span>
           )}
         />

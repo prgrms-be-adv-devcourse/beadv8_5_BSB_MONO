@@ -30,6 +30,19 @@ describe('대회 응답 → 화면 모양', () => {
     expect(toRaceListItem(summary)).not.toHaveProperty('remaining')
   })
 
+  it('목록 배지(v3): 접수 중은 배지 없음, 마감 임박은 남은 날 경고 배지, 오픈 예정은 브랜드 배지', () => {
+    expect(toRaceListItem(summary, OPEN).badge).toBeUndefined()
+    expect(toRaceListItem(summary, new Date('2026-10-29T12:00:00+09:00')).badge).toEqual({
+      label: 'D-2',
+      tone: 'warning',
+    })
+    expect(toRaceListItem(summary, BEFORE_OPEN).badge).toEqual({
+      label: '오픈 예정',
+      tone: 'brand',
+    })
+    expect(toRaceListItem(summary, AFTER_CLOSE).badge).toEqual({ label: '마감', tone: 'neutral' })
+  })
+
   it('목록 응답에 imageUrl이 있을 때만 카드 이미지가 붙는다', () => {
     expect(toRaceListItem(summary).image).toBeUndefined()
     expect(toRaceListItem({ ...summary, imageUrl: '/mock/races/a.png' }).image).toBe(
@@ -91,14 +104,14 @@ describe('대회 응답 → 화면 모양', () => {
     expect(toRaceDetail(detail, {}, AFTER_CLOSE).phase).toBe('closed')
   })
 
-  it('상세: 종목 ID를 종목 선택 값으로 쓰고, 종목 대표 이미지를 붙인다', () => {
-    const files = fileMock.getFindByRefResponseMock().data!
-    const race = toRaceDetail(detail, { 1: files })
+  it('상세: 대표 이미지는 대회 파일, 소개 이미지는 종목 파일에서 가져온다', () => {
+    const [thumbnail, intro] = fileMock.getFindByRefResponseMock().data!
+    const race = toRaceDetail(detail, { race: [thumbnail], courses: { 1: [intro] } })
 
     expect(race.options).toEqual([
-      expect.objectContaining({ id: '1', name: '10K', price: 45000, image: files[0].url }),
+      expect.objectContaining({ id: '1', name: '10K', price: 45000, image: thumbnail.url }),
     ])
-    expect(race.images).toEqual([files[0].url, files[1].url])
+    expect(race.images).toEqual([thumbnail.url, intro.url])
     expect(race.startsAt).toBe('11/1 (일) 08:00 출발')
     expect(race.schedule).toContainEqual({ label: '전액 환불 기한', value: '10/31 (토) 23:59' })
     expect(race.infoEditDeadline).toMatch(/\(.\) \d\d:\d\d$/)

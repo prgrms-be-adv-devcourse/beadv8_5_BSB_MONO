@@ -8,7 +8,7 @@ import { useEffect } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { formatKstDateTime, formatRemaining, partyJoinPath } from '@/entities/crew'
+import { formatRemaining, partyJoinPath } from '@/entities/crew'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import {
   Alert,
@@ -81,6 +81,7 @@ export function CrewInvitePage({
         <AppHeader type="sub" title="크루 초대" />
         <main className="flex flex-1 flex-col">
           <EmptyState
+            icon={null}
             className="pt-26"
             title={failure.title}
             description={failure.description}
@@ -115,7 +116,6 @@ export function CrewInvitePage({
                 title={
                   remaining ? `이 초대 링크는 ${remaining} 뒤에 끝나요` : '이 초대 링크는 곧 끝나요'
                 }
-                description={`${formatKstDateTime(data.expiresAt)}까지 가입할 수 있어요.`}
               />
               {join.isError &&
                 !(join.error instanceof ApiError && join.error.code === 'CREW_ALREADY_MEMBER') && (

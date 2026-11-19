@@ -4838,6 +4838,108 @@
           }
         }
       }
+    },
+    "/api/v1/auth/demo-login": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "데모 로그인 켜짐 확인",
+        "description": "켜져 있으면 200, 꺼져 있으면 404다. 로그인 화면이 버튼을 보여 줄지 정한다.",
+        "operationId": "demoLoginAvailability",
+        "responses": {
+          "200": {
+            "description": "데모 로그인을 쓸 수 있음",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "데모 로그인을 쓸 수 있습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "데모 로그인이 꺼져 있음"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "데모 로그인",
+        "description": "서버 설정에 적힌 시연용 계정 하나로 비밀번호 없이 로그인한다. 응답과 쿠키는 이메일 로그인과 같다. 같은 IP는 1분에 10번까지 부를 수 있다.",
+        "operationId": "demoLogin",
+        "responses": {
+          "200": {
+            "description": "로그인 성공",
+            "headers": {
+              "Set-Cookie": {
+                "description": "refreshToken=...; Path=/api/v1/auth; Max-Age=1209600; Secure; HttpOnly; SameSite=Lax",
+                "style": "simple",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "로그인 성공",
+                  "data": {
+                    "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwidHlwZSI6IkFDQ0VTUyJ9.signature",
+                    "member": {
+                      "id": 1,
+                      "createDate": "2026-10-05T21:25:35",
+                      "modifyDate": "2026-10-05T21:25:35",
+                      "nickname": "러너1",
+                      "email": "runner1@crewrun.com",
+                      "phone": "010-1234-5678",
+                      "name": "김러너",
+                      "birthDate": "1995-04-12"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "데모 로그인이 꺼져 있거나 시연용 계정이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "MEMBER_NOT_FOUND",
+                  "message": "데모 로그인 계정이 없습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "같은 IP가 1분에 10번을 넘게 부름",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 429,
+                  "code": "DEMO_LOGIN_TOO_MANY",
+                  "message": "요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4935,10 +5037,11 @@
           },
           "agreedTerms": {
             "type": "array",
-            "description": "동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다",
+            "description": "동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다",
             "example": [
               "SERVICE",
               "PRIVACY",
+              "AGE_OVER_14",
               "MARKETING"
             ],
             "items": {
@@ -4946,7 +5049,10 @@
               "enum": [
                 "SERVICE",
                 "PRIVACY",
-                "MARKETING"
+                "MARKETING",
+                "AGE_OVER_14",
+                "NIGHT_MARKETING",
+                "SELLER"
               ]
             }
           },
@@ -5020,6 +5126,11 @@
               "PERSONAL"
             ],
             "example": "PERSONAL"
+          },
+          "sellerTermsAgreed": {
+            "type": "boolean",
+            "description": "판매자 약관에 동의했으면 true (필수, false면 400)",
+            "example": true
           }
         },
         "required": [
@@ -5027,6 +5138,7 @@
           "accountNumber",
           "bankCode",
           "representativeName",
+          "sellerTermsAgreed",
           "sellerType"
         ]
       },
@@ -5080,10 +5192,11 @@
           },
           "agreedTerms": {
             "type": "array",
-            "description": "동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다",
+            "description": "동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다",
             "example": [
               "SERVICE",
               "PRIVACY",
+              "AGE_OVER_14",
               "MARKETING"
             ],
             "items": {
@@ -5091,7 +5204,10 @@
               "enum": [
                 "SERVICE",
                 "PRIVACY",
-                "MARKETING"
+                "MARKETING",
+                "AGE_OVER_14",
+                "NIGHT_MARKETING",
+                "SELLER"
               ]
             }
           },

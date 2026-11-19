@@ -1,5 +1,7 @@
 package com.bukang.member.crew.dto;
 
+import com.bukang.member.crew.domain.Crew;
+import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.domain.CrewRole;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -11,4 +13,7 @@ public record MyCrewDto(
 	@Schema(description = "크루 역할 (LEADER: 크루장, MANAGER: 운영진, MEMBER: 크루원)") CrewRole myRole,
 	int memberCount
 ) {
+	public static MyCrewDto of(CrewMember membership, Crew crew, int memberCount) {
+		return new MyCrewDto(crew.getId(), crew.getName(), membership.getRole(), memberCount);
+	}
 }

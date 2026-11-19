@@ -194,6 +194,7 @@ export function CrewInvitesPage({
         // 시안에 없는 상태: 크루원이 이 주소를 직접 연 경우
         <main className="flex flex-1 flex-col">
           <EmptyState
+            icon={null}
             className="pt-26"
             title="크루장과 운영진만 초대할 수 있어요"
             description="초대 링크가 필요하면 크루장이나 운영진에게 요청해 주세요."
@@ -282,8 +283,9 @@ export function CrewInvitesPage({
                       </div>
                       {canCancel(invite) && (
                         <Button
-                          variant="secondary"
+                          variant="text"
                           size="s"
+                          className="underline"
                           onClick={() => setCancelTarget(invite.inviteId)}
                         >
                           초대 취소

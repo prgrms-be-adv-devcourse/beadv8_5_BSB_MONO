@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
@@ -48,7 +49,7 @@ import com.bukang.payout.support.MySqlContainerTest;
 @ActiveProfiles("test")
 @MySqlContainerTest
 @Import({PayoutLedgerUseCase.class, PayoutCreateStepUseCase.class, PayoutHoldUseCase.class,
-	BusinessDayCalendar.class})
+	EventPublisher.class, BusinessDayCalendar.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutFinalCreateRecoveryConcurrencyTest {
 	private static final long SELLER_ID = 1;

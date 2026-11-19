@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { AppHeader } from '@/widgets/app-header'
 import { useWithdraw, withdrawFailure, type WithdrawFailure } from '@/features/auth'
 import { formatNumber } from '@/shared/lib'
-import { Badge, BottomCta, Button, buttonClassName, Checkbox, Dialog, KeyValue } from '@/shared/ui'
+import { BottomCta, Button, buttonClassName, Checkbox, Dialog, KeyValue } from '@/shared/ui'
 
 import { useWithdrawBlockers } from '../model/use-withdraw-blockers'
 
@@ -55,7 +55,7 @@ export function WithdrawPage() {
     <>
       <AppHeader type="sub" title="회원 탈퇴" />
       <main className="flex flex-1 flex-col pb-6">
-        <h2 className="px-4 pt-6 pb-4 text-title2">
+        <h2 className="px-4 pt-4 pb-8 text-title2">
           {remaining.failed
             ? '남은 일을 확인하지 못했어요'
             : blocked
@@ -73,69 +73,57 @@ export function WithdrawPage() {
           </section>
         )}
         {(hasCash || hasTicket || hasCrew) && (
-          <section className="flex flex-col px-4">
+          <section className="flex flex-col gap-3 px-4">
             {hasCash && (
-              <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
-                <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="info">안내</Badge>
-                  남은 예치금 {formatNumber(remaining.balance)}원
-                </p>
-                <p className="text-body2-regular text-text-secondary">
-                  돌려받기를 신청하면 환급이 끝난 뒤 탈퇴돼요.
-                </p>
-                <Link
-                  href="/me/deposit/refund"
-                  className={buttonClassName({ variant: 'secondary', size: 's' })}
-                >
-                  돌려받기 먼저
-                </Link>
-              </div>
+              <BlockerCard
+                tag="안내"
+                title={`남은 예치금 ${formatNumber(remaining.balance)}원`}
+                body="남은 예치금 환급을 먼저 진행해 주세요."
+                href="/me/deposit/refund"
+                action="환급받기"
+              />
             )}
             {hasTicket && (
-              <div className="flex flex-col items-start gap-1 border-b border-border-default py-4 last:border-b-0">
-                <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="warning">필수</Badge>
-                  끝나지 않은 참가권 {remaining.ticketCount}장
-                </p>
-                <p className="text-body2-regular text-text-secondary">
-                  {remaining.firstRace}을 취소하거나 대회가 끝난 뒤 탈퇴할 수 있어요.
-                </p>
-                <Link
-                  href="/tickets"
-                  className={buttonClassName({ variant: 'secondary', size: 's' })}
-                >
-                  참가권 보기
-                </Link>
-              </div>
+              <BlockerCard
+                tag="필수"
+                danger
+                title={`끝나지 않은 참가권 ${remaining.ticketCount}장`}
+                body={`${remaining.firstRace}을 취소하거나 대회가 끝난 뒤 탈퇴할 수 있어요.`}
+                href="/tickets"
+                action="참가권 보기"
+              />
             )}
             {hasCrew && (
-              <div className="flex flex-col items-start gap-1 py-4">
-                <p className="flex items-center gap-2 text-body2-medium">
-                  <Badge tone="warning">필수</Badge>
-                  크루장인 크루 {remaining.leaderCrewCount}개
-                </p>
-                <p className="text-body2-regular text-text-secondary">
-                  크루장을 넘기거나 크루를 없앤 뒤 탈퇴할 수 있어요.
-                </p>
-                <Link
-                  href="/crews"
-                  className={buttonClassName({ variant: 'secondary', size: 's' })}
-                >
-                  내 크루 보기
-                </Link>
-              </div>
+              <BlockerCard
+                tag="필수"
+                danger
+                title={`크루장인 크루 ${remaining.leaderCrewCount}개`}
+                body="크루장을 넘기거나 크루를 없앤 뒤 탈퇴할 수 있어요."
+                href="/crews"
+                action="내 크루 보기"
+              />
             )}
           </section>
         )}
-        <div className="mt-2 h-3 bg-bg-subtle" />
-        <section className="flex flex-col gap-2 px-4 py-5">
-          <p className="text-body2-bold">탈퇴하면 개인정보는 바로 지워요</p>
-          <p className="text-caption-regular text-text-secondary">
+        <section className="flex flex-col gap-2 px-4 pt-8 pb-6">
+          <h3 className="text-title3">탈퇴하면 개인정보는 바로 지워요</h3>
+          <p className="pb-2 text-body1-regular text-text-secondary">
             다만 법에 따라 아래 기록은 정해진 기간만 보관해요.
           </p>
-          <KeyValue label="계약 · 결제 · 환불 기록" value="5년" />
-          <KeyValue label="소비자 불만 · 분쟁 기록" value="3년" />
-          <KeyValue label="접속 기록" value="3개월" />
+          <div className="flex flex-col gap-3 rounded-md border border-border-default p-4 shadow-sm">
+            {[
+              ['계약 · 결제 · 환불 기록', '5년'],
+              ['소비자 불만 · 분쟁 기록', '3년'],
+              ['접속 기록', '3개월'],
+            ].map(([label, value]) => (
+              <KeyValue
+                key={label}
+                label={label}
+                value={value}
+                className="[&>span:first-child]:w-40"
+              />
+            ))}
+          </div>
         </section>
         <div className="px-4">
           <Checkbox
@@ -184,19 +172,55 @@ export function WithdrawPage() {
   )
 }
 
+// 탈퇴 전에 남은 일 하나: 왼쪽에 안내, 오른쪽에 해결하러 가는 버튼
+function BlockerCard({
+  tag,
+  danger,
+  title,
+  body,
+  href,
+  action,
+}: {
+  tag: string
+  danger?: boolean
+  title: string
+  body: string
+  href: '/me/deposit/refund' | '/tickets' | '/crews'
+  action: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-border-default p-4 shadow-sm">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span
+          className={`text-caption-medium ${danger ? 'text-text-danger' : 'text-text-secondary'}`}
+        >
+          {tag}
+        </span>
+        <p className="text-body1-bold">{title}</p>
+        <p className="text-body1-regular text-text-secondary">{body}</p>
+      </div>
+      <Link href={href} className={buttonClassName({ variant: 'ghost', size: 's' })}>
+        {action}
+      </Link>
+    </div>
+  )
+}
+
 // 피그마 V2 · M31-1 회원 탈퇴 완료
 export function WithdrawDonePage() {
   return (
     <>
       <AppHeader type="sub" title="탈퇴 완료" close backHref="/" />
-      <main className="flex flex-1 flex-col justify-center-safe gap-5 px-4 pt-6 pb-8">
-        <h2 className="text-title2">탈퇴했어요</h2>
+      {/* TODO(asset): 시안의 마스코트 그림 파일이 레포에 없어 글만 둔다 */}
+      <main className="flex flex-1 flex-col items-center gap-2 px-4 pt-(--layout-content-start) pb-8 text-center">
+        <h2 className="text-title2">탈퇴가 완료됐습니다.</h2>
+        <p className="text-body1-regular text-text-secondary">또 만나기를 기대할게요!</p>
       </main>
       <BottomCta
         className="sticky bottom-0 z-10"
         primary={
           <Link href="/" replace className={buttonClassName({ size: 'l' })}>
-            홈으로
+            홈으로 가기
           </Link>
         }
       />

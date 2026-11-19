@@ -56,7 +56,8 @@ spring:
 queue:
   schedule:
     # 승격 주기 (ms). 앞 실행이 끝난 뒤 이만큼 쉬고 다시 돈다
-    time: 5000
+    # 프론트가 입장 여부를 묻는 주기(ADMISSION_POLL_MS 3초)와 맞춘다 (CRU-48)
+    time: 3000
     # 대기열(대회·종목)마다 한 번에 승격할 인원. 한 종목의 동시 active는 많아야 size × (활성 시간 ÷ 주기)명이다
     size: 20
   active:

@@ -2,6 +2,7 @@ package com.bukang.member.crew.dto;
 
 import java.time.LocalDateTime;
 
+import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.domain.CrewRole;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -21,4 +22,12 @@ public record CrewMemberStatusDto(
 	CrewRole role,
 	LocalDateTime joinedAt
 ) {
+	public static CrewMemberStatusDto of(CrewMember member) {
+		return new CrewMemberStatusDto(member.getCrewId(), member.getMemberId(), true, member.getRole(),
+			member.getJoinedAt());
+	}
+
+	public static CrewMemberStatusDto notMember(long crewId, long memberId) {
+		return new CrewMemberStatusDto(crewId, memberId, false, null, null);
+	}
 }

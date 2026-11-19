@@ -9,13 +9,14 @@ import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { useGoBack } from '@/shared/lib'
-import { BottomCta, Button, Dialog, TextField } from '@/shared/ui'
+import { Avatar, BottomCta, Button, Dialog, TextField } from '@/shared/ui'
 
 import { toDotDate } from '../model/member-format'
 import { modifyErrorMessage, profileSchema, type ProfileValues } from '../model/profile-schema'
 
 // 피그마 M30-E 회원 정보 수정(1333:21303) · 닉네임이 겹칠 때(1333:21315) · 저장 중(1333:21327) · 저장하지 않고 나가기(1333:21339).
-// 고칠 수 있는 값은 닉네임 하나다. 이름 · 생년월일 · 휴대폰은 본인인증으로 확인한 값이라 보기만 한다.
+// 고칠 수 있는 값은 닉네임 하나다. 이름 · 생년월일 · 휴대폰은 본인인증으로 확인한 값이라 글로만 보여 준다(v3 프로필 수정).
+// TODO(api): 프로필 사진 올리기, 닉네임 자동 중복 확인은 API가 없어 두지 않았다. 닉네임 중복은 저장할 때 오류로 알린다.
 // 내 정보 수정(PUT /api/v1/member/members/me)은 닉네임만 받는다(BUK-33).
 // TODO(api): 시안의 「본인인증 다시 하기」는 인증 결과를 회원 정보에 반영하는 API가 없어 두지 않았다.
 export function ProfileEditPage() {
@@ -29,7 +30,7 @@ export function ProfileEditPage() {
         <ProfileForm member={me.data} />
       ) : (
         <>
-          <AppHeader type="sub" title="회원 정보 수정" backHref="/me/settings" />
+          <AppHeader type="sub" title="프로필 수정" backHref="/me" />
           {me.isError && (
             <p role="alert" className="px-4 py-6 text-body2-regular text-text-danger">
               회원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
@@ -92,23 +93,34 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
           }
         }}
       >
-        <AppHeader type="sub" title="회원 정보 수정" backHref="/me/settings" />
+        <AppHeader type="sub" title="프로필 수정" backHref="/me" />
       </div>
-      <main className="flex flex-1 flex-col gap-4 px-4 py-6">
+      <main className="flex flex-1 flex-col gap-8 px-4 pt-6 pb-6">
+        <div className="flex justify-center" data-clarity-mask="true">
+          <Avatar size="xl" name={member.nickname} />
+        </div>
         <TextField
           label="닉네임"
-          helper="다른 사람에게는 실명 대신 닉네임이 보여요. 한글 2~8자, 영문 4~16자"
+          helper="한글 2~8자, 영문 4~16자"
           error={errors.nickname?.message}
           {...register('nickname')}
         />
-        <TextField label="이름" value={member.name ?? ''} disabled readOnly />
-        <TextField
-          label="생년월일"
-          value={member.birthDate ? toDotDate(member.birthDate) : ''}
-          disabled
-          readOnly
-        />
-        <TextField label="휴대폰 번호" value={member.phone ?? ''} disabled readOnly />
+        {/* 본인인증으로 받은 값이라 바꿀 수 없다. 칸 모양이면 누를 수 있는 것처럼 보여 글로만 쓴다 */}
+        <section className="flex flex-col gap-3" data-clarity-mask="true">
+          <h2 className="text-body1-bold">본인인증 정보</h2>
+          <dl className="flex flex-col gap-3 rounded-md border border-border-default p-4 shadow-sm">
+            {[
+              ['이름', member.name ?? ''],
+              ['생년월일', member.birthDate ? toDotDate(member.birthDate) : ''],
+              ['휴대폰 번호', member.phone ?? ''],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4 text-body1-regular">
+                <dt className="text-text-secondary">{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
         {formError && (
           <p role="alert" className="text-caption-regular text-text-danger">
             {formError}
@@ -120,7 +132,7 @@ function ProfileForm({ member }: { member: memberModel.MemberDto }) {
         primary={
           <Button
             size="l"
-            disabled={!isValid || modify.isPending}
+            disabled={!isValid || !isDirty || modify.isPending}
             loading={modify.isPending}
             onClick={onSubmit}
           >

@@ -340,7 +340,8 @@ class GatewayAuthenticationTest {
 
 	@ParameterizedTest(name = "{0}")
 	@DisplayName("회원가입·로그인·토큰 재발급·로그아웃은 토큰 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
-	@ValueSource(strings = {"/api/v1/auth/join", "/api/v1/auth/login", "/api/v1/auth/reissue", "/api/v1/auth/logout"})
+	@ValueSource(strings = {"/api/v1/auth/join", "/api/v1/auth/login", "/api/v1/auth/reissue", "/api/v1/auth/logout",
+		"/api/v1/auth/demo-login"})
 	void passesPublicPathWithoutToken(String path) throws Exception {
 		HttpResponse<String> response = send(request(path)
 			.header(MEMBER_ID_HEADER, "999")
@@ -348,6 +349,24 @@ class GatewayAuthenticationTest {
 
 		assertThat(response.statusCode()).isEqualTo(200);
 		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("데모 로그인 켜짐 확인 GET은 로그인 전 화면이 부르므로 토큰 없이 통과하고, 클라이언트가 보낸 X-Member-Id는 지운다")
+	void passesDemoLoginAvailabilityWithoutToken() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/auth/demo-login").header(MEMBER_ID_HEADER, "999"));
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(RECEIVED_MEMBER_IDS).containsExactly("없음");
+	}
+
+	@Test
+	@DisplayName("데모 로그인 주소라도 GET·POST가 아니면 토큰이 필요하다")
+	void requiresTokenForDemoLoginOtherMethods() throws Exception {
+		HttpResponse<String> response = send(request("/api/v1/auth/demo-login")
+			.method("DELETE", HttpRequest.BodyPublishers.noBody()));
+
+		assertUnauthorized(response, LOGIN_REQUIRED, "로그인이 필요합니다.");
 	}
 
 	@Test

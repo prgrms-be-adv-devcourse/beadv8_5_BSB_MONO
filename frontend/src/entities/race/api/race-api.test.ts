@@ -3,16 +3,27 @@ import { describe, expect, it } from 'vitest'
 
 import { server } from '@/shared/testing'
 
-import { fetchRaceDetail } from './race-api'
+import { fetchRaceDetail, raceCoverQueryOptions } from './race-api'
 
 describe('fetchRaceDetail', () => {
-  it('상품 API의 대회와 파일 API의 종목 이미지를 합친다', async () => {
+  it('상품 API의 대회와 파일 API의 대회 대표 이미지를 합친다', async () => {
     const race = await fetchRaceDetail('1')
     expect(race?.title).toBe('2026 용감한 쿠키RUN in 서울')
-    expect(race?.options[0]).toMatchObject({
-      id: '1',
-      image: '/mock/races/cookierun.webp',
-    })
+    expect(race?.images[0]).toBe('/mock/races/cookierun.webp')
+    expect(race?.options[0]).toMatchObject({ id: '1', image: '/mock/races/cookierun.webp' })
+  })
+
+  it('대표 이미지는 대회 파일(refType=Race, refId=대회 ID)에서 찾는다', async () => {
+    server.use(
+      http.get('*/api/v1/file/files', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        const isRace = params.get('refType') === 'Race' && params.get('refId') === '1'
+        const data = isRace ? [{ id: 9, fileType: 'THUMBNAIL', url: '/cover.webp' }] : []
+        return HttpResponse.json({ status: 200, message: 'ok', data })
+      }),
+    )
+    const race = await fetchRaceDetail('1')
+    expect(race?.images).toEqual(['/cover.webp'])
   })
 
   it('없는 대회(404)면 null', async () => {
@@ -35,5 +46,20 @@ describe('fetchRaceDetail', () => {
     server.use(http.get('*/api/v1/file/files', () => HttpResponse.error()))
     const race = await fetchRaceDetail('1')
     expect(race?.images).toEqual([])
+  })
+})
+
+describe('raceCoverQueryOptions', () => {
+  it('대회 대표 이미지 주소 한 장을 준다', async () => {
+    const { queryFn } = raceCoverQueryOptions(2)
+    await expect((queryFn as () => Promise<string | null>)()).resolves.toBe(
+      '/mock/races/youth10k.webp',
+    )
+  })
+
+  it('못 받으면 null', async () => {
+    server.use(http.get('*/api/v1/file/files', () => HttpResponse.error()))
+    const { queryFn } = raceCoverQueryOptions(2)
+    await expect((queryFn as () => Promise<string | null>)()).resolves.toBeNull()
   })
 })

@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +22,7 @@ import com.bukang.member.config.MarketingUnsubscribeProperties;
 import com.bukang.member.config.auth.LoginAttemptProperties;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
+import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.LoginLockedException;
 import com.bukang.member.domain.exception.MemberNicknameLookupTooManyException;
 import com.bukang.member.domain.exception.MemberNotFoundException;
@@ -54,8 +54,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MemberFacade {
 	public static final int MAX_NICKNAME_LOOKUP = 100;
-	static final String LOGIN_LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 	public static final int MAX_REPLICA_PAGE_SIZE = 500;
+	static final String LOGIN_LOCKED_MESSAGE = "로그인을 5번 실패해 10분 동안 로그인할 수 없습니다. 잠시 뒤 다시 시도해주세요.";
 
 	private final MemberJoinUseCase memberJoinUseCase;
 	private final IdentityVerificationUseCase identityVerificationUseCase;
@@ -68,7 +68,7 @@ public class MemberFacade {
 	private final LogoutUseCase logoutUseCase;
 	private final AdminVerifyUseCase adminVerifyUseCase;
 	private final MarketingConsentUseCase marketingConsentUseCase;
-	private final MarketingUnsubscribeTokens marketingUnsubscribeTokens;
+	private final UnsubscribeTokenSigner unsubscribeTokenSigner;
 	private final MarketingUnsubscribeProperties marketingUnsubscribeProperties;
 	private final LoginAttemptStore loginAttemptStore;
 	private final LoginAttemptProperties loginAttemptProperties;
@@ -77,14 +77,14 @@ public class MemberFacade {
 	@Transactional
 	public MemberDto join(MemberJoinRequestDto memberJoinDto) {
 		VerifiedIdentity identity = identityVerificationUseCase.takeForJoin(memberJoinDto.getVerificationToken());
-		return memberJoinUseCase.join(
+		return MemberDto.from(memberJoinUseCase.join(
 			memberJoinDto.getEmail(),
 			memberJoinDto.getPassword(),
 			memberJoinDto.getNickname(),
 			memberJoinDto.getGender(),
 			memberJoinDto.getAgreedTerms(),
 			identity
-		).toDto();
+		));
 	}
 
 	public EmailAvailabilityResponseDto checkEmailAvailability(String email) {
@@ -93,14 +93,12 @@ public class MemberFacade {
 
 	public MemberDto findMe(long memberId) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
-		return memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."))
-			.toDto();
+		return MemberDto.from(memberRepository.findActiveById(memberId).orElseThrow(MemberNotFoundException::new));
 	}
 
 	@Transactional
 	public MemberDto modifyMe(long memberId, MemberModifyRequestDto memberModifyRequestDto) {
-		return memberModifyUseCase.modify(memberId, memberModifyRequestDto.getNickname()).toDto();
+		return MemberDto.from(memberModifyUseCase.modify(memberId, memberModifyRequestDto.getNickname()));
 	}
 
 	public MarketingConsentDto findMarketingConsent(long memberId) {
@@ -112,12 +110,21 @@ public class MemberFacade {
 		return marketingConsentUseCase.change(memberId, agreed);
 	}
 
+	public MarketingConsentDto findNightMarketingConsent(long memberId) {
+		return marketingConsentUseCase.find(memberId, TermsType.NIGHT_MARKETING);
+	}
+
+	@Transactional
+	public MarketingConsentDto changeNightMarketingConsent(long memberId, boolean agreed) {
+		return marketingConsentUseCase.change(memberId, TermsType.NIGHT_MARKETING, agreed);
+	}
+
 	// CRM이 광고를 보낼 때 메시지 끝에 붙일 링크를 받아 간다. 서명 키는 회원 서비스 밖으로 나가지 않는다 (BE-039)
 	public MarketingUnsubscribeLinkDto issueUnsubscribeLink(long memberId) {
 		memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 		Instant expiresAt = Instant.now(clock).plus(marketingUnsubscribeProperties.tokenTtl());
-		String token = marketingUnsubscribeTokens.issue(memberId, expiresAt);
+		String token = unsubscribeTokenSigner.issue(memberId, expiresAt);
 		return new MarketingUnsubscribeLinkDto(marketingUnsubscribeProperties.link(token),
 			LocalDateTime.ofInstant(expiresAt, ZoneId.systemDefault()));
 	}
@@ -125,7 +132,7 @@ public class MemberFacade {
 	// 수신 거부는 마케팅 동의 철회로 남긴다. 이미 거부했으면 동의 변경이 아무것도 남기지 않아 두 번 눌러도 같다 (BE-039)
 	@Transactional
 	public void unsubscribeMarketing(String token) {
-		marketingConsentUseCase.change(marketingUnsubscribeTokens.verify(token, Instant.now(clock)), false);
+		marketingConsentUseCase.change(unsubscribeTokenSigner.verify(token, Instant.now(clock)), false);
 	}
 
 	@Transactional
@@ -137,7 +144,7 @@ public class MemberFacade {
 	@Transactional
 	public void grantAdmin(String email) {
 		memberRepository.findByEmail(email)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."))
+			.orElseThrow(MemberNotFoundException::new)
 			.grantAdmin();
 	}
 
@@ -167,10 +174,6 @@ public class MemberFacade {
 
 	public MemberAdminDto checkAdmin(long memberId) {
 		return new MemberAdminDto(adminVerifyUseCase.isAdmin(memberId));
-	}
-
-	public boolean existsByEmail(String email) {
-		return memberRepository.existsByEmail(email);
 	}
 
 	// bcrypt 비교가 느려서 트랜잭션 밖에서 실행한다. 읽기 전용 트랜잭션이면 비교하는 동안 DB 커넥션을 잡는다 (BUK-184)
@@ -206,9 +209,9 @@ public class MemberFacade {
 		clearAttempts(emailHash);
 
 		Member member = memberRepository.findActiveByEmail(memberLoginRequestDto.getEmail())
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 
-		return new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+		return new MemberLoginResult(MemberDto.from(member), tokenIssueUseCase.issue(member.getId()));
 	}
 
 	private static String attemptKey(String email) {
@@ -238,9 +241,7 @@ public class MemberFacade {
 
 	// 예: "카카오로 가입한 계정입니다. 카카오로 로그인해주세요." 둘 다 연결돼 있으면 "카카오 또는 구글로"
 	private static String socialAccountMessage(Member member) {
-		String providers = member.socialProviders().stream()
-			.map(SocialProvider::getDisplayName)
-			.collect(Collectors.joining(" 또는 "));
+		String providers = SocialProvider.joinDisplayNames(member.socialProviders());
 		if (providers.isEmpty()) {
 			return "소셜 로그인으로 가입한 계정입니다. 소셜 로그인으로 로그인해주세요.";
 		}

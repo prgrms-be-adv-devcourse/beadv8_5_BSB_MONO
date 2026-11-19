@@ -2,13 +2,13 @@ package com.bukang.board.out.search;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
 import com.bukang.board.domain.exception.BoardExternalServiceUnavailableException;
+import com.bukang.board.domain.exception.BoardSearchIndexException;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
@@ -59,8 +59,8 @@ public class ElasticBoardPostSearchAdapter implements BoardPostSearchPort {
 			ensureIndex();
 			client.index(index -> index.index(INDEX).id(String.valueOf(document.postId()))
 				.document(body(document)));
-		} catch (IOException exception) {
-			throw new UncheckedIOException(exception);
+		} catch (IOException | RuntimeException exception) {
+			throw new BoardSearchIndexException("글을 검색 인덱스에 넣지 못했습니다. postId=" + document.postId(), exception);
 		}
 	}
 
@@ -69,20 +69,21 @@ public class ElasticBoardPostSearchAdapter implements BoardPostSearchPort {
 		if (documents.isEmpty()) {
 			return;
 		}
+		BulkResponse response;
 		try {
 			ensureIndex();
-			BulkResponse response = client.bulk(bulk -> {
+			response = client.bulk(bulk -> {
 				documents.forEach(document -> bulk.operations(operation -> operation.index(index -> index
 					.index(INDEX).id(String.valueOf(document.postId())).document(body(document)))));
 				return bulk;
 			});
-			if (response.errors()) {
-				String reason = response.items().stream().filter(item -> item.error() != null).findFirst()
-					.map(item -> item.error().reason()).orElse("알 수 없음");
-				throw new IllegalStateException("글 일부를 색인하지 못했습니다. " + reason);
-			}
-		} catch (IOException exception) {
-			throw new UncheckedIOException(exception);
+		} catch (IOException | RuntimeException exception) {
+			throw new BoardSearchIndexException("글을 검색 인덱스에 묶음으로 넣지 못했습니다.", exception);
+		}
+		if (response.errors()) {
+			String reason = response.items().stream().filter(item -> item.error() != null).findFirst()
+				.map(item -> item.error().reason()).orElse("알 수 없음");
+			throw new BoardSearchIndexException("글 일부를 색인하지 못했습니다. " + reason);
 		}
 	}
 
@@ -93,10 +94,10 @@ public class ElasticBoardPostSearchAdapter implements BoardPostSearchPort {
 		} catch (ElasticsearchException exception) {
 			// 인덱스나 문서가 없으면 이미 지워진 것과 같다
 			if (exception.status() != 404) {
-				throw exception;
+				throw new BoardSearchIndexException("글을 검색 인덱스에서 지우지 못했습니다. postId=" + postId, exception);
 			}
-		} catch (IOException exception) {
-			throw new UncheckedIOException(exception);
+		} catch (IOException | RuntimeException exception) {
+			throw new BoardSearchIndexException("글을 검색 인덱스에서 지우지 못했습니다. postId=" + postId, exception);
 		}
 	}
 

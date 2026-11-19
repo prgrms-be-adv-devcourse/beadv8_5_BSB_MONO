@@ -3,11 +3,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
-import { BottomNav } from '@/widgets/bottom-nav'
 import {
   goToSocialLogin,
   safeNextPath,
@@ -17,15 +16,15 @@ import {
   socialLoginErrorMessage,
   socialProviderOf,
   useAuthStatus,
+  useDemoLogin,
+  useDemoLoginAvailable,
   useLogin,
 } from '@/features/auth'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { BottomCta, Button, Dialog, FOCUS_RING, Logo, TextField } from '@/shared/ui'
+import { Button, buttonClassName, Dialog, FOCUS_RING, Logo, TextField } from '@/shared/ui'
 
 import { AUTH_ERRORS, loginSchema, type LoginValues } from '../model/schemas'
-
-const LINK = cn('rounded-sm', FOCUS_RING)
 
 // 피그마 V2 · M03 로그인 (+ M03-E 로그인 실패)
 // failed는 시안 미리보기(?preview=error)용. 실패 문구를 띄운 채로 보여 준다.
@@ -42,6 +41,9 @@ export function LoginPage({
 }) {
   const router = useRouter()
   const login = useLogin()
+  // 발표 시연용. 서버에서 켜져 있을 때만 버튼을 보여 준다
+  const demoAvailable = useDemoLoginAvailable()
+  const demoLogin = useDemoLogin()
   // 이미 로그인한 사람이 로그인 화면에 오면 가려던 곳으로 바로 보낸다
   const authStatus = useAuthStatus()
   useEffect(() => {
@@ -76,74 +78,109 @@ export function LoginPage({
     <>
       <AppHeader type="sub" title="로그인" />
       <main className="flex flex-1 flex-col bg-bg-surface">
-        <div className="flex-1" />
-        <form
-          id="login-form"
-          className="flex flex-col items-center px-4"
-          noValidate
-          onSubmit={handleSubmit((values) =>
-            login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
-          )}
-        >
-          <Logo className="h-11 w-[150px]" />
-          <div className="mt-9 flex w-full flex-col gap-3">
-            <TextField
-              aria-label="이메일"
-              type="email"
-              autoComplete="email"
-              placeholder="이메일"
-              error={errors.email?.message}
-              {...register('email', { onChange: clearLoginError })}
-            />
-            <TextField
-              aria-label="비밀번호"
-              type="password"
-              autoComplete="current-password"
-              placeholder="비밀번호"
-              error={
-                errors.password?.message ??
-                (failed ? AUTH_ERRORS.loginFailed : loginErrorMessage(login.error))
-              }
-              {...register('password', { onChange: clearLoginError })}
-            />
-            <LinkRow
-              className="text-caption-medium text-text-secondary"
-              links={[
-                {
-                  href: next ? `/signup?next=${encodeURIComponent(next)}` : '/signup',
-                  label: '회원가입',
-                },
-                { href: '/find-email', label: '이메일 찾기' },
-                { href: '/password-reset', label: '비밀번호 재설정' },
-              ]}
-            />
-          </div>
-          <p className="mt-9 mb-3 text-caption-regular text-text-tertiary">SNS 계정으로 시작하기</p>
-          <SocialLoginButtons next={next} />
-        </form>
-        <div className="flex-1" />
-        <footer className="flex flex-col items-center gap-2 pt-4 pb-6 text-center">
-          <LinkRow
-            className="text-caption-medium text-text-secondary"
-            links={[
-              { href: '/terms/service', label: '이용약관' },
-              { href: '/terms/privacy', label: '개인정보처리방침' },
-              { href: '/me', label: '고객센터' },
-            ]}
-          />
-          <p className="text-caption-regular text-text-tertiary">
-            크루런은 통신판매중개자이며 거래 당사자가 아니에요.
-          </p>
+        <div className="flex flex-1 flex-col justify-center py-8">
+          <form
+            id="login-form"
+            className="flex flex-col items-center px-4"
+            noValidate
+            onSubmit={handleSubmit((values) =>
+              login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
+            )}
+          >
+            <Logo className="h-11 w-36" />
+            <div className="mt-12 flex w-full flex-col gap-3">
+              <TextField
+                aria-label="이메일"
+                type="email"
+                autoComplete="email"
+                placeholder="이메일"
+                error={errors.email?.message}
+                hideErrorBorder
+                {...register('email', { onChange: clearLoginError })}
+              />
+              <TextField
+                aria-label="비밀번호"
+                type="password"
+                autoComplete="current-password"
+                placeholder="비밀번호"
+                hideErrorBorder
+                error={
+                  errors.password?.message ??
+                  (failed ? AUTH_ERRORS.loginFailed : loginErrorMessage(login.error))
+                }
+                {...register('password', { onChange: clearLoginError })}
+              />
+              <Button type="submit" size="l" disabled={!isValid || login.isPending}>
+                로그인
+              </Button>
+              <div className="flex gap-2">
+                <Link
+                  href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
+                  className={buttonClassName({
+                    variant: 'secondary',
+                    size: 's',
+                    className: 'flex-1 enabled:hover:bg-bg-surface',
+                  })}
+                >
+                  회원가입
+                </Link>
+                <Link
+                  href="/find-email"
+                  className={buttonClassName({
+                    variant: 'secondary',
+                    size: 's',
+                    className: 'flex-1 enabled:hover:bg-bg-surface',
+                  })}
+                >
+                  계정 찾기
+                </Link>
+              </div>
+              {demoAvailable && (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="m"
+                    className="enabled:hover:bg-bg-surface"
+                    disabled={demoLogin.isPending}
+                    onClick={() =>
+                      demoLogin.mutate(undefined, {
+                        onSuccess: () => router.replace(safeNextPath(next)),
+                      })
+                    }
+                  >
+                    테스트 계정으로 로그인
+                  </Button>
+                  {demoLogin.isError && (
+                    <p role="alert" className="text-center text-body1-regular text-text-danger">
+                      {(demoLogin.error instanceof ApiError && demoLogin.error.serverMessage) ||
+                        AUTH_ERRORS.loginUnavailable}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+            <p className="mt-8 mb-3 text-caption-regular text-text-secondary">
+              SNS 계정으로 시작하기
+            </p>
+            <SocialLoginButtons next={next} />
+          </form>
+        </div>
+        <footer className="flex items-center justify-center gap-2 pb-6">
+          {FOOTER_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'flex h-11 items-center rounded-sm px-2 text-caption-medium text-text-secondary underline',
+                FOCUS_RING,
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
         </footer>
       </main>
-      <BottomCta
-        primary={
-          <Button type="submit" form="login-form" size="l" disabled={!isValid || login.isPending}>
-            로그인
-          </Button>
-        }
-      />
-      <BottomNav />
       {/* M03-S3 같은 이메일 계정 있음 */}
       <Dialog
         open={!!socialError && social?.error === 'AUTH_SOCIAL_EMAIL_TAKEN' && !socialDismissed}
@@ -159,7 +196,7 @@ export function LoginPage({
         open={!!socialError && social?.error !== 'AUTH_SOCIAL_EMAIL_TAKEN' && !socialDismissed}
         onOpenChange={(open) => !open && setSocialDismissed(true)}
         title={`${failedProvider?.label ?? '소셜'} 로그인을 마치지 못했어요`}
-        body="동의 화면에서 취소했거나 연결하지 못했어요. 다시 시도하거나 이메일로 로그인해 주세요."
+        body={`${failedProvider?.label ?? '소셜'}${failedProvider?.id === 'google' ? '과' : '와'} 연결하지 못했어요.`}
         cancelLabel="닫기"
         confirmLabel="다시 시도하기"
         onConfirm={() => goToSocialLogin(socialAuthorizeHref(retryProvider.id, { next }))}
@@ -191,30 +228,8 @@ function loginErrorMessage(error: Error | null): string | undefined {
   return (error instanceof ApiError && error.serverMessage) || AUTH_ERRORS.loginUnavailable
 }
 
-type RowLink = {
-  href:
-    | '/signup'
-    | `/signup?next=${string}`
-    | '/find-email'
-    | '/password-reset'
-    | '/terms/service'
-    | '/terms/privacy'
-    | '/me'
-  label: string
-}
-
-// "회원가입   |   이메일 찾기" 처럼 세로선으로 나눈 링크 줄
-function LinkRow({ links, className }: { links: RowLink[]; className?: string }) {
-  return (
-    <p className={cn('flex justify-center gap-3', className)}>
-      {links.map((link, i) => (
-        <Fragment key={link.href}>
-          {i > 0 && <span aria-hidden>|</span>}
-          <Link href={link.href} className={LINK}>
-            {link.label}
-          </Link>
-        </Fragment>
-      ))}
-    </p>
-  )
-}
+const FOOTER_LINKS = [
+  { href: '/terms/service', label: '이용약관' },
+  { href: '/terms/privacy', label: '개인정보처리방침' },
+  { href: '/me/support', label: '고객센터' },
+] as const

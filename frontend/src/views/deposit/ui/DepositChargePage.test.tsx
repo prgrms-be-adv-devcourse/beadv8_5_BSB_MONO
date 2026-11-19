@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
 import { server } from '@/shared/testing'
+import { ToastProvider } from '@/shared/ui'
 
 import { DepositChargePage } from './DepositChargePage'
 
+const router = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+  useRouter: () => router,
   usePathname: () => '/me/deposit/charge',
 }))
 
@@ -24,7 +26,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <DepositChargePage />
+      <ToastProvider>
+        <DepositChargePage />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -56,6 +60,20 @@ describe('예치금 충전 (M21)', () => {
     await user.type(input, '9000')
 
     expect(screen.getByRole('button', { name: '9,000원 충전하기' })).toBeDisabled()
+  })
+
+  it('숫자가 아닌 글자를 치면 값은 그대로이고 숫자만 입력할 수 있다는 안내가 보인다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const input = screen.getByLabelText('충전할 금액')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
+    await user.type(input, 'a')
+
+    expect(input).toHaveValue('10,000')
+    expect(screen.getByText('숫자만 입력할 수 있어요')).toBeInTheDocument()
+    await user.type(input, '0')
+    expect(screen.queryByText('숫자만 입력할 수 있어요')).not.toBeInTheDocument()
   })
 
   it('결제창을 띄우지 못하면 결제 실패 문구를 보이고 다시 누를 수 있다', async () => {
@@ -106,5 +124,98 @@ describe('예치금 충전 (M21)', () => {
     await user.click(screen.getByRole('button', { name: '10,000원 충전하기' }))
 
     expect(await screen.findByText('17,000원')).toBeInTheDocument()
+  })
+
+  it('1회 한도(30만 원)를 넘으려 하면 30만 원으로 맞추고 토스트로 알려 준다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const input = screen.getByLabelText('충전할 금액')
+    await user.clear(input)
+    await user.type(input, '310000')
+
+    expect(await screen.findByText('한 번에 30만원까지 충전할 수 있어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '300,000원 충전하기' })).toBeEnabled()
+  })
+
+  it('+버튼으로 30만 원을 넘기려 해도 30만 원으로 맞춘다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole('button', { name: '+10만' }))
+
+    expect(await screen.findByText('한 번에 30만원까지 충전할 수 있어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '300,000원 충전하기' })).toBeInTheDocument()
+  })
+
+  it('오늘 충전한 금액과 더해 하루 한도(100만 원)를 넘으면 충전 버튼을 막는다', async () => {
+    setAccessToken('access-token')
+    // 서버 createdAt은 한국 시간이다
+    const todayKst = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)
+    const row = (amount: number) => ({
+      category: 'CHARGE',
+      ledgerType: '충전__PG결제_토스페이먼츠',
+      amount,
+      balanceAfter: amount,
+      createdAt: todayKst,
+      refId: 1,
+      charge: null,
+    })
+    server.use(
+      http.get('*/api/v1/cash/wallets/ledgers', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '예치금 내역을 조회했습니다.',
+          data: {
+            content: [row(300_000), row(300_000), row(300_000)],
+            page: 0,
+            size: 100,
+            totalElements: 3,
+            totalPages: 1,
+          },
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: '+10만' }))
+
+    expect(await screen.findByText('오늘은 100,000원까지 더 충전할 수 있어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '110,000원 충전하기' })).toBeDisabled()
+  })
+
+  it('결제창에서 돌아와 거절됐으면 서버 문구를 모달로 보여 준다', async () => {
+    sessionStorage.setItem(
+      'crewrun:charge-notice',
+      JSON.stringify({
+        kind: 'failed',
+        message: '일일 충전 한도는 1,000,000원입니다.',
+        savedAt: Date.now(),
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('충전하지 못했어요')
+    expect(dialog).toHaveTextContent('일일 충전 한도는 1,000,000원입니다.')
+    expect(dialog).toHaveTextContent('결제된 금액은 없어요.')
+    await user.click(screen.getByRole('button', { name: '확인' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    // 한 번만 보여 준다
+    expect(sessionStorage.getItem('crewrun:charge-notice')).toBeNull()
+  })
+
+  it('결제창에서 돌아와 충전됐으면 충전 전 화면으로 한 번 더 돌아간다', async () => {
+    router.replace.mockClear()
+    sessionStorage.setItem(
+      'crewrun:charge-notice',
+      JSON.stringify({ kind: 'completed', savedAt: Date.now() }),
+    )
+    renderPage()
+
+    // 테스트에서는 앱 안 기록이 없어 예치금으로 바꿔 간다 (기록이 있으면 뒤로 간다)
+    await vi.waitFor(() => expect(router.replace).toHaveBeenCalledWith('/me/deposit'))
   })
 })

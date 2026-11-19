@@ -2,7 +2,6 @@ package com.bukang.member.app;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.web.util.HtmlUtils;
 
@@ -62,7 +61,7 @@ final class PasswordResetMails {
 	static OutgoingMail socialAccount(String to, List<SocialProvider> providers, String loginLink) {
 		String names = providers.isEmpty()
 			? "소셜 로그인"
-			: providers.stream().map(SocialProvider::getDisplayName).collect(Collectors.joining(" 또는 "));
+			: SocialProvider.joinDisplayNames(providers);
 		String text = """
 			비밀번호 재설정을 요청하셨어요.
 

@@ -377,10 +377,12 @@ function DatePickerBody(props: DatePickerProps & { today: Date }) {
     }
   }
 
-  // 휠에서 달을 바꾸면 한 주 보기는 그 달 1일이 있는 주로 옮긴다
+  // 휠에서 달을 바꾸면 한 주 보기는 그 달의 첫 목요일이 있는 주로 옮긴다.
+  // 한 주는 목요일이 있는 달로 보여 주므로, 1일이 금·토요일일 때 1일이 있는 주로 가면 제목이 앞 달이 된다.
   function changeMonth(next: Date) {
     setMonth(next)
-    setWeekStart(startOfWeek(next, { weekStartsOn: WEEK_STARTS_ON }))
+    const firstThursday = addDays(next, (4 - next.getDay() + 7) % 7)
+    setWeekStart(startOfWeek(firstThursday, { weekStartsOn: WEEK_STARTS_ON }))
   }
 
   const isWeek = view === 'week'

@@ -94,7 +94,53 @@ describe('RaceListPage', () => {
 
     await vi.waitFor(() => expect(sorts.at(-1)).toBe('PRICE'))
     await vi.waitFor(async () => expect(await titles()).toEqual(['싼 대회', '곧 마감 대회']))
-    expect(screen.getByText('대회 2개')).toBeInTheDocument()
+    expect(screen.getByText('대회 2')).toBeInTheDocument()
+  })
+
+  it('개수 줄은 「대회 N」이고(목록에 오픈 예정 대회도 섞여 오므로 접수 중이라 쓰지 않는다), 목록 줄에 더보기 버튼은 없다 (v3)', async () => {
+    renderPage()
+    expect(await screen.findByText(/^대회 \d+$/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /더보기/ })).not.toBeInTheDocument()
+  })
+
+  it('큰 「대회 찾기」 제목은 화면에 보이지 않고 읽는 프로그램에만 남는다 (v3)', async () => {
+    renderPage()
+    expect(await screen.findByRole('heading', { level: 1, name: '대회 찾기' })).toHaveClass(
+      'sr-only',
+    )
+  })
+
+  it('접수 중 대회는 배지가 없고, 오픈 예정 대회만 사진 위 배지가 붙는다', async () => {
+    server.use(
+      http.get('*/api/v1/product/races', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '대회 목록을 조회했습니다.',
+          data: {
+            races: [
+              {
+                ...soon,
+                individualOpenAt: '2000-01-01T09:00:00',
+                applicationCloseAt: '2099-12-31T18:00:00',
+              },
+              {
+                ...cheap,
+                individualOpenAt: '2099-01-01T09:00:00',
+                applicationCloseAt: '2099-12-31T18:00:00',
+              },
+            ],
+            page: 0,
+            size: 20,
+            totalElements: 2,
+            totalPages: 1,
+          },
+        }),
+      ),
+    )
+    renderPage()
+    const items = await screen.findAllByRole('listitem')
+    expect(within(items[0]).queryByText('접수 중')).not.toBeInTheDocument()
+    expect(within(items[1]).getByText('오픈 예정')).toHaveClass('bg-bg-brand-subtle')
   })
 
   it('검색어를 입력하면 연관검색어를 보여 준다', async () => {
@@ -248,5 +294,18 @@ describe('RaceListPage', () => {
     expect(screen.getByRole('textbox', { name: '대회 찾기' })).toHaveValue('제주 트레일')
     await user.click(await screen.findByRole('button', { name: '필터 초기화' }))
     expect(screen.getByRole('textbox', { name: '대회 찾기' })).toHaveValue('')
+  })
+
+  it('검색어 앞뒤 공백은 빼고 최근 검색어에 남긴다', async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+    renderPage()
+    const input = screen.getByRole('textbox', { name: '대회 찾기' })
+
+    await user.type(input, '  제주 트레일  {Enter}')
+    await user.click(input)
+    await user.clear(input)
+
+    expect(await screen.findByRole('button', { name: '제주 트레일' })).toBeInTheDocument()
   })
 })

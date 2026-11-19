@@ -273,6 +273,8 @@ function build(seed: RaceSeed, now: number): MockRace {
       price: course.price,
       kitIncluded: true,
       kitPrice: 0,
+      // TODO(BUK-270): 공개 종목 조회에 "기록증 필요 여부" 칸이 생기면 명세 타입으로 옮긴다. 기록증 제출 시안용으로 1번 종목만 켠다
+      ...{ recordCertRequired: course.id === 1 },
       tshirtSizeOption: ['S', 'M', 'L', 'XL'],
       status: course.remaining > 0 ? 'OPEN' : 'SOLD_OUT',
       crewQuota: 0,
@@ -297,6 +299,11 @@ export function getMockRaces(now: number = Date.now()): MockRace[] {
 
 export function findMockRace(raceId: number, now: number = Date.now()): MockRace | undefined {
   return getMockRaces(now).find((race) => race.detail.raceId === raceId)
+}
+
+/** 대회 ID로 그 대회의 대표 이미지 (없으면 undefined) */
+export function mockImageOfRace(raceId: number): string | undefined {
+  return RACE_SEEDS.find((race) => race.id === raceId)?.image
 }
 
 /** 종목 ID로 그 종목이 속한 대회의 이미지 (없으면 undefined) */

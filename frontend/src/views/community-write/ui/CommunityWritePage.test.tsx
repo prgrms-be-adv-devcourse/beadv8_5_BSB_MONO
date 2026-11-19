@@ -51,6 +51,16 @@ describe('CommunityWritePage', () => {
     expect(screen.getByRole('button', { name: '등록' })).toBeDisabled()
   })
 
+  it('제목 · 본문 글자 수 표시를 각 칸의 설명으로 연결한다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const content = await screen.findByRole('textbox', { name: '본문' })
+    await user.type(content, '안녕')
+
+    expect(content).toHaveAccessibleDescription('2/5,000')
+    expect(screen.getByRole('textbox', { name: '제목' })).toHaveAccessibleDescription('0/50')
+  })
+
   it('말머리·제목·본문·사진을 넣고 등록하면 서버로 보내고 글 상세로 옮겨 간다', async () => {
     const user = userEvent.setup()
     let sent: unknown
@@ -153,5 +163,32 @@ describe('CommunityWritePage', () => {
     await waitFor(() =>
       expect(router.replace).toHaveBeenCalledWith('/login?next=%2Fcommunity%2Fwrite'),
     )
+  })
+
+  it('공백만 쓴 제목·본문으로는 등록할 수 없고, 앞뒤 공백은 빼고 보낸다', async () => {
+    const user = userEvent.setup()
+    let sent: unknown
+    server.use(
+      http.post('*/api/v1/board/posts', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json(
+          { status: 201, message: '등록', data: { postId: 102 } },
+          { status: 201 },
+        )
+      }),
+    )
+    renderPage()
+    await user.type(await screen.findByRole('textbox', { name: '제목' }), '   ')
+    await user.type(screen.getByRole('textbox', { name: '본문' }), '   ')
+    expect(screen.getByRole('button', { name: '등록' })).toBeDisabled()
+
+    await user.clear(screen.getByRole('textbox', { name: '제목' }))
+    await user.type(screen.getByRole('textbox', { name: '제목' }), ' 제목 ')
+    await user.clear(screen.getByRole('textbox', { name: '본문' }))
+    await user.type(screen.getByRole('textbox', { name: '본문' }), ' 본문 ')
+    await user.click(screen.getByRole('button', { name: '등록' }))
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/community/102'))
+    expect(sent).toMatchObject({ title: '제목', content: '본문' })
   })
 })

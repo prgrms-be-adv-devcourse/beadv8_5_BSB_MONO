@@ -30,7 +30,10 @@ public final class KafkaTopics {
 	// 게시판 글이 바뀌었다 (쓰기·고치기·지우기·숨김·되살리기). 게시판 서비스가 보내고 자기가 받아 검색 인덱스를 맞춘다 (BUK-179, key 글 ID)
 	public static final String BOARD_POST_CHANGED = "queuing.post.changed";
 
-	// 대회·종목을 저장한 뒤 이미지 연결을 요청한다 (product → file)
+	// 기록증 제출을 저장했다. ai-service가 원본의 칸별 상자 자리를 다시 읽는다 (member → ai, key 제출 ID, BUK-274 · BUK-275)
+	public static final String RECORD_CERT_CHECK_REQUESTED = "queuing.recordcert.checkrequested";
+
+	// 대회·종목을 저장한 뒤 이미지 연결을 요청한다 (product → file). member도 기록증 사진 연결에 쓴다 (BUK-274)
 	public static final String RACE_FILE_LINK_REQUESTED = "race.filelink.requested";
 	// 대기열 활성 시간이 끝나 임시 확보한 자리를 해제한다 (order → product)
 	public static final String PRODUCT_HOLD_CANCEL = "product.hold.cancel";

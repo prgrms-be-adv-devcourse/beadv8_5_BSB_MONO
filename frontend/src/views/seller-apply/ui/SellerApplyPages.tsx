@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 
-import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
+import { ConsoleCard } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, isNoApplication, SELLER_STATUS } from '@/entities/member'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
@@ -19,7 +19,6 @@ import {
   Button,
   buttonClassName,
   Checkbox,
-  FOCUS_RING,
   Radio,
   RadioGroup,
   Select,
@@ -43,6 +42,8 @@ import {
 } from '../model/seller-apply-form'
 
 // 데스크톱 폼 화면의 본문: 위 48 · 아래 64, 가운데 고정 폭 칸
+const digitsAndHyphen = (value: string) => value.replace(/[^\d-]/g, '')
+
 function FormBody({
   width,
   title,
@@ -121,12 +122,9 @@ export function SellerApplyPage() {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <FormBody
-        width="w-160"
-        title="판매자 등록 신청"
-        description="승인되면 대회를 등록할 수 있어요. 결과는 알림으로 알려 드려요."
-      >
+      <FormBody width="w-160" title="판매자 등록 신청">
         <ConsoleCard title="판매자 정보">
+          <span className="text-body1-medium">판매자 종류</span>
           <Controller
             control={control}
             name="business"
@@ -136,17 +134,20 @@ export function SellerApplyPage() {
                 onValueChange={(value) => field.onChange(value)}
                 className="flex-row gap-6"
               >
-                <Radio value="business" label="사업자예요" />
-                <Radio value="personal" label="사업자가 아니에요" />
+                <Radio tone="inverse" value="business" label="사업자예요" />
+                <Radio tone="inverse" value="personal" label="사업자가 아니에요" />
               </RadioGroup>
             )}
           />
           {business === 'business' ? (
             <>
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4">
                 <TextField
                   label="사업자등록번호"
                   className="flex-1"
+                  inputMode="numeric"
+                  filter={digitsAndHyphen}
+                  filterMessage="숫자와 -만 입력할 수 있어요"
                   error={errors.businessNumber?.message}
                   {...register('businessNumber')}
                 />
@@ -164,7 +165,7 @@ export function SellerApplyPage() {
               />
             </>
           ) : (
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-4">
               <TextField
                 label="성명"
                 className="flex-1"
@@ -174,19 +175,18 @@ export function SellerApplyPage() {
               <TextField
                 label="연락처"
                 type="tel"
+                filter={digitsAndHyphen}
+                filterMessage="숫자와 -만 입력할 수 있어요"
                 className="flex-1"
                 error={errors.phone?.message}
                 {...register('phone')}
               />
             </div>
           )}
-          <p className="text-caption-regular text-text-tertiary">
-            사업자가 아니면 성명 · 연락처만 받아요.
-          </p>
         </ConsoleCard>
 
         <ConsoleCard title="정산 계좌">
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4">
             <Controller
               control={control}
               name="bankCode"
@@ -203,11 +203,14 @@ export function SellerApplyPage() {
             <TextField
               label="계좌번호"
               inputMode="numeric"
+              filter={digitsAndHyphen}
+              filterMessage="숫자와 -만 입력할 수 있어요"
               className="flex-1"
               error={errors.accountNumber?.message}
               {...register('accountNumber')}
             />
           </div>
+          <span className="text-body1-medium">예금주 명의</span>
           <Controller
             control={control}
             name="accountHolder"
@@ -217,15 +220,16 @@ export function SellerApplyPage() {
                 onValueChange={(value) => field.onChange(value)}
                 className="flex-row gap-6"
               >
-                <Radio value="personal" label="본인 명의" />
-                <Radio value="business" label="사업자 명의" disabled={business !== 'business'} />
+                <Radio tone="inverse" value="personal" label="본인 명의" />
+                <Radio
+                  tone="inverse"
+                  value="business"
+                  label="사업자 명의"
+                  disabled={business !== 'business'}
+                />
               </RadioGroup>
             )}
           />
-          <p className="text-caption text-text-tertiary">
-            본인 명의는 본인인증한 이름과 예금주가 같아야 해요. 사업자 명의는 사업자등록번호로
-            확인해요. 계좌 확인은 하루 5번까지 할 수 있어요.
-          </p>
         </ConsoleCard>
 
         <ConsoleCard title="약관 동의">
@@ -243,32 +247,16 @@ export function SellerApplyPage() {
             />
             <Link
               href="/terms/service"
-              className={cn(
-                'rounded-sm text-body2-regular text-text-tertiary underline',
-                FOCUS_RING,
-              )}
+              className={buttonClassName({ variant: 'secondary', size: 's' })}
             >
               보기
             </Link>
           </div>
-          <p className="text-caption-regular text-text-tertiary">
-            동의한 약관 버전과 시각을 기록해요.
-          </p>
         </ConsoleCard>
-
-        <Alert
-          className={CONSOLE_BOX}
-          title="크루런은 통신판매중개자예요"
-          description="거래 당사자는 판매자님이에요. 판매자 정보는 대회 상세 화면에서 구매자에게 보여요."
-        />
 
         {formError && <Alert tone="danger" title={formError} />}
 
         <div className="flex justify-end gap-2">
-          {/* TODO(api): PRO-129 임시 저장 API가 생기면 켠다 */}
-          <Button type="button" variant="secondary" size="l" disabled>
-            임시 저장
-          </Button>
           <Button type="submit" size="l" disabled={!agreed} loading={apply.isPending}>
             신청하기
           </Button>
@@ -463,8 +451,8 @@ function LockedApplication({ seller }: { seller: memberModel.SellerDto }) {
 
       <ConsoleCard title="판매자 정보">
         <RadioGroup value={business ? 'business' : 'personal'} disabled className="flex-row gap-6">
-          <Radio value="business" label="사업자예요" />
-          <Radio value="personal" label="사업자가 아니에요" />
+          <Radio tone="inverse" value="business" label="사업자예요" />
+          <Radio tone="inverse" value="personal" label="사업자가 아니에요" />
         </RadioGroup>
         {business ? (
           <>

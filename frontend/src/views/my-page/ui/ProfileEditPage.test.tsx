@@ -45,6 +45,13 @@ function renderPage() {
 describe('ProfileEditPage', () => {
   beforeEach(() => server.use(memberMock.getFindMeMockHandler(ME)))
 
+  it('앱 안 기록이 없을 때 뒤로 가기는 마이 페이지(/me)로 간다', async () => {
+    renderPage()
+    await screen.findByLabelText('닉네임')
+    await userEvent.click(screen.getByRole('button', { name: '뒤로 가기' }))
+    expect(replace).toHaveBeenCalledWith('/me')
+  })
+
   it('닉네임만 고칠 수 있고, 저장하면 닉네임만 보내 캐시를 바꾼 뒤 계정 설정으로 간다', async () => {
     let body: unknown
     const updated = { ...ME, data: { ...ME.data, nickname: '달리는곰' } }
@@ -60,10 +67,12 @@ describe('ProfileEditPage', () => {
     const nickname = await screen.findByLabelText('닉네임')
     expect(nickname).toHaveValue('러너1')
     // 본인인증으로 확인한 값은 보기만 한다
-    expect(screen.getByLabelText('이름')).toBeDisabled()
-    expect(screen.getByLabelText('이름')).toHaveValue('김러너')
-    expect(screen.getByLabelText('생년월일')).toHaveValue('1995.04.12')
-    expect(screen.getByLabelText('휴대폰 번호')).toHaveValue('010-1234-5678')
+    expect(screen.getByText('김러너')).toBeInTheDocument()
+    expect(screen.getByText('1995.04.12')).toBeInTheDocument()
+    expect(screen.getByText('010-1234-5678')).toBeInTheDocument()
+    expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    // 바뀐 게 없으면 저장할 수 없다
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled()
     await user.clear(nickname)
     await user.type(nickname, '달리는곰')
     await user.click(screen.getByRole('button', { name: '저장' }))
@@ -103,7 +112,7 @@ describe('ProfileEditPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByLabelText('닉네임')
+    await user.type(await screen.findByLabelText('닉네임'), '곰')
     await user.click(screen.getByRole('button', { name: '저장' }))
 
     expect(await screen.findByText('이미 사용 중인 닉네임입니다.')).toBeInTheDocument()

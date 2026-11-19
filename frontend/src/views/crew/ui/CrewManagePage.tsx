@@ -8,7 +8,7 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
-import { CREW_ROLE_LABEL, withObjectParticle } from '@/entities/crew'
+import { CREW_ROLE_LABEL } from '@/entities/crew'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { useGoBack } from '@/shared/lib'
 import {
@@ -34,8 +34,8 @@ type Pending = { kind: 'remove' | 'transfer'; member: Member } | { kind: 'disban
 
 // 피그마 시안v8 · M28 크루 관리 (크루장 · 관리 메뉴 · 내보내기 확인 · 크루장 넘기기 확인 · 나뿐일 때 · 권한 없음).
 // 크루장만 쓴다(2그룹 규칙: 내보내기 · 넘기기 · 없애기는 크루장만). 버튼은 화면에서 숨기고, 서버도 403 CREW_LEADER_ONLY로 막는다.
-// 시안의 「운영진으로 정하기」는 API 계약이 없어 메뉴에서 뺐다. 크루 없애기 확인 창과 이름 바꾸기는 시안에 없어
-// 확인 창은 내보내기 확인과 같은 모양, 이름 바꾸기는 크루 만들기(M26)의 이름 칸을 아래 창에 담는다.
+// 시안의 「운영진으로 정하기」는 API 계약이 없어 메뉴에서 뺐다. 이름 바꾸기는 시안에 없어
+// 크루 만들기(M26)의 이름 칸을 아래 창에 담는다. 크루 해체는 크루원이 남아 있으면 버튼이 꺼진다(시안 11/5).
 export function CrewManagePage({ crewId }: { crewId: number }) {
   const router = useRouter()
   const goBack = useGoBack()
@@ -53,7 +53,6 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
   const disband = memberApi.useDisbandCrew()
   const [menuTarget, setMenuTarget] = useState<Member | null>(null)
   const [renaming, setRenaming] = useState(false)
-  const [blockedOpen, setBlockedOpen] = useState(false)
   // 확인 창 문구는 닫히는 동안에도 그대로 보이도록, 열림 여부와 마지막으로 고른 일을 따로 둔다
   const [pending, setPending] = useState<Pending>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -114,7 +113,7 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         { crewId },
         {
           onSuccess: () => {
-            showToast({ tone: 'success', message: `${withObjectParticle(name)} 없앴어요` })
+            showToast({ tone: 'success', message: `${name} 크루를 해체했어요` })
             void queryClient.invalidateQueries({ queryKey: myCrewsKey })
             router.replace('/crews')
             // 뒤로 가기로 돌아와도 없앤 크루가 캐시에서 보이지 않게 지운다
@@ -136,9 +135,9 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
           <CrewHomeError error={crew.error} onRetry={() => crew.refetch()} />
         ) : crew.data.myRole !== 'LEADER' ? (
           <EmptyState
+            icon={null}
             className="pt-26"
             title="크루장만 크루를 관리할 수 있어요"
-            description="역할을 바꾸거나 크루원을 내보내는 일은 크루장이 해요."
             action={
               <Link
                 href={`/crews/${crewId}` as Route}
@@ -166,36 +165,46 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
                 action={(member) =>
                   member.role !== 'LEADER' && (
                     <Button
-                      variant="ghost"
+                      variant="text"
                       size="s"
+                      aria-label="관리"
                       aria-describedby={memberLabelId(member)}
                       onClick={() => setMenuTarget(member)}
                     >
-                      관리
+                      <Icon name="ChevronRight" className="size-5" />
                     </Button>
                   )
                 }
               />
               <Link
                 href={`/crews/${crewId}/invites` as Route}
-                className={buttonClassName({ variant: 'secondary', size: 'm' })}
+                className={buttonClassName({ variant: 'ghost', size: 'm' })}
               >
                 초대 링크 만들기
               </Link>
             </CrewBand>
             <Divider type="section" />
-            <CrewBand>
-              <Button
-                variant="ghost"
-                size="m"
-                className="self-start"
-                // 크루원이 남아 있으면 요청 없이 막힘 안내만 띄운다(시안 11/9)
-                onClick={() =>
-                  crew.data.memberCount > 1 ? setBlockedOpen(true) : ask({ kind: 'disband' })
-                }
-              >
-                크루 없애기
-              </Button>
+            <CrewBand className="gap-4">
+              <h2 className="text-title3">크루 해체</h2>
+              <div className="flex flex-col gap-3 rounded-md border border-border-default bg-bg-surface p-4 shadow-sm">
+                <p className="text-body1-regular">
+                  해체하면 크루와 크루 기록이 사라지고 되돌릴 수 없어요.
+                </p>
+                {crew.data.memberCount > 1 && (
+                  <p className="text-body1-regular text-text-danger">
+                    크루원 {crew.data.memberCount - 1}명이 남아 있어 해체할 수 없어요.
+                  </p>
+                )}
+                <Button
+                  variant="ghost"
+                  size="l"
+                  disabled={crew.data.memberCount > 1}
+                  className="text-text-danger"
+                  onClick={() => ask({ kind: 'disband' })}
+                >
+                  크루 해체하기
+                </Button>
+              </div>
             </CrewBand>
           </>
         )}
@@ -234,15 +243,6 @@ export function CrewManagePage({ crewId }: { crewId: number }) {
         confirming={confirming}
         onConfirm={confirm}
       />
-      <Dialog
-        open={blockedOpen}
-        onOpenChange={setBlockedOpen}
-        type="alert"
-        title="크루원이 남아 있어 없앨 수 없어요"
-        body="크루원을 모두 내보낸 뒤 없앨 수 있어요."
-        confirmLabel="확인"
-        onConfirm={() => setBlockedOpen(false)}
-      />
       {crew.data && (
         <CrewRenameSheet
           crewId={crewId}
@@ -278,38 +278,36 @@ function dialogCopy(pending: Pending, crewName: string) {
     }
   }
   return {
-    title: `${withObjectParticle(crewName)} 없앨까요?`,
-    body: '없애면 크루 홈과 보낸 초대 링크를 더 쓸 수 없어요.',
-    confirmLabel: '크루 없애기',
+    title: `${crewName} 크루를 해체할까요?`,
+    body: '크루와 크루 기록이 사라지고 되돌릴 수 없어요.',
+    confirmLabel: '해체하기',
+    cancelLabel: '돌아가기',
   }
 }
 
-// 시안 M28 「로딩」(1333:26140): 제목 줄 · 버튼 상자 · 큰 상자 위 띠, 아래 띠에 아바타와 두 줄씩 네 개
+// 시안 2070:38209 · 크루 관리 로딩: 제목 줄, 크루원 다섯 줄(아바타 · 이름 · 역할 · 관리 자리), 긴 막대, 버튼 자리
 function ManageSkeleton() {
   return (
-    <>
-      <CrewBand>
-        <span role="status" className="sr-only">
-          크루 관리를 불러오는 중
-        </span>
-        <Skeleton className="h-5 w-65" />
-        <Skeleton className="w-45" />
-        <Skeleton shape="rect" className="h-12 w-full" />
-        <Skeleton shape="rect" className="h-45 w-full" />
-      </CrewBand>
-      <Divider type="section" />
-      <CrewBand>
-        <Skeleton className="h-5 w-30" />
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3">
+    <CrewBand>
+      <span role="status" className="sr-only">
+        크루 관리를 불러오는 중
+      </span>
+      <Skeleton shape="rect" className="h-5 w-39 rounded-sm" />
+      <div className="flex flex-col gap-6">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex min-h-11 items-center gap-3">
             <Skeleton shape="circle" className="size-8" />
-            <div className="flex flex-1 flex-col gap-1">
-              <Skeleton className="w-full" />
-              <Skeleton className="w-30" />
-            </div>
+            <Skeleton className={i === 3 ? 'h-4 w-18' : 'h-4 w-15'} />
+            <Skeleton className="w-8" />
+            <div className="flex-1" />
+            {i > 0 && <Skeleton shape="rect" className="size-5 rounded-sm" />}
           </div>
         ))}
-      </CrewBand>
-    </>
+      </div>
+      <Skeleton shape="rect" className="h-10 w-full" />
+      <div className="mt-9 flex h-10 w-23 items-center justify-center rounded-md border border-border-default bg-bg-surface shadow-sm">
+        <Skeleton className="h-4 w-16" />
+      </div>
+    </CrewBand>
   )
 }

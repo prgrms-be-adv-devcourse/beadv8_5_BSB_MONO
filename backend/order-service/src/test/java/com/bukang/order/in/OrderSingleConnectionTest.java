@@ -32,7 +32,6 @@ import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.seat.CrewSeatHoldPort;
 import com.bukang.order.out.seat.FakeCrewSeatHoldAdapter;
 import com.bukang.order.support.QueueEntry;
@@ -82,9 +81,6 @@ class OrderSingleConnectionTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private CartRepository cartRepository;
 
 	@Autowired
@@ -128,7 +124,6 @@ class OrderSingleConnectionTest {
 		participationRepository.deleteAll();
 		partyMemberRepository.deleteAll();
 		partyRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		cartRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();

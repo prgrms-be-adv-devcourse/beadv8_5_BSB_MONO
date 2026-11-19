@@ -18,10 +18,12 @@ import com.bukang.order.app.ActiveTicketQueryUseCase;
 import com.bukang.order.app.OrderLookupQueryUseCase;
 import com.bukang.order.app.SoldEntryQueryUseCase;
 import com.bukang.order.app.SoldSummaryQueryUseCase;
+import com.bukang.order.app.TicketQueryUseCase;
 import com.bukang.order.dto.ActiveTicketCountDto;
 import com.bukang.order.dto.OrderLookupDto;
-import com.bukang.order.dto.SoldEntryDto;
+import com.bukang.order.dto.SoldEntriesDto;
 import com.bukang.order.dto.SoldSummaryDto;
+import com.bukang.order.dto.TicketDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,7 +39,7 @@ import lombok.RequiredArgsConstructor;
  * 다른 서비스가 동기 호출로 부르는 내부 API. /internal/** 은 게이트웨이에 노출하지 않는다 (file-service와 같은 방식)
  * 회원이 아니라 서비스가 부르므로 회원 ID 헤더를 받지 않는다
  */
-@Tag(name = "OrderInternal", description = "정산용 판매 내역, 탈퇴 확인용 참가권 수, 문의용 주문 요약 조회 API (서비스 간 내부 호출 전용)")
+@Tag(name = "OrderInternal", description = "정산용 판매 내역, 탈퇴 확인용 참가권 수, 문의용 주문 요약, 기록증 제출용 참가권 조회 API (서비스 간 내부 호출 전용)")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/order")
@@ -49,15 +51,16 @@ public class InternalV1OrderController {
 	private final SoldSummaryQueryUseCase soldSummaryQueryUseCase;
 	private final ActiveTicketQueryUseCase activeTicketQueryUseCase;
 	private final OrderLookupQueryUseCase orderLookupQueryUseCase;
+	private final TicketQueryUseCase ticketQueryUseCase;
 
 	@GetMapping("/sold-entries")
 	@Operation(summary = "정산용 판매 내역 조회",
-		description = "정산 서비스가 최종 정산 생성 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이거나 취소 중인 참가권을 "
-			+ "주문 상품 ID 순으로 돌려준다. 판매가 없거나 없는 대회면 빈 목록이다. "
-			+ "필드는 정산 서비스의 SoldEntry와 같고, raceCourseId는 참가권의 코스, raceDate는 주문 때 복사한 대회 날짜, "
-			+ "price는 1장 값(키트 포함), status는 결제 완료(PAID) 또는 취소 중(CANCELING)이다.")
+		description = "정산 서비스가 최종 정산 생성 · 대사 배치에서 부른다. 이 대회의 주문 상품 중 결제 완료이거나 취소 중인 참가권을 "
+			+ "코스로 묶어 돌려준다. 대회 · 판매자 · 대회일(주문 때 복사)은 맨 위에 한 번, 코스마다 1장 가격과 "
+			+ "결제 완료(paidIds) · 취소 중(blockingIds) 주문 상품 ID를 준다. 코스는 코스 ID 순, ID는 주문 상품 ID 순이다. "
+			+ "판매가 없거나 없는 대회면 courses가 빈 배열이고 raceDate · sellerId는 null이다.")
 	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
+		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 courses가 빈 배열)",
 			content = @Content(examples = {
 				@ExampleObject(name = "판매 내역 있음", value = OrderInternalApiExamples.SOLD_ENTRIES_SUCCESS),
 				@ExampleObject(name = "판매 내역 없음", value = OrderInternalApiExamples.SOLD_ENTRIES_EMPTY)
@@ -68,7 +71,7 @@ public class InternalV1OrderController {
 				@ExampleObject(name = "대회 ID 형식 오류", value = OrderInternalApiExamples.INVALID_VALUE_TYPE)
 			}))
 	})
-	public ResponseEntity<RsData<List<SoldEntryDto>>> findSoldEntries(
+	public ResponseEntity<RsData<SoldEntriesDto>> findSoldEntries(
 		@Parameter(description = "대회 ID", example = "5") @RequestParam long raceId
 	) {
 		return ResponseEntity.ok()
@@ -144,5 +147,29 @@ public class InternalV1OrderController {
 	) {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "주문 요약을 조회했습니다.", orderLookupQueryUseCase.findOrder(orderId)));
+	}
+
+	// 회원 서비스가 기록증 제출을 받을 때 참가권 주인·상태를 확인한다 (BUK-271)
+	@GetMapping("/order-items/{orderItemId}/ticket")
+	@Operation(summary = "기록증 제출용 참가권 조회",
+		description = "회원 서비스가 기록증 제출을 받을 때 부른다. 주문 상품 ID로 산 회원 ID(주문의 구매자), 대회 ID, 종목 ID, "
+			+ "주문 상품 상태를 돌려준다. 대회·종목 ID는 주문 당시 값이고, status는 OrderItemStatus 이름 그대로"
+			+ "(ORDERED · PAID · CANCELING · CANCELED)다. 상품 서비스는 부르지 않는다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공",
+			content = @Content(examples = {
+				@ExampleObject(name = "결제 완료", value = OrderInternalApiExamples.TICKET_PAID),
+				@ExampleObject(name = "환불됨", value = OrderInternalApiExamples.TICKET_CANCELED)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 참가권",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "없는 참가권", value = OrderInternalApiExamples.TICKET_NOT_FOUND)
+			}))
+	})
+	public ResponseEntity<RsData<TicketDto>> findTicket(
+		@Parameter(description = "주문 상품 ID", example = "42") @PathVariable long orderItemId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "참가권을 조회했습니다.", ticketQueryUseCase.findTicket(orderItemId)));
 	}
 }

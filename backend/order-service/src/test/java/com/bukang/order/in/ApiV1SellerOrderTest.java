@@ -37,7 +37,6 @@ import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -54,7 +53,8 @@ import com.jayway.jsonpath.JsonPath;
 /**
  * 판매자 주문 목록·파티별 내역 API (BUK-227), 기간 판매 합계 (BUK-247). 승인된 판매자만 쓰고, 자기 대회 것만 보인다
  */
-@SpringBootTest
+// 주문 상세의 「배송 조회」 링크를 만들려고 Delivery Tracker Client ID를 준다 (CRU-40)
+@SpringBootTest(properties = "order.clients.delivery-tracker.client-id=test-client")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class,
@@ -88,9 +88,6 @@ class ApiV1SellerOrderTest {
 	private PartyRepository partyRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
 
 	@Autowired
@@ -122,7 +119,6 @@ class ApiV1SellerOrderTest {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
 		partyRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();
@@ -187,6 +183,39 @@ class ApiV1SellerOrderTest {
 			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.orders[0].orderItemId").value(itemIdOf(orderId)))
 			.andExpect(jsonPath("$.data.orders[0].partyId").value(party.getId()));
+	}
+
+	@Test
+	@DisplayName("keyword 한 칸으로 참가자 이름 또는 주문번호를 부분 일치 검색한다. 없는 말은 빈 목록이고 다른 조건과 함께 걸린다")
+	void keywordSearch() throws Exception {
+		setUpCourses();
+		long first = paidOrder(BUYER_ID, COURSE_ID);
+		paidOrder(BUYER_ID + 1, COURSE_ID);
+		String firstOrderNo = jdbcTemplate.queryForObject("select order_no from order_order where id = ?",
+			String.class, first);
+
+		// 참가자 이름은 두 주문 모두 "김러너"라 이름으로 찾으면 둘 다, 부분 일치도 된다
+		orders(SELLER_MEMBER_ID, "keyword", "김러너")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		orders(SELLER_MEMBER_ID, "keyword", "러너")
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		// 주문번호로 찾으면 그 주문 하나만
+		orders(SELLER_MEMBER_ID, "keyword", firstOrderNo)
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.orders[0].orderItemId").value(itemIdOf(first)));
+		// 없는 말은 빈 목록
+		orders(SELLER_MEMBER_ID, "keyword", "박파티")
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		// 빈 keyword는 거르지 않는다
+		orders(SELLER_MEMBER_ID, "keyword", "   ")
+			.andExpect(jsonPath("$.data.totalElements").value(2));
+		// 다른 조건과 함께 걸린다: 주문번호가 맞아도 다른 종목으로 거르면 0
+		orders(SELLER_MEMBER_ID, "keyword", firstOrderNo, "raceCourseId", String.valueOf(OTHER_COURSE_ID))
+			.andExpect(jsonPath("$.data.totalElements").value(0));
+		// 자기 대회만: 남의 판매자는 이 주문번호로 못 찾는다
+		orders(OTHER_SELLER_MEMBER_ID, "keyword", firstOrderNo)
+			.andExpect(jsonPath("$.data.totalElements").value(0));
 	}
 
 	@Test
@@ -297,6 +326,137 @@ class ApiV1SellerOrderTest {
 			.andExpect(status().isBadRequest());
 		mockMvc.perform(get(ORDERS_URL))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("주문 상세는 자기 대회 주문 상품의 금액·배송지·배송 요청사항·송장·배송 조회를 돌려준다 (CRU-39)")
+	void detailOfShippedKit() throws Exception {
+		setUpCourses();
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1)));
+		long orderId = paidOrder(BUYER_ID, COURSE_ID);
+		long itemId = itemIdOf(orderId);
+		jdbcTemplate.update("update order_shipment set delivery_memo = ? where order_id = ?", "문 앞에 놓아 주세요",
+			orderId);
+		shipKit(itemId).andExpect(status().isOk());
+
+		detail(SELLER_MEMBER_ID, itemId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("주문 상세를 조회했습니다."))
+			.andExpect(jsonPath("$.data.orderItemId").value(itemId))
+			.andExpect(jsonPath("$.data.orderId").value(orderId))
+			.andExpect(jsonPath("$.data.orderNo").isString())
+			.andExpect(jsonPath("$.data.orderedAt").isString())
+			.andExpect(jsonPath("$.data.paidAt").isString())
+			.andExpect(jsonPath("$.data.raceId").value(RACE_ID))
+			.andExpect(jsonPath("$.data.raceCourseId").value(COURSE_ID))
+			.andExpect(jsonPath("$.data.courseName").value("테스트 대회 종목 " + COURSE_ID))
+			.andExpect(jsonPath("$.data.status").value("PAID"))
+			.andExpect(jsonPath("$.data.participantName").value("김러너"))
+			.andExpect(jsonPath("$.data.tshirtSize").value("L"))
+			.andExpect(jsonPath("$.data.kitOptions").isArray())
+			.andExpect(jsonPath("$.data.unitPrice").value(StubRaceCoursePort.PRICE))
+			.andExpect(jsonPath("$.data.quantity").value(1))
+			.andExpect(jsonPath("$.data.amount").value(StubRaceCoursePort.PRICE))
+			.andExpect(jsonPath("$.data.canceledAt").doesNotExist())
+			.andExpect(jsonPath("$.data.canceledAmount").value(0))
+			.andExpect(jsonPath("$.data.cancelReason").doesNotExist())
+			// 연락처는 키트 배송 목록과 같이 풀어서 준다
+			.andExpect(jsonPath("$.data.shippingAddress.recipientPhone").value("010-1234-5678"))
+			.andExpect(jsonPath("$.data.shippingAddress.addressDetail").value("101동 1001호"))
+			.andExpect(jsonPath("$.data.deliveryMemo").value("문 앞에 놓아 주세요"))
+			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("SHIPPING"))
+			.andExpect(jsonPath("$.data.kitCarrier").value("CJ대한통운"))
+			.andExpect(jsonPath("$.data.kitTrackingNumber").value("684912345678"))
+			.andExpect(jsonPath("$.data.kitShippedAt").isString())
+			.andExpect(jsonPath("$.data.kitTracking.status").value("NOT_TRACKED"))
+			.andExpect(jsonPath("$.data.kitTracking.events").isArray())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").value("https://link.tracker.delivery/track"
+				+ "?client_id=test-client&carrier_id=kr.cjlogistics&tracking_number=684912345678"));
+	}
+
+	@Test
+	@DisplayName("주문 상세: 보내기 전에 취소된 키트 주문도 열리고 취소 시각·환불 금액·취소 이유가 보이며 배송지는 가린다")
+	void detailOfCanceledBeforeShipping() throws Exception {
+		setUpCourses();
+		long orderId = paidOrder(BUYER_ID, COURSE_ID);
+		long itemId = itemIdOf(orderId);
+		mockMvc.perform(post("/api/v1/order/orders/" + orderId + "/items/" + itemId + "/cancel")
+				.header("X-Member-Id", BUYER_ID))
+			.andExpect(status().isOk());
+
+		detail(SELLER_MEMBER_ID, itemId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("CANCELED"))
+			.andExpect(jsonPath("$.data.amount").value(StubRaceCoursePort.PRICE))
+			.andExpect(jsonPath("$.data.canceledAt").isString())
+			.andExpect(jsonPath("$.data.canceledAmount").value(StubRaceCoursePort.PRICE))
+			.andExpect(jsonPath("$.data.cancelReason").value("BUYER_CANCELED"))
+			.andExpect(jsonPath("$.data.kitDeliveryStatus").value("PREPARING"))
+			.andExpect(jsonPath("$.data.kitTrackingNumber").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").doesNotExist())
+			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
+			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("주문 상세: 키트 없는 참가권은 배송 칸이 모두 비고, 결제 전 주문은 결제 시각이 없다")
+	void detailWithoutKit() throws Exception {
+		setUpCourses();
+		raceCoursePort.put(StubRaceCoursePort.courseWithoutKit(COURSE_ID + 2, RACE_ID));
+		long kitless = itemIdOf(paidOrder(BUYER_ID, COURSE_ID + 2));
+		long pending = itemIdOf(createdOrder(BUYER_ID + 1, COURSE_ID));
+
+		detail(SELLER_MEMBER_ID, kitless)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAID"))
+			.andExpect(jsonPath("$.data.kitOptions.length()").value(0))
+			.andExpect(jsonPath("$.data.shippingAddress").doesNotExist())
+			.andExpect(jsonPath("$.data.deliveryMemo").doesNotExist())
+			.andExpect(jsonPath("$.data.kitDeliveryStatus").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTracking").doesNotExist())
+			.andExpect(jsonPath("$.data.kitTrackingUrl").doesNotExist());
+		detail(SELLER_MEMBER_ID, pending)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("ORDERED"))
+			.andExpect(jsonPath("$.data.paidAt").doesNotExist())
+			.andExpect(jsonPath("$.data.kitDeliveryStatus").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("주문 상세: 다른 판매자 대회·판매자 아님은 403, 없는 ID·만료된 주문은 404, 헤더 없으면 401이다")
+	void detailRejected() throws Exception {
+		setUpCourses();
+		long itemId = itemIdOf(paidOrder(BUYER_ID, COURSE_ID));
+		long expiredOrderId = createdOrder(BUYER_ID + 1, COURSE_ID);
+		long expiredItemId = itemIdOf(expiredOrderId);
+		LocalDateTime due = orderRepository.findById(expiredOrderId).orElseThrow().getPaymentDueAt();
+		orderExpiryUseCase.expireOverdue(due.plusSeconds(1));
+
+		detail(OTHER_SELLER_MEMBER_ID, itemId)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"))
+			.andExpect(jsonPath("$.message").value("본인 대회의 주문만 볼 수 있습니다."));
+		detail(NOT_SELLER_MEMBER_ID, itemId)
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.message").value("승인된 판매자만 쓸 수 있습니다."));
+		detail(SELLER_MEMBER_ID, 999_999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_ITEM_NOT_FOUND"));
+		detail(SELLER_MEMBER_ID, expiredItemId)
+			.andExpect(status().isNotFound());
+		mockMvc.perform(get(ORDERS_URL + "/" + itemId))
+			.andExpect(status().isUnauthorized());
+	}
+
+	private ResultActions detail(long memberId, long orderItemId) throws Exception {
+		return mockMvc.perform(get(ORDERS_URL + "/" + orderItemId).header("X-Member-Id", memberId));
+	}
+
+	private ResultActions shipKit(long orderItemId) throws Exception {
+		return mockMvc.perform(post("/api/v1/order/seller/kits/" + orderItemId + "/shipment")
+			.header("X-Member-Id", SELLER_MEMBER_ID)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"carrierId\": \"kr.cjlogistics\", \"trackingNumber\": \"684912345678\"}"));
 	}
 
 	@Test

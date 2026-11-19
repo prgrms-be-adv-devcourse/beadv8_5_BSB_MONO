@@ -6,7 +6,6 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.bukang.common.shared.order.event.OrderItemRefundReason;
 import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutRecovery;
@@ -48,9 +47,7 @@ public class PayoutRefundUseCase {
 				event.raceId(), event.orderItemId());
 			return Optional.empty();
 		}
-		PayoutRecoveryReason reason = event.reason() == OrderItemRefundReason.RACE_CANCELED
-			? PayoutRecoveryReason.대회_취소
-			: PayoutRecoveryReason.일정_변경;
+		PayoutRecoveryReason reason = PayoutRecoveryReason.from(event.reason());
 		return payoutLedgerUseCase.recoverRefund(first.get().getSellerId(), event.raceId(),
 			event.raceCourseId(), event.orderItemId(), event.price(), reason, now);
 	}

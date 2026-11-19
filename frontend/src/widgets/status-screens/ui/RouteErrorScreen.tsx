@@ -11,9 +11,14 @@ import { LoadErrorBody, OfflineBody } from './StatusPages'
 export function RouteErrorScreen({
   error,
   retry,
+  title,
+  description,
 }: {
   error: Error & { digest?: string }
   retry: () => void
+  /** 불러오지 못함 문구를 바꿀 때(센터 화면). 오프라인 문구는 그대로 */
+  title?: string
+  description?: string
 }) {
   useReportAppError(error)
   const [retrying, startRetry] = useTransition()
@@ -22,6 +27,6 @@ export function RouteErrorScreen({
   return offline ? (
     <OfflineBody onRetry={onRetry} retrying={retrying} />
   ) : (
-    <LoadErrorBody onRetry={onRetry} retrying={retrying} />
+    <LoadErrorBody title={title} description={description} onRetry={onRetry} retrying={retrying} />
   )
 }

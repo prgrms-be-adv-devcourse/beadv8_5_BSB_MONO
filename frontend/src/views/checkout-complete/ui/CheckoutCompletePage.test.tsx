@@ -30,6 +30,20 @@ describe('결제 완료', () => {
     expect(screen.getByText('김러너').closest('[data-clarity-mask="true"]')).not.toBeNull()
   })
 
+  it('v3 시안: 카드에는 배지가 없고(머리말 제목만 참가 확정) 아래에 홈으로 · 내 참가권 보기 두 버튼이 있다', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <CheckoutCompletePage orderId={1} />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    expect(screen.getAllByText('참가 확정')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: '홈으로' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: '내 참가권 보기' })).toHaveAttribute('href', '/tickets')
+  })
+
   it('참가자 이름은 배송지 받는 사람이 아니라 참가 신청에서 가져온다 (새로고침해도 같다)', async () => {
     const example = orderMock.getFindByIdResponseMock()
     server.use(

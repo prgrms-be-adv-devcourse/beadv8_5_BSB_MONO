@@ -1,6 +1,7 @@
 package com.bukang.product.app;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -19,7 +20,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 판매자가 본인 대회의 판매를 멈추거나(판매 중 → 판매 중지) 다시 연다(판매 중지 → 판매 중). 11/08 결정, docs/policy/questions.md
- * 상태만 바꾼다. 나머지는 지금 코드가 판매 상태를 보고 처리한다
+ * 판매 예정 대회를 바로 열 수도 있다(판매 예정 → 판매 중, CRU-44). 관리자는 소유 확인 없이 같은 규칙으로 바꾼다 (*ByAdmin)
+ * 멈추기·다시 열기는 상태만 바꾼다. 나머지는 지금 코드가 판매 상태를 보고 처리한다
  *   - 새 자리 확보: 판매 예정·판매 중만 받으므로 막힌다 (Race.isAcceptingIndividual·isAcceptingCrew, reserve UPDATE)
  *   - 이미 잡은 결제 대기 자리: 판매(결제 완료)는 상태를 보지 않아 결제 기한 안에 결제하면 참가 확정이다
  *   - 대기열 입장: 대기열이 판매 중일 때만 들여보낸다. ProductFacade가 대회 변경 메시지로 바뀐 상태를 알린다
@@ -32,21 +34,57 @@ public class RaceSaleStopUseCase {
 	private final RaceRepository raceRepository;
 
 	public RaceSaveResult stop(long memberId, long raceId, LocalDateTime now) {
-		Race race = findOwnedForUpdate(memberId, raceId);
-		race.checkStoppable(now);
-		if (raceRepository.stopSale(raceId, now) == 0) {
-			throw statusChanged();
-		}
-		return reload(raceId);
+		return stop(findOwnedForUpdate(memberId, raceId), now);
+	}
+
+	public RaceSaveResult stopByAdmin(long raceId, LocalDateTime now) {
+		return stop(findForUpdate(raceId), now);
 	}
 
 	public RaceSaveResult resume(long memberId, long raceId, LocalDateTime now) {
-		Race race = findOwnedForUpdate(memberId, raceId);
-		race.checkResumable(now);
-		if (raceRepository.resumeSale(raceId, now) == 0) {
+		return resume(findOwnedForUpdate(memberId, raceId), now);
+	}
+
+	public RaceSaveResult resumeByAdmin(long raceId, LocalDateTime now) {
+		return resume(findForUpdate(raceId), now);
+	}
+
+	public RaceSaveResult open(long memberId, long raceId, LocalDateTime now) {
+		return open(findOwnedForUpdate(memberId, raceId), now);
+	}
+
+	public RaceSaveResult openByAdmin(long raceId, LocalDateTime now) {
+		return open(findForUpdate(raceId), now);
+	}
+
+	private RaceSaveResult stop(Race race, LocalDateTime now) {
+		race.checkStoppable(now);
+		if (raceRepository.stopSale(race.getId(), now) == 0) {
 			throw statusChanged();
 		}
-		return reload(raceId);
+		return reload(race.getId());
+	}
+
+	private RaceSaveResult resume(Race race, LocalDateTime now) {
+		race.checkResumable(now);
+		if (raceRepository.resumeSale(race.getId(), now) == 0) {
+			throw statusChanged();
+		}
+		return reload(race.getId());
+	}
+
+	// 판매 시작 일정을 지금(분 단위로 자름)으로 당기고, 판매 시작일을 오늘로, 상태를 판매 중으로 한 번에 바꾼다
+	// 대기열·검색 문서에는 멈추기와 같은 방법(대회 변경 메시지, 문서 동기화 이벤트)으로 새 일정이 간다
+	private RaceSaveResult open(Race race, LocalDateTime now) {
+		race.checkOpenable(now);
+		LocalDateTime openAt = now.truncatedTo(ChronoUnit.MINUTES);
+		int updated = race.hasCrewSale()
+			? raceRepository.openCrewSaleNow(race.getId(), openAt, now.toLocalDate(), now)
+			: raceRepository.openIndividualSaleNow(race.getId(), openAt, now.toLocalDate(), now);
+		if (updated == 0) {
+			throw statusChanged();
+		}
+		return reload(race.getId());
 	}
 
 	// 대회 행을 잠그고 읽는다 (취소와 같은 방식). 같은 대회의 수정·취소·멈추기가 겹치면 차례로 처리되어,
@@ -54,11 +92,15 @@ public class RaceSaleStopUseCase {
 	private Race findOwnedForUpdate(long memberId, long raceId) {
 		ProductSeller seller = productSellerRepository.findByMemberIdAndStatus(memberId, SellerStatus.APPROVED)
 			.orElseThrow(SellerNotApprovedException::new);
-		Race race = raceRepository.findByIdForUpdate(raceId).orElseThrow(RaceNotFoundException::new);
+		Race race = findForUpdate(raceId);
 		if (!race.isOwnedBy(seller)) {
 			throw new RaceAccessDeniedException();
 		}
 		return race;
+	}
+
+	private Race findForUpdate(long raceId) {
+		return raceRepository.findByIdForUpdate(raceId).orElseThrow(RaceNotFoundException::new);
 	}
 
 	// 판정을 지난 뒤 조건부 UPDATE가 0행이면 그 사이 상태가 바뀐 것이다 (행을 잠가 두어 보통은 생기지 않는다)

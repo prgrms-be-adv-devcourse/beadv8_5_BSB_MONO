@@ -294,3 +294,46 @@ describe('DatePicker', () => {
     )
   })
 })
+
+describe('연·월 휠로 달 이동', () => {
+  it('1995년 3월을 고르면 달력이 그 달을 보여 주고 고른 날짜는 그대로다', async () => {
+    const onSelect = vi.fn()
+    render(
+      <DatePicker
+        mode="single"
+        defaultMonth={day(1)}
+        startMonth={new Date(1990, 0, 1)}
+        endMonth={new Date(2030, 11, 1)}
+        onSelect={onSelect}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /2026년 10월, 연·월 고르기/ }))
+    await userEvent.click(screen.getByRole('option', { name: '1995년' }))
+    await userEvent.click(screen.getByRole('option', { name: '3월' }))
+
+    expect(screen.getByRole('button', { name: /1995년 3월, 연·월 고르기/ })).toBeInTheDocument()
+    // 휠을 닫으면 3월 달력이 보인다
+    await userEvent.click(screen.getByRole('button', { name: /1995년 3월, 연·월 고르기/ }))
+    expect(screen.getByRole('button', { name: /1995년 3월 15일/ })).toBeInTheDocument()
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('한 주 보기에서 연·월 휠로 달 이동', () => {
+  it('1일이 금요일인 1995년 9월을 골라도 제목이 1995년 9월이다', async () => {
+    render(
+      <DatePicker
+        mode="single"
+        view="week"
+        defaultMonth={day(1)}
+        startMonth={new Date(1990, 0, 1)}
+        endMonth={new Date(2030, 11, 1)}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /연·월 고르기/ }))
+    await userEvent.click(screen.getByRole('option', { name: '1995년' }))
+    await userEvent.click(screen.getByRole('option', { name: '9월' }))
+
+    expect(screen.getByRole('button', { name: /1995년 9월, 연·월 고르기/ })).toBeInTheDocument()
+  })
+})

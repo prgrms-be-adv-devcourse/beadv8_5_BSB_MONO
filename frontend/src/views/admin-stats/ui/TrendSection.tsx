@@ -1,7 +1,6 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState } from 'react'
 
 import {
   formatStatsDay,
@@ -10,8 +9,8 @@ import {
   type StatsPeriodQuery,
   type TrendKind,
 } from '@/entities/usage-stats'
-import { cn, formatNumber } from '@/shared/lib'
-import { FOCUS_RING, Skeleton } from '@/shared/ui'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
+import { Chip, Skeleton } from '@/shared/ui'
 
 import { usePeriodStats } from '../model/use-usage-stats'
 import { SectionState } from './StatsBlock'
@@ -43,7 +42,8 @@ const COPY: Record<TrendKind, { pill: string; who: string; name: string; empty: 
 const KINDS: TrendKind[] = ['visitors', 'purchases']
 
 export function TrendSection({ query }: { query: StatsPeriodQuery }) {
-  const [kind, setKind] = useState<TrendKind>('visitors')
+  const [{ trend }, setUrl] = useSearchParamsState({ trend: 'visitors' }, { trend: KINDS })
+  const kind = trend as TrendKind
   const result = usePeriodStats(kind, query)
   const title = `${periodName(query)} ${COPY[kind].who}`
 
@@ -56,23 +56,23 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
         <h2 className="text-body2-medium text-text-secondary">{title}</h2>
         <div role="group" aria-label="볼 숫자" className="flex gap-1 rounded-full bg-bg-subtle p-1">
           {KINDS.map((k) => (
-            <button
+            <Chip
               key={k}
-              type="button"
-              aria-pressed={kind === k}
-              onClick={() => setKind(k)}
-              className={cn(
-                'h-8 rounded-full px-4 text-body2-medium',
-                kind === k ? 'bg-bg-inverse text-text-inverse' : 'text-text-secondary',
-                FOCUS_RING,
-              )}
+              selected={kind === k}
+              onClick={() => setUrl({ trend: k })}
+              className={kind === k ? undefined : 'bg-transparent inset-ring-0'}
             >
               {COPY[k].pill}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
-      <SectionState result={result} name={COPY[kind].name} skeletonClassName="h-72">
+      <SectionState
+        result={result}
+        name={COPY[kind].name}
+        skeletonClassName="h-64"
+        errorClassName="min-h-120"
+      >
         {(data) => {
           const empty = data.points.every((p) => p.value === 0)
           return (

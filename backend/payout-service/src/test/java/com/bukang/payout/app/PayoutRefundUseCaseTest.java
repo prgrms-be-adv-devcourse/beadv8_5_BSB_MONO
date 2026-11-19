@@ -85,7 +85,7 @@ class PayoutRefundUseCaseTest {
 		BusinessDayCalendar calendar = new BusinessDayCalendar();
 		ledgerUseCase = new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository);
 		creator = new PayoutCreateStepUseCase(payoutRepository, calendar, ledgerUseCase,
-			new PayoutHoldUseCase(payoutRepository, payoutHoldRepository, calendar));
+			PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, calendar));
 		refundUseCase = new PayoutRefundUseCase(payoutRepository, ledgerUseCase);
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase, payoutCreateFailureRepository);

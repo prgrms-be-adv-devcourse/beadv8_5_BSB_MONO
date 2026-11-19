@@ -40,7 +40,7 @@ public class PayoutAccountVerifyUseCase {
 
 	public VerifiedPayoutAccount verify(long memberId, SellerApplyRequestDto request, LocalDateTime now) {
 		Member member = memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 		if (sellerRepository.existsByMemberIdAndStatusIn(memberId, SellerApplyUseCase.ACTIVE_STATUSES)) {
 			throw new SellerAlreadyAppliedException("이미 심사 중이거나 승인된 판매자 신청이 있습니다.");
 		}

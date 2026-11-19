@@ -8,6 +8,8 @@ import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.bukang.ai.out.ops.OpsPort;
 
@@ -28,12 +30,14 @@ class InquiryDraftPolicyTest {
 			.containsExactly(InquiryPolicy.WITHDRAWAL, InquiryPolicy.WITHDRAWAL_DETAIL);
 		// 대회 취소(123)
 		assertThat(InquiryPolicy.of("RACE_VENUE", "공지로 대회가 취소됐다고 봤어요")).containsExactly(InquiryPolicy.RACE_CANCEL);
-		// 정해지지 않은 일(117 일정 변경, 118 환불 기한 뒤 취소, 122 파티 결제 기한, 124 참가자 변경, 126 주차)에는 붙이지 않는다
-		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "대회 일정이 바뀌었는데 전액 환불되나요?")).isEmpty();
-		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "환불 기한이 지났는데 지금이라도 취소하고 돈을 돌려받을 수 있나요?")).isEmpty();
+		// 정해지지 않은 일(122 파티 결제 기한, 126 주차)에는 붙이지 않는다
 		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티로 신청했는데 저만 결제 시간 안에 결제를 못 했어요")).isEmpty();
-		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "참가자 이름을 친구 이름으로 바꾸고 싶어요")).isEmpty();
 		assertThat(InquiryPolicy.of("RACE_VENUE", "근처에 주차할 곳이 있나요?")).isEmpty();
+		// 넓은 낱말이 다른 상황에 붙지 않는다 (#리뷰: 결제 기한, 파티 이름, 사이즈 오배송, 종목 교환)
+		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티 결제 기한이 지났는데 제 자리는 어떻게 되나요?")).isEmpty();
+		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티 이름을 잘못 지었어요")).isEmpty();
+		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "참가권 종목을 하프로 교환할 수 있나요?")).isEmpty();
+		assertThat(InquiryPolicy.of("KIT_DELIVERY", "XL을 시켰는데 L 사이즈가 왔어요")).containsExactly(InquiryPolicy.KIT_RETURN);
 		// 파티원 취소는 파티와 취소가 함께 있어야 한다
 		assertThat(InquiryPolicy.of("APPLY_PAYMENT", "파티에서 제 참가권만 취소할 수 있나요?"))
 			.containsExactly(InquiryPolicy.PARTY_CANCEL);
@@ -41,6 +45,43 @@ class InquiryDraftPolicyTest {
 		assertThat(InquiryPolicy.of("KIT_DELIVERY", "환급")).isEmpty();
 		assertThat(InquiryPolicy.of("SELLER_SUPPORT", "대회 취소를 요청하면 회수는 어떻게 되나요?"))
 			.containsExactly(InquiryPolicy.RACE_CANCEL_REQUEST, InquiryPolicy.RECOVERY);
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', value = {
+		"SCHEDULE_CHANGE|APPLY_PAYMENT|대회 일정이 바뀌었는데 전액 환불되나요?|바뀐 날을 포함해 7일 동안은 환불 기한이 지났어도",
+		"REFUND_DEADLINE|APPLY_PAYMENT|환불 기한이 지났는데 지금이라도 취소할 수 있나요?|기한 뒤에 판매자가 따로 승인하는 환불도 없다",
+		"PARTICIPANT_CHANGE|APPLY_PAYMENT|참가자 이름을 친구 이름으로 바꾸고 싶어요|참가권은 다른 사람에게 넘길 수 없다",
+		"KIT_OPTION|KIT_DELIVERY|티셔츠 사이즈를 L에서 XL로 바꿀 수 있나요?|결제 뒤 바꿀 수 없다",
+		"KIT_RETURN|KIT_DELIVERY|받은 키트가 마음에 안 드는데 반품되나요?|단순 변심 반품·교환은 없다",
+		"PERSONAL_INFO|ETC|대회 끝나면 제 개인정보는 언제 지워지나요?|일정 기간 보관한 다음 파기할 예정",
+		"RACE_CANCEL|RACE_VENUE|대회가 취소됐는데 돈은 언제 들어오나요?|승인 직후 몇 분 안에 예치금으로"
+	})
+	@DisplayName("11/17 정책 투표로 넣은 잠정 정책: 대표 문의(117·118·124·120 등)마다 그 규칙이 [정책]에 들어가고 출처에 (잠정)이 붙는다")
+	void provisionalPolicies(InquiryPolicy policy, String type, String text, String rule) {
+		OpsPort.Inquiry inquiry = inquiry(type, text);
+
+		assertThat(InquiryPolicy.of(type, text)).contains(policy);
+		assertThat(AiInquiryDraftUseCase.material(inquiry)).contains("(" + policy.getSource() + ")\n", rule);
+		assertThat(AiInquiryDraftUseCase.references(inquiry)).contains(policy.getSource());
+		assertThat(policy.getSource()).endsWith(" (잠정)");
+	}
+
+	@Test
+	@DisplayName("환불 기한 뒤 예외는 주문 판정과 같고(대회 취소·일정 변경 7일), 판매 시작 뒤 기한은 앞당기기만 막는다 (#574 리뷰)")
+	void refundDeadlineMatchesCode() {
+		assertThat(InquiryPolicy.REFUND_DEADLINE.getRules())
+			.contains("예외는 대회 취소와, 대회 일정이 바뀐 날부터 7일 동안의 전액 환불이다.",
+				"판매가 시작된 뒤에는 판매자가 환불 기한을 앞당길 수 없다.")
+			.doesNotContain("환불 기한을 바꿀 수 없다", "전액 환불뿐");
+	}
+
+	@Test
+	@DisplayName("잠정 정책은 아직 없는 기능(본인인증 입력, 결제 요청 알림, 1년 뒤 파기)을 약속하지 않는다")
+	void provisionalPoliciesPromiseNoFutureFeature() {
+		assertThat(Arrays.stream(InquiryPolicy.values()).map(InquiryPolicy::getRules))
+			.allSatisfy(rules -> assertThat(rules).doesNotContain("본인인증", "결제 요청 알림"));
+		assertThat(InquiryPolicy.PERSONAL_INFO.getRules()).doesNotContain("1년");
 	}
 
 	@Test
