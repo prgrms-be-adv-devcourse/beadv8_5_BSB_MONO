@@ -1,6 +1,6 @@
 package com.bukang.member.app;
 
-import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,7 +15,6 @@ import com.bukang.member.domain.Terms;
 import com.bukang.member.domain.TermsAgreement;
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.VerifiedPayoutAccount;
-import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.RequiredTermsNotAgreedException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
 import com.bukang.member.out.MemberRepository;
@@ -34,6 +33,7 @@ public class SellerApplyUseCase {
 	// 이 상태의 신청이 있으면 다시 신청할 수 없다. 반려(REJECTED)만 남아 있으면 새로 신청한다
 	static final List<SellerStatus> ACTIVE_STATUSES = List.of(SellerStatus.PENDING, SellerStatus.APPROVED);
 
+	private final Clock clock;
 	private final MemberRepository memberRepository;
 	private final SellerRepository sellerRepository;
 	private final TermsRepository termsRepository;
@@ -57,9 +57,7 @@ public class SellerApplyUseCase {
 		// 탈퇴한 회원은 남은 Access Token으로 불러도 없는 회원으로 본다 (PRO-217, BE-022 결정 6)
 		// 회원 줄을 잠가 탈퇴와 신청의 순서를 정한다. 탈퇴가 먼저 커밋되면 여기서 탈퇴한 회원을 보고 404가 된다
 		// 같은 회원이 동시에 두 번 신청해 둘 다 계좌 확인을 지나도, 여기서 줄을 차례로 잡아 두 번째는 409가 된다
-		Member member = memberRepository.findByIdForUpdate(memberId)
-			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+		Member member = memberRepository.getActiveForUpdate(memberId);
 		if (sellerRepository.existsByMemberIdAndStatusIn(memberId, ACTIVE_STATUSES)) {
 			throw new SellerAlreadyAppliedException("이미 심사 중이거나 승인된 판매자 신청이 있습니다.");
 		}
@@ -72,7 +70,7 @@ public class SellerApplyUseCase {
 
 		// 신청과 같은 트랜잭션에서 지금 판매자 약관에 동의한 기록을 남긴다. 신청이 롤백되면 기록도 함께 사라진다
 		// TermsDataInit이 켜질 때 만들어 두므로 없으면 설정 오류다
-		Terms sellerTerms = termsRepository.findCurrent(LocalDate.now()).stream()
+		Terms sellerTerms = termsRepository.findCurrent(ClockTimes.today(clock)).stream()
 			.filter(terms -> terms.getType() == TermsType.SELLER)
 			.findFirst()
 			.orElseThrow(() -> new IllegalStateException("시행 중인 판매자 약관이 없습니다."));

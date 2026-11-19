@@ -2,7 +2,10 @@ package com.bukang.member.crew.dto;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
+import com.bukang.member.crew.domain.Crew;
+import com.bukang.member.crew.domain.CrewMember;
 import com.bukang.member.crew.domain.CrewRole;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -17,4 +20,18 @@ public record CrewHomeDto(
 	List<CrewMemberDto> members,
 	@Schema(description = "파티 만들기 제한이 끝나는 시각. 제한 중이 아니면 null") LocalDateTime partyRestrictedUntil
 ) {
+	public static CrewHomeDto of(Crew crew, CrewRole myRole, List<CrewMember> members,
+		Map<Long, String> nicknames, LocalDateTime partyRestrictedUntil
+	) {
+		return new CrewHomeDto(
+			crew.getId(),
+			crew.getName(),
+			crew.getCreatedAt(),
+			myRole,
+			members.size(),
+			members.stream()
+				.map(member -> CrewMemberDto.of(member, nicknames.get(member.getMemberId())))
+				.toList(),
+			partyRestrictedUntil);
+	}
 }

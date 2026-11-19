@@ -34,7 +34,6 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.SeatOutboxMessages;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -74,9 +73,6 @@ class OrderExpiryWalletTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private OrderCreateUseCase orderCreateUseCase;
 
 	@Autowired
@@ -111,7 +107,6 @@ class OrderExpiryWalletTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		orderOutboxKafkaEventRepository.deleteAll();

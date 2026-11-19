@@ -1,5 +1,6 @@
 package com.bukang.board.in;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import org.springframework.context.annotation.Profile;
@@ -22,10 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class BoardOutboxKafkaRelayScheduler {
 	private final BoardOutboxKafkaRelayUseCase boardOutboxKafkaRelayUseCase;
+	private final Clock clock;
 
 	@Scheduled(fixedDelay = 1_000, initialDelay = 5_000)
 	public void relay() {
-		int sent = boardOutboxKafkaRelayUseCase.relay(LocalDateTime.now());
+		int sent = boardOutboxKafkaRelayUseCase.relay(LocalDateTime.now(clock));
 		if (sent > 0) {
 			log.debug("아웃박스 메시지를 보냈습니다. 건수={}", sent);
 		}

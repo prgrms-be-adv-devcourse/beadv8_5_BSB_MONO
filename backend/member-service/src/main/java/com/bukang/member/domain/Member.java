@@ -15,7 +15,6 @@ import com.bukang.common.shared.member.event.MemberWithdrawnEvent;
 import com.bukang.member.domain.exception.LastLoginMethodException;
 import com.bukang.member.domain.exception.SocialAccountNotFoundException;
 import com.bukang.member.domain.exception.SocialProviderAlreadyLinkedException;
-import com.bukang.member.dto.MemberDto;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
@@ -151,9 +150,7 @@ public class Member extends SourceMember {
 
 	// 소셜 계정을 연결한다. 같은 제공자가 이미 있으면 막는다. 다른 회원에 연결된 계정인지는 DB 유니크 제약이 막는다
 	public SocialAccount linkSocial(SocialProvider provider, String providerUserId) {
-		if (hasSocial(provider)) {
-			throw new SocialProviderAlreadyLinkedException("이미 연결된 소셜 로그인입니다.");
-		}
+		requireNotLinked(provider);
 		SocialAccount account = new SocialAccount(this, provider, providerUserId);
 		socialAccounts.add(account);
 		return account;
@@ -260,18 +257,21 @@ public class Member extends SourceMember {
 		return true;
 	}
 
-	public MemberDto toDto() {
-		return new MemberDto(
-			getId(),
-			getCreateDate(),
-			getModifyDate(),
-			getNickname(),
-			getEmail(),
-			getPhone(),
-			getName(),
-			getBirthDate(),
-			socialProviders(),
-			hasPassword()
-		);
+	public boolean hasPhoneHash(String phoneHash) {
+		return phoneHash.equals(getPhoneHash());
+	}
+
+	// 같은 제공자가 이미 연결돼 있으면 막는다
+	public void requireNotLinked(SocialProvider provider) {
+		if (hasSocial(provider)) {
+			throw new SocialProviderAlreadyLinkedException("이미 연결된 소셜 로그인입니다.");
+		}
+	}
+
+	// 지금 로그인할 수 있는 방법을 리다이렉트 쿼리 값으로 돌려준다 (BE-032 결정 1). 비밀번호가 있으면 email, 없으면 연결된 첫 제공자다
+	public String loginMethod() {
+		return hasPassword()
+			? "email"
+			: socialProviders().stream().findFirst().map(SocialProvider::getPathValue).orElse("email");
 	}
 }

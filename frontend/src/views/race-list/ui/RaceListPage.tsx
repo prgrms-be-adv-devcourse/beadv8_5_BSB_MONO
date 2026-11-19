@@ -113,8 +113,9 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
   const showSuggestions = focused && query.trim() !== '' && suggestionItems.length > 0
 
   function submitSearch(term: string) {
-    setUrl({ q: term.trim() })
-    setRecent(addRecentSearch(term))
+    const trimmed = term.trim()
+    setUrl({ q: trimmed })
+    setRecent(addRecentSearch(trimmed))
     inputRef.current?.blur()
   }
 
@@ -376,6 +377,23 @@ function monthRange(now: Date) {
     raceDateFrom: `${y}-${pad(m)}-01`,
     raceDateTo: `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`,
   }
+}
+
+/**
+ * 라우트 로딩(loading.tsx) 화면. 목록 요청(useInfiniteQuery)을 만들지 않는다.
+ * 요청을 먼저 만들면 서버가 미리 받은 첫 페이지가 서버 렌더에 쓰이지 않아 hydration mismatch가 난다.
+ */
+export function RaceListLoading() {
+  return (
+    <>
+      <AppHeader />
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-2 pb-4">
+        <h1 className="sr-only">대회 찾기</h1>
+        <ListSkeleton />
+      </main>
+      <BottomNav />
+    </>
+  )
 }
 
 // 피그마 M18 · 로딩: 실제 목록 줄과 같은 평평한 줄 4개

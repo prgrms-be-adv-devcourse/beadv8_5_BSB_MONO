@@ -32,7 +32,6 @@ import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationKitOptionRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -77,9 +76,6 @@ class InternalV1OrderControllerTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private ParticipationKitOptionRepository participationKitOptionRepository;
 
 	@Autowired
@@ -108,7 +104,6 @@ class InternalV1OrderControllerTest {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
 		participationKitOptionRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();

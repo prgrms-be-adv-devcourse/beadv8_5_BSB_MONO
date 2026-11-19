@@ -57,13 +57,22 @@ class RecordCertHttpAdaptersTest {
 			""", MediaType.APPLICATION_JSON));
 		server.expect(requestTo(TICKET_URL)).andRespond(withResourceNotFound());
 		server.expect(requestTo(UPLOADER_URL)).andRespond(withSuccess("""
-			{ "status": 200, "data": { "memberId": 3 } }
+			{ "status": 200, "data": { "memberId": 3, "fileType": "RECORD_CERT", "status": "UPLOADED" } }
 			""", MediaType.APPLICATION_JSON));
 		server.expect(requestTo(UPLOADER_URL)).andRespond(withResourceNotFound());
+		// 다른 용도로 올렸거나 이미 연결된 사진은 받지 않는다 (리뷰 #643)
+		server.expect(requestTo(UPLOADER_URL)).andRespond(withSuccess("""
+			{ "status": 200, "data": { "memberId": 3, "fileType": "THUMBNAIL", "status": "UPLOADED" } }
+			""", MediaType.APPLICATION_JSON));
+		server.expect(requestTo(UPLOADER_URL)).andRespond(withSuccess("""
+			{ "status": 200, "data": { "memberId": 3, "fileType": "RECORD_CERT", "status": "ACTIVE" } }
+			""", MediaType.APPLICATION_JSON));
 
 		assertThat(ticketAdapter.find(42)).contains(new Ticket(3, 5, 10, "PAID"));
 		assertThat(ticketAdapter.find(42)).isEmpty();
 		assertThat(fileUploaderAdapter.findUploader(7)).contains(3L);
+		assertThat(fileUploaderAdapter.findUploader(7)).isEmpty();
+		assertThat(fileUploaderAdapter.findUploader(7)).isEmpty();
 		assertThat(fileUploaderAdapter.findUploader(7)).isEmpty();
 		server.verify();
 	}

@@ -65,6 +65,14 @@ public class RaceQueryUseCase {
 			.toList();
 	}
 
+	// 관리자 대회 관리: 모든 판매자의 대회 (취소 포함, 최근 등록 순, CRU-44). 관리자 확인은 ProductFacade가 먼저 한다
+	// shortcut: 전체를 한 번에 돌려줌, 대회가 수백 개 넘으면 페이지 추가
+	public List<SellerRaceDto> findAllForAdmin() {
+		return raceRepository.findAllWithSellerAndCourses().stream()
+			.map(SellerRaceDto::from)
+			.toList();
+	}
+
 	// 문의 서비스 RaceSellerPort 계약: 대회 판매자의 회원 ID. 없는 대회면 RACE_NOT_FOUND(404)
 	// 취소·판매 종료된 대회도 돌려준다 (이미 산 회원이 문의할 수 있어야 한다)
 	public RaceSellerMemberDto findSellerMember(long raceId) {

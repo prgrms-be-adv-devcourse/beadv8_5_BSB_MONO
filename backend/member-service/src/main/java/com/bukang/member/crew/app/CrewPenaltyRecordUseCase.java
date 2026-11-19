@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class CrewPenaltyRecordUseCase {
-	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
+	private static final ZoneId KOREA = ZoneId.of(CrewTime.ZONE);
 
 	private final LowPaymentCrewPort lowPaymentCrewPort;
 	private final CrewPenaltyRepository crewPenaltyRepository;
@@ -37,8 +37,8 @@ public class CrewPenaltyRecordUseCase {
 	// 새로 저장한 제한 수를 돌려준다
 	public int record(Instant now) {
 		YearMonth thisMonth = YearMonth.from(now.atZone(KOREA));
-		// 다른 크루 시각(CrewFacade.now())과 같은 방식(서버 시간대)으로 적어야 제한 확인과 맞는다
-		LocalDateTime startAt = LocalDateTime.ofInstant(now, ZoneId.systemDefault());
+		// 다른 크루 시각(CrewLoader.now())과 같은 방식으로 적어야 제한 확인과 맞는다
+		LocalDateTime startAt = CrewTime.toServerLocal(now);
 		return recordMonth(thisMonth, startAt) + recordMonth(thisMonth.minusMonths(1), startAt);
 	}
 

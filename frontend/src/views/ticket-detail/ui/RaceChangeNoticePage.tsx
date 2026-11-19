@@ -69,7 +69,7 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
         </section>
 
         {lastDay && (
-          <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
+          <section className="flex flex-col gap-3 px-5 py-7">
             <p className="text-body2-medium">전액 환불받을 수 있는 기간</p>
             {daysLeft >= 0 ? (
               <>
@@ -95,7 +95,7 @@ export function RaceChangeNoticePage({ ticketId }: { ticketId: string }) {
           </section>
         )}
 
-        <section className="flex flex-col gap-3 border-t-8 border-bg-subtle px-4 py-6">
+        <section className="flex flex-col gap-3 px-5 py-7">
           <h3 className="text-body1-bold">내 참가권</h3>
           <KeyValue label="종목" value={course?.name ?? ticket.itemName} />
           {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}

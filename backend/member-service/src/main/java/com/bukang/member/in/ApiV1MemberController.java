@@ -61,7 +61,7 @@ public class ApiV1MemberController {
 		@Valid @ModelAttribute @ParameterObject EmailAvailabilityRequestDto emailAvailabilityRequestDto,
 		HttpServletRequest httpRequest
 	) {
-		emailCheckLimiter.check(ClientIp.of(httpRequest));
+		emailCheckLimiter.checkAndCount(ClientIp.of(httpRequest));
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "이메일 사용 가능 여부를 확인했습니다.",
 				memberFacade.checkEmailAvailability(emailAvailabilityRequestDto.email())));

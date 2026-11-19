@@ -72,7 +72,7 @@ public class OpenBankingAccountVerifier implements PayoutAccountVerifier {
 		try {
 			response = restClient.post()
 				.uri(REAL_NAME_PATH)
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + cachedOrIssueToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(new RealNameRequest(bankTranId(), inquiry.bankCode(), inquiry.accountNumber(), holderInfoType,
 					inquiry.holderInfo(), ZonedDateTime.ofInstant(clock.instant(), SEOUL).format(TRAN_DTIME)))
@@ -104,7 +104,7 @@ public class OpenBankingAccountVerifier implements PayoutAccountVerifier {
 	}
 
 	// 토큰은 만료 전까지 다시 쓴다. 신청은 드물어 한 번에 하나만 받도록 메서드를 잠근다
-	private synchronized String token() {
+	private synchronized String cachedOrIssueToken() {
 		Instant now = clock.instant();
 		if (accessToken != null && now.isBefore(tokenExpiresAt)) {
 			return accessToken;

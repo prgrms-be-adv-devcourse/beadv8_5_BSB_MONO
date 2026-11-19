@@ -1,5 +1,6 @@
 package com.bukang.member.app;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MemberJoinUseCase {
+	private final Clock clock;
 	private final MemberRepository memberRepository;
 	private final TermsRepository termsRepository;
 	private final TermsAgreementRepository termsAgreementRepository;
@@ -77,14 +79,14 @@ public class MemberJoinUseCase {
 		String name = identity.name();
 		String phone = identity.phone();
 		LocalDate birthDate = identity.birthDate();
-		if (!Member.isJoinableAge(birthDate, LocalDate.now())) {
+		if (!Member.isJoinableAge(birthDate, ClockTimes.today(clock))) {
 			throw new UnderAgeException("만 14세 미만은 가입할 수 없습니다.");
 		}
 
 		// 지금 버전의 약관 가운데 필수 약관이 빠졌으면 막는다 (입력값 검사라 중복 검사보다 먼저 한다)
 		// 시행 중인 필수 약관이 하나도 없으면 검사가 빈 채로 통과하므로, 서버 설정 문제로 보고 가입을 막는다
 		// 판매자 약관은 판매자 신청 때 받으므로 가입에서는 보지 않고 기록도 남기지 않는다
-		List<Terms> currentTerms = termsRepository.findCurrent(LocalDate.now()).stream()
+		List<Terms> currentTerms = termsRepository.findCurrent(ClockTimes.today(clock)).stream()
 			.filter(terms -> terms.getType().isAskedAtJoin())
 			.toList();
 		if (currentTerms.stream().noneMatch(Terms::isRequired)) {
@@ -134,7 +136,7 @@ public class MemberJoinUseCase {
 		}
 
 		// 지금 버전의 모든 약관에 대해 동의 여부를 한 줄씩 남긴다 (목록에 있으면 동의, 없으면 미동의)
-		LocalDateTime decidedAt = LocalDateTime.now();
+		LocalDateTime decidedAt = ClockTimes.now(clock);
 		termsAgreementRepository.saveAll(currentTerms.stream()
 			.map(terms -> new TermsAgreement(savedMember, terms, agreedTerms.contains(terms.getType()), decidedAt))
 			.toList());

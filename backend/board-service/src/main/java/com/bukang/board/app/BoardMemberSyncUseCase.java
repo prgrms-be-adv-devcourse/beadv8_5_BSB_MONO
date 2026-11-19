@@ -1,5 +1,6 @@
 package com.bukang.board.app;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -24,13 +25,14 @@ import lombok.extern.slf4j.Slf4j;
 public class BoardMemberSyncUseCase {
 	private final BoardInboxUseCase boardInboxUseCase;
 	private final BoardMemberRepository boardMemberRepository;
+	private final Clock clock;
 
 	// 있으면 고치고 없으면 만든다. 가입·수정은 토픽이 달라 받는 순서가 바뀔 수 있다
 	// 저장된 수정 시각보다 오래된 메시지는 건너뛰어, 수정 뒤에 늦게 온 가입 메시지가 닉네임을 되돌리지 않게 한다
 	@Transactional
 	public void syncProfile(String messageId, String topic, long id, LocalDateTime createDate,
 		LocalDateTime modifyDate, String nickname) {
-		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now())) {
+		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now(clock))) {
 			return;
 		}
 		Optional<BoardMember> stored = boardMemberRepository.findById(id);
@@ -39,7 +41,7 @@ public class BoardMemberSyncUseCase {
 			return;
 		}
 		// 판매자 이벤트가 먼저 와서 만든 복사본은 수정 시각이 없다. 가입 이벤트가 채운다
-		if (stored.get().isProfileSynced() && modifyDate.isBefore(stored.get().getModifyDate())) {
+		if (stored.get().isNewerThan(modifyDate)) {
 			log.info("저장된 값보다 오래된 회원 메시지를 건너뜁니다. memberId={}, modifyDate={}, storedModifyDate={}",
 				id, modifyDate, stored.get().getModifyDate());
 			return;
@@ -53,7 +55,7 @@ public class BoardMemberSyncUseCase {
 	@Transactional
 	public void syncSeller(String messageId, String topic, long memberId, boolean approved,
 		LocalDateTime changedAt) {
-		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now())) {
+		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now(clock))) {
 			return;
 		}
 		boardMemberRepository.findById(memberId).ifPresentOrElse(
@@ -64,7 +66,7 @@ public class BoardMemberSyncUseCase {
 	// 탈퇴는 되돌아가지 않는다. 가입 이벤트보다 먼저 와도 탈퇴한 회원으로 만들어, 늦게 온 가입 이벤트가 닉네임을 되살리지 못한다
 	@Transactional
 	public void withdraw(String messageId, String topic, long id, LocalDateTime withdrawnAt) {
-		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now())) {
+		if (!boardInboxUseCase.tryRecord(messageId, topic, LocalDateTime.now(clock))) {
 			return;
 		}
 		boardMemberRepository.findById(id).ifPresentOrElse(

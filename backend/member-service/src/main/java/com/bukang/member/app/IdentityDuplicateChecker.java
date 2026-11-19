@@ -1,5 +1,6 @@
 package com.bukang.member.app;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 class IdentityDuplicateChecker {
+	private final Clock clock;
 	private final MemberRepository memberRepository;
 	private final IdentityVerificationProperties properties;
 
@@ -44,7 +46,7 @@ class IdentityDuplicateChecker {
 		int days = properties.rejoinBlockDays();
 		String ciHash = properties.uniqueCiCheck() ? identity.ciHash() : null;
 		LocalDateTime withdrawnAt = memberRepository.findLatestWithdrawnAt(identity.identityHash(), ciHash,
-			rejoinBlockStart(LocalDate.now(), days));
+			rejoinBlockStart(ClockTimes.today(clock), days));
 		if (withdrawnAt != null) {
 			throw new RejoinTooSoonException(withdrawnAt.toLocalDate().plusDays(days), days);
 		}

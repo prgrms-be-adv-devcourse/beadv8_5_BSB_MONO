@@ -337,6 +337,51 @@ public class ApiV1RaceController {
 			.body(RsData.of(HttpStatus.OK, "대회 판매를 다시 열었습니다.", productFacade.resumeRace(memberId, raceId)));
 	}
 
+	@PostMapping("/{raceId}/open")
+	@Operation(summary = "판매 바로 시작",
+		description = "본인이 등록한 판매 예정 대회의 판매를 지금 시작한다(판매 중). "
+			+ "크루 예매가 있으면 크루 예매 시작을, 없으면 개인 예매 오픈을 지금(분 단위)으로 당기고, 판매 시작일을 오늘로 바꾼다. "
+			+ "나머지 일정은 그대로다. 당길 일정이 이미 지났거나 접수 마감이 지났으면 열 수 없다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "판매 시작 성공",
+			content = @Content(examples = @ExampleObject(value = RaceApiExamples.OPEN_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "대회 ID·회원 ID 형식 오류 또는 회원 ID가 0 이하",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "대회 ID·회원 ID 형식 오류", value = RaceApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "회원 ID가 0 이하", value = RaceApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님 또는 다른 판매자의 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "승인된 판매자가 아님", value = RaceApiExamples.SELLER_NOT_APPROVED),
+				@ExampleObject(name = "다른 판매자의 대회", value = RaceApiExamples.NOT_OWNER)
+			})),
+		@ApiResponse(responseCode = "404", description = "없는 대회",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = RaceApiExamples.RACE_NOT_FOUND))),
+		@ApiResponse(responseCode = "409",
+			description = "판매 예정이 아님, 접수 마감이 지남, 판매 시작 시각이 지남 또는 그 사이 상태가 바뀜",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "이미 판매 중", value = RaceApiExamples.OPEN_ALREADY_ON_SALE),
+				@ExampleObject(name = "판매 중지", value = RaceApiExamples.OPEN_STOPPED),
+				@ExampleObject(name = "판매 종료", value = RaceApiExamples.SALE_CLOSED),
+				@ExampleObject(name = "취소된 대회", value = RaceApiExamples.RACE_CANCELED),
+				@ExampleObject(name = "접수 마감이 지남", value = RaceApiExamples.OPEN_AFTER_APPLICATION_CLOSE),
+				@ExampleObject(name = "판매 시작 시각이 지남", value = RaceApiExamples.OPEN_AFTER_SALE_OPEN_TIME),
+				@ExampleObject(name = "그 사이 상태가 바뀜", value = RaceApiExamples.SALE_STATUS_CHANGED)
+			}))
+	})
+	public ResponseEntity<RsData<RaceSaveDto>> open(
+		@LoginMemberId long memberId,
+		@Parameter(description = "대회 ID", example = "1")
+		@PathVariable long raceId
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "대회 판매를 시작했습니다.", productFacade.openRace(memberId, raceId)));
+	}
+
 	@GetMapping
 	@Operation(summary = "공개 대회 목록",
 		description = "판매 예정·판매 중·판매 중지이고 아직 접수 마감 전인 대회를 찾는다. 로그인하지 않아도 된다. "

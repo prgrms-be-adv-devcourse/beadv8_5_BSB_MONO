@@ -9,8 +9,8 @@ import {
   type StatsPeriodQuery,
   type TrendKind,
 } from '@/entities/usage-stats'
-import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
-import { FOCUS_RING, Skeleton } from '@/shared/ui'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
+import { Chip, Skeleton } from '@/shared/ui'
 
 import { usePeriodStats } from '../model/use-usage-stats'
 import { SectionState } from './StatsBlock'
@@ -56,19 +56,14 @@ export function TrendSection({ query }: { query: StatsPeriodQuery }) {
         <h2 className="text-body2-medium text-text-secondary">{title}</h2>
         <div role="group" aria-label="볼 숫자" className="flex gap-1 rounded-full bg-bg-subtle p-1">
           {KINDS.map((k) => (
-            <button
+            <Chip
               key={k}
-              type="button"
-              aria-pressed={kind === k}
+              selected={kind === k}
               onClick={() => setUrl({ trend: k })}
-              className={cn(
-                'h-8 rounded-full px-4 text-body2-medium',
-                kind === k ? 'bg-bg-inverse text-text-inverse' : 'text-text-secondary',
-                FOCUS_RING,
-              )}
+              className={kind === k ? undefined : 'bg-transparent inset-ring-0'}
             >
               {COPY[k].pill}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>

@@ -4,9 +4,9 @@ export const FIELD_ROOT = 'group flex w-full flex-col gap-2'
 export const FIELD_LABEL =
   'text-body2-medium text-text-primary group-data-disabled:text-text-disabled'
 
-// 입력 상자: 기본 1px border/strong, 포커스(열림) 2px border/focus, 오류 2px border/danger
+// 입력 상자: 기본 흰 면 + shadow/field(DS-017), 포커스(열림) 2px border/focus, 오류 2px border/danger
 export const FIELD_BOX =
-  'w-full rounded-field bg-bg-surface px-4 py-3 text-body2-regular text-text-primary inset-ring inset-ring-border-strong outline-none ' +
+  'w-full rounded-field bg-bg-surface px-4 py-3 text-body2-regular text-text-primary shadow-field outline-none ' +
   'placeholder:text-text-tertiary ' +
   'group-data-invalid:inset-ring-2 group-data-invalid:inset-ring-border-danger ' +
   'group-data-disabled:cursor-not-allowed group-data-disabled:bg-bg-disabled group-data-disabled:text-text-disabled group-data-disabled:inset-ring-border-disabled'
