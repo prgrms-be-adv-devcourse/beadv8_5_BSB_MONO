@@ -52,7 +52,7 @@ public class PayoutPayStepUseCase {
 	 */
 	@Transactional
 	public Start start(long payoutId, LocalDate today, LocalDateTime now) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = load(payoutId);
 		if (payout.getStatus() == PayoutStatus.지급_중) {
 			return Start.transfer(PayoutTransfer.from(payout));
 		}
@@ -64,7 +64,7 @@ public class PayoutPayStepUseCase {
 			// 보류가 안 풀린 1차 때문에 최종이 계속 밀리면 원인을 찾을 수 있게 실행마다 한 줄 남긴다
 			// 1차가 지급 불일치면 사람이 풀기 전까지 계속 밀리므로 warn으로 남긴다 (BUK-62)
 			Payout first = waitingFirst.get();
-			if (first.getStatus() == PayoutStatus.지급_불일치 || first.getStatus() == PayoutStatus.지급_확인_필요) {
+			if (first.getStatus().needsManualCheck()) {
 				log.warn("1차 정산이 {}라 최종 정산 지급을 미룹니다. 확인이 필요합니다. payoutId={}, firstPayoutId={}",
 					first.getStatus(), payout.getId(), first.getId());
 			} else {
@@ -100,7 +100,7 @@ public class PayoutPayStepUseCase {
 	// 다른 배치가 같은 지급 중 건을 다시 요청해 먼저 지급 완료했으면 바꾸지 않는다 (캐시 서비스는 돈을 한 번만 옮겼다)
 	@Transactional
 	public boolean complete(long payoutId, LocalDateTime now) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = load(payoutId);
 		if (payout.getStatus() == PayoutStatus.지급_완료) {
 			return false;
 		}
@@ -112,7 +112,7 @@ public class PayoutPayStepUseCase {
 	// 지급 중에 대회가 취소됐으면 되돌리지 않고 취소로 닫는다. 되돌리면 다음 지급 배치가 정산금을 내보낸다 (PRO-253)
 	@Transactional
 	public void revert(long payoutId, LocalDateTime now, String reason) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = load(payoutId);
 		if (!payout.isRaceCanceled()) {
 			payout.revertPaying(now, reason);
 			return;
@@ -127,7 +127,7 @@ public class PayoutPayStepUseCase {
 	// 지급 대상(정산 예정 · 지급 중)이 아니게 되므로 다음 지급 배치가 고르지 않는다
 	@Transactional
 	public void markMismatch(long payoutId, LocalDateTime now, String reason) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = load(payoutId);
 		payout.markPayMismatch(now, reason);
 	}
 
@@ -136,12 +136,17 @@ public class PayoutPayStepUseCase {
 	// @return 이번에 지급_확인_필요가 됐으면 true
 	@Transactional
 	public boolean markUnknown(long payoutId, LocalDate today, LocalDateTime now) {
-		Payout payout = payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
+		Payout payout = load(payoutId);
 		if (!payout.recordUnknownPay(today, now)) {
 			return false;
 		}
 		payoutCreateFailureRepository.save(PayoutCreateFailure.payCheckRequired(payout, today));
 		return true;
+	}
+
+	// 대상을 고른 뒤 다시 읽는다. 그 사이 지워졌으면(없을 수 없지만) 없음으로 던진다
+	private Payout load(long payoutId) {
+		return payoutRepository.findById(payoutId).orElseThrow(PayoutNotFoundException::new);
 	}
 
 	/**
