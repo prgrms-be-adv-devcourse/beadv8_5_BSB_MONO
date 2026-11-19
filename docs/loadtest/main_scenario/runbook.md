@@ -81,16 +81,17 @@ GRAFANA_PW='<비번>' python docs-local/ops/promsnap.py 15 40 > results/<stage>-
 (조회 숫자는 RPS = 대기열 조회 요청/초. 예매 완결은 별도 축으로 ~20 TPS = 거래/초 수준.) 병목 = 노드 2코어 CPU. 조회(nginx→gateway JWT 검증→queue)가 CPU 독식, gateway가 단일 최대(0.56코어). 개선 1순위 = 게이트웨이 JWT 검증 비용 절감, 다음 코어 증설. 테스트 후 전 파드 Running·OOM 0.
 
 ## 8. 로그인을 빨리 끝내기 (부하 PC만 /auth 제한에서 빼기)
-nginx가 `/auth`를 IP당 초당 1건으로 막아 1,000명 로그인에 20분이 걸리고, 그동안 먼저 받은 토큰(30분)이 닳는다. 부하를 돌리는 동안만 부하 PC IP를 제한에서 뺀다(11/19 파티 부하에서 1,600명 약 6분).
+nginx가 `/auth`를 IP당 초당 1건으로 막아 1,000명 로그인에 20분이 걸리고, 그동안 먼저 받은 토큰(30분)이 닳는다. 부하를 돌리는 동안만 제한을 끈다(11/19 파티 부하에서 1,600명 약 6분).
+
+운영 nginx 설정의 스위치로 끄고 켠다. `k8s/overlays/aws/nginx-upstreams.conf`의 `map "false" $auth_limit_key` 줄이 스위치다.
 ```bash
-ssh team05 'rm -f ~/nginx-config-backup.yaml'              # 옛 백업이 남아 있으면 닫을 때 옛 설정으로 덮어쓴다
-ssh team05 'bash -s' <부하PC 공인IP> < ops/nginx-open.sh   # 열기 (nginx 몇 초 재시작)
+# 1. 끄기: map 첫 줄의 "false"를 "true"로 바꿔 main에 배포 → nginx Pod만 다시 뜬다 (앱은 그대로)
 powershell -File run-login.ps1 -Count 1000 -Interval 0.2    # 미니 PC에서
 # ... 부하 ...
-ssh team05 'bash -s' < ops/nginx-close.sh                   # 닫기 (실패해도 꼭)
+# 2. 켜기: "true"를 "false"로 되돌려 main에 배포 (꼭. 시연 전에는 반드시 "false")
 ```
-- 그 IP에서 오는 로그인만 제한이 풀린다. 다른 사용자는 그대로다.
-- 부하 도중 nginx를 다시 배포하면 설정이 원래대로 돌아간다.
+- 끄면 모든 IP의 로그인·가입·본인인증·이메일 중복 확인 제한이 함께 풀린다. 계정마다의 로그인 5번 실패 잠금(회원 서비스)은 그대로다.
+- 예전에는 서버에서 `ops/nginx-open.sh`·`nginx-close.sh`로 부하 PC IP 하나만 뺐다(11/19 측정 기록의 그 스크립트). 스위치로 바꾸면서 지웠다.
 
 ## 9. k6 지표를 Grafana에서 보기
 `run-stage.ps1`은 미니 PC의 `prod-run\.prom-rw-password.txt`가 있으면 k6 지표를 수집 서버(Prometheus)로도 보낸다. 없으면 보내지 않고 파일로만 남긴다.

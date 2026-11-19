@@ -19,6 +19,7 @@ resources:
 
 # 운영 nginx만 게이트웨이를 두 곳(k3s의 게이트웨이 1, 보조 EC2의 게이트웨이 2)으로 나눠 보낸다 (CRU-75)
 # base의 nginx-config에서 upstreams.conf 한 파일만 운영용으로 바꾼다. 로컬 compose·k3d는 base 파일 그대로 쓴다
+# 이 파일에 부하 테스트용 로그인 제한 끄기 스위치("false"/"true")도 있다 (nginx-upstreams.conf의 map)
 configMapGenerator:
   - name: nginx-config
     behavior: merge

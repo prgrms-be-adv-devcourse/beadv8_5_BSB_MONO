@@ -11,7 +11,7 @@ if (!PASSWORD) {
 }
 const COUNT = Number(__ENV.COUNT || 1000);
 const JOIN = __ENV.JOIN === '1';
-// nginx 제한(IP당 초당 1건)이 걸려 있으면 1.1초. nginx-open.sh로 부하 PC IP를 제한에서 뺐으면 -e AUTH_INTERVAL=0.2 처럼 줄인다
+// nginx 제한(IP당 초당 1건)이 걸려 있으면 1.1초. 운영 nginx 로그인 제한 스위치를 "true"로 꺼 두었으면 -e AUTH_INTERVAL=0.2 처럼 줄인다 (runbook 8절)
 const AUTH_INTERVAL_SECONDS = Number(__ENV.AUTH_INTERVAL || 1.1);
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
