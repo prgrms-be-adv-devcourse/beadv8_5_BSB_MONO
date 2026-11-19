@@ -117,6 +117,7 @@ export function LineField({
   onClear?: () => void
 }) {
   const messageId = useId()
+  const hintsId = useId()
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
@@ -128,7 +129,7 @@ export function LineField({
         >
           <input
             aria-invalid={error ? true : undefined}
-            aria-describedby={messageId}
+            aria-describedby={hints?.length ? `${messageId} ${hintsId}` : messageId}
             className={cn(
               'min-w-0 flex-1 bg-transparent text-title3 outline-none placeholder:text-text-tertiary',
               className,
@@ -141,11 +142,14 @@ export function LineField({
               aria-label="지우기"
               onClick={onClear}
               className={cn(
-                'flex size-5 shrink-0 items-center justify-center rounded-full bg-text-tertiary text-text-on-brand',
+                // 보이는 동그라미는 20px, 누르는 영역은 24px
+                'flex size-6 shrink-0 items-center justify-center rounded-full',
                 FOCUS_RING,
               )}
             >
-              <Icon name="X" className="size-3" />
+              <span className="flex size-5 items-center justify-center rounded-full bg-text-tertiary text-text-on-brand">
+                <Icon name="X" className="size-3" />
+              </span>
             </button>
           )}
         </div>
@@ -157,18 +161,22 @@ export function LineField({
           )}
         </div>
       </div>
-      {hints?.map((hint) => (
-        <p
-          key={hint.text}
-          className={cn(
-            'flex items-center gap-1 text-caption-medium',
-            hint.ok ? 'text-text-success' : 'text-text-tertiary',
-          )}
-        >
-          <Icon name="Check" className="size-4" />
-          {hint.text}
-        </p>
-      ))}
+      {hints && hints.length > 0 && (
+        <div id={hintsId} className="flex flex-col gap-3">
+          {hints.map((hint) => (
+            <p
+              key={hint.text}
+              className={cn(
+                'flex items-center gap-1 text-caption-medium',
+                hint.ok ? 'text-text-success' : 'text-text-tertiary',
+              )}
+            >
+              <Icon name="Check" className="size-4" />
+              {hint.text}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

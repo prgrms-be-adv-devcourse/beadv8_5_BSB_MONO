@@ -154,7 +154,7 @@ export function CommentSection({
               type="submit"
               disabled={!text.trim() || create.isPending || update.isPending}
               className={cn(
-                'rounded-sm text-caption-medium text-text-secondary enabled:text-text-brand',
+                'min-h-6 min-w-6 rounded-sm text-caption-medium text-text-secondary enabled:text-text-brand',
                 FOCUS_RING,
               )}
             >
@@ -244,7 +244,7 @@ function CommentRow({
             <button
               type="button"
               onClick={onReply}
-              className={cn('rounded-sm text-caption-medium', FOCUS_RING)}
+              className={cn('min-h-6 min-w-6 rounded-sm text-caption-medium', FOCUS_RING)}
             >
               답글 달기
             </button>
