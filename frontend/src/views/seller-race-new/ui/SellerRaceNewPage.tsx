@@ -231,7 +231,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             description={registerErrorMessage(registerRace.error)}
           />
         )}
-        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 gap-6">
           <ConsoleCard title="기본 정보">
             <div className="flex flex-col gap-4">
               <TextField
@@ -375,7 +375,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           </ConsoleCard>
         </div>
 
-        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 gap-6">
           <ConsoleCard title="이미지">
             <div className="flex flex-col gap-4">
               <ImageUpload
@@ -435,6 +435,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             </ConsoleCard>
 
             <ConsoleCard
+              className="flex-1"
               title="키트"
               aside={
                 <Button
