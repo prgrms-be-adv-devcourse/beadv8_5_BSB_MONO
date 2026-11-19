@@ -5,6 +5,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,6 +34,10 @@ import lombok.NoArgsConstructor;
 	indexes = @Index(name = "idx_crew_invite_crew", columnList = "crew_id, expires_at")
 )
 public class CrewInvite {
+	public enum UnusableReason {
+		USED, CANCELED, EXPIRED
+	}
+
 	public static final Duration VALID_DURATION = Duration.ofHours(24);
 
 	@Id
@@ -90,5 +95,19 @@ public class CrewInvite {
 		long crewId, String inviteToken, String tokenHash, long createdBy, LocalDateTime now
 	) {
 		return new CrewInvite(crewId, inviteToken, tokenHash, createdBy, now);
+	}
+
+	// 쓸 수 없는 이유. 쓰임 → 취소 → 24시간 지남 순서로 본다
+	public Optional<UnusableReason> unusableReason(LocalDateTime now) {
+		if (usedAt != null) {
+			return Optional.of(UnusableReason.USED);
+		}
+		if (canceledAt != null) {
+			return Optional.of(UnusableReason.CANCELED);
+		}
+		if (!expiresAt.isAfter(now)) {
+			return Optional.of(UnusableReason.EXPIRED);
+		}
+		return Optional.empty();
 	}
 }
