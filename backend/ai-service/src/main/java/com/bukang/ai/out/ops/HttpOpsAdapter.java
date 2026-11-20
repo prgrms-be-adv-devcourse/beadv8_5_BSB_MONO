@@ -57,6 +57,10 @@ public class HttpOpsAdapter implements OpsPort {
 		new ParameterizedTypeReference<>() {
 		};
 
+	private static final ParameterizedTypeReference<RsData<RecordCertReviewCountResponse>> CERT_REVIEW_COUNT_TYPE =
+		new ParameterizedTypeReference<>() {
+		};
+
 	// 정산 내역 상태 이름 (정산 서비스 PayoutStatus.지급보류)
 	private static final String HELD = "지급보류";
 
@@ -120,6 +124,12 @@ public class HttpOpsAdapter implements OpsPort {
 	}
 
 	@Override
+	public long waitingRecordCertReviewCount(long memberId) {
+		return get(memberClient, memberId, CERT_REVIEW_COUNT_TYPE,
+			"/api/v1/member/seller/record-certs/review-count").waitingCount();
+	}
+
+	@Override
 	public Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId) {
 		String path = "/api/v1/inquiry/" + screen.name().toLowerCase(Locale.ROOT) + "/inquiries/{inquiryId}";
 		try {
@@ -169,6 +179,10 @@ public class HttpOpsAdapter implements OpsPort {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record InquiryPageResponse(@JsonProperty(required = true) long waitingCount) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record RecordCertReviewCountResponse(@JsonProperty(required = true) long waitingCount) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
