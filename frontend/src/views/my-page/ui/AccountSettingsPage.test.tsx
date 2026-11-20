@@ -22,7 +22,7 @@ const renderPage = () => {
 }
 
 describe('AccountSettingsPage', () => {
-  it('본인인증 이름과 정보 보기를 보여 주고, 닉네임 변경은 회원 정보 수정으로 간다', async () => {
+  it('본인인증 이름과 정보 보기를 보여 주고, 정보 보기는 회원 정보 수정으로 간다', async () => {
     server.use(
       memberMock.getFindMeMockHandler({
         status: 200,
@@ -43,7 +43,6 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByText('김곰')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '정보 보기' })).toHaveAttribute('href', '/me/edit')
-    expect(screen.getByRole('link', { name: /닉네임 변경/ })).toHaveAttribute('href', '/me/edit')
   })
 
   it('이메일 정보 · 약관 및 동의 · 고객센터로 들어갈 수 있다', () => {

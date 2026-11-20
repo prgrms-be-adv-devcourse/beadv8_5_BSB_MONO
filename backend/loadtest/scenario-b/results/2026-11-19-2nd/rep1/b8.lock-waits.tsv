@@ -1,0 +1,6 @@
+시각	테이블	인덱스	기다린_잠금	기다리는_수	가장_오래_초	기다린_SQL	막은_SQL
+2026-11-19 10:33:37.546	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	1	0	select w1_0.id,w1_0.balance,w1 ... 0.id=940541 for update of w1_0	NULL
+2026-11-19 10:33:42.619	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	1	0	select w1_0.id,w1_0.balance,w1 ... 0.id=940561 for update of w1_0	NULL
+2026-11-19 10:34:48.565	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	1	0	select w1_0.id,w1_0.balance,w1 ... 0.id=940821 for update of w1_0	NULL
+2026-11-19 10:36:30.009	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	2	1	select w1_0.id,w1_0.balance,w1 ... 0.id=944581 for update of w1_0	NULL
+2026-11-19 10:40:38.625	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	1	0	select w1_0.id,w1_0.balance,w1 ... 0.id=945721 for update of w1_0	NULL

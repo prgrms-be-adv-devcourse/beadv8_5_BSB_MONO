@@ -2,16 +2,16 @@
 export const FIELD_ROOT = 'group flex w-full flex-col gap-2'
 
 export const FIELD_LABEL =
-  'text-body2-medium text-text-primary group-data-disabled:text-text-disabled'
+  'text-body1-medium text-text-primary group-data-disabled:text-text-disabled'
 
-// 입력 상자: 기본 1px border/strong, 포커스(열림) 2px border/focus, 오류 2px border/danger
+// 입력 상자(v4/Field): 높이 52, 둥글기 12, 1px 선(border/strong). 포커스(열림) 2px border/focus, 오류 2px border/danger
 export const FIELD_BOX =
-  'w-full rounded-field bg-bg-surface px-4 py-3 text-body2-regular text-text-primary inset-ring inset-ring-border-strong outline-none ' +
+  'min-h-13 w-full rounded-md bg-bg-surface px-4 py-3 text-body1-regular text-text-primary inset-ring inset-ring-border-strong outline-none ' +
   'placeholder:text-text-tertiary ' +
   'group-data-invalid:inset-ring-2 group-data-invalid:inset-ring-border-danger ' +
-  'group-data-disabled:cursor-not-allowed group-data-disabled:bg-bg-disabled group-data-disabled:text-text-disabled group-data-disabled:inset-ring-border-disabled'
+  'group-data-disabled:cursor-not-allowed group-data-disabled:bg-bg-surface group-data-disabled:text-text-disabled group-data-disabled:inset-ring-border-disabled'
 
 export const FIELD_BOX_FOCUS = 'focus:inset-ring-2 focus:inset-ring-border-focus'
 
 export const FIELD_HELPER =
-  'text-caption-regular text-text-tertiary group-data-invalid:text-text-danger group-data-disabled:text-text-disabled'
+  'flex items-center gap-1 text-caption-regular text-text-tertiary group-data-invalid:text-text-danger group-data-disabled:text-text-disabled'

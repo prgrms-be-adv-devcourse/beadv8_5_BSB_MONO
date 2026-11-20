@@ -28,6 +28,8 @@ export type SelectProps<Value extends string> = {
   disabled?: boolean
   /** label 없이 쓸 때 화면 읽기 프로그램에 읽어 줄 이름 */
   'aria-label'?: string
+  /** true면 높이 40의 작은 칸(표 안). 기본은 52 */
+  compact?: boolean
   /** 메뉴 너비를 트리거와 다르게 할 때 (좁은 시간 칸 등) */
   popupClassName?: string
   className?: string
@@ -35,9 +37,9 @@ export type SelectProps<Value extends string> = {
 
 // Select/Option 한 줄. BottomSheet 안 선택지도 같은 모양을 쓴다.
 export const OPTION =
-  'flex h-11 w-full cursor-default items-center gap-2 rounded-md px-4 py-3 text-left text-body2-regular text-text-primary outline-none select-none'
+  'flex h-11 w-full cursor-default items-center gap-2 rounded-md px-4 py-3 text-left text-body1-regular text-text-primary outline-none select-none'
 
-// 하나를 고르는 필드. 높이 46. 선택지가 4개 이하라면 Chip이나 Radio를 쓴다.
+// 하나를 고르는 필드. 높이 52. 선택지가 4개 이하라면 Chip이나 Radio를 쓴다.
 export function Select<Value extends string>({
   items,
   label,
@@ -50,6 +52,7 @@ export function Select<Value extends string>({
   name,
   disabled,
   'aria-label': ariaLabel,
+  compact = false,
   popupClassName,
   className,
 }: SelectProps<Value>) {
@@ -72,6 +75,7 @@ export function Select<Value extends string>({
           aria-label={ariaLabel}
           className={cn(
             FIELD_BOX,
+            compact && 'min-h-10 py-2',
             'group/trigger flex items-center gap-2 data-popup-open:inset-ring-2 data-popup-open:inset-ring-border-focus',
           )}
         >

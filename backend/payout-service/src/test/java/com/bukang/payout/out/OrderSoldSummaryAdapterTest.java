@@ -93,4 +93,47 @@ class OrderSoldSummaryAdapterTest {
 			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
 			.hasCauseInstanceOf(RestClientException.class);
 	}
+
+	// CRU-14: 원시 타입 칸이 null이거나 빠지면 0원 · 0장 · 코스 0으로 읽혀 조용히 정산될 수 있는지 확인한다
+	@Test
+	@DisplayName("가격 합이 null이면 0원으로 바꾸지 않고 예외를 던진다")
+	void throwsOnNullPriceSum() {
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess("""
+				{ "status": 200, "message": "판매 집계를 조회했습니다.",
+					"data": [ { "sellerId": 3, "raceId": 5, "raceCourseId": 11, "priceSum": null, "ticketCount": 3 } ] }
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> adapter.summarizeSold(5))
+			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
+			.hasCauseInstanceOf(RestClientException.class);
+	}
+
+	@Test
+	@DisplayName("장수 칸이 빠지면 0장으로 바꾸지 않고 예외를 던진다")
+	void throwsOnMissingTicketCount() {
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess("""
+				{ "status": 200, "message": "판매 집계를 조회했습니다.",
+					"data": [ { "sellerId": 3, "raceId": 5, "raceCourseId": 11, "priceSum": 150000 } ] }
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> adapter.summarizeSold(5))
+			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
+			.hasCauseInstanceOf(RestClientException.class);
+	}
+
+	@Test
+	@DisplayName("코스 칸이 빠지면 코스 0으로 바꾸지 않고 예외를 던진다")
+	void throwsOnMissingRaceCourseId() {
+		server.expect(requestTo(URL))
+			.andRespond(withSuccess("""
+				{ "status": 200, "message": "판매 집계를 조회했습니다.",
+					"data": [ { "sellerId": 3, "raceId": 5, "priceSum": 150000, "ticketCount": 3 } ] }
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> adapter.summarizeSold(5))
+			.isInstanceOf(PayoutOrderLookupUnavailableException.class)
+			.hasCauseInstanceOf(RestClientException.class);
+	}
 }

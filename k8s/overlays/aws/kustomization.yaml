@@ -14,6 +14,17 @@ resources:
   - secret.yaml
   # 운영 지표 수집기와 메인 EC2 node-exporter (BUK-258). 지표는 개인 AWS EC2의 Prometheus로 보낸다
   - monitoring
+  # 보조 EC2의 게이트웨이 2가 서비스에 닿는 고정 포트 30080~30092 (CRU-75). 보안 그룹에서 보조 EC2만 허용한다
+  - gateway2-nodeports.yaml
+
+# 운영 nginx만 게이트웨이를 두 곳(k3s의 게이트웨이 1, 보조 EC2의 게이트웨이 2)으로 나눠 보낸다 (CRU-75)
+# base의 nginx-config에서 upstreams.conf 한 파일만 운영용으로 바꾼다. 로컬 compose·k3d는 base 파일 그대로 쓴다
+# 이 파일에 부하 테스트용 로그인 제한 끄기 스위치("false"/"true")도 있다 (nginx-upstreams.conf의 map)
+configMapGenerator:
+  - name: nginx-config
+    behavior: merge
+    files:
+      - upstreams.conf=nginx-upstreams.conf
 
 # 앱 이미지를 GHCR 주소로 바꾼다. 태그는 deploy.sh가 배포 커밋 SHA로 덮어쓴다 (GitHub Actions가 SHA 태그로 올린다)
 # 여기 적힌 deploy-sha는 자리표시자다. 이 값 그대로 뜨면 이미지를 찾지 못해 ImagePullBackOff가 난다
@@ -61,6 +72,8 @@ images:
 patches:
   # base의 ConfigMap app-config에 운영 값을 덮어쓰고 더한다 (S3·사이트 주소·소셜 로그인 앱 ID 등)
   - path: app-config.yaml
+  # 상품 서비스의 테스트용 당일 판매 설정 (CRU-36). product Pod에만 넣어, 켜고 끌 때 product만 다시 뜬다
+  - path: product-same-day-sale.yaml
   # 도메인과 HTTPS. 인증서는 Traefik이 Let's Encrypt에서 받는다 (infra/main-node/traefik-config.yaml)
   - path: ingress.yaml
   # GHCR 이미지가 비공개라, 이미지를 받을 때 로그인 정보(Secret ghcr-pull)를 쓰게 한다

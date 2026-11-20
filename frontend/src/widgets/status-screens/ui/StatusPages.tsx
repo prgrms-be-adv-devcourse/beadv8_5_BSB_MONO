@@ -56,19 +56,27 @@ export function OfflineBody({
 }
 
 export type LoadErrorBodyProps = {
+  /** 센터(판매자·관리자) 시안은 「화면을 불러오지 못했어요」처럼 문구가 다르다. 없으면 회원 화면 문구 */
+  title?: string
+  description?: string
   onRetry: () => void
   /** 다시 불러오는 중이면 버튼을 막아 요청이 겹치지 않게 한다 */
   retrying?: boolean
 }
 
 // 피그마 시나리오 38 · 01-B 불러오지 못함 (화면 안에서 불러오기 실패, 본문 자리)
-export function LoadErrorBody({ onRetry, retrying = false }: LoadErrorBodyProps) {
+export function LoadErrorBody({
+  title = '정보를 불러오지 못했어요',
+  description = '연결이 잠시 끊겼어요. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+  onRetry,
+  retrying = false,
+}: LoadErrorBodyProps) {
   return (
     <main className="flex flex-1 flex-col justify-center px-4 pb-16">
       <EmptyState
         role="alert"
-        title="정보를 불러오지 못했어요"
-        description="연결이 잠시 끊겼어요. 네트워크를 확인한 뒤 다시 시도해 주세요."
+        title={title}
+        description={description}
         action={
           <Button variant="secondary" onClick={onRetry} disabled={retrying} loading={retrying}>
             다시 시도하기

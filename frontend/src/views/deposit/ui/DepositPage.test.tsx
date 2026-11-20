@@ -57,8 +57,8 @@ describe('DepositPage 잔액', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('잔액을 불러오지 못했어요.')).toBeInTheDocument()
-    expect(screen.getByText('-')).toBeInTheDocument()
+    expect(await screen.findByText('예치금을 불러오지 못했어요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 불러오기' })).toBeInTheDocument()
   })
 })
 
@@ -150,27 +150,38 @@ describe('DepositPage 내역', () => {
       within(items[0]).getByText(/남은 금액 5,000원 · 카드 취소 2027-10-04까지/),
     ).toBeInTheDocument()
     expect(
-      within(items[3]).getByText(/남은 금액 3,000원 · 카드 취소 기한\(2025-10-01\)이 지났어요/),
+      within(items[3]).getByText(/남은 금액 3,000원 · 카드 취소 기한 지남 · 계좌로 환급받아요/),
     ).toBeInTheDocument()
     expect(screen.getAllByText(/남은 금액/)).toHaveLength(2)
   })
 
-  it('돌려받는 방법은 카드 먼저, 기한 지난 몫만 계좌라고 안내한다', async () => {
+  it('v3 시안: 아래 설명 구역 없이 보유 예치금 · 내역 · 하단 버튼 두 개만 있다', async () => {
     renderPage()
 
-    expect(
-      await screen.findByText(
-        '결제한 카드로 먼저 돌려드리고, 카드 취소 기한이 지난 몫만 계좌로 보내 드려요.',
-      ),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('관리자가 확인한 뒤 계좌로 보내 드려요.')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '내역' })).toBeInTheDocument()
+    expect(screen.getByText('보유 예치금')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '환급받기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/refund',
+    )
+    expect(screen.getByRole('link', { name: '충전하기' })).toHaveAttribute(
+      'href',
+      '/me/deposit/charge',
+    )
+  })
+
+  it('v4 시안에 없는 「돌려받는 방법」 안내 버튼은 두지 않는다', async () => {
+    renderPage()
+
+    expect(await screen.findByText('보유 예치금')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '돌려받는 방법' })).not.toBeInTheDocument()
   })
 
   it('내역이 없으면 빈 목록 안내를 보여 준다', async () => {
     server.use(http.get('*/api/v1/cash/wallets/ledgers', () => ledgerPage([], 0, 0)))
     renderPage()
 
-    expect(await screen.findByText('아직 내역이 없어요')).toBeInTheDocument()
+    expect(await screen.findByText('아직 예치금 내역이 없어요')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument()
   })
 
@@ -246,8 +257,8 @@ describe('DepositPage 내역', () => {
   })
 })
 
-describe('DepositPage 돌려받는 중 (M17-1)', () => {
-  it('돌려받는 중이면 다시 신청할 수 없다는 안내를 보여 준다', () => {
+describe('DepositPage 환급받는 중 (M17-1)', () => {
+  it('환급받는 중이면 다시 신청할 수 없다는 안내를 보여 준다', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
@@ -255,6 +266,6 @@ describe('DepositPage 돌려받는 중 (M17-1)', () => {
       </QueryClientProvider>,
     )
 
-    expect(screen.getByText('돌려받는 중에는 다시 신청할 수 없어요.')).toBeInTheDocument()
+    expect(screen.getByText('환급받는 중에는 다시 신청할 수 없어요.')).toBeInTheDocument()
   })
 })

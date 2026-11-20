@@ -17,6 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -1006,6 +1008,33 @@ class CashWithdrawalByChargeTest {
 		}
 		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willThrow(failure);
 		cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_1", NOW);
+	}
+
+	@Test
+	@DisplayName("카드가 여러 장이면 카드마다 PG 결제취소를 동시에 불러, 응답 시간이 장수만큼 늘지 않는다")
+	void cancelsCardsConcurrently() {
+		Wallet wallet = createWallet(50_000);
+		for (int i = 1; i <= 5; i++) {
+			completedCharge(wallet, 10_000, "charge_" + i, LocalDateTime.of(2026, 10, i, 9, 0));
+		}
+		// 결제취소마다 다섯 장이 모두 불릴 때까지 기다린다. 한 장씩 차례로 부르면 첫 장이 기다리다 시간이 지나 false가 된다
+		CountDownLatch allCalled = new CountDownLatch(5);
+		AtomicInteger calledTogether = new AtomicInteger();
+		given(paymentClient.cancel(anyString(), anyString(), anyLong(), anyString())).willAnswer(invocation -> {
+			allCalled.countDown();
+			if (allCalled.await(2, TimeUnit.SECONDS)) {
+				calledTogether.incrementAndGet();
+			}
+			return new PaymentCancelResult(invocation.getArgument(2), "txn_" + invocation.getArgument(0));
+		});
+
+		CashWithdrawalResponseDto response =
+			cashFacade.requestWithdrawal(CUSTOMER_ID, null, null, null, "withdrawal_concurrent", NOW);
+
+		assertThat(calledTogether).as("다섯 장의 결제취소가 동시에 불려야 한다").hasValue(5);
+		assertThat(response.cardAmount()).isEqualTo(50_000);
+		assertThat(walletWithdrawalItemRepository.findAll())
+			.extracting(WalletWithdrawalItem::getStatus).containsOnly(WithdrawalItemStatus.COMPLETED);
 	}
 
 	private Wallet createWallet(long balance) {

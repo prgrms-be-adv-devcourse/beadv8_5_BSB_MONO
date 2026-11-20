@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { resetNavigationMock, server } from '@/shared/testing'
 
 import { SellerSalesPage } from './SellerSalesPage'
 
@@ -65,13 +65,18 @@ describe('SellerSalesPage', () => {
     mockRaces([RACE])
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: '2026 춘천 나이트런' })).toBeInTheDocument()
     // 판매 120 + 80 = 200, 정원 500, 남은 자리 500 - 200 - 결제 대기 10 = 290
-    expect(screen.getByText('200')).toBeInTheDocument()
-    expect(screen.getByText('290')).toBeInTheDocument()
-    expect(screen.getAllByText('/ 500명')).toHaveLength(2)
+    const figures = within(await screen.findByRole('group', { name: '판매 숫자' }))
+    expect(figures.getByText('200')).toBeInTheDocument()
+    expect(figures.getByText('/ 500명')).toBeInTheDocument()
+    expect(figures.getByText('290')).toBeInTheDocument()
+    // 결제 대기 10명도 숫자로 보인다
+    expect(figures.getByText('결제 대기')).toBeInTheDocument()
+    expect(figures.getByText('10')).toBeInTheDocument()
+    // 종목별 판매 표
+    expect(screen.getByRole('table', { name: '종목별 판매' })).toBeInTheDocument()
     expect(screen.getByText('참가자 200명')).toBeInTheDocument()
-    expect(await screen.findAllByText(/11\/5 \(목\) 23:59/)).not.toHaveLength(0)
+    expect(await screen.findByText('11/5 (목)')).toBeInTheDocument()
   })
 
   it('예시 참가자 대신 준비 중 안내를 보여 주고 엑셀 내려받기를 막는다', async () => {
@@ -89,9 +94,28 @@ describe('SellerSalesPage', () => {
     renderPage()
 
     expect(await screen.findByText('등록한 대회가 없어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '대회 등록' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '대회 등록하기' })).toHaveAttribute(
       'href',
       '/seller/races/new?from=sales',
+    )
+  })
+
+  it('주소의 ?race= 로 고른 대회를 연다', async () => {
+    resetNavigationMock('race=8')
+    mockRaces([RACE, { ...RACE, raceId: 8, title: '2026 부산 트레일' }])
+    server.use(
+      http.get('*/api/v1/product/races/8', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { raceId: 8, title: '2026 부산 트레일' },
+        }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByRole('combobox', { name: '대회' })).toHaveTextContent(
+      '2026 부산 트레일',
     )
   })
 })

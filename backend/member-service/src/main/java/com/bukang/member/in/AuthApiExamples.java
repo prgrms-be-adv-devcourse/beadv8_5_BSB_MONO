@@ -52,6 +52,32 @@ final class AuthApiExamples {
 		}
 		""";
 
+	static final String DEMO_LOGIN_AVAILABLE = """
+		{
+			"status": 200,
+			"message": "데모 로그인을 쓸 수 있습니다.",
+			"data": null
+		}
+		""";
+
+	static final String DEMO_LOGIN_MEMBER_NOT_FOUND = """
+		{
+			"status": 404,
+			"code": "MEMBER_NOT_FOUND",
+			"message": "데모 로그인 계정이 없습니다.",
+			"data": null
+		}
+		""";
+
+	static final String DEMO_LOGIN_TOO_MANY = """
+		{
+			"status": 429,
+			"code": "DEMO_LOGIN_TOO_MANY",
+			"message": "요청이 너무 많습니다. 잠시 뒤 다시 시도해주세요.",
+			"data": null
+		}
+		""";
+
 	static final String REISSUE_SUCCESS = """
 		{
 			"status": 200,

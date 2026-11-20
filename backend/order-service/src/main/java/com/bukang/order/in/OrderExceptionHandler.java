@@ -5,6 +5,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -38,6 +39,8 @@ import com.bukang.order.dto.PartyCrewSeatShortageDto;
 public class OrderExceptionHandler {
 	// 입력값 오류 코드는 common GlobalExceptionHandler와 같은 값을 쓴다
 	static final String INVALID_REQUEST = "INVALID_REQUEST";
+	static final String DB_BUSY = "ORDER_DB_BUSY";
+	static final String DB_BUSY_MESSAGE = "요청이 몰려 처리 결과를 확인하지 못했습니다. 잠시 뒤 주문 내역을 확인하거나 다시 시도해주세요.";
 
 	// 예치금 부족: 공통 처리와 같은 형식에 부족 금액(data.shortage)을 더한다
 	@ExceptionHandler(InsufficientBalanceException.class)
@@ -145,5 +148,15 @@ public class OrderExceptionHandler {
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST, "요청 값의 형식이 올바르지 않습니다.", null));
+	}
+
+	// DB 연결을 기다리다(hikari connection-timeout) 못 받았다 (CRU-45, 처리 안 하면 500)
+	// 결제·취소는 외부 호출 뒤 결과 조회에서 날 수도 있어(돈은 빠지고 결제 중으로 남음) "실패"가 아니라 "확인 못 함"으로 알린다.
+	// 다시 눌러도 결제 중이면 202라 두 번 빠지지 않는다
+	@ExceptionHandler(CannotCreateTransactionException.class)
+	public ResponseEntity<RsData<Void>> cannotCreateTransactionException(CannotCreateTransactionException exception) {
+		return ResponseEntity
+			.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(RsData.of(HttpStatus.SERVICE_UNAVAILABLE, DB_BUSY, DB_BUSY_MESSAGE, null));
 	}
 }

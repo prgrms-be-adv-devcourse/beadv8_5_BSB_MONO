@@ -1,22 +1,14 @@
 package com.bukang.board.app;
 
-import java.util.List;
-import java.util.stream.IntStream;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.board.domain.BoardPost;
-import com.bukang.board.domain.exception.BoardNotWriterException;
 import com.bukang.board.domain.exception.BoardPostHiddenException;
 import com.bukang.board.domain.exception.BoardTooFastException;
 import com.bukang.board.dto.PostSaveRequestDto;
 import com.bukang.board.out.BoardCooldown;
 import com.bukang.board.out.BoardPostRepository;
-import com.bukang.common.global.eventpublisher.EventPublisher;
-import com.bukang.common.shared.file.domain.FileRef;
-import com.bukang.common.shared.file.domain.FileType;
-import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,7 +23,7 @@ public class BoardPostUseCase {
 	private final BoardPostRepository boardPostRepository;
 	private final BoardPostFinder boardPostFinder;
 	private final BoardCooldown boardCooldown;
-	private final EventPublisher eventPublisher;
+	private final BoardPostFileLinker boardPostFileLinker;
 	private final BoardWriterGuard boardWriterGuard;
 	private final BoardOutboxKafkaAppendUseCase boardOutboxKafkaAppendUseCase;
 
@@ -46,7 +38,7 @@ public class BoardPostUseCase {
 			BoardPost.create(memberId, request.categoryOrDefault(), request.title(), request.content()));
 		boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 		if (request.fileIds() != null && !request.fileIds().isEmpty()) {
-			requestFileLink(memberId, post, request.fileIds());
+			boardPostFileLinker.link(memberId, post, request.fileIds());
 		}
 		return post.getId();
 	}
@@ -55,17 +47,14 @@ public class BoardPostUseCase {
 	@Transactional
 	public void update(long memberId, long postId, PostSaveRequestDto request) {
 		boardWriterGuard.checkNotWithdrawn(memberId);
-		BoardPost post = boardPostFinder.findViewable(postId, memberId);
-		if (!post.isWrittenBy(memberId)) {
-			throw new BoardNotWriterException();
-		}
+		BoardPost post = boardPostFinder.findOwned(postId, memberId);
 		if (post.isHidden()) {
 			throw new BoardPostHiddenException();
 		}
 		post.edit(request.categoryOrDefault(), request.title(), request.content());
 		boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 		if (request.fileIds() != null) {
-			requestFileLink(memberId, post, request.fileIds());
+			boardPostFileLinker.link(memberId, post, request.fileIds());
 		}
 	}
 
@@ -73,26 +62,10 @@ public class BoardPostUseCase {
 	@Transactional
 	public void delete(long memberId, long postId) {
 		boardWriterGuard.checkNotWithdrawn(memberId);
-		BoardPost post = boardPostFinder.findViewable(postId, memberId);
-		if (!post.isWrittenBy(memberId)) {
-			throw new BoardNotWriterException();
-		}
+		BoardPost post = boardPostFinder.findOwned(postId, memberId);
 		post.delete();
 		boardOutboxKafkaAppendUseCase.appendPostChanged(post.getId());
 		// 빈 목록을 보내야 file-service가 사진 연결을 떼어, 지운 글의 사진이 공개 조회에 남지 않고 정리 배치 대상이 된다
-		requestFileLink(memberId, post, List.of());
-	}
-
-	// 관리자가 글을 지울 때도 사진 연결을 뗀다 (쓴 사람 이름으로 보낸다)
-	public void releaseFiles(BoardPost post) {
-		requestFileLink(post.getMemberId(), post, List.of());
-	}
-
-	private void requestFileLink(long memberId, BoardPost post, List<Long> fileIds) {
-		List<FileLinkRequestedEvent.Item> items = IntStream.range(0, fileIds.size())
-			.mapToObj(index -> new FileLinkRequestedEvent.Item(fileIds.get(index), FileType.POST_IMAGE, index))
-			.toList();
-		eventPublisher.publish(new FileLinkRequestedEvent(memberId,
-			List.of(FileLinkRequestedEvent.Ref.of(FileRef.of(post), items))));
+		boardPostFileLinker.releaseAll(memberId, post);
 	}
 }

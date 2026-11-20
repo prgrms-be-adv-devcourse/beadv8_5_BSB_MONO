@@ -23,6 +23,8 @@ export type CarouselProps = {
   children: ReactNode
   /** 자동으로 넘어가는 간격(ms). false면 자동으로 넘기지 않는다. */
   autoPlayMs?: number | false
+  /** false면 아래 점 표시를 그리지 않는다(v4 홈 배너는 점 없이 「1 / 3」만 둔다). 기본 true */
+  showDots?: boolean
   className?: string
 }
 
@@ -35,7 +37,13 @@ export type CarouselProps = {
 const DRAG_START = 5
 // 한 장 폭의 이 비율 넘게 끌면 다음(이전) 장으로 넘긴다.
 const DRAG_FLIP = 0.15
-export function Carousel({ label, children, autoPlayMs = 5000, className }: CarouselProps) {
+export function Carousel({
+  label,
+  children,
+  autoPlayMs = 5000,
+  showDots = true,
+  className,
+}: CarouselProps) {
   const slides = Children.toArray(children)
   const count = slides.length
   const trackRef = useRef<HTMLDivElement>(null)
@@ -204,7 +212,7 @@ export function Carousel({ label, children, autoPlayMs = 5000, className }: Caro
           </div>
         ))}
       </div>
-      {count > 1 && (
+      {showDots && count > 1 && (
         <div className="flex items-center gap-1.5">
           {slides.map((slide, i) => (
             <button
@@ -245,14 +253,14 @@ export function CarouselSlide({ image, chip, title, description }: CarouselSlide
       {image}
       <div aria-hidden className="absolute inset-0 bg-[rgb(10_15_28/0.55)]" />
       {title && (
-        <div className="absolute inset-x-5 bottom-4.5 flex flex-col items-start gap-1.5 text-text-on-image">
+        <div className="absolute inset-x-5 bottom-4.5 flex flex-col items-start gap-2 text-text-on-image">
           {chip && (
-            <span className="rounded-sm bg-[rgb(255_255_255/0.2)] px-2 py-0.75 text-caption-medium">
+            <span className="rounded-sm bg-neutral-0/20 px-2 py-0.75 text-caption-medium">
               {chip}
             </span>
           )}
           <p className="text-title2 break-keep">{title}</p>
-          {description && <p className="text-body2-regular opacity-80">{description}</p>}
+          {description && <p className="text-body1-regular opacity-80">{description}</p>}
         </div>
       )}
     </div>

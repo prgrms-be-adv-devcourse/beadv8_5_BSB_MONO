@@ -97,6 +97,8 @@ export const getSendKakaoCrewInvitesResponseMock = (): RsDataKakaoInviteSendResu
 
 export const getFindIdentityReviewResponseMock = (): RsDataIdentityReviewPageDto => ({"status":200,"message":"확인이 필요한 계정을 조회했습니다.","data":{"groups":[{"members":[{"id":12,"nickname":"러너12","maskedName":"홍*동","maskedPhone":"010-****-5678","maskedEmail":"ho***@crewrun.com","ciVerified":false,"joinedAt":"2026-11-02T09:00:00"},{"id":13,"nickname":"러너13","maskedName":"홍*동","maskedPhone":"010-****-9012","maskedEmail":"ho***@gmail.com","ciVerified":true,"joinedAt":"2026-11-02T09:00:00"}]}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 
+export const getDemoLoginResponseMock = (): RsDataMemberLoginResponseDto => ({"status":200,"message":"로그인 성공","data":{"accessToken":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwidHlwZSI6IkFDQ0VTUyJ9.signature","member":{"id":1,"createDate":"2026-10-05T21:25:35","modifyDate":"2026-10-05T21:25:35","nickname":"러너1","email":"runner1@crewrun.com","phone":"010-1234-5678","name":"김러너","birthDate":"1995-04-12"}}})
+
 
 export const getVerifyIdentityWithMockPassMockHandler = (overrideResponse?: RsDataVerifiedIdentityDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataVerifiedIdentityDto> | RsDataVerifiedIdentityDto), options?: RequestHandlerOptions) => {
   return http.post('*/api/v1/auth/identity-verifications/pass', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
@@ -585,6 +587,28 @@ export const getFindIdentityReviewMockHandler = (overrideResponse?: RsDataIdenti
       })
   }, options)
 }
+
+export const getDemoLoginAvailabilityMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/auth/demo-login', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getDemoLoginMockHandler = (overrideResponse?: RsDataMemberLoginResponseDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataMemberLoginResponseDto> | RsDataMemberLoginResponseDto), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/auth/demo-login', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getDemoLoginResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangMemberAPIMock = () => [
   getVerifyIdentityWithMockPassMockHandler(),
   getFindMeMockHandler(),
@@ -628,5 +652,7 @@ export const getBukangMemberAPIMock = () => [
   getIssueKakaoMessageConsentTicketMockHandler(),
   getFindKakaoInviteFriendsMockHandler(),
   getSendKakaoCrewInvitesMockHandler(),
-  getFindIdentityReviewMockHandler()
+  getFindIdentityReviewMockHandler(),
+  getDemoLoginAvailabilityMockHandler(),
+  getDemoLoginMockHandler()
 ]

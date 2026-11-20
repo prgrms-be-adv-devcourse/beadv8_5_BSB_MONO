@@ -1,0 +1,171 @@
+{
+ "cv2": "5.0.0",
+ "ort": "1.31.0",
+ "cases": [
+  {
+   "id": "tilt-synthetic-s-002-value",
+   "image": "tilt-synthetic-s-002-value.png",
+   "box": [
+    [
+     44.73,
+     97.87
+    ],
+    [
+     421.03,
+     44.99
+    ],
+    [
+     433.27,
+     132.13
+    ],
+    [
+     56.97,
+     185.01
+    ]
+   ],
+   "expected_crop": "tilt-synthetic-s-002-value-expected.png",
+   "expected_text": "02:19:52"
+  },
+  {
+   "id": "tilt-synthetic-s-001-raceDate",
+   "image": "tilt-synthetic-s-001-raceDate.png",
+   "box": [
+    [
+     47.94,
+     44.11
+    ],
+    [
+     205.91,
+     62.11
+    ],
+    [
+     202.06,
+     95.89
+    ],
+    [
+     44.09,
+     77.89
+    ]
+   ],
+   "expected_crop": "tilt-synthetic-s-001-raceDate-expected.png",
+   "expected_text": "2023.04.12"
+  },
+  {
+   "id": "tilt-synthetic-s-003-course",
+   "image": "tilt-synthetic-s-003-course.png",
+   "box": [
+    [
+     47.71,
+     86.59
+    ],
+    [
+     216.27,
+     47.67
+    ],
+    [
+     227.29,
+     95.41
+    ],
+    [
+     58.73,
+     134.33
+    ]
+   ],
+   "expected_crop": "tilt-synthetic-s-003-course-expected.png",
+   "expected_text": "Full 코스"
+  },
+  {
+   "id": "tilt-synthetic-s-005-value",
+   "image": "tilt-synthetic-s-005-value.png",
+   "box": [
+    [
+     41.77,
+     242.37
+    ],
+    [
+     52.29,
+     41.64
+    ],
+    [
+     90.23,
+     43.63
+    ],
+    [
+     79.71,
+     244.36
+    ]
+   ],
+   "expected_crop": "tilt-synthetic-s-005-value-expected.png",
+   "expected_text": "20:70:70"
+  },
+  {
+   "id": "exif6",
+   "image": "exif6.jpg",
+   "box": [
+    [
+     40,
+     40
+    ],
+    [
+     420,
+     40
+    ],
+    [
+     420,
+     128
+    ],
+    [
+     40,
+     128
+    ]
+   ],
+   "expected_text": "02:19:52"
+  },
+  {
+   "id": "webp-lossy",
+   "image": "webp-lossy.webp",
+   "box": [
+    [
+     40,
+     40
+    ],
+    [
+     420,
+     40
+    ],
+    [
+     420,
+     128
+    ],
+    [
+     40,
+     128
+    ]
+   ],
+   "expected_text": "02:19:52"
+  },
+  {
+   "id": "webp-lossless",
+   "image": "webp-lossless.webp",
+   "box": [
+    [
+     40,
+     40
+    ],
+    [
+     420,
+     40
+    ],
+    [
+     420,
+     128
+    ],
+    [
+     40,
+     128
+    ]
+   ],
+   "expected_text": "02:19:52"
+  }
+ ]
+}

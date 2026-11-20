@@ -308,7 +308,7 @@ describe('방금 가입한 회원과 시연용 기존 회원', () => {
     nickname: '새내기',
     phone: '010-2222-3333',
     birthDate: '2000-01-02',
-    agreedTerms: ['SERVICE', 'PRIVACY'],
+    agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14'],
     verificationToken: mockPassToken('박새내', '010-2222-3333', '2000-01-02'),
   }
   const json = (path: string, body: unknown, cookie?: string) =>
@@ -459,7 +459,7 @@ describe('새 회원 쿠키 저장소가 둘일 때', () => {
     nickname,
     phone: '010-2222-3333',
     birthDate: '2000-01-02',
-    agreedTerms: ['SERVICE', 'PRIVACY'],
+    agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14'],
     verificationToken: mockPassToken('박새내', '010-2222-3333', '2000-01-02'),
   })
   async function signUp(b: ReturnType<typeof browser>, email: string, nickname: string) {
@@ -583,7 +583,7 @@ describe('체험용 PASS 본인인증 목', () => {
       email: 'verify@example.com',
       password: 'password1234',
       nickname: '새내기',
-      agreedTerms: ['SERVICE', 'PRIVACY'],
+      agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14'],
     }
     const without = await post('/api/v1/auth/join', join)
     expect(without.status).toBe(400)

@@ -32,9 +32,10 @@ export function pageSlots(page: number, totalPages: number): (number | 'ellipsis
   return [1, 'ellipsis', page - 1, page, page + 1, 'ellipsis', totalPages]
 }
 
-const ITEM = cn('flex size-9 items-center justify-center rounded-sm text-body2-medium', FOCUS_RING)
+const ITEM = cn('flex size-9 items-center justify-center rounded-sm text-body1-medium', FOCUS_RING)
 
 export function Pagination({ page, totalPages, onPageChange, className }: PaginationProps) {
+  const slots = pageSlots(page, totalPages)
   return (
     <nav aria-label="페이지" className={cn('flex items-center gap-1', className)}>
       <button
@@ -49,9 +50,13 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
       >
         <Icon name="ChevronLeft" className="size-5" />
       </button>
-      {pageSlots(page, totalPages).map((slot, i) =>
+      {slots.map((slot, i) =>
         slot === 'ellipsis' ? (
-          <span key={`ellipsis-${i}`} aria-hidden className={cn(ITEM, 'text-text-secondary')}>
+          <span
+            key={`ellipsis-after-${slots[i - 1]}`}
+            aria-hidden
+            className={cn(ITEM, 'text-text-secondary')}
+          >
             …
           </span>
         ) : (

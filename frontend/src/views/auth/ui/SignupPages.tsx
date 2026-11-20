@@ -33,6 +33,7 @@ import {
   Divider,
   FOCUS_RING,
   Icon,
+  IconButton,
   Radio,
   RadioGroup,
   TextField,
@@ -115,12 +116,13 @@ export function SignupIdentityPage({ next }: { next?: string } = {}) {
   return (
     <>
       <StepHeader onBack={() => goBack(next ? loginHref(next) : '/login')} />
-      <CenterBody center={false}>
+      <CenterBody center={false} top={8}>
         <StepIntro title={'휴대폰으로\n본인 확인을 해 주세요'} />
         {mock && <IdentityMockNotice />}
         {verification && <LockedIdentityFields identity={verification} />}
       </CenterBody>
       <BottomCta
+        bordered={false}
         className="sticky bottom-0 z-10"
         primary={
           <Button size="l" loading={opening} onClick={onPrimary}>
@@ -216,7 +218,7 @@ function SignupEmailStep({ onNext }: { onNext: () => void }) {
     <>
       <StepHeader onBack={() => setQuitOpen(true)} />
       <form noValidate onSubmit={onFormSubmit} className="contents">
-        <CenterBody center={false}>
+        <CenterBody center={false} top={8}>
           <StepIntro title={'로그인할 때 쓸\n이메일을 적어 주세요'} />
           <LineField
             aria-label="이메일"
@@ -230,6 +232,7 @@ function SignupEmailStep({ onNext }: { onNext: () => void }) {
           />
         </CenterBody>
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Button type="submit" size="l" disabled={!isValid} loading={isSubmitting}>
@@ -289,7 +292,7 @@ function SignupPasswordStep({ invalid, onBack }: { invalid: boolean; onBack: () 
         onSubmit={handleSubmit(() => router.push('/signup/profile'))}
         className="contents"
       >
-        <CenterBody center={false}>
+        <CenterBody center={false} top={8}>
           <StepIntro title={'비밀번호를\n정해 주세요'} />
           <LineField
             aria-label="비밀번호"
@@ -302,6 +305,7 @@ function SignupPasswordStep({ invalid, onBack }: { invalid: boolean; onBack: () 
           />
         </CenterBody>
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Button type="submit" size="l" disabled={!isValid}>
@@ -416,7 +420,7 @@ function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
     <>
       <form noValidate onSubmit={onSubmit} className="contents">
         <StepHeader onBack={() => goBack(signupStartHref())} />
-        <CenterBody center={false}>
+        <CenterBody center={false} top={8}>
           <StepIntro title={'크루런에서 쓸\n닉네임을 정해 주세요'} />
           <LineField
             aria-label="닉네임"
@@ -435,6 +439,7 @@ function SignupProfileForm({ onDone }: { onDone: (next: Route) => void }) {
           />
         </CenterBody>
         <BottomCta
+          bordered={false}
           className="sticky bottom-0 z-10"
           primary={
             <Button type="submit" size="l" disabled={!isValid} loading={submitting}>
@@ -457,6 +462,7 @@ function SignupDonePage({ next }: { next: Route }) {
       <StepHeader title="가입하기" />
       <StatusScreen title="가입을 마쳤어요" />
       <BottomCta
+        bordered={false}
         className="sticky bottom-0 z-10"
         primary={
           <Button size="l" onClick={() => router.replace(next)}>
@@ -523,15 +529,14 @@ export function SignupTermsSheet({
                 <span className="text-body2-medium">[필수] 크루런 이용약관과 개인정보 동의</span>
               }
             />
-            <button
-              type="button"
+            <IconButton
+              size="s"
               aria-expanded={bundledOpen}
               aria-label="약관 보기 펼치기"
               onClick={() => setBundledOpen((v) => !v)}
-              className={cn('rounded-sm text-text-primary', FOCUS_RING)}
             >
-              <Icon name={bundledOpen ? 'ChevronUp' : 'ChevronDown'} className="size-5" />
-            </button>
+              <Icon name={bundledOpen ? 'ChevronUp' : 'ChevronDown'} />
+            </IconButton>
           </div>
           {bundledOpen && (
             <div className="flex flex-col items-start gap-2 pb-3 pl-8 text-body2-regular text-text-secondary">

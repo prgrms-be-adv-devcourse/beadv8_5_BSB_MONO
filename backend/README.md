@@ -174,6 +174,7 @@ API 사용법(단계별 요청·응답, 파일 종류, 연결 규칙)은 [`file-
 ① POST /api/v1/file/files               업로드 URL 발급 (파일은 PENDING, 키 {환경}/uploads/{uuid}.{확장자})
 ② 브라우저 → S3 PUT                       응답의 headers(content-type, content-length)를 그대로 붙인다
 ③ POST /api/v1/file/files/{id}/complete  서버가 {환경}/uploads/ → {환경}/files/로 복사하고, 복사본의 크기·앞부분(매직 바이트)을 확인 → UPLOADED
+                                         이미지는 가로·세로 4000px 이하, 대회 소개 이미지는 가로 1080px 이상인지도 본다
 ```
 
 | 경로 | 내용 | 정리 |

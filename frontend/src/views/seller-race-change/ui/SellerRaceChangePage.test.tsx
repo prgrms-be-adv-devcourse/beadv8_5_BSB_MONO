@@ -22,6 +22,20 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/seller/races/1/change',
 }))
 
+/** 달력 칸에서 날짜를 고르고 선택 완료를 누른다 */
+async function pickDate(label: string, month: number, day: number) {
+  const group = screen.getByRole('group', { name: label })
+  await userEvent.click(within(group).getAllByRole('button')[0])
+  await userEvent.click(screen.getByRole('button', { name: new RegExp(`${month}월 ${day}일`) }))
+  await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
+}
+
+/** 알림 확인 창에서 알리기를 누른다 */
+async function confirmNotify() {
+  const dialog = await screen.findByRole('alertdialog')
+  await userEvent.click(within(dialog).getByRole('button', { name: '알리기' }))
+}
+
 function renderPage(confirmOpen = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -32,6 +46,44 @@ function renderPage(confirmOpen = false) {
     </QueryClientProvider>,
   )
 }
+
+describe('SellerRaceChangePage 알림 대상', () => {
+  function soldRaces(sold: number) {
+    server.use(
+      http.get('*/api/v1/product/races/mine', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: [
+            {
+              raceId: 1,
+              title: '테스트 대회',
+              saleStatus: 'ON_SALE',
+              courses: [
+                { raceCourseId: 1, name: '10K', quota: 100, sold: sold - 2 },
+                { raceCourseId: 2, name: '하프', quota: 100, sold: 2 },
+              ],
+            },
+          ],
+        }),
+      ),
+    )
+  }
+
+  it('일정 변경: 알림 글 칸 아래에 참가자 수와 알림 방식을 알려 주고, 전액 환불 7일을 보여 준다', async () => {
+    soldRaces(12)
+    renderPage()
+    expect(await screen.findByText('12명에게 앱 알림과 문자로 보내요')).toBeInTheDocument()
+    expect(screen.getByText('알린 날부터 7일')).toBeInTheDocument()
+  })
+
+  it('대회 취소: 공지 칸 아래에도 같은 안내를 보여 준다', async () => {
+    soldRaces(12)
+    renderPage()
+    await userEvent.click(await screen.findByRole('radio', { name: /대회 취소/ }))
+    expect(await screen.findByText('12명에게 앱 알림과 문자로 보내요')).toBeInTheDocument()
+  })
+})
 
 describe('SellerRaceChangePage 일정 변경', () => {
   it('새 대회일(날짜만)로 대회 전체를 PUT 하고, 시각은 지금 대회 시각을 그대로 둔다', async () => {
@@ -47,11 +99,10 @@ describe('SellerRaceChangePage 일정 변경', () => {
       }),
     )
     renderPage()
-    const field = await screen.findByLabelText('새 대회일')
-    expect(field).toHaveValue('2026-11-01')
-    await userEvent.clear(field)
-    await userEvent.type(field, '2026-11-08')
+    await screen.findByRole('group', { name: '새 대회일' })
+    await pickDate('새 대회일', 11, 8)
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
+    await confirmNotify()
 
     expect(await screen.findByText('대회 일정을 바꿨어요')).toBeInTheDocument()
     expect(body).toMatchObject({
@@ -66,7 +117,7 @@ describe('SellerRaceChangePage 일정 변경', () => {
 
   it('지금과 같은 날이면 보내지 않고 알려 준다', async () => {
     renderPage()
-    await screen.findByLabelText('새 대회일')
+    await screen.findByRole('group', { name: '새 대회일' })
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
     expect(await screen.findByText(RESCHEDULE_ERRORS.sameDate)).toBeInTheDocument()
   })
@@ -81,10 +132,10 @@ describe('SellerRaceChangePage 일정 변경', () => {
       ),
     )
     renderPage()
-    const field = await screen.findByLabelText('새 대회일')
-    await userEvent.clear(field)
-    await userEvent.type(field, '2026-10-25')
+    await screen.findByRole('group', { name: '새 대회일' })
+    await pickDate('새 대회일', 11, 2)
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
+    await confirmNotify()
     expect(
       await screen.findByText('접수 마감 일시는 대회 일시보다 늦을 수 없습니다.'),
     ).toBeInTheDocument()
@@ -100,9 +151,8 @@ describe('SellerRaceChangePage 입력 유지', () => {
       }
     })
     renderPage()
-    const field = await screen.findByLabelText('새 대회일')
-    await userEvent.clear(field)
-    await userEvent.type(field, '2026-11-08')
+    await screen.findByRole('group', { name: '새 대회일' })
+    await pickDate('새 대회일', 11, 8)
 
     act(() => {
       focusManager.setFocused(false)
@@ -115,7 +165,9 @@ describe('SellerRaceChangePage 입력 유지', () => {
     server.events.removeAllListeners()
     focusManager.setFocused(undefined)
     expect(fetched).toBe(1)
-    expect(screen.getByLabelText('새 대회일')).toHaveValue('2026-11-08')
+    expect(
+      within(screen.getByRole('group', { name: '새 대회일' })).getByText(/11\.? ?8|2026-11-08/),
+    ).toBeInTheDocument()
   })
 })
 

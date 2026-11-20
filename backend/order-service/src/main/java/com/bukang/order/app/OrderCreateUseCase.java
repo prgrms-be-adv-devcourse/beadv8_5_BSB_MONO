@@ -12,7 +12,6 @@ import com.bukang.order.domain.Order;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
-import com.bukang.order.domain.QueueAdmission;
 import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.OrderConflictException;
@@ -25,7 +24,7 @@ import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.ParticipationRepository.CreateTarget;
-import com.bukang.order.out.QueueAdmissionRepository;
+import com.bukang.order.out.queue.QueueAdmissionPort;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.out.race.RaceCoursePort;
 import com.bukang.order.out.seat.SeatHoldPort;
@@ -35,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 바로 결제 예매 ([결제하기], 정책 3장·4장). 신청서 진입 때 저장한 입장 끝 시각이 남았는지 확인하고(PRO-191, PRO-249),
+ * 바로 결제 예매 ([결제하기], 정책 3장·4장). 대기열에 지금 입장 중인지 묻고(PRO-191, CRU-53),
  * 상품 서비스(B)에 자리 1석을 확보받아 입장 끝 시각을 결제 기한으로 하는 주문을 만든다 (예매창 15분, 최종 정책 개요 3-1, 8장 2-1)
  * 확보하면 참가 신청 PENDING → APPLIED, 주문 CREATED. 매진이면 참가 신청 FAILED, 주문 없음 (ERD 추천안 v4 8·9쪽)
  */
@@ -54,7 +53,7 @@ public class OrderCreateUseCase {
 	private final OrderRepository orderRepository;
 	private final RaceCoursePort raceCoursePort;
 	private final SeatHoldPort seatHoldPort;
-	private final QueueAdmissionRepository queueAdmissionRepository;
+	private final QueueAdmissionPort queueAdmissionPort;
 	private final TransactionTemplate transactionTemplate;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
 
@@ -95,11 +94,12 @@ public class OrderCreateUseCase {
 			throw new ApplicationPeriodException("접수 기간이 아닙니다.");
 		}
 		// 개인 예매는 모두 대기열을 거친다. 장바구니 결제도 항목마다 여기를 지나므로 대기열을 건너뛰지 못한다
-		// 대기열에는 다시 묻지 않고 신청서 진입 때 저장한 입장 끝 시각을 쓴다 (10/17 회의 2번). 저장값이 없으면(주소 직접 입력) 막는다
+		// 누를 때마다 대기열에 묻는다 (CRU-53, 10/17 회의 2번의 저장값을 없앰). 대기열이 끝 시각을 다시 채우면 바로 따른다
+		// 잠금·트랜잭션 밖에서 부른다. 대기열 장애면 503 (HttpQueueAdmissionAdapter)
 		// 입장 끝 시각까지 상품 서비스에 자리를 잡아 달라고 보내고, 이 시각이 결제 기한이 된다
-		LocalDateTime admissionEndsAt = precheck.admission()
-			.filter(admission -> admission.isAdmittedAt(now))
-			.map(QueueAdmission::getAdmissionEndsAt)
+		LocalDateTime admissionEndsAt = queueAdmissionPort
+			.findAdmissionEndsAt(memberId, course.raceId(), course.raceCourseId(), now)
+			.filter(endsAt -> endsAt.isAfter(now))
 			.orElseThrow(() -> new QueueNotAdmittedException("대기열에서 입장한 뒤 결제할 수 있습니다."));
 		LocalDateTime holdUntil = capAdmissionEndsAt(admissionEndsAt, now, memberId, course.raceCourseId());
 		OrderCreateResult finished = transactionTemplate.execute(status -> {
@@ -146,26 +146,24 @@ public class OrderCreateUseCase {
 			return Precheck.party(target.raceCourseId());
 		}
 		Participation.checkPayable(target.status());
-		return Precheck.individual(target.raceCourseId(),
-			queueAdmissionRepository.findByMemberIdAndRaceCourseId(memberId, target.raceCourseId()));
+		return Precheck.individual(target.raceCourseId());
 	}
 
-	private record Precheck(OrderCreateResult result, boolean existing, boolean party, long raceCourseId,
-		Optional<QueueAdmission> admission) {
+	private record Precheck(OrderCreateResult result, boolean existing, boolean party, long raceCourseId) {
 		static Precheck existingOrder() {
-			return new Precheck(null, true, false, 0, Optional.empty());
+			return new Precheck(null, true, false, 0);
 		}
 
 		static Precheck finished(OrderCreateResult result) {
-			return new Precheck(result, false, false, 0, Optional.empty());
+			return new Precheck(result, false, false, 0);
 		}
 
 		static Precheck party(long raceCourseId) {
-			return new Precheck(null, false, true, raceCourseId, Optional.empty());
+			return new Precheck(null, false, true, raceCourseId);
 		}
 
-		static Precheck individual(long raceCourseId, Optional<QueueAdmission> admission) {
-			return new Precheck(null, false, false, raceCourseId, admission);
+		static Precheck individual(long raceCourseId) {
+			return new Precheck(null, false, false, raceCourseId);
 		}
 	}
 

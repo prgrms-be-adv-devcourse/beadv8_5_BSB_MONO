@@ -27,7 +27,8 @@ export type RaceListItem = {
   title: string
   image?: string
   posterLabel: string
-  badge: RaceBadge
+  /** 접수 중인 대회는 배지를 달지 않는다 (v3). 마감 임박 · 오픈 예정 · 마감일 때만 있다 */
+  badge?: RaceBadge
   meta: string
   price: string
 }

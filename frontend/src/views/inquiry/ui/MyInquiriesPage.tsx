@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useEffect } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { LoadErrorBody } from '@/widgets/status-screens'
 import {
   dotDate,
   STATUS,
@@ -15,16 +14,7 @@ import {
   type InquiryStatus,
 } from '@/entities/inquiry'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import {
-  Badge,
-  Button,
-  Chip,
-  Divider,
-  EmptyState,
-  FOCUS_RING,
-  Skeleton,
-  useToast,
-} from '@/shared/ui'
+import { Button, Chip, EmptyState, FOCUS_RING, Skeleton, useToast } from '@/shared/ui'
 
 type Filter = 'ALL' | InquiryStatus
 const FILTERS: { value: Filter; label: string }[] = [
@@ -64,7 +54,16 @@ export function MyInquiriesPage({ notice }: { notice?: string }) {
     return (
       <>
         <AppHeader type="sub" title="내 문의" backHref="/me" />
-        <LoadErrorBody onRetry={() => inquiries.refetch()} retrying={inquiries.isFetching} />
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4 pb-24 text-center">
+          <h2 className="text-title3">문의를 불러오지 못했어요</h2>
+          <Button
+            variant="ghost"
+            loading={inquiries.isFetching}
+            onClick={() => inquiries.refetch()}
+          >
+            다시 불러오기
+          </Button>
+        </main>
       </>
     )
   }
@@ -76,25 +75,38 @@ export function MyInquiriesPage({ notice }: { notice?: string }) {
     <>
       <AppHeader type="sub" title="내 문의" backHref="/me" />
       <main className="flex flex-1 flex-col">
-        <div className="flex gap-2 px-4 py-4">
-          {FILTERS.map((f) => (
-            <Chip
-              key={f.value}
-              selected={filter === f.value}
-              onClick={() => setUrl({ filter: f.value })}
-            >
-              {f.label}
-            </Chip>
-          ))}
-        </div>
+        {shown !== undefined && (
+          <div className="flex gap-2 px-4 py-4">
+            {FILTERS.map((f) => (
+              <Chip
+                key={f.value}
+                selected={filter === f.value}
+                onClick={() => setUrl({ filter: f.value })}
+              >
+                {f.label}
+              </Chip>
+            ))}
+          </div>
+        )}
         {shown === undefined ? (
-          <div role="status" aria-label="불러오는 중" className="flex flex-col gap-4 px-4">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} shape="rect" className="h-14" />
+          <div role="status" aria-label="불러오는 중" className="flex flex-col">
+            <div className="flex gap-2 px-4 py-4">
+              {['w-13.5', 'w-21.5', 'w-21.5'].map((w, i) => (
+                <Skeleton key={i} shape="rect" className={cn('h-11 rounded-full', w)} />
+              ))}
+            </div>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-4">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-3/5" />
+                </div>
+                <Skeleton className="h-3 w-12 shrink-0" />
+              </div>
             ))}
           </div>
         ) : shown.length === 0 ? (
-          <EmptyState title="보낸 문의가 없어요" />
+          <EmptyState icon={null} title="보낸 문의가 없어요" />
         ) : (
           <ul>
             {shown.map((inquiry) => (
@@ -105,13 +117,21 @@ export function MyInquiriesPage({ notice }: { notice?: string }) {
                 >
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="truncate text-body1-bold">{inquiry.title}</span>
-                    <span className="truncate text-caption-regular text-text-tertiary">
+                    <span className="truncate text-caption-regular text-text-secondary">
                       <InquiryMeta inquiry={inquiry} />
                     </span>
                   </span>
-                  <Badge tone={STATUS[inquiry.status].tone}>{STATUS[inquiry.status].label}</Badge>
+                  <span
+                    className={cn(
+                      'shrink-0',
+                      inquiry.status === 'ANSWERED'
+                        ? 'text-body1-medium text-text-success'
+                        : 'text-caption-medium text-text-secondary',
+                    )}
+                  >
+                    {STATUS[inquiry.status].label}
+                  </span>
                 </Link>
-                <Divider />
               </li>
             ))}
           </ul>

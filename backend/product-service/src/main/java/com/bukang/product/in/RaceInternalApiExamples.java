@@ -16,7 +16,7 @@ final class RaceInternalApiExamples {
 				"applicationOpenAt": "2026-10-13T10:00:00",
 				"applicationCloseAt": "2026-10-31T18:00:00",
 				"minAge": 14,
-				"maxAge": 70,
+				"maxAge": null,
 				"sellerId": 7001,
 				"course": "10K",
 				"courseName": "2026 용감한 쿠키RUN in 서울 10K",

@@ -40,7 +40,7 @@ export function ProtectedScreenGuard({ children }: { children: ReactNode }) {
 
   if (guarded && status !== 'authenticated') {
     return (
-      <main className="flex flex-1 items-center justify-center px-4">
+      <main className="flex flex-1 animate-delayed-show items-center justify-center px-4">
         <ProgressBar indeterminate aria-label="로그인 확인 중" className="w-40" />
       </main>
     )

@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import { cn } from '@/shared/lib'
-import { FOCUS_RING } from '@/shared/ui'
+import { Badge, FOCUS_RING } from '@/shared/ui'
 
 import type { RaceSummary } from '../model/types'
 import { RacePoster } from './RacePoster'
@@ -14,7 +14,7 @@ export function RaceCard({ race, className }: RaceCardProps) {
   return (
     <Link
       href={`/races/${race.id}`}
-      className={cn('flex flex-col gap-2.5 rounded-md', FOCUS_RING, className)}
+      className={cn('flex flex-col gap-3 rounded-md', FOCUS_RING, className)}
     >
       <span className="relative block aspect-4/3 w-full overflow-hidden rounded-md">
         {race.image ? (
@@ -28,17 +28,16 @@ export function RaceCard({ race, className }: RaceCardProps) {
             className="size-full pt-11"
           />
         )}
-        {/* 이미지 위 반투명 칩은 피그마에도 변수 없이 쓴 값이다 */}
         {race.status && (
-          <span className="absolute top-2.5 left-2.5 rounded-sm bg-[rgb(18_23_33/0.72)] px-2 py-0.75 text-caption-medium text-text-on-image">
+          <Badge tone="warning" className="absolute top-2 left-2">
             {race.status}
-          </span>
+          </Badge>
         )}
       </span>
       <span className="flex flex-col gap-1">
         <span className="text-body1-bold break-keep">{race.title}</span>
         <span className="truncate text-caption-regular text-text-tertiary">{race.meta}</span>
-        <span className="text-body2-medium text-text-secondary">{race.price}</span>
+        <span className="text-body1-medium text-text-primary">{race.price}</span>
       </span>
     </Link>
   )

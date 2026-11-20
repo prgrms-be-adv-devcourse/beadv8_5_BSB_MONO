@@ -3,8 +3,6 @@ package com.bukang.member.app;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialAccount;
@@ -13,6 +11,7 @@ import com.bukang.member.domain.exception.SocialAccountAlreadyLinkedException;
 import com.bukang.member.domain.exception.SocialEmailRequiredException;
 import com.bukang.member.domain.exception.SocialPhoneTakenException;
 import com.bukang.member.domain.exception.SocialSignupExpiredException;
+import com.bukang.member.dto.MemberDto;
 import com.bukang.member.dto.MemberLoginResult;
 import com.bukang.member.dto.SocialJoinRequestDto;
 import com.bukang.member.dto.SocialSignupInfoDto;
@@ -85,14 +84,10 @@ public class SocialJoinUseCase {
 			throw new SocialAccountAlreadyLinkedException(ALREADY_LINKED_MESSAGE);
 		}
 
-		MemberLoginResult result = new MemberLoginResult(member.toDto(), tokenIssueUseCase.issue(member.getId()));
+		MemberLoginResult result = new MemberLoginResult(MemberDto.from(member),
+			tokenIssueUseCase.issue(member.getId()));
 		// 닉네임 중복이나 토큰 발급 실패로 롤백되면 가입 대기를 남겨 다시 시도할 수 있게 하고, 커밋된 뒤에만 지운다
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				socialLoginStore.deletePendingSignup(pendingId);
-			}
-		});
+		AfterCommit.run(() -> socialLoginStore.deletePendingSignup(pendingId));
 		return result;
 	}
 

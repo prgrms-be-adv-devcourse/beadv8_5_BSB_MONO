@@ -1,18 +1,12 @@
 'use client'
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
 import { LoadErrorBody } from '@/widgets/status-screens'
-import {
-  NOTIFICATIONS_KEY,
-  readAllNotices,
-  useNotifications,
-  type Notice,
-} from '@/entities/notification'
+import { useNotifications, type Notice } from '@/entities/notification'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import { Button, FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs, useToast } from '@/shared/ui'
+import { FOCUS_RING, Icon, Skeleton, Tab, TabBar, Tabs } from '@/shared/ui'
 
 import {
   byOldest,
@@ -61,17 +55,13 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
 
   return (
     <>
-      <AppHeader
-        type="sub"
-        title="알림"
-        action={<ReadAllButton disabled={!all.some((n) => n.unread)} />}
-      />
+      <AppHeader type="sub" title="알림" />
       {loading ? (
         <main role="status" aria-label="알림 불러오는 중" className="flex flex-col">
           {categories
             .filter((category) => category.tab)
             .map((category) => (
-              <div key={category.value} className="flex items-center gap-3 px-4 py-3.5">
+              <div key={category.value} className="flex items-center gap-3 px-4 py-4">
                 <Skeleton shape="circle" className="size-12" />
                 <Skeleton className="w-32" />
               </div>
@@ -113,19 +103,19 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
                 <li key={group.value}>
                   <Link
                     href={`/notifications/${group.value}`}
-                    className={cn('flex items-center gap-3 px-4 py-3.5', FOCUS_RING)}
+                    className={cn('flex items-center gap-3 px-4 py-4', FOCUS_RING)}
                   >
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-bg-brand-subtle text-text-brand">
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-bg-subtle">
                       <Icon name={group.icon} />
                     </span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="text-body1-bold">{group.title}</span>
-                      <span className="truncate text-body2-regular text-text-secondary">
+                      <span className="truncate text-caption-regular text-text-secondary">
                         {group.latest.body}
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1.5">
-                      <span className="text-caption-regular text-text-tertiary">
+                      <span className="text-caption-regular text-text-secondary">
                         {formatShortDate(group.latest.sentAt)}
                       </span>
                       {group.unread > 0 && <UnreadCount count={group.unread} />}
@@ -138,28 +128,5 @@ export function NotificationsPage({ empty = false }: { empty?: boolean }) {
         </main>
       )}
     </>
-  )
-}
-
-// 시나리오 39 · 머리말 [모두 읽음]. 목록에 안 보이는 알림(모르는 종류)도 같이 읽음으로 바뀐다
-function ReadAllButton({ disabled }: { disabled: boolean }) {
-  const queryClient = useQueryClient()
-  const toast = useToast()
-  const readAll = useMutation({
-    mutationFn: readAllNotices,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
-    onError: () => toast({ message: '모두 읽음으로 바꾸지 못했어요', tone: 'error' }),
-  })
-  return (
-    <Button
-      variant="text"
-      size="s"
-      className="mr-2"
-      disabled={disabled}
-      loading={readAll.isPending}
-      onClick={() => readAll.mutate()}
-    >
-      모두 읽음
-    </Button>
   )
 }

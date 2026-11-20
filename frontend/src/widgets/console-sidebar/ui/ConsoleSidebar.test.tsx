@@ -61,27 +61,32 @@ describe('ConsoleSidebar 로그아웃', () => {
 })
 
 describe('ConsoleSidebar 크루런 홈으로', () => {
-  it.each([
-    ['seller', '판매자 정보'],
-    ['admin', '설정'],
-  ] as const)(
-    '%s 콘솔의 %s와 로그아웃 사이에 크루런 홈(/)으로 가는 링크가 있다',
-    (role, settingsLabel) => {
-      render(
-        <QueryClientProvider client={new QueryClient()}>
-          <ConsoleSidebar role={role} />
-        </QueryClientProvider>,
-      )
+  it('판매자 콘솔의 판매자 정보와 로그아웃 사이에 크루런 홈(/)으로 가는 링크가 있다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="seller" />
+      </QueryClientProvider>,
+    )
 
-      const home = screen.getByRole('link', { name: '크루런 홈으로' })
-      expect(home).toHaveAttribute('href', '/')
-      expect(home).not.toHaveAttribute('aria-current')
-      const settings = screen.getByRole('link', { name: settingsLabel })
-      const logout = screen.getByRole('button', { name: '로그아웃' })
-      expect(settings.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    },
-  )
+    const home = screen.getByRole('link', { name: '크루런 홈으로' })
+    expect(home).toHaveAttribute('href', '/')
+    expect(home).not.toHaveAttribute('aria-current')
+    const settings = screen.getByRole('link', { name: '판매자 정보' })
+    const logout = screen.getByRole('button', { name: '로그아웃' })
+    expect(settings.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  // 관리자 시안(2070:11050)에는 이 줄이 없다
+  it('관리자 콘솔에는 크루런 홈으로 링크가 없다', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsoleSidebar role="admin" />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByRole('link', { name: '크루런 홈으로' })).not.toBeInTheDocument()
+  })
 })
 
 describe('ConsoleSidebar 크루런 AI', () => {
@@ -113,17 +118,18 @@ describe('ConsoleSidebar 크루런 AI', () => {
 describe('ConsoleSidebar 메뉴 순서', () => {
   // 피그마 판매자 센터(1388:60976) · 관리자 센터(1388:66074) 사이드바 순서
   it.each([
-    ['seller', ['대시보드', '상품 관리', '주문 관리', '정산 관리', '문의', '크루런 AI']],
+    ['seller', ['대시보드', '대회 관리', '판매 현황', '키트 배송', '정산', '문의', '크루런 AI']],
     [
       'admin',
       [
         '대시보드',
         '회원 관리',
         '판매자 관리',
-        '정산 · 환급 처리',
-        '회수 관리',
         '대회 관리',
+        '정산 관리',
+        '회수 관리',
         '문의',
+        '커뮤니티 신고',
         '크루런 AI',
         '이용 통계',
       ],

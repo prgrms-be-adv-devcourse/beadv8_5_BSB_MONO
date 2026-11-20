@@ -42,9 +42,7 @@ public class MemberPhoneChangeUseCase {
 	public MemberDto change(long memberId, String verificationToken) {
 		// 회원 행을 잠가 같은 회원의 닉네임 수정·탈퇴와 겹쳐도 늦은 쪽이 먼저 바뀐 값을 옛 값으로 덮지 않게 한다
 		// 잠금이 트랜잭션의 첫 쿼리여야 MySQL 기본 격리 수준에서 앞 요청이 바꾼 값을 본다
-		Member member = memberRepository.findByIdForUpdate(memberId)
-			.filter(found -> !found.isWithdrawn())
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+		Member member = memberRepository.getActiveForUpdate(memberId);
 		// 쓴 인증 결과는 커밋 뒤 지워진다. 실패하면 남아 있어 같은 인증으로 다시 시도할 수 있다
 		VerifiedIdentity identity = identityVerificationUseCase.takeForJoin(verificationToken);
 		checkSamePerson(member, identity);
@@ -52,20 +50,24 @@ public class MemberPhoneChangeUseCase {
 		// 하이픈 유무와 상관없이 같은 번호면 번호는 그대로 두고 본인인증 해시만 채운다 (BUK-193)
 		// 해시가 비어 있는 기존 회원이 판매자 신청 안내대로 같은 번호로 다시 인증하는 경우다
 		String phoneHash = blindIndexGenerator.generatePhone(identity.phone());
-		if (phoneHash.equals(member.getPhoneHash())) {
+		if (member.hasPhoneHash(phoneHash)) {
 			member.refreshIdentityVerification(identity.ciHash(), identity.identityHash(), identity.nameBirthHash(),
 				identity.verifiedAt());
-		} else {
-			if (memberRepository.existsByPhoneHashAndIdNot(phoneHash, memberId)) {
-				throw new DuplicatePhoneException(MemberDuplicateExceptions.DUPLICATE_PHONE_MESSAGE);
-			}
-			member.changePhone(identity.phone(), phoneHash, identity.ciHash(), identity.identityHash(),
-				identity.nameBirthHash(), identity.verifiedAt());
+			return saveAndFlush(member);
 		}
+		if (memberRepository.existsByPhoneHashAndIdNot(phoneHash, memberId)) {
+			throw new DuplicatePhoneException(MemberDuplicateExceptions.DUPLICATE_PHONE_MESSAGE);
+		}
+		member.changePhone(identity.phone(), phoneHash, identity.ciHash(), identity.identityHash(),
+			identity.nameBirthHash(), identity.verifiedAt());
+		return saveAndFlush(member);
+	}
+
+	private MemberDto saveAndFlush(Member member) {
 		try {
 			// 같은 번호로 동시에 바꾸면 둘 다 위의 검사를 통과하고, 늦은 쪽이 DB 유니크 제약에 걸린다
 			// 이름 + 생년월일 + 번호 해시의 유니크 제약에 걸려도 같은 방식으로 409가 된다
-			return memberRepository.saveAndFlush(member).toDto();
+			return MemberDto.from(memberRepository.saveAndFlush(member));
 		} catch (DataIntegrityViolationException exception) {
 			throw MemberDuplicateExceptions.from(exception);
 		}
@@ -74,7 +76,7 @@ public class MemberPhoneChangeUseCase {
 	private Member findMember(long memberId) {
 		// 탈퇴한 회원은 없는 회원으로 본다 (BE-022)
 		return memberRepository.findActiveById(memberId)
-			.orElseThrow(() -> new MemberNotFoundException("존재하지 않는 회원입니다."));
+			.orElseThrow(MemberNotFoundException::new);
 	}
 
 	private static void checkSamePerson(Member member, VerifiedIdentity identity) {

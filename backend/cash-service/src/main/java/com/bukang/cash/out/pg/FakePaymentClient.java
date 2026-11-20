@@ -1,10 +1,12 @@
 package com.bukang.cash.out.pg;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @ConditionalOnProperty(prefix = "cash.clients.pg", name = "mode", havingValue = "fake", matchIfMissing = true)
 public class FakePaymentClient implements PaymentClient {
+	// 부하 테스트에서 실제 PG처럼 승인·결제취소가 시간이 걸리게 한다. 기본 0이라 평소에는 바로 답한다
+	@Value("${cash.clients.pg.fake-confirm-delay:0ms}")
+	private Duration confirmDelay = Duration.ZERO;
+
+	@Value("${cash.clients.pg.fake-cancel-delay:0ms}")
+	private Duration cancelDelay = Duration.ZERO;
+
 	// 호출마다 경고를 남기면 로그가 묻히므로, 앱을 켤 때 한 번만 알린다
 	public FakePaymentClient() {
 		log.warn("PG 결제 승인은 가짜 응답(FakePaymentClient)을 씁니다. 실제 Toss는 cash.clients.pg.mode=http");
@@ -25,6 +34,7 @@ public class FakePaymentClient implements PaymentClient {
 
 	@Override
 	public PaymentApprovalResult approve(String paymentKey, String orderId, long amount) {
+		sleep(confirmDelay);
 		return new PaymentApprovalResult(amount, "fake-payment-key-" + paymentKey, LocalDateTime.now());
 	}
 
@@ -48,6 +58,7 @@ public class FakePaymentClient implements PaymentClient {
 	public PaymentCancelResult cancel(
 		String paymentKey, String cancelReason, long cancelAmount, String idempotencyKey
 	) {
+		sleep(cancelDelay);
 		return new PaymentCancelResult(cancelAmount, "fake-cancel-" + paymentKey);
 	}
 
@@ -63,5 +74,16 @@ public class FakePaymentClient implements PaymentClient {
 	public Optional<VirtualAccountIssueResult> findVirtualAccount(String orderId) {
 		// 가짜 발급은 항상 성공해 결제 쪽에 바로 저장되므로, PG에만 남은 계좌는 없다
 		return Optional.empty();
+	}
+
+	private void sleep(Duration delay) {
+		if (delay.isZero()) {
+			return;
+		}
+		try {
+			Thread.sleep(delay);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 }

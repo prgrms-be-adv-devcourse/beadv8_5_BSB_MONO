@@ -2,11 +2,11 @@
 
 import { keepPreviousData } from '@tanstack/react-query'
 
-import { ConsoleCard } from '@/widgets/console-page'
+import { ConsoleMessage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { cashApi, unwrapData } from '@/shared/api'
 import { formatWon, useSearchParamsState } from '@/shared/lib'
-import { Alert, DataTable, Pagination } from '@/shared/ui'
+import { DataTable, Pagination } from '@/shared/ui'
 
 import { ADMIN_MEMBER_PAGE_SIZE, loadErrorMessage, toDateTime } from '../model/admin-members-api'
 
@@ -24,8 +24,12 @@ export function ChargeReviewTab() {
 
   return (
     <>
-      {list.isError && <Alert tone="danger" title={loadErrorMessage(list.error)} />}
-      <ConsoleCard>
+      {list.isError && (
+        <ConsoleMessage kind="error" onRetry={() => void list.refetch()} retrying={list.isFetching}>
+          {loadErrorMessage(list.error)}
+        </ConsoleMessage>
+      )}
+      <>
         <DataTable
           label="고액 충전 확인"
           rows={rows}
@@ -62,7 +66,7 @@ export function ChargeReviewTab() {
         {list.isSuccess && rows.length === 0 && (
           <p className="text-body2-regular text-text-tertiary">확인할 충전이 없어요</p>
         )}
-      </ConsoleCard>
+      </>
       {totalPages > 1 && (
         <Pagination
           page={page + 1}

@@ -33,7 +33,12 @@ export function FunnelSection({ kind, query }: { kind: FunnelKind; query: StatsP
   const steps = result.data?.status === 'ok' ? toFunnelView(result.data.data.steps) : undefined
   return (
     <StatsBlock title={COPY[kind].title} description={steps && funnelSummary(kind, steps)}>
-      <SectionState result={result} name={COPY[kind].name} skeletonClassName="h-64">
+      <SectionState
+        result={result}
+        name={COPY[kind].name}
+        skeletonClassName="h-60"
+        errorClassName="min-h-120"
+      >
         {() => <FunnelTable steps={steps ?? []} />}
       </SectionState>
       {kind === 'seller' && <FormErrorRanking query={query} />}

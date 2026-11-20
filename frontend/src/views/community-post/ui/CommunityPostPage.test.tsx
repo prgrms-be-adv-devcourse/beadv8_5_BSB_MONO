@@ -154,6 +154,17 @@ describe('CommunityPostPage', () => {
     )
   })
 
+  it('등록 · 답글 달기 버튼은 누르는 영역이 24px 이상이다', async () => {
+    renderPage(1, true)
+    await screen.findByText('삭제된 댓글이에요')
+
+    expect(screen.getByRole('button', { name: '등록' })).toHaveClass('min-h-6', 'min-w-6')
+    expect(screen.getAllByRole('button', { name: '답글 달기' })[0]).toHaveClass(
+      'min-h-6',
+      'min-w-6',
+    )
+  })
+
   it('댓글을 쓰고 등록하면 목록에 보인다', async () => {
     const user = userEvent.setup()
     renderPage(1, true)
@@ -163,5 +174,25 @@ describe('CommunityPostPage', () => {
     await user.click(screen.getByRole('button', { name: '등록' }))
 
     expect(await screen.findByText('다음 대회도 응원할게요')).toBeInTheDocument()
+  })
+
+  it('공백만 쓴 댓글은 등록할 수 없다', async () => {
+    const user = userEvent.setup()
+    renderPage(1, true)
+    await screen.findByText('삭제된 댓글이에요')
+
+    await user.type(screen.getByRole('textbox', { name: '댓글 남기기' }), '   ')
+
+    expect(screen.getByRole('button', { name: '등록' })).toBeDisabled()
+  })
+
+  it('답글 달기를 누르면 입력창이 답글용으로 바뀐다', async () => {
+    const user = userEvent.setup()
+    renderPage(1, true)
+    await screen.findByText('삭제된 댓글이에요')
+
+    await user.click(screen.getAllByRole('button', { name: '답글 달기' })[0])
+
+    expect(screen.getByRole('textbox', { name: /답글/ })).toBeInTheDocument()
   })
 })

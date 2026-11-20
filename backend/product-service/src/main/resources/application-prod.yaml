@@ -36,6 +36,13 @@ springdoc:
   swagger-ui:
     enabled: false
 
+# 관리자 확인은 실제 회원 서비스에 묻는다. k8s Service 이름(bukang-member-service)으로 접속한다
+product:
+  clients:
+    member:
+      mode: http
+      base-url: http://bukang-member-service:8080
+
 logging:
   level:
     com.bukang: info

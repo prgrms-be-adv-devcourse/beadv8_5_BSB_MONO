@@ -27,6 +27,8 @@ import com.bukang.product.dto.RaceSaveRequestDto;
  */
 @Component
 public class RaceRequestValidator {
+	private static final int NO_AGE_LIMIT = 14;
+	private static final int ADULT_ONLY_AGE = 19;
 	// 대회에 붙이는 이미지 용도. 대표 이미지는 대회마다 1장이라 대회에만 붙인다
 	private static final Set<FileType> RACE_IMAGE_TYPES = Set.of(FileType.THUMBNAIL);
 	// 종목에 붙이는 이미지 용도. 대표 이미지는 받지 않는다
@@ -92,8 +94,12 @@ public class RaceRequestValidator {
 
 	// 여러 종목 중 어느 종목이 문제인지 알 수 있게 메시지에 종목명을 붙인다
 	private void validateCourse(RaceCourseSaveRequestDto course, boolean hasCrewSale) {
-		if (course.getMaxAge() != null && course.getMaxAge() < course.getMinAge()) {
-			throw new InvalidRaceException(withCourse("참가 최대 나이는 최소 나이 이상이어야 합니다.", course));
+		// 나이 제한은 제한 없음(14)과 성인만(19) 둘뿐이다. 최대 나이는 받지 않는다
+		if (course.getMinAge() != NO_AGE_LIMIT && course.getMinAge() != ADULT_ONLY_AGE) {
+			throw new InvalidRaceException(withCourse("참가 최소 나이는 14(제한 없음) 또는 19(성인만)로 작성해주세요.", course));
+		}
+		if (course.getMaxAge() != null) {
+			throw new InvalidRaceException(withCourse("참가 최대 나이는 받지 않습니다. 비워주세요.", course));
 		}
 		// 키트 금액은 참가비 안에 들어 있는 금액이다
 		if (course.getKitPrice() > course.getPrice()) {

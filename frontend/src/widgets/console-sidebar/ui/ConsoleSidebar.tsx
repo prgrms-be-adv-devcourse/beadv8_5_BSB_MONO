@@ -8,7 +8,13 @@ import { useLogout } from '@/features/auth'
 import { cn } from '@/shared/lib'
 import { FOCUS_RING, Icon, Logo, type IconName } from '@/shared/ui'
 
-type Item = { href: Route; label: string; icon: IconName }
+type Item = {
+  href: Route
+  label: string
+  icon: IconName
+  /** 메뉴 묶음의 첫 항목이면 위에 묶음 여백(16)을 둔다 */
+  groupStart?: boolean
+}
 
 const MENU: Record<
   ConsoleRole,
@@ -25,9 +31,10 @@ const MENU: Record<
     settings: { href: '/seller/settings', label: '판매자 정보', icon: 'User' },
     items: [
       { href: '/seller', label: '대시보드', icon: 'Dashboard' },
-      { href: '/seller/races', label: '상품 관리', icon: 'Package' },
-      { href: '/seller/sales', label: '주문 관리', icon: 'Orders' },
-      { href: '/seller/settlements', label: '정산 관리', icon: 'Inbox' },
+      { href: '/seller/races', label: '대회 관리', icon: 'Calendar' },
+      { href: '/seller/sales', label: '판매 현황', icon: 'Users' },
+      { href: '/seller/kits', label: '키트 배송', icon: 'Truck' },
+      { href: '/seller/settlements', label: '정산', icon: 'Inbox' },
       { href: '/seller/inquiries', label: '문의', icon: 'Help' },
       { href: '/seller/ai', label: '크루런 AI', icon: 'Message' },
     ],
@@ -38,14 +45,14 @@ const MENU: Record<
     settings: { href: '/admin/settings', label: '설정', icon: 'Settings' },
     items: [
       { href: '/admin', label: '대시보드', icon: 'Dashboard' },
-      { href: '/admin/members', label: '회원 관리', icon: 'User' },
+      { href: '/admin/members', label: '회원 관리', icon: 'User', groupStart: true },
       { href: '/admin/sellers', label: '판매자 관리', icon: 'Users' },
-      { href: '/admin/settlements', label: '정산 · 환급 처리', icon: 'Inbox' },
-      // 시안 메뉴에는 없지만 회수 관리 화면으로 가는 길이 여기뿐이라 남긴다
-      { href: '/admin/claims', label: '회수 관리', icon: 'Inbox' },
-      { href: '/admin/races', label: '대회 관리', icon: 'Calendar' },
-      { href: '/admin/inquiries', label: '문의', icon: 'Help' },
-      { href: '/admin/ai', label: '크루런 AI', icon: 'Message' },
+      { href: '/admin/races', label: '대회 관리', icon: 'Calendar', groupStart: true },
+      { href: '/admin/settlements', label: '정산 관리', icon: 'Inbox' },
+      { href: '/admin/claims', label: '회수 관리', icon: 'Orders' },
+      { href: '/admin/inquiries', label: '문의', icon: 'Help', groupStart: true },
+      { href: '/admin/community-reports', label: '커뮤니티 신고', icon: 'CircleAlert' },
+      { href: '/admin/ai', label: '크루런 AI', icon: 'Message', groupStart: true },
       { href: '/admin/stats', label: '이용 통계', icon: 'Chart' },
     ],
   },
@@ -62,14 +69,14 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
     href === menu.home ? pathname === href : pathname === href || pathname.startsWith(`${href}/`)
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-18 shrink-0 flex-col items-center gap-2 bg-bg-hero px-3.5 py-5 desktop:w-60 desktop:items-start desktop:px-4">
+    <aside className="sticky top-0 flex h-dvh w-18 shrink-0 flex-col items-center gap-1 bg-bg-hero px-3.5 py-6 desktop:w-60 desktop:items-start desktop:px-4">
       <Link
         href={menu.home}
         className={cn('flex items-center gap-2 rounded-sm pb-4', FOCUS_RING)}
         aria-label={`크루런 ${menu.label} 홈`}
       >
         <Logo variant="symbol" className="desktop:hidden" />
-        <Logo variant="wordmarkOnHero" className="hidden desktop:block" />
+        <Logo variant="wordmarkOnHero" className="hidden h-6 w-auto desktop:block" />
         <span className="hidden text-caption-medium text-text-on-hero-muted desktop:inline">
           {menu.label}
         </span>
@@ -82,21 +89,23 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
       <div className="flex-1" />
       <div className="flex w-full flex-col gap-1">
         <SidebarItem {...menu.settings} selected={isActive(menu.settings.href)} />
-        {/* 콘솔 밖 크루런 홈으로 나가는 링크라 선택 표시를 하지 않는다. 로그인 상태는 그대로다 */}
-        <SidebarItem href="/" label="크루런 홈으로" icon="Home" selected={false} />
+        {/* 판매자 시안에만 있다(2070:66595). 관리자 시안(2070:11050)에는 없다. 선택 표시는 하지 않는다 */}
+        {role === 'seller' && (
+          <SidebarItem href="/" label="크루런 홈으로" icon="Home" selected={false} />
+        )}
         <LogoutItem />
       </div>
     </aside>
   )
 }
 
-function SidebarItem({ href, label, icon, selected }: Item & { selected: boolean }) {
+function SidebarItem({ href, label, icon, groupStart, selected }: Item & { selected: boolean }) {
   return (
     <Link
       href={href}
       aria-current={selected ? 'page' : undefined}
       title={label}
-      className={itemClassName(selected)}
+      className={cn(itemClassName(selected), groupStart && 'mt-3')}
     >
       <ItemContent label={label} icon={icon} />
     </Link>
@@ -130,7 +139,7 @@ function ItemContent({ label, icon }: { label: string; icon: IconName }) {
 
 function itemClassName(selected: boolean) {
   return cn(
-    'flex size-11 items-center justify-center gap-3 rounded-md text-body2-medium desktop:h-11 desktop:w-full desktop:justify-start desktop:px-3',
+    'flex size-11 items-center justify-center gap-3 rounded-md text-body1-medium desktop:h-11 desktop:w-full desktop:justify-start desktop:px-3',
     selected
       ? 'bg-bg-hero-raised text-text-on-hero-accent'
       : 'text-text-on-hero-muted hover:bg-bg-hero-raised',

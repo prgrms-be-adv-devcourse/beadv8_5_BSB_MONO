@@ -14,7 +14,7 @@ export type ProgressBarProps = {
   valueText?: ReactNode
   /** 밝은 바탕은 brand, 네이비 Hero 안은 onHero */
   tone?: 'brand' | 'onHero'
-  /** S 4 / M 8 */
+  /** S 4 / M 6 */
   size?: 's' | 'm'
   className?: string
 }
@@ -74,7 +74,8 @@ export function ProgressBar({
         className={cn(
           'w-full overflow-hidden rounded-full',
           size === 's' ? 'h-1' : 'h-2',
-          colors.track,
+          // 대기열 시안(2070:33340)은 회색 바탕 줄 없이 파란 막대만 지나간다
+          indeterminate ? 'bg-transparent' : colors.track,
         )}
       >
         {indeterminate ? (

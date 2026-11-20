@@ -1,0 +1,14 @@
+시각	테이블	인덱스	기다린_잠금	기다리는_수	가장_오래_초	기다린_SQL	막은_SQL
+2026-11-19 10:56:17.493	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	45	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:22.577	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	36	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:27.660	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	36	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:32.755	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	45	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:37.841	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	45	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:42.921	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	36	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:47.991	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	45	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:56:53.072	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	36	1	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	NULL
+2026-11-19 10:56:58.152	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	45	1	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:57:03.233	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	45	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:57:08.309	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	29	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:57:13.390	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	36	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0
+2026-11-19 10:57:18.470	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	36	0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0

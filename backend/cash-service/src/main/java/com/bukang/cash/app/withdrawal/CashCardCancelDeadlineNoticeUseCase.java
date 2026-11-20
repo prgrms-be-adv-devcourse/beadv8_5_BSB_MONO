@@ -5,18 +5,27 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.cash.app.payment.CashRefundableChargeQueryUseCase;
+import com.bukang.cash.domain.charge.ChargeStatus;
+import com.bukang.cash.domain.charge.WalletCharge;
+import com.bukang.cash.domain.exception.wallet.WalletNotFoundException;
+import com.bukang.cash.domain.wallet.Wallet;
 import com.bukang.cash.dto.payment.RefundableChargeDto;
 import com.bukang.cash.out.charge.WalletChargeRepository;
+import com.bukang.cash.out.wallet.WalletRepository;
 import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.common.shared.notification.NotificationKind;
 import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -28,21 +37,44 @@ import lombok.RequiredArgsConstructor;
 public class CashCardCancelDeadlineNoticeUseCase {
 	private static final List<Integer> DAYS_BEFORE = List.of(3, 1);
 	private static final String HREF = "/me/deposit/refund";
+	// 한 번에 읽는 회원 수. IN 조회가 너무 길어지지 않고, 묶음마다 읽은 엔티티를 비워 메모리가 대상 수만큼 늘지 않게 한다
+	private static final int CHUNK_SIZE = 1_000;
 
 	private final WalletChargeRepository walletChargeRepository;
-	private final CashRefundableChargeQueryUseCase cashRefundableChargeQueryUseCase;
+	private final WalletRepository walletRepository;
 	private final EventPublisher eventPublisher;
+	private final EntityManager entityManager;
 
 	// now는 한국 시각이다. 마지막 날이 딱 3일 뒤·1일 뒤인 몫만 보고, 배치가 못 돈 날의 알림은 다음 날 보내지 않는다
 	@Transactional(readOnly = true)
 	public void notifyDeadlines(LocalDateTime now) {
 		for (int daysBefore : DAYS_BEFORE) {
 			LocalDate deadline = now.toLocalDate().plusDays(daysBefore);
-			for (long memberId : findMemberIds(deadline)) {
-				long amount = remainingAmountDue(memberId, deadline, now);
-				if (amount > 0) {
-					eventPublisher.publish(notice(memberId, deadline, daysBefore, amount, now));
-				}
+			List<Long> memberIds = findMemberIds(deadline);
+			for (int from = 0; from < memberIds.size(); from += CHUNK_SIZE) {
+				notifyChunk(memberIds.subList(from, Math.min(from + CHUNK_SIZE, memberIds.size())),
+					deadline, daysBefore, now);
+				entityManager.clear();
+			}
+		}
+	}
+
+	// 회원마다 지갑·충전을 따로 읽지 않고 묶음째 두 번에 읽는다 (부하 측정 B-4: 1만 명에 SQL 20,004개였음)
+	private void notifyChunk(List<Long> memberIds, LocalDate deadline, int daysBefore, LocalDateTime now) {
+		Map<Long, Wallet> wallets = walletRepository.findAllById(memberIds).stream()
+			.collect(Collectors.toMap(Wallet::getId, Function.identity()));
+		Map<Long, List<WalletCharge>> charges = walletChargeRepository
+			.findByWalletIdInAndStatus(memberIds, ChargeStatus.COMPLETED).stream()
+			.collect(Collectors.groupingBy(charge -> charge.getWallet().getId()));
+		for (long memberId : memberIds) {
+			Wallet wallet = wallets.get(memberId);
+			if (wallet == null) {
+				throw new WalletNotFoundException("존재하지 않는 지갑입니다.");
+			}
+			long amount = remainingAmountDue(wallet.getBalance(), charges.getOrDefault(memberId, List.of()),
+				deadline, now);
+			if (amount > 0) {
+				eventPublisher.publish(notice(memberId, deadline, daysBefore, amount, now));
 			}
 		}
 	}
@@ -55,8 +87,10 @@ public class CashCardCancelDeadlineNoticeUseCase {
 	}
 
 	// 남은 금액은 환급 화면과 같은 규칙(최근 충전부터 채움)으로 보내는 날 다시 계산한다
-	private long remainingAmountDue(long memberId, LocalDate deadline, LocalDateTime now) {
-		return cashRefundableChargeQueryUseCase.findRefundableCharges(memberId, now).charges().stream()
+	private static long remainingAmountDue(
+		long balance, List<WalletCharge> completedCharges, LocalDate deadline, LocalDateTime now
+	) {
+		return CashRefundableChargeQueryUseCase.refundable(balance, completedCharges, now).charges().stream()
 			.filter(charge -> charge.lastCancelableDate().equals(deadline))
 			.mapToLong(RefundableChargeDto::remainingAmount)
 			.sum();

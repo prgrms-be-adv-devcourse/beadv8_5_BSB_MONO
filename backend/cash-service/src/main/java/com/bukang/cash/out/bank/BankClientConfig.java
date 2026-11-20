@@ -16,6 +16,7 @@ import com.bukang.common.global.web.InternalKeyHeader;
 public class BankClientConfig {
 	@Bean
 	public BankTransferClient bankTransferClient(
+		RestClient.Builder builder,
 		@Value("${cash.clients.bank.base-url}") String baseUrl,
 		@Value("${cash.clients.bank.timeout}") Duration timeout,
 		@Value("${internal.api-key}") String internalKey
@@ -26,7 +27,7 @@ public class BankClientConfig {
 			.build();
 		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(timeout);
-		return new HttpBankTransferClient(RestClient.builder()
+		return new HttpBankTransferClient(builder
 			.baseUrl(baseUrl)
 			.requestFactory(requestFactory)
 			// 가짜 은행도 내부 인증 키 검사를 받는다 (InternalKeyFilterConfig)

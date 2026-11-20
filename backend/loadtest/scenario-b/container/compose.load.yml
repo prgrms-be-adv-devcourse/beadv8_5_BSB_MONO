@@ -1,0 +1,122 @@
+# 예치금 부하 측정용 환경 (docs/measurements/2026-11-16-예치금-부하-판정기준.md 4장). 실행은 run.sh가 한다
+# 개발용 compose.yml과 겹치지 않게 프로젝트 이름(cashload)·포트를 따로 쓴다
+# 이미지는 LABEL(a, b, local)마다 따로 둔다: cashload-cash:<LABEL>. 없으면 지금 코드로 빌드한다
+# 자원 제한은 주문 결제 잠금 측정(docs/measurements/load/compose.load.yml)과 같은 추천값(미확정)이다
+name: cashload
+
+services:
+  cash:
+    build: { context: ../../.., args: { MODULE: cash-service } }
+    image: cashload-cash:${LABEL:-local}
+    restart: "no"
+    cpus: 0.5
+    mem_limit: 768m
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # 평소에는 MySQL·Redis에 바로 간다. B-7·B-8 앞에서만 run.sh가 지연 컨테이너(toxiproxy)를 거치게 다시 띄운다 (2차 판정 기준 2-0)
+      # 늘 거치게 두면 B-1 한계(초당 400건)에서 지연 컨테이너가 병목이 됐다(11/19 QUICK)
+      MYSQL_HOST: ${CASH_MYSQL_HOST:-mysql}
+      MYSQL_PORT: "3306"
+      MYSQL_DB: bukang-db
+      MYSQL_USER: bukang2
+      MYSQL_PASS: bukang2
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: ${CASH_REDIS_HOST:-redis}
+      REDIS_PORT: "6379"
+      # 측정 전용 값 (개발용 값, 운영 키 아님)
+      CRYPTO_PASSWORD: brH8W0e5axggiZDMxLeEcRiYSf5qght3KtDgWC+dT48=
+      CRYPTO_SALT: d4cc93043cca7c91
+      INTERNAL_API_KEY: cashload-internal-key
+      TOSS_SECRET_KEY: test_sk_dummy
+      # 운영 설정에서 PG·회원만 가짜로 바꾼다. 은행은 운영도 같은 앱 안의 가짜 은행이다
+      CASH_CLIENTS_PG_MODE: fake
+      CASH_CLIENTS_MEMBER_MODE: fake
+      # 측정용 설정 세 가지 (판정 기준 문서 2-0). 결제·정산 지급은 PG를 부르지 않아 영향을 받지 않는다
+      CASH_CLIENTS_PG_FAKE_CONFIRM_DELAY: ${PG_CONFIRM_DELAY:-1s}
+      CASH_CLIENTS_PG_FAKE_CANCEL_DELAY: ${PG_CANCEL_DELAY:-300ms}
+      CASH_WITHDRAWAL_DEADLINE_NOTICE_CRON: "0 * * * * *"
+      # 기본은 컨테이너 메모리의 25%만 힙으로 쓴다. 제한 안에서 운영처럼 쓰게 늘린다
+      # JFR·GC 로그는 앱 지표가 비는 구간에도 CPU를 누가 썼는지 남긴다(2차 판정 기준 3장). 다시 띄울 때마다 시각(%t)으로 새 파일
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=70
+        -XX:StartFlightRecording=filename=/jvm/cash-%t.jfr,dumponexit=true
+        -Xlog:gc*:file=/jvm/gc-%t.log:time,uptime
+      # 바쁜 요청 쓰레드 수(tomcat_threads_busy_threads)를 내보낸다
+      SERVER_TOMCAT_MBEANREGISTRY_ENABLED: "true"
+      # 지표(/actuator)는 따로 연 포트로 받는다. 요청 쓰레드 200개가 다 차도 지표 요청은 자기 쓰레드로 답해서,
+      # 가장 바쁜 구간에 앱 지표가 비지 않게 한다 (측정에서만. 운영은 8081 하나)
+      MANAGEMENT_SERVER_PORT: "8091"
+    # run.sh가 회차 폴더의 jvm/을 넘긴다
+    volumes: [ "${JVM_DIR:-/tmp/cashload-jvm}:/jvm" ]
+    # 시드·B-3·B-4 스크립트가 컴퓨터에서 부른다 (k6는 같은 네트워크에서 cash:8081로 부름)
+    ports: [ "127.0.0.1:${CASH_PORT:-18181}:8081", "127.0.0.1:${CASH_METRICS_PORT:-18191}:8091" ]
+    healthcheck: { test: [ "CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8081" ], interval: 5s, timeout: 3s, retries: 60, start_period: 300s }
+    depends_on:
+      mysql: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      toxiproxy: { condition: service_started }
+
+  # 예치금 → MySQL·Redis 사이의 지연 컨테이너. run.sh가 API(8474)로 지연을 넣고 뺀다. 시드·확인 SQL(db.sh)은 거치지 않는다
+  # 예치금이 거치는 동안 모든 쿼리가 지나가서 0.1개면 병목이 될 수 있어 0.25개로 둔다
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    cpus: 0.25
+    command: [ -host=0.0.0.0, -config=/config/toxiproxy.json ]
+    volumes: [ "./toxiproxy.json:/config/toxiproxy.json:ro" ]
+    ports: [ "127.0.0.1:${TOXI_PORT:-18474}:8474" ]
+
+  mysql:
+    image: mysql:8.4
+    # 시드·확인 스크립트(db.sh)가 DB_CONTAINER=cashload-mysql로 이 컨테이너에 접속한다
+    container_name: cashload-mysql
+    cpus: 1.0
+    mem_limit: 2g
+    command: [ --character-set-server=utf8mb4, --collation-server=utf8mb4_0900_ai_ci, --max-connections=300 ]
+    environment:
+      MYSQL_ROOT_PASSWORD: bukang-admin
+      MYSQL_DATABASE: bukang-db
+      MYSQL_USER: bukang2
+      MYSQL_PASSWORD: bukang2
+      TZ: Asia/Seoul
+    healthcheck: { test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD" ], interval: 5s, timeout: 5s, retries: 30 }
+
+  kafka:
+    image: redpandadata/redpanda:v26.2.3
+    cpus: 0.25
+    command: [ redpanda, start, --mode=dev-container, --smp=1, --memory=512M,
+      "--kafka-addr=internal://0.0.0.0:29092", "--advertise-kafka-addr=internal://kafka:29092" ]
+    healthcheck: { test: [ "CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'" ], interval: 5s, timeout: 5s, retries: 30 }
+
+  redis:
+    image: redis:8.2
+    cpus: 0.1
+    healthcheck: { test: [ "CMD", "redis-cli", "ping" ], interval: 5s, timeout: 5s, retries: 30 }
+
+  # 그래프의 「MySQL 행 락 대기」를 위해 띄운다 (운영 보조 EC2와 같은 이미지)
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.21.0
+    cpus: 0.1
+    command: [ --mysqld.address=mysql:3306, --mysqld.username=root ]
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: bukang-admin
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  # 컨테이너 CPU·메모리를 앱 밖에서 잰다. 앱이 바쁘면 예치금 /actuator/prometheus가 비는데(전후 측정 6장) 그때도 남는다
+  # 운영 Grafana도 cadvisor 지표를 쓴다. CPU·메모리만 모아 cAdvisor 자신이 쓰는 CPU를 줄인다
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    cpus: 0.25
+    privileged: true
+    command: [ --housekeeping_interval=1s, --enable_metrics=cpu,memory ]
+    # Docker는 일부러 연결하지 않는다. 맥 Docker Desktop(containerd 이미지 저장소)에서는 cAdvisor가 Docker 컨테이너를 읽다 실패해
+    # 값이 아예 빠진다. cgroup만 읽으면 어디서나 컨테이너 ID 경로(id 라벨)로 나오고, run.sh가 ID를 남겨 graph.py가 고른다
+    volumes: [ "/:/rootfs:ro", "/sys:/sys:ro" ]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    cpus: 0.25
+    command: [ --config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=1d ]
+    volumes: [ "./prometheus.yml:/etc/prometheus/prometheus.yml:ro" ]
+    ports: [ "127.0.0.1:${PROMETHEUS_PORT:-19095}:9090" ]

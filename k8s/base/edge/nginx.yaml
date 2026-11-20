@@ -40,12 +40,20 @@ spec:
             - name: nginx-include
               mountPath: /etc/nginx/crewrun
               readOnly: true
+            # 본체 설정(연결 한도)은 이미지 파일 하나만 덮는다. /etc/nginx 전체를 덮으면 mime.types가 사라진다
+            # subPath 마운트는 ConfigMap이 바뀌어도 실행 중인 Pod에 반영되지 않는다
+            # 여기서는 내용이 바뀌면 ConfigMap 이름(해시)이 바뀌어 Pod가 새로 뜨므로 괜찮다. 해시를 끄면 Pod를 직접 다시 띄워야 한다
+            - name: nginx-main
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
           resources:
             requests:
               cpu: 10m
               memory: 32Mi
             limits:
-              memory: 64Mi
+              # 연결 한도를 4배(워커당 4,096)로 올리면서 연결마다 잡는 버퍼가 늘어 64Mi에서 올렸다
+              memory: 128Mi
           readinessProbe:
             tcpSocket:
               port: http
@@ -69,6 +77,12 @@ spec:
                 path: routes.conf
               - key: upstreams.conf
                 path: upstreams.conf
+        - name: nginx-main
+          configMap:
+            name: nginx-config
+            items:
+              - key: nginx.conf
+                path: nginx.conf
 ---
 apiVersion: v1
 kind: Service

@@ -33,6 +33,18 @@ scrape_configs:
       - source_labels: [ __meta_kubernetes_pod_name ]
         target_label: pod
 
+  # ── 보조 EC2의 게이트웨이 2 (CRU-75). k3s 밖이라 주소를 직접 적는다 ──
+  # job은 게이트웨이 1과 같은 gateway로 둬서 대시보드에서 합쳐 보이고, pod 이름표로 둘을 나눠 본다
+  - job_name: gateway2
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "10.0.2.222:8000" ]
+        labels:
+          pod: bukang-gateway2
+    relabel_configs:
+      - target_label: job
+        replacement: gateway
+
   # ── 보조 EC2(10.0.2.222)의 인프라. exporter는 infra/data-node/compose.data.yml ──
   - job_name: redis
     static_configs:

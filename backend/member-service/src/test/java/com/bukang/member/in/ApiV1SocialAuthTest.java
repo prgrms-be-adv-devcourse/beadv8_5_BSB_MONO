@@ -39,6 +39,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.bukang.member.app.MemberFacade;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.SocialProvider;
+import com.bukang.member.domain.TermsType;
 import com.bukang.member.domain.exception.SocialLoginFailedException;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.RefreshTokenRepository;
@@ -281,6 +282,27 @@ class ApiV1SocialAuthTest {
 	}
 
 	@Test
+	@DisplayName("소셜 가입도 만 14세 이상 동의가 없으면 400이고 회원·동의 기록을 남기지 않으며, 동의하면 기록이 남는다")
+	void socialJoinRequiresAge14() throws Exception {
+		String requestId = authorize("kakao", "/");
+		identity(new SocialIdentity(SocialProvider.KAKAO, KAKAO_USER, "runner@kakao.com", null));
+		String pendingId = callback("kakao", requestId, STATE).andReturn()
+			.getResponse().getCookie("oauth2Signup").getValue();
+
+		join(pendingId, null, "[\"SERVICE\", \"PRIVACY\"]")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("MEMBER_REQUIRED_TERMS_NOT_AGREED"));
+		assertThat(memberRepository.findActiveByEmail("runner@kakao.com")).isEmpty();
+		assertThat(termsAgreementRepository.count()).isZero();
+
+		// 롤백됐으므로 가입 대기가 남아 같은 요청으로 다시 시도할 수 있다
+		join(pendingId, null).andExpect(status().isCreated());
+		long memberId = memberRepository.findActiveByEmail("runner@kakao.com").orElseThrow().getId();
+		assertThat(termsAgreementRepository.findByMemberId(memberId))
+			.anyMatch(a -> a.getTerms().getType() == TermsType.AGE_OVER_14 && a.isAgreed());
+	}
+
+	@Test
 	@DisplayName("카카오로 가입한 사람이 다른 이메일의 구글로 가입하면 닉네임보다 먼저 휴대폰 번호로 막고 409 AUTH_SOCIAL_PHONE_TAKEN이다")
 	void phoneTakenGuidesToLink() throws Exception {
 		String kakaoRequest = authorize("kakao", "/");
@@ -381,14 +403,18 @@ class ApiV1SocialAuthTest {
 
 	// 이름 · 휴대폰 번호 · 생년월일은 본인인증 결과로 넣는다 (같은 번호면 같은 사람으로 본다)
 	private ResultActions join(String pendingId, String email) throws Exception {
+		return join(pendingId, email, "[\"SERVICE\", \"PRIVACY\", \"AGE_OVER_14\"]");
+	}
+
+	private ResultActions join(String pendingId, String email, String agreedTermsJson) throws Exception {
 		String emailJson = email == null ? "null" : "\"" + email + "\"";
 		String token = identityStore.verify("김소셜", LocalDate.of(1995, 4, 12), "010-9876-5432");
 		return mockMvc.perform(post("/api/v1/auth/oauth2/join")
 			.cookie(new Cookie("oauth2Signup", pendingId))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "email": %s, "nickname": "소셜러너", "agreedTerms": ["SERVICE", "PRIVACY"],
+				{ "email": %s, "nickname": "소셜러너", "agreedTerms": %s,
 					"verificationToken": "%s" }
-				""".formatted(emailJson, token)));
+				""".formatted(emailJson, agreedTermsJson, token)));
 	}
 }

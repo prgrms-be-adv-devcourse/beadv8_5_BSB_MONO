@@ -15,8 +15,7 @@ import {
 import { cn } from '@/shared/lib'
 import { Alert, Button, Chip, Logo, Spinner } from '@/shared/ui'
 
-/** 서버가 받는 질문 최대 글자 수 (AiChatRequestDto) */
-const MAX_LENGTH = 1000
+import { QUESTION_MAX, questionSchema } from '../model/question-schema'
 
 type Turn =
   | { id: number; role: 'user'; text: string }
@@ -91,7 +90,7 @@ function Composer({
         aria-label="질문"
         value={value}
         rows={rows}
-        maxLength={MAX_LENGTH}
+        maxLength={QUESTION_MAX}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
@@ -99,7 +98,11 @@ function Composer({
       />
       <div className="flex items-center justify-between gap-3">
         <span className="text-caption-regular text-text-tertiary">{scopeNote}</span>
-        <Button size="s" onClick={onSend} disabled={pending || value.trim() === ''}>
+        <Button
+          size="s"
+          onClick={onSend}
+          disabled={pending || !questionSchema.safeParse(value).success}
+        >
           {pending ? <Spinner label={null} /> : '보내기'}
         </Button>
       </div>
@@ -179,8 +182,9 @@ export function AiChat({
   }
 
   function send(text: string) {
-    const message = text.trim()
-    if (!message || chat.isPending) return
+    const parsed = questionSchema.safeParse(text)
+    if (!parsed.success || chat.isPending) return
+    const message = parsed.data
     push({ role: 'user', text: message })
     setDraft('')
     chat.mutate(message, {

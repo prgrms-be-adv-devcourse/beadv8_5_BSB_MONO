@@ -19,17 +19,21 @@ import org.springframework.web.client.RestClient;
 public class PaymentClientConfig {
 	@Bean
 	public TossPaymentClient tossPaymentClient(
+		RestClient.Builder builder,
 		@Value("${cash.clients.pg.base-url}") String baseUrl,
 		@Value("${cash.clients.pg.secret-key}") String secretKey,
 		@Value("${cash.clients.pg.confirm-timeout}") Duration confirmTimeout,
 		@Value("${cash.clients.pg.lookup-timeout}") Duration lookupTimeout
 	) {
+		// 승인용·조회용이 시간 제한만 다르므로, 한 빌더를 복사해 설정이 서로 섞이지 않게 한다
 		return new TossPaymentClient(
-			restClient(baseUrl, confirmTimeout), restClient(baseUrl, lookupTimeout), secretKey);
+			restClient(builder.clone(), baseUrl, confirmTimeout),
+			restClient(builder.clone(), baseUrl, lookupTimeout),
+			secretKey);
 	}
 
 	// 연결과 응답에 각각 timeout을 걸어, 한 번 부를 때 최악 timeout x 2만큼 걸린다
-	private RestClient restClient(String baseUrl, Duration timeout) {
+	private RestClient restClient(RestClient.Builder builder, String baseUrl, Duration timeout) {
 		HttpClient httpClient = HttpClient.newBuilder()
 			.version(HttpClient.Version.HTTP_1_1)
 			.connectTimeout(timeout)
@@ -37,7 +41,7 @@ public class PaymentClientConfig {
 		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(timeout);
 
-		return RestClient.builder()
+		return builder
 			.baseUrl(baseUrl)
 			.requestFactory(requestFactory)
 			.build();

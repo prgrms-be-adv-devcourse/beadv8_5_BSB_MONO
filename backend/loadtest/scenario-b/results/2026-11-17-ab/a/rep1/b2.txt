@@ -1,0 +1,73 @@
+time="2026-11-17T03:28:06Z" level=warning msg="The test has generated metrics with 100083 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T03:28:41Z" level=warning msg="The test has generated metrics with 200091 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T03:30:08Z" level=warning msg="The test has generated metrics with 400158 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+
+
+  █ THRESHOLDS 
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    http_req_duration{api:pay,phase:after}
+    ✓ 'p(95)<200' p(95)=39.32ms
+
+    http_req_duration{api:pay,phase:before}
+    ✓ 'p(95)<200' p(95)=28.81ms
+
+    http_req_duration{api:pay,phase:during}
+    ✓ 'p(95)<200' p(95)=58.36ms
+    ✓ 'p(99)<1000' p(99)=95.59ms
+    ✓ 'p(95)<2000' p(95)=58.36ms
+
+    http_req_failed{api:pay}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:payout}
+    ✓ 'rate<0.01' rate=0.00%
+
+    iterations{phase:after}
+    ✓ 'count>=0' count=17049
+
+    iterations{phase:before}
+    ✓ 'count>=0' count=18670
+
+    iterations{phase:during}
+    ✓ 'count>=0' count=13111
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 59797   284.718416/s
+    checks_succeeded...................: 100.00% 59797 out of 59797
+    checks_failed......................: 0.00%   0 out of 59797
+
+    ✓ 결제 200·결제됨
+    ✓ 정산 지급 200
+
+    HTTP
+    http_req_duration.......................................................: avg=14.58ms med=8.14ms  p(95)=45.94ms p(99)=88.21ms max=451.44ms
+      { api:pay,phase:after }...............................................: avg=13.45ms med=8.04ms  p(95)=39.32ms p(99)=82.02ms max=404.01ms
+      { api:pay,phase:before }..............................................: avg=12.31ms med=7.86ms  p(95)=28.81ms p(99)=78.73ms max=408.61ms
+      { api:pay,phase:during }..............................................: avg=17.69ms med=10.23ms p(95)=58.36ms p(99)=95.59ms max=451.44ms
+      { expected_response:true }............................................: avg=14.58ms med=8.14ms  p(95)=45.94ms p(99)=88.21ms max=451.44ms
+    http_req_failed.........................................................: 0.00% 0 out of 59797
+      { api:pay }...........................................................: 0.00% 0 out of 58597
+      { api:payout }........................................................: 0.00% 0 out of 1200
+    http_reqs...............................................................: 59797 284.718416/s
+
+    EXECUTION
+    dropped_iterations......................................................: 0     0/s
+    iteration_duration......................................................: avg=15.15ms med=8.6ms   p(95)=46.97ms p(99)=90.11ms max=452ms   
+    iterations..............................................................: 59797 284.718416/s
+      { phase:after }.......................................................: 17049 81.177388/s
+      { phase:before }......................................................: 18670 88.895644/s
+      { phase:during }......................................................: 13111 62.42693/s
+    vus.....................................................................: 4     min=4          max=6 
+    vus_max.................................................................: 48    min=48         max=48
+
+    NETWORK
+    data_received...........................................................: 13 MB 60 kB/s
+    data_sent...............................................................: 14 MB 65 kB/s
+
+
+

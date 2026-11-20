@@ -1,11 +1,12 @@
 'use client'
 
 import { Popover } from '@base-ui/react/popover'
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode, type Ref } from 'react'
 
 import { cn } from '@/shared/lib'
 
 import { FIELD_BOX, FIELD_BOX_FOCUS, FIELD_HELPER, FIELD_LABEL } from '../field/field-styles'
+import { NUMERIC_NOTICE } from '../field/input-filter'
 import { Icon } from '../icon/icons'
 import {
   dateText,
@@ -36,6 +37,8 @@ type CommonProps = {
   /** false면 시간 칸 없이 날짜만 고르고 'yyyy-MM-dd'로 알린다 (기본 true) */
   withTime?: boolean
   className?: string
+  /** 날짜 열기 버튼. 폼이 오류 칸으로 포커스를 옮길 때 쓴다 */
+  ref?: Ref<HTMLButtonElement>
 }
 
 export type DateTimeFieldProps = CommonProps &
@@ -65,11 +68,15 @@ export function DateTimeField(props: DateTimeFieldProps) {
     placeholder = '날짜를 골라 주세요',
     withTime = true,
     className,
+    ref,
   } = props
   const labelId = useId()
   const valueId = useId()
   const descriptionId = useId()
-  const description = error ?? helper
+  // 시간 칸이 막은 글자가 있으면 그 이유를 보여 준다(오류 문구가 우선)
+  const [timeBlocked, setTimeBlocked] = useState(false)
+  const timeNotice = timeBlocked && !error ? NUMERIC_NOTICE : undefined
+  const description = error ?? timeNotice ?? helper
 
   const initial: DateRange =
     props.mode === 'single'
@@ -138,6 +145,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
           }}
         >
           <Popover.Trigger
+            ref={ref}
             disabled={disabled}
             aria-labelledby={`${label ? labelId : ''} ${valueId}`.trim()}
             className={cn(
@@ -200,6 +208,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
                 emit(dates, time, endTime)
               }}
               disabled={disabled}
+              onBlocked={setTimeBlocked}
               aria-label={props.mode === 'single' ? `${labelText} 시간` : `${labelText} 시작 시간`}
             />
             {props.mode === 'range' && (
@@ -214,6 +223,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
                     emit(dates, startTime, time)
                   }}
                   disabled={disabled}
+                  onBlocked={setTimeBlocked}
                   aria-label={`${labelText} 끝 시간`}
                 />
               </>
@@ -221,6 +231,9 @@ export function DateTimeField(props: DateTimeFieldProps) {
           </>
         )}
       </div>
+      <span role="status" className="sr-only">
+        {timeNotice}
+      </span>
       {description && (
         <p id={descriptionId} className={FIELD_HELPER}>
           {description}
@@ -234,11 +247,14 @@ export function DateTimeField(props: DateTimeFieldProps) {
 function TimeInput({
   value,
   onChange,
+  onBlocked,
   disabled,
   'aria-label': ariaLabel,
 }: {
   value: string
   onChange: (value: string) => void
+  /** 숫자·콜론이 아닌 글자를 쳐서 막았는지 알린다 */
+  onBlocked: (blocked: boolean) => void
   disabled?: boolean
   'aria-label': string
 }) {
@@ -252,7 +268,10 @@ function TimeInput({
       value={value}
       disabled={disabled}
       aria-label={ariaLabel}
-      onChange={(event) => onChange(formatTimeTyping(event.target.value))}
+      onChange={(event) => {
+        onBlocked(/[^\d:]/.test(event.target.value))
+        onChange(formatTimeTyping(event.target.value))
+      }}
       onBlur={() => {
         const padded = padTime(value)
         if (padded !== value) onChange(padded)

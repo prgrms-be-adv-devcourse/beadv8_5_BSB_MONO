@@ -1,0 +1,51 @@
+time="2026-11-17T05:50:02Z" level=warning msg="Insufficient VUs, reached 200 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=mixed_pay_refund
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✗ 'rate==1' rate=97.76%
+
+    http_req_duration{api:pay}
+    ✗ 'p(95)<2000' p(95)=3.98s
+
+    http_req_failed
+    ✗ 'rate==0' rate=2.23%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 4018   48.725303/s
+    checks_succeeded...................: 97.76% 3928 out of 4018
+    checks_failed......................: 2.23%  90 out of 4018
+
+    ✓ 같은 주문 결제 200·결제됨
+    ✗ 같은 정산 지급 200 또는 503
+      ↳  82% — ✓ 41 / ✗ 9
+    ✓ 같은 충전 200·완료
+    ✓ 결제 200·결제됨
+    ✓ 환불 200
+    ✗ 정산 지급 200
+      ↳  84% — ✓ 449 / ✗ 81
+
+    HTTP
+    http_req_duration.......................................................: avg=3.03s min=7.75ms med=2.49s max=13.28s p(90)=5.8s  p(95)=8.08s
+      { api:pay }...........................................................: avg=2.34s min=7.75ms med=2.24s max=7.78s  p(90)=3.74s p(95)=3.98s
+      { expected_response:true }............................................: avg=2.89s min=7.75ms med=2.47s max=13.28s p(90)=5.32s p(95)=7.07s
+    http_req_failed.........................................................: 2.23%  90 out of 4018
+    http_reqs...............................................................: 4018   48.725303/s
+
+    EXECUTION
+    dropped_iterations......................................................: 228    2.7649/s
+    iteration_duration......................................................: avg=5.13s min=21.3ms med=4.85s max=13.28s p(90)=8.48s p(95)=9.47s
+    iterations..............................................................: 2374   28.788917/s
+    vus.....................................................................: 47     min=0          max=285
+    vus_max.................................................................: 491    min=270        max=491
+
+    NETWORK
+    data_received...........................................................: 855 kB 10 kB/s
+    data_sent...............................................................: 923 kB 11 kB/s
+
+
+
+time="2026-11-17T05:50:28Z" level=error msg="thresholds on metrics 'checks, http_req_duration{api:pay}, http_req_failed' have been crossed"

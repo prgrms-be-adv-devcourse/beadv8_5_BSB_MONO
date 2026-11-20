@@ -1,8 +1,9 @@
 'use client'
 
-import { Fragment, useState } from 'react'
+import { format, parseISO } from 'date-fns'
+import { useState } from 'react'
 
-import { CONSOLE_BOX, ConsolePage } from '@/widgets/console-page'
+import { ConsolePage } from '@/widgets/console-page'
 import {
   formatStatsDayWithWeekday,
   resolveStatsPeriod,
@@ -14,16 +15,9 @@ import {
   type StatsPeriodQuery,
 } from '@/entities/usage-stats'
 import { clientEnv } from '@/shared/config'
-import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
-import {
-  Button,
-  buttonClassName,
-  DataTable,
-  Divider,
-  EmptyState,
-  Segmented,
-  TextField,
-} from '@/shared/ui'
+import { DateTimeField } from '@/shared/date-picker'
+import { formatNumber, useSearchParamsState } from '@/shared/lib'
+import { Button, buttonClassName, Chip, DataTable, EmptyState } from '@/shared/ui'
 
 import { useRealtimeStats } from '../model/use-usage-stats'
 import { FunnelSection } from './FunnelSection'
@@ -51,10 +45,7 @@ export function AdminStatsPage() {
     return (
       <ConsolePage title="이용 통계" actions={<ClarityLink />}>
         <div className="flex flex-1 items-center justify-center py-20">
-          <EmptyState
-            title="GA4 연결 정보가 없어요"
-            description="서버 환경 변수에 GA4 속성 ID와 서비스 계정 키를 넣으면 숫자가 보여요."
-          />
+          <EmptyState title="GA4 연결 정보가 없어요" />
         </div>
       </ConsolePage>
     )
@@ -63,7 +54,6 @@ export function AdminStatsPage() {
   return (
     <ConsolePage
       title="이용 통계"
-      description="GA4 기준 어제까지의 기록이에요. 「지금 접속 중」만 몇 초 안에 반영돼요."
       actions={
         <div className="flex flex-col items-end gap-2">
           <ClarityLink />
@@ -71,17 +61,10 @@ export function AdminStatsPage() {
         </div>
       }
     >
-      {[
-        <RealtimeSection key="realtime" result={realtime} />,
-        <TrendSection key="trend" query={query} />,
-        <FunnelSection key="buyer" kind="buyer" query={query} />,
-        <FunnelSection key="seller" kind="seller" query={query} />,
-      ].map((section, i) => (
-        <Fragment key={section.key}>
-          {i > 0 && <Divider />}
-          {section}
-        </Fragment>
-      ))}
+      <RealtimeSection result={realtime} />
+      <TrendSection query={query} />
+      <FunnelSection kind="buyer" query={query} />
+      <FunnelSection kind="seller" query={query} />
     </ConsolePage>
   )
 }
@@ -115,7 +98,8 @@ function PeriodPicker({
   )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
-  const customValid = Boolean(custom.start && custom.end && custom.start <= custom.end)
+  const customQuery = statsPeriodQuerySchema.safeParse({ period: 'custom', ...custom })
+  const customValid = customQuery.success && custom.start <= custom.end
 
   const choose = (next: StatsPeriodKind) => {
     setKind(next)
@@ -124,13 +108,13 @@ function PeriodPicker({
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <Segmented
-        label="기간"
-        layout="hug"
-        items={STATS_PERIOD_ITEMS}
-        value={kind}
-        onChange={choose}
-      />
+      <div role="group" aria-label="기간" className="flex items-center gap-2">
+        {STATS_PERIOD_ITEMS.map((item) => (
+          <Chip key={item.value} selected={kind === item.value} onClick={() => choose(item.value)}>
+            {item.label}
+          </Chip>
+        ))}
+      </div>
       {period && (
         <p className="text-caption-regular text-text-tertiary">
           {spanText(period.current)} · 비교 기간 {spanText(period.previous)}
@@ -138,24 +122,30 @@ function PeriodPicker({
       )}
       {kind === 'custom' && (
         <div className="flex items-end gap-2">
-          <TextField
+          <DateTimeField
+            mode="single"
+            withTime={false}
             label="시작 날짜"
-            type="date"
-            max={today}
-            value={custom.start}
-            onChange={(e) => setCustom((c) => ({ ...c, start: e.target.value }))}
+            className="w-52"
+            defaultValue={custom.start ? parseISO(custom.start) : undefined}
+            endMonth={parseISO(today)}
+            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+            onValueChange={(start) => setCustom((c) => ({ ...c, start }))}
           />
-          <TextField
+          <DateTimeField
+            mode="single"
+            withTime={false}
             label="끝 날짜"
-            type="date"
-            max={today}
-            value={custom.end}
-            onChange={(e) => setCustom((c) => ({ ...c, end: e.target.value }))}
+            className="w-52"
+            defaultValue={custom.end ? parseISO(custom.end) : undefined}
+            endMonth={parseISO(today)}
+            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+            onValueChange={(end) => setCustom((c) => ({ ...c, end }))}
           />
           <Button
             variant="secondary"
             disabled={!customValid}
-            onClick={() => onChange({ period: 'custom', ...custom })}
+            onClick={() => customQuery.success && onChange(customQuery.data)}
           >
             적용
           </Button>
@@ -167,19 +157,11 @@ function PeriodPicker({
 
 function RealtimeSection({ result }: { result: ReturnType<typeof useRealtimeStats> }) {
   return (
-    <StatsBlock
-      title="지금 접속 중"
-      description="최근 30분 동안 접속한 사람 수예요. 몇 초 안에 반영돼요."
-    >
-      <SectionState result={result} name="지금 접속 중을">
+    <StatsBlock title="지금 접속 중">
+      <SectionState result={result} name="지금 접속 중을" skeletonClassName="h-46">
         {(data) => (
           <div className="flex items-start gap-4">
-            <div
-              className={cn(
-                'flex w-80 shrink-0 flex-col items-center gap-1 rounded-lg p-4',
-                CONSOLE_BOX,
-              )}
-            >
+            <div className="flex w-80 shrink-0 flex-col items-center gap-1 p-4">
               <span className="text-caption-medium text-text-secondary">최근 30분 접속자</span>
               <span className="flex items-baseline gap-1">
                 <span className="text-title2">{formatNumber(data.activeUsers)}</span>

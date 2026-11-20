@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -62,6 +62,18 @@ function renderPage() {
 
 beforeEach(() => setAccessToken('access-token'))
 
+// 상태 칩(승인 · 반려)과 이름이 같은 처리 버튼을 가르려고, 칩 묶음 밖의 버튼만 찾는다
+const outsideChips = (name: string) =>
+  screen.queryAllByRole('button', { name }).filter((b) => !b.closest('[role="group"]'))
+const findActionButton = (name: string) =>
+  waitFor(() => {
+    const [button] = outsideChips(name)
+    if (!button) throw new Error(`${name} 버튼이 없어요`)
+    return button
+  })
+const statusChip = async (name: string) =>
+  within(await screen.findByRole('group', { name: '신청 상태' })).getByRole('button', { name })
+
 describe('AdminSellersPage 목록', () => {
   it('승인 대기 신청을 표로 보이고 개수를 탭에 붙인다 (비사업자는 대표자 이름 · 번호 —)', async () => {
     useLists({ PENDING: [BUSINESS, INDIVIDUAL] })
@@ -77,7 +89,7 @@ describe('AdminSellersPage 목록', () => {
     expect(within(rows[2]).getByText('이춘천')).toBeInTheDocument()
     expect(within(rows[2]).getByText('비사업자')).toBeInTheDocument()
     expect(within(rows[2]).getByText('—')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /승인 대기/ })).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: /승인 대기/ })).toHaveTextContent('2')
   })
 
   it('승인·반려 탭은 그 상태 목록을 보이고 처리 버튼 없이 상태와 반려 사유를 보인다', async () => {
@@ -88,11 +100,14 @@ describe('AdminSellersPage 목록', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: '반려' }))
+    await user.click(await statusChip('반려'))
 
     expect(await screen.findByText('사유: 성명이 맞지 않아요.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '승인' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '반려' })).not.toBeInTheDocument()
+    // 선택한 상태는 탭이 아니라 누름 상태 버튼으로 알린다
+    expect(await statusChip('반려')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(outsideChips('승인')).toHaveLength(0)
+    expect(outsideChips('반려')).toHaveLength(0)
   })
 
   it('목록 조회가 403 MEMBER_NOT_ADMIN이면 관리자만 이용할 수 있다고 알린다', async () => {
@@ -125,7 +140,7 @@ describe('AdminSellersPage 승인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: '승인' }))
+    await user.click(await findActionButton('승인'))
 
     expect(await screen.findByText('이 상태의 신청이 없어요.')).toBeInTheDocument()
     expect(approvedId).toBe('1')
@@ -141,7 +156,7 @@ describe('AdminSellersPage 승인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: '승인' }))
+    await user.click(await findActionButton('승인'))
 
     expect(await screen.findByText(message)).toBeInTheDocument()
   })
@@ -158,7 +173,7 @@ describe('AdminSellersPage 승인', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: '승인' }))
+    await user.click(await findActionButton('승인'))
 
     expect(await screen.findByText('이 상태의 신청이 없어요.')).toBeInTheDocument()
   })
@@ -166,7 +181,7 @@ describe('AdminSellersPage 승인', () => {
 
 describe('AdminSellersPage 반려', () => {
   async function openRejectDialog(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(await screen.findByRole('button', { name: '반려' }))
+    await user.click(await findActionButton('반려'))
     return screen.findByRole('alertdialog')
   }
 
@@ -192,15 +207,33 @@ describe('AdminSellersPage 반려', () => {
     expect(body).toEqual({ reason: '번호를 확인할 수 없어요.' })
   })
 
+  it('창을 닫았다 다시 열어도 적던 사유와 글자 수가 그대로다', async () => {
+    useLists({ PENDING: [BUSINESS] })
+    const user = userEvent.setup()
+    renderPage()
+
+    let dialog = await openRejectDialog(user)
+    await user.type(within(dialog).getByLabelText(/반려 사유/), '서류 부족')
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
+    dialog = await openRejectDialog(user)
+
+    expect(within(dialog).getByLabelText(/반려 사유/)).toHaveValue('서류 부족')
+    expect(within(dialog).getByText('5/500')).toBeInTheDocument()
+  })
+
   it('다른 신청을 고르면 앞 신청에 적던 사유가 비워진다', async () => {
     useLists({ PENDING: [BUSINESS, INDIVIDUAL] })
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(await screen.findByLabelText('반려 사유'), 'A 신청 사유')
+    let dialog = await openRejectDialog(user)
+    await user.type(within(dialog).getByLabelText(/반려 사유/), 'A 신청 사유')
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
     await user.click(screen.getByText('이춘천', { selector: 'td *, td' }))
+    dialog = await openRejectDialog(user)
 
-    expect(screen.getByLabelText('반려 사유')).toHaveValue('')
+    expect(within(dialog).getByLabelText(/반려 사유/)).toHaveValue('')
+    expect(within(dialog).getByText('0/500')).toBeInTheDocument()
   })
 
   it('사유가 비어 있으면 보내지 않고 사유를 입력하라고 알린다', async () => {

@@ -3924,3 +3924,180 @@ export function useFindIdentityReview<TData = Awaited<ReturnType<typeof findIden
 
 
 
+export const getDemoLoginAvailabilityUrl = () => {
+
+
+
+
+  return `/api/v1/auth/demo-login`
+}
+
+/**
+ * 켜져 있으면 200, 꺼져 있으면 404다. 로그인 화면이 버튼을 보여 줄지 정한다.
+ * @summary 데모 로그인 켜짐 확인
+ */
+export const demoLoginAvailability = async ( options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getDemoLoginAvailabilityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDemoLoginAvailabilityQueryKey = () => {
+    return [
+    `/api/v1/auth/demo-login`
+    ] as const;
+    }
+
+
+export const getDemoLoginAvailabilityQueryOptions = <TData = Awaited<ReturnType<typeof demoLoginAvailability>>, TError = void>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof demoLoginAvailability>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDemoLoginAvailabilityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof demoLoginAvailability>>> = ({ signal }) => demoLoginAvailability({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof demoLoginAvailability>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type DemoLoginAvailabilityQueryResult = NonNullable<Awaited<ReturnType<typeof demoLoginAvailability>>>
+export type DemoLoginAvailabilityQueryError = void
+
+
+export function useDemoLoginAvailability<TData = Awaited<ReturnType<typeof demoLoginAvailability>>, TError = void>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof demoLoginAvailability>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof demoLoginAvailability>>,
+          TError,
+          Awaited<ReturnType<typeof demoLoginAvailability>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDemoLoginAvailability<TData = Awaited<ReturnType<typeof demoLoginAvailability>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof demoLoginAvailability>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof demoLoginAvailability>>,
+          TError,
+          Awaited<ReturnType<typeof demoLoginAvailability>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDemoLoginAvailability<TData = Awaited<ReturnType<typeof demoLoginAvailability>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof demoLoginAvailability>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 데모 로그인 켜짐 확인
+ */
+
+export function useDemoLoginAvailability<TData = Awaited<ReturnType<typeof demoLoginAvailability>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof demoLoginAvailability>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getDemoLoginAvailabilityQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDemoLoginUrl = () => {
+
+
+
+
+  return `/api/v1/auth/demo-login`
+}
+
+/**
+ * 서버 설정에 적힌 시연용 계정 하나로 비밀번호 없이 로그인한다. 응답과 쿠키는 이메일 로그인과 같다. 같은 IP는 1분에 10번까지 부를 수 있다.
+ * @summary 데모 로그인
+ */
+export const demoLogin = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataMemberLoginResponseDto> => {
+
+  return customFetch<RsDataMemberLoginResponseDto>(getDemoLoginUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDemoLoginMutationKey = () => ['demoLogin'] as const;
+
+export const getDemoLoginMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demoLogin>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof demoLogin>>, TError,void, TContext> => {
+
+const mutationKey = getDemoLoginMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof demoLogin>>, void> = () => {
+
+
+          return  demoLogin(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DemoLoginMutationResult = NonNullable<Awaited<ReturnType<typeof demoLogin>>>
+
+    export type DemoLoginMutationError = RsData
+
+
+    /**
+ * @summary 데모 로그인
+ */
+export const useDemoLogin = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demoLogin>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof demoLogin>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDemoLoginMutationOptions(options), queryClient);
+    }
+

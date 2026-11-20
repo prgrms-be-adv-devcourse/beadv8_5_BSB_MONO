@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import {
   COMMENT_MAX,
+  commentSchema,
   formatRelative,
   LoginSheet,
   useComments,
@@ -14,7 +15,7 @@ import {
 } from '@/entities/board'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Avatar, Badge, Dialog, FOCUS_RING, Icon, IconButton, useToast } from '@/shared/ui'
+import { Avatar, Badge, Button, Dialog, FOCUS_RING, Icon, IconButton, useToast } from '@/shared/ui'
 
 import { MenuSheet, MenuSheetAction } from './MenuSheet'
 
@@ -58,8 +59,9 @@ export function CommentSection({
   }
 
   const submit = () => {
-    const content = text.trim()
-    if (!content) return
+    const parsed = commentSchema.safeParse(text)
+    if (!parsed.success) return
+    const content = parsed.data
     const done = {
       onSuccess: reset,
       onError: (e: unknown) =>
@@ -81,16 +83,16 @@ export function CommentSection({
 
   return (
     <>
-      <section aria-label="댓글" className="flex flex-col gap-5 px-4 py-5">
+      <section aria-label="댓글" className="flex flex-col gap-3 px-4 pt-4 pb-6">
         <h2 className="text-body1-bold">댓글 {countComments(list)}</h2>
         {comments.isError && (
           <p role="alert" className="text-body2-regular text-text-secondary">
             댓글을 불러오지 못했어요
           </p>
         )}
-        <ul className="flex flex-col gap-5">
+        <ul className="flex flex-col gap-3">
           {list.map((comment) => (
-            <li key={comment.commentId} className="flex flex-col gap-5">
+            <li key={comment.commentId} className="flex flex-col gap-3">
               <CommentRow
                 comment={comment}
                 onReply={
@@ -104,7 +106,7 @@ export function CommentSection({
                 onMenu={() => setMenu(comment)}
               />
               {comment.replies.map((reply) => (
-                <div key={reply.commentId} className="ml-11">
+                <div key={reply.commentId} className="ml-12">
                   <CommentRow comment={reply} onMenu={() => setMenu(reply)} />
                 </div>
               ))}
@@ -115,20 +117,18 @@ export function CommentSection({
 
       <div className="sticky bottom-0 z-10 mt-auto border-t border-border-default bg-bg-surface px-4 py-3">
         {locked ? (
-          <p className="flex h-11 items-center rounded-full bg-bg-subtle px-4 text-body2-regular text-text-disabled">
+          <p className="flex h-10 items-center rounded-md bg-bg-surface px-4 text-caption-regular text-text-secondary shadow-field">
             댓글을 달 수 없는 글이에요
           </p>
         ) : !authenticated ? (
-          <button
-            type="button"
-            className={cn(
-              'h-11 w-full rounded-full bg-bg-subtle text-body2-medium text-text-brand',
-              FOCUS_RING,
-            )}
+          <Button
+            variant="ghost"
+            size="l"
+            className="w-full text-text-brand"
             onClick={() => setLoginOpen(true)}
           >
             로그인하고 댓글 남기기
-          </button>
+          </Button>
         ) : (
           <form
             className="flex items-center gap-3"
@@ -143,7 +143,7 @@ export function CommentSection({
               value={text}
               maxLength={COMMENT_MAX}
               onChange={(e) => setText(e.target.value)}
-              className="h-11 min-w-0 flex-1 rounded-full bg-bg-subtle px-4 text-body2-regular outline-none placeholder:text-text-disabled focus-visible:inset-ring-2 focus-visible:inset-ring-border-brand"
+              className="h-10 min-w-0 flex-1 rounded-md bg-bg-surface px-4 text-caption-regular shadow-field outline-none placeholder:text-text-secondary focus-visible:inset-ring-2 focus-visible:inset-ring-border-brand"
             />
             {mode.kind !== 'new' && (
               <IconButton type="button" size="s" aria-label="취소" onClick={reset}>
@@ -154,7 +154,7 @@ export function CommentSection({
               type="submit"
               disabled={!text.trim() || create.isPending || update.isPending}
               className={cn(
-                'rounded-sm px-1 text-body2-medium text-text-secondary enabled:text-text-brand disabled:text-text-disabled',
+                'min-h-6 min-w-6 rounded-sm text-caption-medium text-text-secondary enabled:text-text-brand',
                 FOCUS_RING,
               )}
             >
@@ -218,22 +218,24 @@ function CommentRow({
   onMenu: () => void
 }) {
   if (comment.status === 'DELETED') {
-    return <p className="text-body2-regular text-text-tertiary">삭제된 댓글이에요</p>
+    return <p className="pt-1 text-caption-regular text-text-secondary">삭제된 댓글이에요</p>
   }
   const writer = comment.writer
   const gone = writer?.withdrawn ?? false
   return (
     <div className="flex gap-3">
-      <Avatar size="s" name={gone ? undefined : writer?.nickname} className="mt-0.5" />
+      <Avatar size="s" name={gone ? undefined : writer?.nickname} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className={cn('text-body2-bold', gone && 'text-text-tertiary')}>
+          <span
+            className={cn(gone ? 'text-caption-medium text-text-secondary' : 'text-body1-bold')}
+          >
             {writer?.nickname}
           </span>
           {writer?.seller && <Badge>판매자</Badge>}
         </div>
-        <p className="text-body2-regular break-words whitespace-pre-wrap">{comment.content}</p>
-        <div className="flex items-center gap-3 text-caption-regular text-text-tertiary">
+        <p className="text-body1-regular break-words whitespace-pre-wrap">{comment.content}</p>
+        <div className="flex items-center gap-3 text-caption-regular text-text-secondary">
           <span>
             {formatRelative(comment.createdAt)}
             {comment.edited && ' · 수정됨'}
@@ -241,8 +243,8 @@ function CommentRow({
           {onReply && (
             <button
               type="button"
-              className={cn('rounded-sm text-caption-medium', FOCUS_RING)}
               onClick={onReply}
+              className={cn('min-h-6 min-w-6 rounded-sm text-caption-medium', FOCUS_RING)}
             >
               답글 달기
             </button>

@@ -14,6 +14,14 @@ export function myRacesQueryOptions() {
   })
 }
 
+/** 관리자 대회 관리: 모든 판매자의 대회 (취소 포함) */
+export function adminRacesQueryOptions() {
+  return queryOptions({
+    queryKey: productApi.getFindAdminRacesQueryKey(),
+    queryFn: async () => unwrapData(await productApi.findAdminRaces()),
+  })
+}
+
 export type RaceForEdit = {
   race: productModel.RaceDetailDto
   /** 지금 상태 그대로의 수정 요청. 바꿀 값만 덮어써 PUT 한다 */

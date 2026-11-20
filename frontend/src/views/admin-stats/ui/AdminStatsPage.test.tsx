@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { server } from '@/shared/testing'
+import { pickDate, server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
 
@@ -210,13 +210,10 @@ describe('AdminStatsPage', () => {
     const seller = await screen.findByRole('region', { name: '판매자 단계' })
     const alert = await within(seller).findByRole('alert', {}, SLOW)
     expect(alert).toHaveTextContent('판매자 단계를 불러오지 못했어요')
-    expect(alert).toHaveTextContent('잠시 뒤 다시 시도해 주세요. 다른 영역은 그대로 볼 수 있어요.')
-    // 빈 상태 그림은 회색 아이콘이다(피그마 v2/EmptyState)
-    expect(alert.parentElement?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
 
     fail = false
     requests.length = 0
-    await user.click(within(seller).getByRole('button', { name: '다시 시도' }))
+    await user.click(within(seller).getByRole('button', { name: '다시 시도하기' }))
 
     expect(await within(seller).findByText('48명')).toBeInTheDocument()
     expect(requests.every((r) => r.startsWith('section=seller'))).toBe(true)
@@ -227,7 +224,7 @@ describe('AdminStatsPage', () => {
     renderPage()
 
     expect(await screen.findByText('GA4 연결 정보가 없어요')).toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: '지난 7일' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '지난 7일' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '구매 단계' })).not.toBeInTheDocument()
   })
 
@@ -317,7 +314,7 @@ describe('AdminStatsPage', () => {
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
-    await user.click(screen.getByRole('tab', { name: '지난 30일' }))
+    await user.click(screen.getByRole('button', { name: '지난 30일' }))
 
     await waitFor(() =>
       expect(requests).toEqual(
@@ -329,5 +326,57 @@ describe('AdminStatsPage', () => {
         ]),
       ),
     )
+  })
+
+  it('직접 고르기는 시작이 끝보다 늦으면 적용할 수 없다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
+    await pickDate(user, '시작 날짜', '2026-10-30')
+    await pickDate(user, '끝 날짜', '2026-10-20')
+    expect(screen.getByRole('button', { name: '적용' })).toBeDisabled()
+
+    await pickDate(user, '끝 날짜', '2026-11-01')
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled()
+  })
+
+  it('직접 고른 기간은 YYYY-MM-DD로 적용해 그 기간으로 다시 묻는다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
+    await pickDate(user, '시작 날짜', '2026-10-05')
+    await pickDate(user, '끝 날짜', '2026-10-12')
+    await user.click(screen.getByRole('button', { name: '적용' }))
+
+    await waitFor(() =>
+      expect(requests).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/period=custom&start=2026-10-05&end=2026-10-12/),
+        ]),
+      ),
+    )
+  })
+  it('끝 날짜는 오늘까지 고를 수 있고 내일부터는 고를 수 없다', async () => {
+    mockStats()
+    const user = userEvent.setup()
+    renderPage()
+    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
+
+    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
+    await user.click(screen.getByRole('button', { name: /^끝 날짜/ }))
+    const popup = await screen.findByRole('dialog', { name: '끝 날짜 고르기' })
+    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+    await user.click(within(popup).getByRole('option', { name: '2026년' }))
+    await user.click(within(popup).getByRole('option', { name: '11월' }))
+    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+
+    expect(within(popup).getByRole('button', { name: /2026년 11월 2일/ })).toBeEnabled()
+    expect(within(popup).getByRole('button', { name: /2026년 11월 3일/ })).toBeDisabled()
   })
 })

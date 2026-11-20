@@ -11,12 +11,14 @@ import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.web.client.RestClient;
 
 class MemberClientConfigTest {
 	// 실제 앱처럼 "2s" 같은 기간 값을 Duration으로 바꾸는 Spring Boot 변환기를 쓴다
 	private final ApplicationContextRunner runner = new ApplicationContextRunner()
 		.withInitializer(context -> context.getBeanFactory()
 			.setConversionService(ApplicationConversionService.getSharedInstance()))
+		.withBean(RestClient.Builder.class, RestClient::builder)
 		.withUserConfiguration(MemberClientConfig.class, FakeMemberAdminAdapter.class)
 		.withPropertyValues("cash.clients.member.timeout=2s", "cash.clients.member.base-url=http://localhost:8080");
 

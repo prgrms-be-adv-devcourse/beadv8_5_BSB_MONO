@@ -14,7 +14,9 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class FileUploadRequestDto {
-	@Schema(description = "파일 용도. 용도마다 받을 수 있는 파일 종류와 크기가 정해져 있다", example = "THUMBNAIL")
+	@Schema(description = "파일 용도. 용도마다 받을 수 있는 파일 종류와 크기가 정해져 있다. "
+		+ "이미지는 가로·세로 4000px 이하, 대회 소개 이미지(DETAIL)는 가로 1080px 이상이어야 하고 업로드 완료 때 확인한다",
+		example = "THUMBNAIL")
 	@NotNull(message = "파일 용도를 작성해주세요.")
 	private final FileType fileType;
 

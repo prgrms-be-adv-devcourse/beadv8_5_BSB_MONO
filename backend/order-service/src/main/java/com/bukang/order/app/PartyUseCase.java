@@ -16,6 +16,7 @@ import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.common.global.eventpublisher.EventPublisher;
@@ -133,7 +134,7 @@ public class PartyUseCase {
 		long partyId = target.partyId();
 		RaceCourseInfo course = findOpenCourse(target.raceCourseId(), now);
 		LocalDateTime crewJoinedAt = checkCrewMember(target.crewId(), memberId);
-		return transactionTemplate.execute(status -> {
+		return readCommitted().execute(status -> {
 			Party party = lockParty(partyId);
 			// 확인하는 사이 파티장이 링크를 다시 만들었으면 옛 링크다
 			if (!party.getJoinToken().equals(joinToken)) {
@@ -269,6 +270,15 @@ public class PartyUseCase {
 		return raceCoursePort.findCourse(raceCourseId).filter(course -> course.isBeforeClose(now)).isPresent();
 	}
 
+	// 합류는 파티 줄 잠금으로 한 줄로 세우므로 갭 잠금이 필요 없다 (CRU-74)
+	// REPEATABLE READ면 파티원 잠금 조회가 이웃 파티와 맞닿은 색인 틈까지 잠가, 이웃 파티 두 곳에 동시에 합류하면
+	// 서로 상대가 잠근 틈에 파티원 줄을 넣으려다 교착이 난다. READ COMMITTED는 찾은 줄만 잠근다
+	private TransactionTemplate readCommitted() {
+		TransactionTemplate template = new TransactionTemplate(transactionTemplate.getTransactionManager());
+		template.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+		return template;
+	}
+
 	private static PartyNotFoundException joinLinkNotFound() {
 		return new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요.");
 	}
@@ -369,8 +379,8 @@ public class PartyUseCase {
 		throw PartyConflictException.otherPartyJoined(participation.getPartyId());
 	}
 
-	// 같은 사람이 합류를 두 번 빠르게 누르면, 뒤 요청은 잠금을 얻은 뒤에도 트랜잭션 처음 읽기 기준이라(MySQL REPEATABLE READ)
-	// 앞 요청이 만든 파티원 줄을 못 본다. 유니크 제약(uk_party_member)이 막은 것을 「이미 합류」로 바꾼다
+	// 같은 사람이 합류를 두 번 빠르게 누르면 보통 파티 잠금 뒤 읽기에서 409가 난다. 그래도 놓친 경우에 대비해
+	// 유니크 제약(uk_party_member)이 막은 것을 「이미 합류」로 바꾼다
 	private void saveMember(long partyId, long memberId, long crewId, LocalDateTime crewJoinedAt, LocalDateTime now) {
 		try {
 			partyMemberRepository.saveAndFlush(PartyMember.join(partyId, memberId, crewId, crewJoinedAt, now));

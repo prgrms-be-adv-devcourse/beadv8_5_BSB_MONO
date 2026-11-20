@@ -7,12 +7,12 @@ import { Icon, type IconName } from '../icon/icons'
 
 export type AlertTone = 'info' | 'success' | 'warning' | 'danger'
 
-// 피그마 v2/Alert. 톤마다 바탕색과 앞쪽 아이콘(모양·색)이 바뀐다.
-const TONE: Record<AlertTone, { icon: IconName; iconColor: string; bg: string }> = {
-  info: { icon: 'Info', iconColor: 'text-text-tertiary', bg: 'bg-bg-muted' },
-  success: { icon: 'CircleCheck', iconColor: 'text-text-success', bg: 'bg-bg-success-subtle' },
-  warning: { icon: 'TriangleAlert', iconColor: 'text-text-warning', bg: 'bg-bg-warning-subtle' },
-  danger: { icon: 'CircleAlert', iconColor: 'text-text-danger', bg: 'bg-bg-danger-subtle' },
+// v4 시안(2070:38728·37360·38427): 모든 톤이 흰 바탕 + 1px 테두리. 톤은 앞쪽 아이콘(모양·색)으로만 구분한다.
+const TONE: Record<AlertTone, { icon: IconName; iconColor: string }> = {
+  info: { icon: 'Info', iconColor: 'text-text-tertiary' },
+  success: { icon: 'CircleCheck', iconColor: 'text-text-success' },
+  warning: { icon: 'TriangleAlert', iconColor: 'text-text-warning' },
+  danger: { icon: 'CircleAlert', iconColor: 'text-text-danger' },
 }
 
 export type AlertProps = {
@@ -26,18 +26,21 @@ export type AlertProps = {
   className?: string
 }
 
-// 화면 안에 머무는 공지. 톤 바탕 + 앞쪽 아이콘 + 굵은 제목 + 설명.
+// 화면 안에 머무는 공지. 흰 바탕 + 테두리 + 앞쪽 아이콘 + 굵은 제목 + 설명.
 export function Alert({ tone = 'info', title, description, onClose, className }: AlertProps) {
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={cn('flex w-full items-start gap-3 rounded-md p-4', TONE[tone].bg, className)}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-md border border-border-default bg-bg-surface p-4',
+        className,
+      )}
     >
       <Icon name={TONE[tone].icon} className={cn('size-5', TONE[tone].iconColor)} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-body2-bold text-text-primary">{title}</p>
+        <p className="text-body1-bold text-text-primary">{title}</p>
         {description && (
-          <p className="line-clamp-2 text-body2-regular text-text-secondary">{description}</p>
+          <p className="line-clamp-2 text-body1-regular text-text-secondary">{description}</p>
         )}
       </div>
       {onClose && (

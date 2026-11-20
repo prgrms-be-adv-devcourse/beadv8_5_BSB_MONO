@@ -91,6 +91,11 @@ public class BoardMember extends BaseEntity {
 		return modifyDate != null;
 	}
 
+	// 저장된 프로필이 받은 메시지의 수정 시각보다 새 것이면 true. 프로필을 아직 못 받았으면(판매자 이벤트가 먼저 만든 행) false
+	public boolean isNewerThan(LocalDateTime modifyDate) {
+		return isProfileSynced() && modifyDate.isBefore(this.modifyDate);
+	}
+
 	// 탈퇴는 되돌아가지 않으므로 수정 시각과 상관없이 표시한다
 	public void withdraw(LocalDateTime withdrawnAt) {
 		this.withdrawn = true;

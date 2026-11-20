@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 
 import {
+  answerSchema,
   inquiryErrorMessage,
   slashDate,
   slashDateTime,
@@ -20,16 +21,7 @@ import {
   type ManageRole,
 } from '@/entities/inquiry'
 import { cn, useSearchParamsState } from '@/shared/lib'
-import {
-  Badge,
-  Button,
-  Chip,
-  EmptyState,
-  FOCUS_RING,
-  KeyValue,
-  Skeleton,
-  useToast,
-} from '@/shared/ui'
+import { Button, Chip, EmptyState, FOCUS_RING, KeyValue, Skeleton, useToast } from '@/shared/ui'
 
 type Filter = 'WAITING' | 'ANSWERED' | 'SELLER' | 'SENT'
 
@@ -138,7 +130,7 @@ export function InquiryBoard({
       <div className="flex items-start gap-6">
         <section
           aria-label="문의 목록"
-          className="w-90 shrink-0 rounded-xl bg-bg-surface p-2 inset-ring inset-ring-border-default"
+          className="w-90 shrink-0 rounded-md bg-bg-surface p-2 inset-ring inset-ring-border-default"
         >
           {items === undefined ? (
             <div role="status" aria-label="불러오는 중" className="flex flex-col gap-2">
@@ -147,7 +139,16 @@ export function InquiryBoard({
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title={sent ? '보낸 문의가 없어요' : '문의가 없어요'} />
+            <EmptyState
+              icon={null}
+              title={
+                sent
+                  ? '보낸 문의가 없어요'
+                  : filter === 'WAITING'
+                    ? '답변을 기다리는 문의가 없어요'
+                    : '문의가 없어요'
+              }
+            />
           ) : (
             <ul className="flex flex-col">
               {items.map((inquiry) => (
@@ -164,22 +165,22 @@ export function InquiryBoard({
                     }}
                     className={cn(
                       'flex w-full flex-col items-start gap-1 rounded-lg p-3 text-left',
-                      inquiry.id === selectedId && 'bg-bg-brand-subtle',
+                      inquiry.id === selectedId && 'inset-ring-2 inset-ring-text-primary',
                       FOCUS_RING,
                     )}
                   >
                     <span className="flex w-full items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-body2-bold">
+                      <span className="min-w-0 flex-1 truncate text-caption-regular text-text-tertiary">
                         <Who inquiry={inquiry} />
                       </span>
                       <span className="shrink-0 text-caption-regular text-text-tertiary">
                         {slashDate(inquiry.createDate)}
                       </span>
                     </span>
-                    <span className="w-full truncate text-body2-regular text-text-secondary">
-                      {inquiry.title}
+                    <span className="w-full truncate text-body1-medium">{inquiry.title}</span>
+                    <span className="text-caption-regular text-text-tertiary">
+                      {TYPE_LABEL[inquiry.type]}
                     </span>
-                    <Badge>{TYPE_LABEL[inquiry.type]}</Badge>
                   </button>
                 </li>
               ))}
@@ -254,21 +255,23 @@ function Detail({
   const answerable = !sent && (role === 'seller' || data.assignee === 'ADMIN')
   const badge =
     data.status === 'ANSWERED'
-      ? { label: '답변 완료', tone: 'success' as const }
-      : {
-          label: role === 'admin' && !answerable ? '판매자 답변 대기' : '답변 대기',
-          tone: 'warning' as const,
-        }
+      ? { label: '답변 완료' }
+      : { label: role === 'admin' && !answerable ? '판매자 답변 대기' : '답변 대기' }
 
   return (
-    <article className="flex flex-col gap-6 rounded-xl bg-bg-surface p-6 inset-ring inset-ring-border-default">
+    <article className="flex flex-col gap-6 rounded-md bg-bg-surface p-6 inset-ring inset-ring-border-default">
       <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="min-w-0 flex-1 text-title3">{data.title}</h2>
-          <Badge tone={badge.tone}>{badge.label}</Badge>
-        </div>
+        <span
+          className={cn(
+            'text-caption-regular',
+            data.status === 'ANSWERED' ? 'text-text-success' : 'text-text-tertiary',
+          )}
+        >
+          {badge.label}
+        </span>
+        <h2 className="text-title3">{data.title}</h2>
         <p className="text-caption-regular text-text-tertiary">{meta}</p>
-        <p className="pt-2 text-body2-regular whitespace-pre-wrap">{data.body}</p>
+        <p className="pt-4 text-body1-regular whitespace-pre-wrap">{data.body}</p>
       </header>
       {data.order && <OrderInfo order={data.order} />}
       {data.status === 'ANSWERED' ? (
@@ -281,7 +284,7 @@ function Detail({
               </span>
             )}
           </div>
-          <p className="text-body2-regular whitespace-pre-wrap">{data.answer}</p>
+          <p className="text-body1-regular whitespace-pre-wrap">{data.answer}</p>
         </section>
       ) : (
         answerable && (
@@ -296,8 +299,8 @@ function OrderInfo({ order }: { order: InquiryOrder }) {
   const item = order.items[0]
   const canceled = order.status === 'CANCELED'
   return (
-    <section className="flex flex-col gap-2 rounded-lg p-4 inset-ring inset-ring-border-default">
-      <h3 className="text-body2-bold">주문 정보</h3>
+    <section className="flex flex-col gap-4 rounded-md p-4 shadow-sm inset-ring inset-ring-border-default">
+      <h3 className="sr-only">주문 정보</h3>
       <KeyValue label="주문번호" value={order.orderNo} />
       {item && <KeyValue label="대회 · 코스" value={`${item.raceName} · ${item.courseName}`} />}
       {item && <KeyValue label="키트" value={item.kitSummary ?? '고르지 않음'} />}
@@ -318,7 +321,7 @@ function OrderInfo({ order }: { order: InquiryOrder }) {
         label="주문 상태"
         value={
           canceled ? (
-            <Badge tone="danger">{ORDER_STATUS[order.status]}</Badge>
+            <span className="text-text-danger">{ORDER_STATUS[order.status]}</span>
           ) : (
             (ORDER_STATUS[order.status] ?? order.status)
           )
@@ -342,14 +345,17 @@ function AnswerSender({
   const toast = useToast()
   const answer = useAnswerInquiry(role, id)
 
-  const send = (text: string) =>
-    answer.mutate(text.trim(), {
+  const send = (text: string) => {
+    const parsed = answerSchema.safeParse(text)
+    if (!parsed.success) return
+    answer.mutate(parsed.data, {
       onSuccess: () => {
         toast({ message: '답변을 보냈어요. 답변 완료 목록으로 옮겼어요.' })
         onSent()
       },
       onError: (error) => toast({ message: inquiryErrorMessage(error), tone: 'error' }),
     })
+  }
 
   return <>{renderAnswer({ inquiryId: id, onSend: send, sending: answer.isPending })}</>
 }

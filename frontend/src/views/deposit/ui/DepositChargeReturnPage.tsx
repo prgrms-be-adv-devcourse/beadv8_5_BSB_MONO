@@ -7,6 +7,7 @@ import { useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
 import {
+  saveChargeNotice,
   useConfirmChargeReturn,
   type ChargeOutcome,
   type ChargeReturn,
@@ -28,7 +29,28 @@ function nextHref(outcome: ChargeOutcome, returnOrderId: number | undefined): Ro
   return checkout as Route
 }
 
-/** 이 화면에서 바로 보여 주는 결과. 승인 거절은 서버가 알려 준 사유가 있을 때만 여기서 보여 준다 */
+// 예치금에서 시작한 충전은 결과를 충전 화면(M21)에 넘기고, 결제창이 쌓은 기록만큼 거슬러 충전 화면으로 돌아간다.
+// 새 화면을 쌓지 않아야 뒤로 가기가 결제창이나 같은 충전 화면으로 다시 들어가지 않는다.
+// 충전 화면은 실패면 모달로 알리고, 충전됐으면 한 번 더 뒤로 가 충전 전 화면(보통 예치금)을 보여 준다.
+function backToCharge(
+  replace: (href: Route) => void,
+  outcome: ChargeOutcome,
+  message?: string,
+  backSteps?: number,
+) {
+  if (outcome === 'failed') saveChargeNotice({ kind: 'failed', message })
+  if (backSteps !== undefined) {
+    if (outcome === 'completed') saveChargeNotice({ kind: 'completed' })
+    return window.history.go(-backSteps)
+  }
+  // 거슬러 갈 기록 수를 모르면 예전처럼 옮긴다
+  replace(nextHref(outcome, undefined))
+}
+
+/**
+ * 이 화면에서 바로 보여 주는 결과. 거절은 결제 중 충전이고 서버가 사유를 알려 줬을 때만 여기서 보여 준다
+ * (예치금에서 시작한 충전의 거절은 충전 화면이 모달로 보여 준다)
+ */
 type ShownResult =
   | { kind: 'rejected'; message: string; returnOrderId?: number }
   | { kind: 'uncertain'; returnOrderId?: number }
@@ -37,19 +59,27 @@ type ShownResult =
 export function DepositChargeReturnPage(params: ChargeReturn) {
   const router = useRouter()
   const [shown, setShown] = useState<ShownResult | null>(null)
-  useConfirmChargeReturn(params, ({ outcome, returnOrderId, message }) => {
-    if (outcome === 'uncertain') return setShown({ kind: 'uncertain', returnOrderId })
-    if (outcome === 'failed' && message) {
-      return setShown({ kind: 'rejected', message, returnOrderId })
-    }
-    if (outcome === 'completed') {
-      trackEvent('deposit_charge_done', {
-        amount: params.amount ?? 0,
-        duringCheckout: returnOrderId !== undefined,
-      })
-    }
-    router.replace(nextHref(outcome, returnOrderId))
-  })
+  useConfirmChargeReturn(
+    params,
+    ({ outcome, returnOrderId, message, backSteps, unknownCharge }) => {
+      if (outcome === 'uncertain') return setShown({ kind: 'uncertain', returnOrderId })
+      if (outcome === 'completed') {
+        trackEvent('deposit_charge_done', {
+          amount: params.amount ?? 0,
+          duringCheckout: returnOrderId !== undefined,
+        })
+      }
+      // 이미 끝난 충전일 수 있어(앞으로 가기로 다시 연 경우 등) 결과를 알리지 않고 충전 화면으로만 간다
+      if (unknownCharge) return router.replace('/me/deposit/charge')
+      if (returnOrderId === undefined)
+        return backToCharge(router.replace, outcome, message, backSteps)
+      if (outcome === 'failed' && message) {
+        return setShown({ kind: 'rejected', message, returnOrderId })
+      }
+      router.replace(nextHref(outcome, returnOrderId))
+    },
+  )
+
   if (shown) return <ChargeResult result={shown} />
   return (
     <>
@@ -70,16 +100,15 @@ function ChargeResult({ result }: { result: ShownResult }) {
           label: '결제 화면으로 돌아가기',
           href: `/checkout?orderId=${result.returnOrderId}` as Route,
         }
-      : result.kind === 'uncertain'
-        ? { label: '예치금 보기', href: '/me/deposit' as Route }
-        : { label: '다시 충전하기', href: '/me/deposit/charge' as Route }
+      : { label: '예치금 보기', href: '/me/deposit' as Route }
   // 확인 중일 때 응답의 잔액은 이 충전이 들어가기 전 값이라 보여 주지 않는다
   return (
     <>
       <AppHeader type="sub" title="예치금 충전" />
-      <main className="flex flex-1 items-center justify-center px-4 py-6">
+      <main className="flex flex-1 flex-col px-4 pt-(--layout-content-start) pb-6">
         {result.kind === 'uncertain' ? (
           <EmptyState
+            icon={null}
             title="충전 결과를 확인하고 있어요"
             description={
               <>
@@ -91,6 +120,7 @@ function ChargeResult({ result }: { result: ShownResult }) {
           />
         ) : (
           <EmptyState
+            icon={null}
             title="충전하지 못했어요"
             description={
               <>

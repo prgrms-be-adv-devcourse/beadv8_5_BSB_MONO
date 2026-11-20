@@ -59,6 +59,9 @@ export const MemberJoinRequestDtoAgreedTermsItem = {
   SERVICE: 'SERVICE',
   PRIVACY: 'PRIVACY',
   MARKETING: 'MARKETING',
+  AGE_OVER_14: 'AGE_OVER_14',
+  NIGHT_MARKETING: 'NIGHT_MARKETING',
+  SELLER: 'SELLER',
 } as const;
 
 /**
@@ -87,7 +90,7 @@ export interface MemberJoinRequestDto {
      * @nullable
      */
   gender?: MemberJoinRequestDtoGender;
-  /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
+  /** 동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다 */
   agreedTerms: MemberJoinRequestDtoAgreedTermsItem[];
   /**
      * 본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다
@@ -155,6 +158,8 @@ export interface SellerApplyRequestDto {
   accountNumber: string;
   /** 계좌 명의 (BUSINESS: 사업자 명의, 사업자만 / PERSONAL: 본인 명의) */
   accountHolderType: SellerApplyRequestDtoAccountHolderType;
+  /** 판매자 약관에 동의했으면 true (필수, false면 400) */
+  sellerTermsAgreed: boolean;
 }
 
 /**
@@ -188,6 +193,9 @@ export const SocialJoinRequestDtoAgreedTermsItem = {
   SERVICE: 'SERVICE',
   PRIVACY: 'PRIVACY',
   MARKETING: 'MARKETING',
+  AGE_OVER_14: 'AGE_OVER_14',
+  NIGHT_MARKETING: 'NIGHT_MARKETING',
+  SELLER: 'SELLER',
 } as const;
 
 /**
@@ -210,7 +218,7 @@ export interface SocialJoinRequestDto {
      * @nullable
      */
   gender?: SocialJoinRequestDtoGender;
-  /** 동의한 약관 종류 (SERVICE, PRIVACY는 필수). 동의하지 않은 선택 약관은 빼고 보낸다 */
+  /** 동의한 약관 종류 (SERVICE, PRIVACY, AGE_OVER_14는 필수). 동의하지 않은 선택 약관(MARKETING, NIGHT_MARKETING)은 빼고 보낸다 */
   agreedTerms: SocialJoinRequestDtoAgreedTermsItem[];
   /**
      * 본인인증 결과의 인증 토큰. 이름 · 생년월일 · 휴대폰 번호는 이 인증으로 확인한 값으로 가입한다

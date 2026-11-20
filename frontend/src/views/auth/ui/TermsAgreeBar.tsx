@@ -21,6 +21,7 @@ function AgreeButton({ slug }: { slug: TermsSlug }) {
   const setTerm = useSignupStep((s) => s.setTerm)
   return (
     <BottomCta
+      bordered={false}
       className="sticky bottom-0 z-10"
       primary={
         <Button

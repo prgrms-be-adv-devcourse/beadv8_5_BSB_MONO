@@ -40,7 +40,6 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
-import com.bukang.order.out.QueueAdmissionRepository;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -72,9 +71,6 @@ class ApiV1OrderPaymentTest {
 	private ParticipationRepository participationRepository;
 
 	@Autowired
-	private QueueAdmissionRepository queueAdmissionRepository;
-
-	@Autowired
 	private StubRaceCoursePort raceCoursePort;
 
 	@Autowired
@@ -101,7 +97,6 @@ class ApiV1OrderPaymentTest {
 	void tearDown() {
 		orderRepository.deleteAll();
 		participationRepository.deleteAll();
-		queueAdmissionRepository.deleteAll();
 		raceCoursePort.clear();
 		seatHoldPort.clear();
 		walletPort.clear();
@@ -274,7 +269,7 @@ class ApiV1OrderPaymentTest {
 			assertThat(statuses).containsExactly(200, 200);
 			Participation participation = participationOf(orderId);
 			assertThat(participation.getStatus()).isEqualTo(ParticipationStatus.CONFIRMED);
-			assertThat(participation.getParticipant().getName()).isEqualTo("박러너");
+			assertThat(participation.getParticipant().getEmergencyContactName()).isEqualTo("박러너");
 		}
 	}
 
@@ -323,7 +318,7 @@ class ApiV1OrderPaymentTest {
 
 		changeParticipant(MEMBER_ID, participationId, "박러너", "M")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.participant.name").value("박러너"))
+			.andExpect(jsonPath("$.data.participant.emergencyContactName").value("박러너"))
 			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
 
 		// 판매자가 사이즈 목록에서 M을 빼도 결제한 사이즈는 남고 다른 정보는 고쳐진다
@@ -334,7 +329,7 @@ class ApiV1OrderPaymentTest {
 			List.of("S", "L")));
 		changeParticipant(MEMBER_ID, participationId, "최러너", "M")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.participant.name").value("최러너"))
+			.andExpect(jsonPath("$.data.participant.emergencyContactName").value("최러너"))
 			.andExpect(jsonPath("$.data.participant.tshirtSize").value("M"));
 	}
 
@@ -352,8 +347,8 @@ class ApiV1OrderPaymentTest {
 			.header("X-Member-Id", memberId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{ "name": "%s", "birth": "1994-06-25", "gender": "MALE", "phone": "010-1234-5678",
-					"emergencyContactName": "김가족", "emergencyContactPhone": "010-9876-5432", "tshirtSize": "%s",
+				{ "gender": "MALE", "emergencyContactName": "%s", "emergencyContactPhone": "010-9876-5432",
+					"tshirtSize": "%s",
 						"shippingAddress": { "recipientName": "김러너", "recipientPhone": "010-1234-5678",
 							"zipcode": "04700", "address": "서울 성동구 왕십리로 00", "addressDetail": "101동 1001호" } }
 				""".formatted(name, tshirtSize)));

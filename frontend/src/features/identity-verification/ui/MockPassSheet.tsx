@@ -1,10 +1,11 @@
 'use client'
 
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { BirthDateField } from '@/entities/member'
 import { type memberModel } from '@/shared/api'
-import { memberZod } from '@/shared/api-zod'
 import {
   Alert,
   Badge,
@@ -23,6 +24,7 @@ import {
   verifyWithMockPass,
   type VerifiedIdentity,
 } from '../api/identity-verification'
+import { mockPassFormSchema, type MockPassFormValues } from '../model/mock-pass-form'
 
 type Carrier = memberModel.PassVerificationRequestDtoCarrier
 type Method = 'app' | 'sms'
@@ -51,18 +53,23 @@ export type MockPassSheetProps = {
  * 진행 중에 닫으려 하면 그만둘지 묻는다. 그만둬도 가입 화면의 입력값은 그대로다.
  */
 export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetProps) {
-  const [carrier, setCarrier] = useState<Carrier>('SKT')
+  const {
+    control,
+    register,
+    handleSubmit,
+    formState: { isValid, isSubmitting },
+  } = useForm<MockPassFormValues>({
+    resolver: zodResolver(mockPassFormSchema),
+    mode: 'onChange',
+    defaultValues: { carrier: 'SKT', name: '', birthDate: '', phone: '' },
+  })
+  const carrier = useWatch({ control, name: 'carrier' })
   const [method, setMethod] = useState<Method>('app')
-  const [name, setName] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [phone, setPhone] = useState('')
   const [step, setStep] = useState<'form' | 'progress'>('form')
   const [pending, setPending] = useState(false)
   const [failed, setFailed] = useState(false)
   const [confirmQuit, setConfirmQuit] = useState(false)
 
-  const body = { carrier, name: name.trim(), birthDate, phone: phone.trim() }
-  const valid = memberZod.VerifyIdentityWithMockPassBody.safeParse(body).success
   const carrierLabel = CARRIERS.find((item) => item.id === carrier)?.label
 
   const close = () => {
@@ -74,7 +81,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
     if (step === 'progress') return setConfirmQuit(true)
     close()
   }
-  const finish = async () => {
+  const finish = handleSubmit(async (body) => {
     setPending(true)
     const outcome = await verifyWithMockPass(body)
     setPending(false)
@@ -85,7 +92,7 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
     }
     setStep('form')
     setFailed(true)
-  }
+  })
 
   return (
     <>
@@ -104,15 +111,21 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
             <>
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 text-body2-bold text-text-primary">통신사</legend>
-                <RadioGroup
-                  value={carrier}
-                  onValueChange={(value) => setCarrier(value as Carrier)}
-                  className="grid grid-cols-2 gap-3"
-                >
-                  {CARRIERS.map((item) => (
-                    <Radio key={item.id} value={item.id} label={item.label} />
-                  ))}
-                </RadioGroup>
+                <Controller
+                  control={control}
+                  name="carrier"
+                  render={({ field }) => (
+                    <RadioGroup
+                      value={field.value}
+                      onValueChange={(value) => field.onChange(value as Carrier)}
+                      className="grid grid-cols-2 gap-3"
+                    >
+                      {CARRIERS.map((item) => (
+                        <Radio key={item.id} value={item.id} label={item.label} />
+                      ))}
+                    </RadioGroup>
+                  )}
+                />
               </fieldset>
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 text-body2-bold text-text-primary">인증 방법</legend>
@@ -121,35 +134,26 @@ export function MockPassSheet({ open, onOpenChange, onVerified }: MockPassSheetP
                   <Radio value="sms" label="문자로 인증" />
                 </RadioGroup>
               </fieldset>
-              <TextField
-                label="이름"
-                autoComplete="name"
-                value={name}
-                onChange={(event) => setName(event.currentTarget.value)}
-              />
-              <BirthDateField
-                label="생년월일"
-                name="mockPassBirthDate"
-                onChange={(event) => setBirthDate(event.target.value)}
-              />
+              <TextField label="이름" autoComplete="name" {...register('name')} />
+              <BirthDateField label="생년월일" {...register('birthDate')} />
               <PhoneField
                 label="휴대폰 번호"
                 placeholder="010-1234-5678"
                 helper={`${carrierLabel}로 개통한 번호를 적어 주세요`}
-                value={phone}
-                onChange={(event) => setPhone(event.currentTarget.value)}
+                {...register('phone')}
               />
-              <Button size="l" disabled={!valid} onClick={() => setStep('progress')}>
+              <Button size="l" disabled={!isValid} onClick={() => setStep('progress')}>
                 인증 요청
               </Button>
             </>
           ) : (
             <EmptyState
+              icon={null}
               className="py-10"
               title={PROGRESS_TITLE[method]}
               description="체험용 화면이라 알림은 오지 않아요. 아래 「인증 완료」를 누르면 인증이 끝나요"
               action={
-                <Button size="l" loading={pending} onClick={() => void finish()}>
+                <Button size="l" loading={pending || isSubmitting} onClick={() => void finish()}>
                   인증 완료
                 </Button>
               }

@@ -1,6 +1,6 @@
 import type { fileModel, productModel } from '@/shared/api'
 
-import { formatRaceDate } from '../lib/race-date'
+import { formatRaceDate, formatRaceDateTime } from '../lib/race-date'
 
 // 판매자 대회 관리(S06 · S09)가 쓰는 대회 모양과 변환
 
@@ -16,8 +16,17 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
   SCHEDULED: { label: '판매 예정', tone: 'neutral' },
   ON_SALE: { label: '판매 중', tone: 'brand' },
   STOPPED: { label: '판매 중지', tone: 'warning' },
-  CLOSED: { label: '종료', tone: 'neutral' },
-  CANCELED: { label: '대회 취소', tone: 'danger' },
+  CLOSED: { label: '판매 종료', tone: 'neutral' },
+  CANCELED: { label: '취소됨', tone: 'danger' },
+}
+
+/** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 파랑, 취소됨은 빨강, 그 밖은 보조 글자색 */
+export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
+  SCHEDULED: 'text-text-primary',
+  ON_SALE: 'text-text-primary',
+  STOPPED: 'text-text-secondary',
+  CLOSED: 'text-text-secondary',
+  CANCELED: 'text-text-danger',
 }
 
 /** 판매가 시작된 대회. 참가비·키트 금액을 바꿀 수 없고 정원은 늘리기만, 환불 기한은 늦추기만 된다. */
@@ -39,6 +48,10 @@ export type SellerRaceRow = {
   period: string
   sold: number
   capacity: number
+  /** 종목 이름을 「하프 · 10K」처럼 이은 글자 */
+  courseNames: string
+  /** 판매 예정일 때 아래 줄에 붙이는 「12/1 열림」 */
+  saleOpenText: string
   saleStatus?: SellerSaleStatus
   badge: SellerRaceBadge
 }
@@ -59,10 +72,40 @@ export function toSellerRaceRow(race: productModel.SellerRaceDto): SellerRaceRow
     title: race.title ?? '',
     date: race.raceDate ? formatRaceDate(race.raceDate) : '-',
     period: toPeriodText(race),
+    courseNames: courses
+      .map((c) => c.name)
+      .filter(Boolean)
+      .join(' · '),
     sold: courses.reduce((sum, c) => sum + (c.sold ?? 0), 0),
     capacity: courses.reduce((sum, c) => sum + (c.quota ?? 0), 0),
+    saleOpenText: `${monthDay(race.saleOpenDate)} 열림`,
     saleStatus: race.saleStatus,
     badge: race.saleStatus ? SELLER_SALE_STATUS[race.saleStatus] : { label: '-', tone: 'neutral' },
+  }
+}
+
+export type AdminRaceRow = SellerRaceRow & {
+  seller: string
+  /** 11/1 (일) 08:00 */
+  raceDateTime: string
+  /** 10/20 (화) 09:00 ~ 10/31 (토) 18:00. 크루 예매가 있으면 크루 예매 시작부터 */
+  applicationPeriod: string
+  /** 10/25 (일) */
+  refundDeadline: string
+}
+
+/** 관리자 대회 관리(A05)의 대회 한 줄. 판매자 한 줄에 판매자 이름과 일정을 더한다. */
+export function toAdminRaceRow(race: productModel.SellerRaceDto): AdminRaceRow {
+  const start = race.crewSaleStartAt ?? race.individualOpenAt
+  return {
+    ...toSellerRaceRow(race),
+    seller: race.sellerName ?? '-',
+    raceDateTime: race.raceDate ? formatRaceDateTime(race.raceDate) : '-',
+    applicationPeriod:
+      start && race.applicationCloseAt
+        ? `${formatRaceDateTime(start)} ~ ${formatRaceDateTime(race.applicationCloseAt)}`
+        : '-',
+    refundDeadline: race.refundDeadline ? formatRaceDate(race.refundDeadline) : '-',
   }
 }
 
@@ -124,8 +167,8 @@ export function toRaceEditRequest(
       kitIncluded: course.kitIncluded ?? false,
       kitPrice: course.kitPrice ?? 0,
       tshirtSizeOption: course.tshirtSizeOption ?? [],
-      minAge: course.minAge ?? 14,
-      maxAge: course.maxAge ?? undefined,
+      // 서버는 14·19만 받는다. 정리 전 옛 값(16 등)이 와도 19 이상만 성인만으로 본다
+      minAge: (course.minAge ?? 0) >= 19 ? 19 : 14,
       crewQuota: course.crewQuota ?? 0,
       individualQuota: course.individualQuota ?? 0,
       images: toImageRequests(

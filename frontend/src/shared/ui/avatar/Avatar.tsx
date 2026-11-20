@@ -6,9 +6,9 @@ import { cn } from '@/shared/lib'
 
 import { Icon } from '../icon/icons'
 
-export type AvatarSize = 's' | 'm' | 'l' | 'xl'
+export type AvatarSize = 's' | 'm' | 'l' | 'xl' | '2xl'
 
-// S24 M32 L40 XL56. 첫 글자·아이콘·상태 점 크기도 크기마다 다르다.
+// S24 M32 L40 XL52(마이 프로필: 흰 바탕·테두리·파란 글자) 2XL96(프로필 수정 사진 자리: 회색 원). 첫 글자·아이콘·상태 점 크기도 크기마다 다르다.
 const SIZE: Record<AvatarSize, { box: string; initial: string; icon: string; status: string }> = {
   s: {
     box: 'size-6',
@@ -24,10 +24,16 @@ const SIZE: Record<AvatarSize, { box: string; initial: string; icon: string; sta
   },
   l: { box: 'size-10', initial: 'text-body2-medium', icon: 'size-5.5', status: 'size-3 ring-2' },
   xl: {
-    box: 'size-14',
+    box: 'size-13',
     initial: 'text-title3',
-    icon: 'size-7.5',
+    icon: 'size-7',
     status: 'size-3.5 ring-[2.33px]',
+  },
+  '2xl': {
+    box: 'size-24',
+    initial: 'text-title1',
+    icon: 'size-10',
+    status: 'size-4 ring-[3px]',
   },
 }
 
@@ -50,9 +56,11 @@ export function Avatar({ size = 'm', src, name, showStatus = false, className }:
       <BaseAvatar.Root
         className={cn(
           'flex size-full items-center justify-center overflow-hidden rounded-full',
-          initial
-            ? 'bg-bg-brand-subtle text-text-brand'
-            : 'bg-bg-subtle text-text-tertiary inset-ring inset-ring-border-default',
+          size === 'xl' && initial
+            ? 'bg-bg-surface text-text-brand inset-ring inset-ring-border-default'
+            : initial && size !== '2xl'
+              ? 'bg-bg-brand-subtle text-text-brand'
+              : 'bg-bg-subtle text-text-tertiary inset-ring inset-ring-border-default',
         )}
       >
         {src && <BaseAvatar.Image src={src} alt={name ?? ''} className="size-full object-cover" />}

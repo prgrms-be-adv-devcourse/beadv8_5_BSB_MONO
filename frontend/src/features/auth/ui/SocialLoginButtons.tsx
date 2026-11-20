@@ -56,7 +56,7 @@ const MARK: Record<SocialProviderId, ReactNode> = {
  */
 export function SocialLoginButtons({ next }: { next?: string }) {
   return (
-    <div className="flex justify-center gap-4">
+    <div className="flex justify-center gap-6">
       {SOCIAL_PROVIDERS.map((provider) => (
         <button
           key={provider.id}
@@ -64,7 +64,7 @@ export function SocialLoginButtons({ next }: { next?: string }) {
           aria-label={`${provider.label}로 시작하기`}
           onClick={() => goToSocialLogin(socialAuthorizeHref(provider.id, { next }))}
           className={cn(
-            'flex size-10 items-center justify-center rounded-full',
+            'flex size-13 items-center justify-center rounded-full',
             STYLE[provider.id],
             FOCUS_RING,
           )}
