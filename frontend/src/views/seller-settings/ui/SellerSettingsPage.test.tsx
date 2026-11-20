@@ -30,6 +30,12 @@ const ACCOUNT: memberModel.MyPayoutAccountDto = {
   accountNumberLast4: '0678',
 }
 const NO_ACCOUNT: memberModel.MyPayoutAccountDto = { registered: false }
+const ME: memberModel.MemberDto = {
+  id: 1,
+  email: 'runner@crewrun.kr',
+  phone: '01012345678',
+  createDate: '2026-09-01T09:00:00',
+}
 const ACCOUNT_URL = '*/api/v1/member/sellers/me/payout-account'
 
 function renderPage(
@@ -41,6 +47,9 @@ function renderPage(
       HttpResponse.json({ status: 200, message: '성공', data: { ...SELLER, ...seller } }),
     ),
     http.get(ACCOUNT_URL, () => HttpResponse.json({ status: 200, message: '성공', data: account })),
+    http.get('*/api/v1/member/members/me', () =>
+      HttpResponse.json({ status: 200, message: '성공', data: ME }),
+    ),
   )
   setAccessToken('access-token')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -67,6 +76,29 @@ describe('SellerSettingsPage', () => {
     for (const text of ['123-45-67890', '크루런 스포츠', '김러너']) {
       expect(screen.getByText(text).closest('[data-clarity-mask="true"]')).not.toBeNull()
     }
+  })
+
+  it('연락처(휴대전화 · 이메일)와 가입일 · 신청일 · 승인일을 함께 보여 주고 녹화에서 가린다', async () => {
+    renderPage()
+
+    expect(await screen.findByText('010-1234-5678')).toBeInTheDocument()
+    expect(screen.getByText('runner@crewrun.kr')).toBeInTheDocument()
+    expect(screen.getByText('2026. 9. 1.')).toBeInTheDocument()
+    expect(screen.getByText('2026. 10. 5.')).toBeInTheDocument()
+    expect(screen.getByText('2026. 10. 6.')).toBeInTheDocument()
+    for (const label of ['휴대전화', '이메일', '가입일', '신청일', '승인일']) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    for (const text of ['010-1234-5678', 'runner@crewrun.kr']) {
+      expect(screen.getByText(text).closest('[data-clarity-mask="true"]')).not.toBeNull()
+    }
+  })
+
+  it('심사 중이면 승인일 없이 신청일만 보여 준다', async () => {
+    renderPage({ status: 'PENDING', reviewedAt: null })
+
+    expect(await screen.findByText('신청일')).toBeInTheDocument()
+    expect(screen.queryByText('승인일')).not.toBeInTheDocument()
   })
 
   it('비사업자는 판매자 종류와 성명만 보여 준다', async () => {
