@@ -5,7 +5,7 @@ import { useState } from 'react'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
-import { formatSellerDate, isNicknameWidthValid, NICKNAME_PATTERN } from '@/entities/member'
+import { formatSellerDate, modifyErrorMessage, profileSchema } from '@/entities/member'
 import { ApiError, memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { Button, KeyValue, Skeleton, TextField, useToast } from '@/shared/ui'
 
@@ -48,18 +48,7 @@ export function AdminSettingsPage() {
   )
 }
 
-const NICKNAME_ERRORS = {
-  chars: '닉네임은 한글 · 영문 · 숫자만 쓸 수 있어요.',
-  width: '닉네임은 한글 2~8자, 영문 4~16자로 정해 주세요.',
-  failed: '지금은 저장할 수 없어요. 잠시 후 다시 시도해 주세요.',
-}
-
-function nicknameError(value: string): string | undefined {
-  if (!NICKNAME_PATTERN.test(value)) return NICKNAME_ERRORS.chars
-  if (!isNicknameWidthValid(value)) return NICKNAME_ERRORS.width
-  return undefined
-}
-
+// 검사 규칙과 문구는 회원 프로필 수정과 같은 profileSchema를 쓴다
 function NicknameRow({ nickname }: { nickname: string }) {
   const queryClient = useQueryClient()
   const showToast = useToast()
@@ -69,19 +58,18 @@ function NicknameRow({ nickname }: { nickname: string }) {
   const trimmed = value.trim()
 
   const save = () => {
-    const invalid = nicknameError(trimmed)
-    setError(invalid)
-    if (invalid) return
+    const parsed = profileSchema.safeParse({ nickname: value })
+    setError(parsed.error?.issues[0]?.message)
+    if (!parsed.success) return
     modify.mutate(
-      { data: { nickname: trimmed } },
+      { data: parsed.data },
       {
         onSuccess: (response) => {
           // 응답이 바뀐 내 정보라 다시 부르지 않고 캐시에 넣는다(회원 프로필 수정과 같다)
           queryClient.setQueryData(memberApi.getFindMeQueryKey(), response)
           showToast({ message: '닉네임을 바꿨어요', tone: 'success' })
         },
-        onError: (e) =>
-          setError((e instanceof ApiError && e.serverMessage) || NICKNAME_ERRORS.failed),
+        onError: (e) => setError(modifyErrorMessage(e).message),
       },
     )
   }
@@ -98,7 +86,10 @@ function NicknameRow({ nickname }: { nickname: string }) {
             className="w-80"
             value={value}
             error={error}
-            onChange={(event) => setValue(event.target.value)}
+            onChange={(event) => {
+              setValue(event.target.value)
+              setError(undefined)
+            }}
           />
           <Button
             variant="secondary"

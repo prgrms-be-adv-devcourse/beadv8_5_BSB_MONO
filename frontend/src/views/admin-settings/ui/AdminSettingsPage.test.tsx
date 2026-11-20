@@ -111,6 +111,12 @@ describe('AdminSettingsPage', () => {
       await screen.findByText('닉네임은 한글 2~8자, 영문 4~16자로 정해 주세요.'),
     ).toBeInTheDocument()
     expect(called).toBe(false)
+
+    // 다시 입력하면 오류 문구가 사라진다
+    await user.type(input, '나')
+    expect(
+      screen.queryByText('닉네임은 한글 2~8자, 영문 4~16자로 정해 주세요.'),
+    ).not.toBeInTheDocument()
   })
 
   it('이미 쓰는 닉네임이면 서버 안내를 칸 아래에 보인다', async () => {
