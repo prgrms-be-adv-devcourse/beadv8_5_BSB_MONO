@@ -349,14 +349,20 @@ class ApiV1PartyTest {
 	}
 
 	@Test
-	@DisplayName("파티장이 링크를 다시 만들면 옛 링크는 404, 24시간 지난 링크는 409, 파티장이 아니면 다시 만들 수 없다")
+	@DisplayName("파티장이 링크를 다시 만들면 옛 링크는 404, 24시간 지난 링크는 409, 파티원이 아니면 없는 파티와 같은 404다")
 	void joinLink() throws Exception {
 		String oldToken = token(create(LEADER, COURSE_10K));
 		long partyId = partyRepository.findAll().getFirst().getId();
 
-		regenerate(MEMBER, partyId)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_LEADER_ONLY"));
+		// 파티원이 아니면 파티장만(403) 대신 없는 파티와 같은 404다 (CRU-91)
+		String othersBody = regenerate(MEMBER, partyId)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = regenerate(MEMBER, partyId + 999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 		String newToken = JsonPath.read(regenerate(LEADER, partyId)
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString(), "$.data.joinToken");

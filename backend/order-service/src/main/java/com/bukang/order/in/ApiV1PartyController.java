@@ -112,10 +112,10 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "파티장이 아님",
+		@ApiResponse(responseCode = "403", description = "파티원이지만 파티장이 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LEADER_ONLY))),
-		@ApiResponse(responseCode = "404", description = "없는 파티",
+		@ApiResponse(responseCode = "404", description = "없는 파티 (파티원이 아니어도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.PARTY_NOT_FOUND))),
 		@ApiResponse(responseCode = "409", description = "모집 중이 아님 (data.partyId·data.partyStatus)",
@@ -207,12 +207,12 @@ public class ApiV1PartyController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "파티장이 아님, 파티 대기열 입장 중이 아님",
+		@ApiResponse(responseCode = "403", description = "파티원이지만 파티장이 아님, 파티 대기열 입장 중이 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "파티장이 아님", value = PartyApiExamples.LEADER_ONLY),
 				@ExampleObject(name = "대기열 입장 전", value = PartyApiExamples.QUEUE_NOT_ADMITTED)
 			})),
-		@ApiResponse(responseCode = "404", description = "없는 파티, 상품에서 파티 종목이 없어짐, 크루가 없어짐",
+		@ApiResponse(responseCode = "404", description = "없는 파티(파티원이 아니어도 같은 404), 상품에서 파티 종목이 없어짐, 크루가 없어짐",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 파티", value = PartyApiExamples.PARTY_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = PartyApiExamples.COURSE_NOT_FOUND),
