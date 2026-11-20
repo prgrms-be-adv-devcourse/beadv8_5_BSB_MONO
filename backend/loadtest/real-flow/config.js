@@ -63,7 +63,11 @@ export const THINK = {
 	failScreen: 3, // 결제 실패 화면을 읽고 「다시 결제하기」
 	retryPay: 2, // 다시 열린 결제 화면에서 결제를 다시 누르기까지
 	browse: 3, // 보기만 하는 사람이 화면을 보는 시간
+	pageRetry: 3, // 화면이 오류(502·504·연결 실패)로 뜨면 보고 새로고침하기까지
 };
+// 화면 오류 때 새로고침하는 횟수. 그래도 안 뜨면 그 사람은 다음 단계로 못 가고 흐름이 끊긴다
+// (오류 화면에는 다음 버튼이 없다. 예전에는 화면 결과를 보지 않고 다음 API로 넘어가, web이 무너질 때 결제가 부풀었다)
+export const PAGE_RETRIES = 2;
 // 화면이 순서·입장을 다시 묻는 주기 (frontend ADMISSION_POLL_MS)
 export const POLL_SECONDS = 3;
 // 8-3: 결제 503이면 최대 5번까지 누른다

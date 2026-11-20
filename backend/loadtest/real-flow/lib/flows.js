@@ -129,7 +129,7 @@ function pay(s, { orderId, participationId, raceId, raceCourseId, metricTags }) 
 			s.api('GET', admission, { name: 'GET /order/queue/admission', kind: 'queue' });
 			s.api('GET', '/cash/wallets/balance', { name: 'GET /cash/wallets/balance' });
 			s.api('GET', `/order/participations/${participationId}`, { name: 'GET /order/participations/{id}' });
-			s.page(`/checkout/complete?orderId=${orderId}`, 'PAGE /checkout/complete');
+			s.page(`/checkout/complete?orderId=${orderId}`, 'PAGE /checkout/complete', { optional: true });
 			s.api('GET', admission, { name: 'GET /order/queue/admission', kind: 'queue' });
 			s.api('GET', '/cash/wallets/balance', { name: 'GET /cash/wallets/balance' });
 			s.api('GET', `/order/participations/${participationId}`, { name: 'GET /order/participations/{id}' });
