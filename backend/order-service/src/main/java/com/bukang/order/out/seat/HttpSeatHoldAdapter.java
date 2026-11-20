@@ -13,7 +13,6 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -67,8 +66,8 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 		}
 		HoldBody body = response == null ? null : response.data();
 		if (body == null || body.held() == null || (body.held() && body.expiresAt() == null)) {
-			log.error("상품 서비스의 자리 확보 응답 형식이 계약과 다릅니다. participationId={}, response={}",
-				participationId, response);
+			log.error("상품 서비스의 자리 확보 응답 형식이 계약과 다릅니다. participationId={}",
+				participationId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return body.held() ? SeatHoldResult.held(body.expiresAt()) : SeatHoldResult.soldOut();
@@ -89,8 +88,8 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 		}
 		SellBody body = response == null ? null : response.data();
 		if (body == null || body.result() == null) {
-			log.error("상품 서비스의 자리 판매 응답 형식이 계약과 다릅니다. participationId={}, response={}",
-				participationId, response);
+			log.error("상품 서비스의 자리 판매 응답 형식이 계약과 다릅니다. participationId={}",
+				participationId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return body.result();
@@ -106,9 +105,8 @@ public class HttpSeatHoldAdapter implements SeatHoldPort {
 	// 4xx는 다시 시도해도 풀리지 않는다. 경로·요청 계약이 어긋났을 수 있어 장애와 구분해 남긴다
 	private ExternalServiceUnavailableException contractError(String action, long participationId,
 		HttpClientErrorException exception) {
-		log.error("상품 서비스가 {} 요청을 거절했습니다. 계약(경로·요청)을 확인해야 합니다. status={}, participationId={}, body={}",
-			action, exception.getStatusCode(), participationId,
-			InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+		log.error("상품 서비스가 {} 요청을 거절했습니다. 계약(경로·요청)을 확인해야 합니다. status={}, participationId={}",
+			action, exception.getStatusCode(), participationId);
 		return new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 	}
 

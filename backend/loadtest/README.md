@@ -9,6 +9,8 @@
 | `board/` | 게시판: 글 목록·상세·댓글 목록, 댓글·좋아요·글 쓰기 | 운영 |
 | `e2e/member.js` | 회원 화면 흐름: 앱 열기·마이페이지, 정보 수정, 알림 설정, 로그아웃과 로그인 | 운영 |
 | `e2e/crew.js` | 크루 화면 흐름: 크루 탭, 초대, 초대 받기, 크루 나가기, 크루 관리 | 운영 |
+| `main-scenario/` | 예매 오픈 몰림 운영 측정 키트: 기준선(`funnel.js`)·실제 흐름(`rush.js`), 실행 절차, 결과, 수집 자료(`data/`) | 운영 |
+| `scenarios/` | 화면 부수 조회를 넣은 시나리오 설계 문서와 스크립트 (둘러보기·개인 예매·파티 예매) | 운영 |
 
 회원·크루·문의·게시판은 운영 서버로 보냅니다. 운영 DB는 발표 전에 비우기로 해서 테스트 데이터가 쌓여도 됩니다(2026-11-16).
 다른 주소로 보내려면 `-e BASE_URL=http://localhost:8000`을 붙입니다.
@@ -107,5 +109,5 @@ k6 run -e STAGE=smoke loadtest/e2e/crew.js
 
 운영 nginx가 로그아웃·로그인을 IP당 초당 1건(몰리면 20건까지)으로 막고 있습니다. 100명이면 10번에 한 번만 해도 이 제한을 넘어 사용자가 하나씩 멈춥니다.
 그래서 로그아웃과 로그인 화면은 기본으로 하지 않습니다. CRU-83 스위치로 제한을 끈 실행에서만 `-e LOGIN_EVERY=10`처럼 켭니다.
-스위치는 `k8s/overlays/aws/nginx-upstreams.conf`의 `map "false" $auth_limit_key` 줄이고, `"true"`로 바꿔 배포하면 꺼집니다. 절차는 `docs/loadtest/main_scenario/runbook.md` 8절에 있습니다.
+스위치는 `k8s/overlays/aws/nginx-upstreams.conf`의 `map "false" $auth_limit_key` 줄이고, `"true"`로 바꿔 배포하면 꺼집니다. 절차는 `main-scenario/runbook.md` 8절에 있습니다.
 끄면 모든 IP의 로그인·가입 제한이 함께 풀리므로 부하가 끝나면 다시 `"false"`로 되돌립니다.

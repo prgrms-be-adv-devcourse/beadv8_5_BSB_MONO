@@ -56,3 +56,17 @@ management:
         otlp:
           # 이 주소가 있을 때만 로그를 내보낸다(observability-dev의 appender도 이 주소를 보고 붙는다). 추적과 같은 Alloy로 보낸다
           endpoint: http://localhost:4318/v1/logs
+
+---
+# 운영 로그는 파드 출력을 모아 보므로 터미널 색 코드를 넣지 않는다. 각 서비스 application.yaml의 always보다 이 값이 우선한다
+spring:
+  config:
+    activate:
+      on-profile: prod
+  output:
+    ansi:
+      enabled: never
+logging:
+  level:
+    # 유니크 제약 위반 때 Hibernate가 "Duplicate entry '<이메일>'"을 그대로 찍는다. 예외는 그대로 올라가 처리된다
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: off

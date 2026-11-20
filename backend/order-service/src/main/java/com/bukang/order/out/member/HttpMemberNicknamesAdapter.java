@@ -60,7 +60,7 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null) {
-			log.error("회원 서비스의 닉네임 응답이 비어 있습니다. ids={}, response={}", joined, response);
+			log.error("회원 서비스의 닉네임 응답이 비어 있습니다. ids={}", joined);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		// 한 사람 값이 비었다고 파티 화면 전체를 막지 않는다. 그 사람은 결과에서 빠져 「탈퇴한 회원」으로 보인다
@@ -68,7 +68,7 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 			.filter(row -> row.memberId() != null && row.nickname() != null)
 			.toList();
 		if (rows.size() < response.data().size()) {
-			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}, response={}", joined, response);
+			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}", joined);
 		}
 		return rows;
 	}

@@ -35,14 +35,14 @@ public class QueueKafkaDltConsumer {
 	// 반영하지 못한 대회는 복제본이 옛 판매 상태·일정으로 남는다. 원인을 고친 뒤 메시지를 다시 보내야 한다
 	@KafkaListener(topics = RACE_CHANGED_DLT, groupId = GROUP_ID)
 	public void handleRaceChangedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 대회 변경 메시지: {}", record.value());
+		log.error("처리하지 못한 대회 변경 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 반영하지 못한 종목은 복제본에 없거나 뺀 종목이 남는다. 원인을 고친 뒤 메시지를 다시 보내야 한다
 	@KafkaListener(topics = RACE_COURSE_CHANGED_DLT, groupId = GROUP_ID)
 	public void handleRaceCourseChangedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 종목 변경 메시지: {}", record.value());
+		log.error("처리하지 못한 종목 변경 메시지. key={}", record.key());
 		record(record);
 	}
 

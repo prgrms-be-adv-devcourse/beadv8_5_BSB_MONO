@@ -40,7 +40,7 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 		return InternalHttpClients.getData(restClient, ENDPOINT, RESPONSE_TYPE, PATH, memberId)
 			.map(data -> {
 				if (data.admin() == null) {
-					log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}, data={}", memberId, data);
+					log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}", memberId);
 					throw new InquiryExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 				}
 				return data.admin();

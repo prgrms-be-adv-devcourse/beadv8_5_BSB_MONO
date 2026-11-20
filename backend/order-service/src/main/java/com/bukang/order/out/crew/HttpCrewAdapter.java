@@ -12,7 +12,6 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -94,8 +93,8 @@ public class HttpCrewAdapter implements CrewPort {
 		}
 		PenaltyResponse body = response == null ? null : response.data();
 		if (body == null || body.restricted() == null || body.restricted() && body.endAt() == null) {
-			log.warn("회원 서비스의 크루 파티 만들기 제한 응답에 값이 없어 제한 없음으로 봅니다. crewId={}, response={}",
-				crewId, response);
+			log.warn("회원 서비스의 크루 파티 만들기 제한 응답에 값이 없어 제한 없음으로 봅니다. crewId={}",
+				crewId);
 			return Optional.empty();
 		}
 		return body.restricted() ? Optional.of(body.endAt()) : Optional.empty();
@@ -110,8 +109,8 @@ public class HttpCrewAdapter implements CrewPort {
 			if (isCrewNotFound(exception)) {
 				return Optional.empty();
 			}
-			log.error("회원 서비스가 크루 요청에 크루 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. {}, body={}",
-				target, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()), exception);
+			log.error("회원 서비스가 크루 요청에 크루 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. {}",
+				target, exception);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		} catch (HttpClientErrorException exception) {
 			log.error("회원 서비스가 크루 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, {}",
@@ -122,7 +121,7 @@ public class HttpCrewAdapter implements CrewPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null) {
-			log.error("회원 서비스의 크루 응답이 비어 있습니다. {}, response={}", target, response);
+			log.error("회원 서비스의 크루 응답이 비어 있습니다. {}", target);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return Optional.of(response.data());

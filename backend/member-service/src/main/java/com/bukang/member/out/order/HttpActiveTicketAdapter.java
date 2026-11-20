@@ -40,7 +40,7 @@ public class HttpActiveTicketAdapter implements ActiveTicketPort {
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().count() == null) {
-			log.error("주문 서비스의 참가권 수 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
+			log.error("주문 서비스의 참가권 수 응답에 값이 없습니다. memberId={}", memberId);
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		return response.data().count();

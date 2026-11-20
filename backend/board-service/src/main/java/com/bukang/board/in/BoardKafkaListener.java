@@ -83,7 +83,7 @@ public class BoardKafkaListener {
 		try {
 			return jsonConverter.fromJson(payload, type);
 		} catch (IllegalArgumentException broken) {
-			log.warn("읽을 수 없는 메시지라 버립니다. type={}, payload={}", type.getSimpleName(), payload, broken);
+			log.warn("읽을 수 없는 메시지라 버립니다. type={}", type.getSimpleName(), broken);
 			return null;
 		}
 	}
