@@ -80,12 +80,11 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청, 대기열에 입장 중이 아님",
+		@ApiResponse(responseCode = "403", description = "대기열에 입장 중이 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
-				@ExampleObject(name = "다른 회원의 참가 신청", value = OrderApiExamples.NOT_OWNER),
 				@ExampleObject(name = "대기열 입장 전", value = OrderApiExamples.QUEUE_NOT_ADMITTED)
 			})),
-		@ApiResponse(responseCode = "404", description = "없는 참가 신청 또는 종목",
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청 또는 종목 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 참가 신청", value = OrderApiExamples.PARTICIPATION_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = OrderApiExamples.COURSE_NOT_FOUND)
@@ -159,10 +158,7 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 주문",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = OrderApiExamples.PAY_NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 주문",
+		@ApiResponse(responseCode = "404", description = "없는 주문 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.ORDER_NOT_FOUND))),
 		@ApiResponse(responseCode = "409",
@@ -222,10 +218,7 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 주문",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = OrderApiExamples.CANCEL_NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 주문·주문 상품 또는 종목",
+		@ApiResponse(responseCode = "404", description = "없는 주문·주문 상품 또는 종목 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 주문", value = OrderApiExamples.ORDER_NOT_FOUND),
 				@ExampleObject(name = "주문에 없는 상품", value = OrderApiExamples.ORDER_ITEM_NOT_FOUND),
@@ -283,10 +276,7 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 주문",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = OrderApiExamples.KIT_RECEIPT_NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 주문·주문 상품",
+		@ApiResponse(responseCode = "404", description = "없는 주문·주문 상품 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 주문", value = OrderApiExamples.ORDER_NOT_FOUND),
 				@ExampleObject(name = "주문에 없는 상품", value = OrderApiExamples.ORDER_ITEM_NOT_FOUND)
@@ -365,10 +355,7 @@ public class ApiV1OrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 주문",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = OrderApiExamples.VIEW_NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 주문",
+		@ApiResponse(responseCode = "404", description = "없는 주문 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = OrderApiExamples.ORDER_NOT_FOUND)))
 	})

@@ -127,10 +127,7 @@ public class ApiV1CartController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CartApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 장바구니 항목",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CartApiExamples.NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 장바구니 항목",
+		@ApiResponse(responseCode = "404", description = "없는 장바구니 항목 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CartApiExamples.ITEM_NOT_FOUND)))
 	})
@@ -171,10 +168,7 @@ public class ApiV1CartController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CartApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청이 섞여 있음",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = CartApiExamples.PARTICIPATION_NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 참가 신청이 섞여 있음",
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청이 섞여 있음 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = CartApiExamples.PARTICIPATION_NOT_FOUND)))
 	})

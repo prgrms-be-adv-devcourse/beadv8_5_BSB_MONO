@@ -346,19 +346,21 @@ class ApiV1CartCheckoutTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 참가 신청이면 403, 없는 참가 신청이면 404이고 자리를 잡지 않는다")
+	@DisplayName("다른 회원의 참가 신청과 없는 참가 신청은 같은 404이고 자리를 잡지 않는다")
 	void checkoutNotOwnerOrMissing() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
 		long others = apply(OTHER_MEMBER_ID, OTHER_COURSE_ID);
 
-		checkout(MEMBER_ID, newKey(), others)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 참가 신청만 결제할 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_FORBIDDEN"));
-		checkout(MEMBER_ID, newKey(), 999999L)
+		String othersBody = checkout(MEMBER_ID, newKey(), others)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = checkout(MEMBER_ID, newKey(), 999999L)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 참가 신청입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 
 		assertThat(seatHoldPort.holdCalls()).isZero();
 		assertThat(orderRepository.count()).isZero();

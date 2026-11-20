@@ -246,10 +246,6 @@ final class PartyApiExamples {
 		{ "status": 403, "code": "ORDER_PARTY_LEADER_ONLY", "message": "파티장만 할 수 있습니다.", "data": null }
 		""";
 
-	static final String NOT_MEMBER = """
-		{ "status": 403, "code": "ORDER_PARTY_NOT_MEMBER", "message": "이 파티의 파티원이 아닙니다.", "data": null }
-		""";
-
 	static final String PARTY_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_PARTY_NOT_FOUND", "message": "존재하지 않는 파티입니다.", "data": null }
 		""";

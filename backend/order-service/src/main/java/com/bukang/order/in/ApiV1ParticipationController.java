@@ -186,10 +186,7 @@ public class ApiV1ParticipationController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = ParticipationApiExamples.NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 참가 신청",
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND)))
 	})
@@ -218,10 +215,7 @@ public class ApiV1ParticipationController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = ParticipationApiExamples.NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 참가 신청",
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND))),
 		@ApiResponse(responseCode = "409", description = "결제 대기 중, 결제 완료, 이미 끝난 신청 또는 파티원 신청서(파티 나가기로 취소)",
@@ -269,10 +263,7 @@ public class ApiV1ParticipationController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = ParticipationApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "다른 회원의 참가 신청",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = ParticipationApiExamples.NOT_OWNER))),
-		@ApiResponse(responseCode = "404", description = "없는 참가 신청 또는 없는 종목",
+		@ApiResponse(responseCode = "404", description = "없는 참가 신청 또는 없는 종목 (다른 회원 것도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "없는 참가 신청", value = ParticipationApiExamples.PARTICIPATION_NOT_FOUND),
 				@ExampleObject(name = "없는 종목", value = ParticipationApiExamples.COURSE_NOT_FOUND)

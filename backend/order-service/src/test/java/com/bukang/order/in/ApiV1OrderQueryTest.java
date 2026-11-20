@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -149,7 +150,7 @@ class ApiV1OrderQueryTest {
 	}
 
 	@Test
-	@DisplayName("주문 상세에서 상품·상태·결제 기한을 보고, 다른 회원 주문은 403, 없는 주문은 404다")
+	@DisplayName("주문 상세에서 상품·상태·결제 기한을 보고, 다른 회원 주문과 없는 주문은 같은 404다")
 	void findById() throws Exception {
 		long orderId = orderAt(MEMBER_ID, FIRST_COURSE_ID, LocalDateTime.of(2026, 10, 12, 9, 0));
 
@@ -165,14 +166,16 @@ class ApiV1OrderQueryTest {
 			.andExpect(jsonPath("$.data.items[0].unitPrice")
 				.value(StubRaceCoursePort.PRICE));
 
-		mockMvc.perform(get(BASE_URL + "/" + orderId).header("X-Member-Id", OTHER_MEMBER_ID))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 주문만 볼 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_FORBIDDEN"));
-		mockMvc.perform(get(BASE_URL + "/999999").header("X-Member-Id", MEMBER_ID))
+		String othersBody = mockMvc.perform(get(BASE_URL + "/" + orderId).header("X-Member-Id", OTHER_MEMBER_ID))
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = mockMvc.perform(get(BASE_URL + "/999999").header("X-Member-Id", MEMBER_ID))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 주문입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 	}
 
 	private ResultActions findMine(long memberId, String query) throws Exception {

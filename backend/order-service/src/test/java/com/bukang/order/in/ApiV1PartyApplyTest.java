@@ -386,6 +386,15 @@ class ApiV1PartyApplyTest {
 		apply(MEMBERS.getFirst(), partyId)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_LEADER_ONLY"));
+		// 파티원이 아니면 파티장만(403) 대신 없는 파티와 같은 404다 (CRU-91)
+		String othersBody = apply(OUTSIDER, partyId)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = apply(OUTSIDER, partyId + 999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 		apply(LEADER, partyId)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("ORDER_QUEUE_NOT_ADMITTED"));
