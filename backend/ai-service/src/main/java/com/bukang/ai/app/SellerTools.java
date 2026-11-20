@@ -124,6 +124,18 @@ public class SellerTools {
 		});
 	}
 
+	@Tool(description = "마지막 질문이 판매자가 심사할 기록증 건수를 물을 때만 부른다"
+		+ "(예: 「심사 대기 몇 건?」, 「심사할 기록증 있어?」, 「기록증 심사 밀린 거 있어?」). "
+		+ "waitingCount: 판매자의 심사를 기다리는 기록증 제출 수. 서버가 확인 중인 제출과 이미 승인·승인 불가로 끝난 제출은 세지 않는다")
+	public Object sellerRecordCertReviewsWaiting(ToolContext toolContext) {
+		AiToolTrace trace = AiToolTrace.of(toolContext);
+		return trace.run(AiSource.SELLER_RECORD_CERTS,
+			() -> new RecordCertReviewsResult(opsPort.waitingRecordCertReviewCount(trace.memberId())));
+	}
+
+	record RecordCertReviewsResult(long waitingCount) {
+	}
+
 	record KitsResult(long sendableNowCount, long sendableAfterRefundDeadlineCount, int listedCount,
 		long notListedCount) {
 	}

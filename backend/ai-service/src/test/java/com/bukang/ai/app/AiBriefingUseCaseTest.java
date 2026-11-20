@@ -96,6 +96,39 @@ class AiBriefingUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("판매자: 심사할 기록증이 1건 이상이면 문장과 할 일로 알리고, 숫자 칸은 늘리지 않는다")
+	void sellerRecordCertReviews() {
+		opsPort.waitingRecordCertReviews = 3;
+
+		AiBriefingDto briefing = useCase.briefing(SELLER, AiScreen.SELLER);
+
+		assertThat(briefing.headline()).isEqualTo("심사할 기록증이 3건 있어요.");
+		assertThat(briefing.todos()).extracting(Todo::title, Todo::linkLabel, Todo::href).containsExactly(
+			tuple("기록증 심사 대기 3건", "기록증 심사", "/seller/record-certs"));
+		assertThat(briefing.metrics()).extracting(Metric::label).containsExactly("보낼 키트", "다음 정산");
+	}
+
+	@Test
+	@DisplayName("기록증 심사 건수만 가져오지 못하면 그 항목만 빠지고, 키트·정산은 실패 문구 없이 그대로다")
+	void sellerRecordCertReviewsFailed() {
+		StubOpsPort failingReviews = new StubOpsPort() {
+			@Override
+			public long waitingRecordCertReviewCount(long memberId) {
+				throw new IllegalStateException("연결 실패");
+			}
+		};
+		failingReviews.kitSummary = new OpsPort.KitSummary(4, 0);
+		AiBriefingUseCase failing =
+			new AiBriefingUseCase(new StubMemberRolePort(Set.of(SELLER), Set.of()), failingReviews);
+
+		AiBriefingDto briefing = failing.briefing(SELLER, AiScreen.SELLER);
+
+		assertThat(briefing.headline()).isEqualTo("송장 입력 대기 키트가 4건 있어요.");
+		assertThat(briefing.todos()).extracting(Todo::title).containsExactly("송장 입력 대기 4건");
+		assertThat(briefing.metrics()).extracting(Metric::value).containsExactly("4건", "-");
+	}
+
+	@Test
 	@DisplayName("모든 조회가 실패해도 예외 없이 화면에서 확인하라는 브리핑을 준다")
 	void allFailed() {
 		opsPort.unavailable = true;
