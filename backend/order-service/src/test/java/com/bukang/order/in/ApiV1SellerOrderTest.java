@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -299,7 +300,7 @@ class ApiV1SellerOrderTest {
 	}
 
 	@Test
-	@DisplayName("판매자가 아니면 두 API 모두 403, 다른 판매자 대회의 파티는 403, 대회 ID가 없으면 400이다")
+	@DisplayName("판매자가 아니면 두 API 모두 403, 다른 판매자 대회의 파티는 파티 없는 대회와 같은 빈 목록, 대회 ID가 없으면 400이다")
 	void forbidden() throws Exception {
 		setUpCourses();
 		appliedParty(LocalDateTime.now().plusHours(5));
@@ -310,14 +311,20 @@ class ApiV1SellerOrderTest {
 		parties(NOT_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.message").value("승인된 판매자만 쓸 수 있습니다."));
-		parties(OTHER_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인 대회의 파티만 볼 수 있습니다."));
-		// 결과가 비는 쪽·없는 파티 ID여도 남의 대회면 403이다 (파티 수·파티 ID가 새지 않게)
-		parties(OTHER_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID), "page", "999")
-			.andExpect(status().isForbidden());
-		parties(OTHER_SELLER_MEMBER_ID, "raceId", String.valueOf(RACE_ID), "partyId", "999999")
-			.andExpect(status().isForbidden());
+		// 남의 대회는 파티가 없는 대회와 같은 빈 목록이다. 파티 수·파티 ID가 새지 않는다 (CRU-92)
+		String emptyBody = parties(OTHER_SELLER_MEMBER_ID, "raceId", "999999")
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		for (String[] params : new String[][] {
+			{"raceId", String.valueOf(RACE_ID)},
+			{"raceId", String.valueOf(RACE_ID), "partyId", "999999"}
+		}) {
+			String othersBody = parties(OTHER_SELLER_MEMBER_ID, params)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.totalElements").value(0))
+				.andReturn().getResponse().getContentAsString();
+			assertThat(othersBody).isEqualTo(emptyBody);
+		}
 		// 남의 파티 ID로 주문을 찾아도 자기 주문만 걸러 빈 목록이다
 		orders(OTHER_SELLER_MEMBER_ID, "partyId", "1")
 			.andExpect(status().isOk())
@@ -423,7 +430,7 @@ class ApiV1SellerOrderTest {
 	}
 
 	@Test
-	@DisplayName("주문 상세: 다른 판매자 대회·판매자 아님은 403, 없는 ID·만료된 주문은 404, 헤더 없으면 401이다")
+	@DisplayName("주문 상세: 판매자 아님은 403, 다른 판매자 대회·없는 ID·만료된 주문은 같은 404, 헤더 없으면 401이다")
 	void detailRejected() throws Exception {
 		setUpCourses();
 		long itemId = itemIdOf(paidOrder(BUYER_ID, COURSE_ID));
@@ -432,10 +439,15 @@ class ApiV1SellerOrderTest {
 		LocalDateTime due = orderRepository.findById(expiredOrderId).orElseThrow().getPaymentDueAt();
 		orderExpiryUseCase.expireOverdue(due.plusSeconds(1));
 
-		detail(OTHER_SELLER_MEMBER_ID, itemId)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"))
-			.andExpect(jsonPath("$.message").value("본인 대회의 주문만 볼 수 있습니다."));
+		// 남의 대회 주문과 없는 주문 상품을 응답으로 구분할 수 없다 (CRU-92)
+		String othersBody = detail(OTHER_SELLER_MEMBER_ID, itemId)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = detail(OTHER_SELLER_MEMBER_ID, 999_999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_ITEM_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 		detail(NOT_SELLER_MEMBER_ID, itemId)
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.message").value("승인된 판매자만 쓸 수 있습니다."));

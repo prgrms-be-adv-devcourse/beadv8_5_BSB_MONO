@@ -242,14 +242,18 @@ class ApiV1PartyQueryTest {
 		crewActive(LEADER).andExpect(jsonPath("$.data[0].myParty").value(true));
 
 		crewPort.missingCrew(CREW_ID + 1);
-		mockMvc.perform(get(BASE_URL + "/crews/" + (CREW_ID + 1) + "/active").header("X-Member-Id", MEMBER))
+		String missingBody = mockMvc.perform(get(BASE_URL + "/crews/" + (CREW_ID + 1) + "/active")
+				.header("X-Member-Id", MEMBER))
 			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("ORDER_CREW_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_CREW_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
 
+		// 크루원이 아니면 없는 크루와 같은 404다. 크루가 있는지 알리지 않는다 (CRU-92)
 		crewPort.notCrewMember(MEMBER);
-		crewActive(MEMBER)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_CREW_MEMBER_REQUIRED"));
+		String notMemberBody = crewActive(MEMBER)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(notMemberBody).isEqualTo(missingBody);
 	}
 
 	@Test

@@ -117,12 +117,10 @@ public class ApiV1SellerOrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerOrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님, 다른 판매자 대회의 주문",
-			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
-				@ExampleObject(name = "승인된 판매자가 아님", value = SellerOrderApiExamples.NOT_SELLER),
-				@ExampleObject(name = "다른 판매자 대회의 주문", value = SellerOrderApiExamples.OTHER_SELLER_ORDER)
-			})),
-		@ApiResponse(responseCode = "404", description = "없는 주문 상품 또는 기한이 지나 만료된 주문",
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.NOT_SELLER))),
+		@ApiResponse(responseCode = "404", description = "없는 주문 상품 또는 기한이 지나 만료된 주문 (다른 판매자 대회의 주문도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerOrderApiExamples.ORDER_ITEM_NOT_FOUND))),
 		@ApiResponse(responseCode = "503", description = "판매자 확인을 아직 쓸 수 없음",
@@ -143,7 +141,7 @@ public class ApiV1SellerOrderController {
 			+ "신청 인원 = 결제 인원 + 결제하지 않은 자리(결제 중인 자리와 기한이 지나 풀린 자리). "
 			+ "결제 기한은 결제 진행 중(PAYING)일 때만 의미가 있고, 결제 끝(PAID)·종료(CLOSED)는 화면이 「끝남」으로 보여 준다. "
 			+ "파티 신청일(from~to, 한 번에 12개월까지)로 거르고, 파티 번호(partyId)로 찾으면 기간은 보지 않는다. "
-			+ "크루 이름은 아직 주지 않고 크루 ID만 준다.")
+			+ "크루 이름은 아직 주지 않고 크루 ID만 준다. 다른 판매자의 대회는 파티가 없는 대회와 같은 빈 목록이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (없으면 빈 목록)",
 			content = @Content(examples = @ExampleObject(value = SellerOrderApiExamples.PARTIES_SUCCESS))),
@@ -159,11 +157,9 @@ public class ApiV1SellerOrderController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerOrderApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님, 다른 판매자의 대회",
-			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
-				@ExampleObject(name = "승인된 판매자가 아님", value = SellerOrderApiExamples.NOT_SELLER),
-				@ExampleObject(name = "다른 판매자의 대회", value = SellerOrderApiExamples.OTHER_SELLER_PARTY)
-			})),
+		@ApiResponse(responseCode = "403", description = "승인된 판매자가 아님",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = SellerOrderApiExamples.NOT_SELLER))),
 		@ApiResponse(responseCode = "404", description = "파티의 종목을 상품 서비스에서 찾지 못함",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = SellerOrderApiExamples.COURSE_NOT_FOUND))),

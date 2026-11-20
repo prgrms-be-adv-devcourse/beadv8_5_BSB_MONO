@@ -21,7 +21,6 @@ import com.bukang.order.domain.KitOptionSale;
 import com.bukang.order.domain.ParticipationKitOption;
 import com.bukang.order.domain.exception.KitOptionInvalidException;
 import com.bukang.order.domain.exception.KitOptionSoldOutException;
-import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.SellerKitOptionSaleDto;
 import com.bukang.order.out.KitOptionSaleRepository;
@@ -180,12 +179,13 @@ public class KitOptionSaleUseCase {
 
 	/**
 	 * 판매자 키트 옵션별 판매 현황. 옵션과 준비 수량은 상품 목록에서, 판매 수는 이 서비스의 판매 수 표에서 읽는다
-	 * shortcut: 상품 목록에 판매자 ID가 없어, 이 대회 주문 상품에 다른 판매자가 있을 때만 403으로 막는다.
+	 * shortcut: 상품 목록에 판매자 ID가 없어, 이 대회 주문 상품에 다른 판매자가 있을 때만 남의 대회로 본다.
 	 * 아직 팔린 것이 없는 남의 대회는 판매 수 0과 공개된 준비 수량만 보인다. 상품 대회 조회에 판매자 확인이 생기면 바꾼다
+	 * 남의 대회는 상품이 찾지 못한 대회와 같은 빈 목록이다. 남의 대회에 판매가 있는지 알리지 않는다 (CRU-92)
 	 */
 	public List<SellerKitOptionSaleDto> findSales(long sellerId, long raceId) {
 		if (orderItemRepository.existsByRaceIdAndSellerIdNot(raceId, sellerId)) {
-			throw new SellerAccessDeniedException("본인 대회의 키트 옵션만 볼 수 있습니다.");
+			return List.of();
 		}
 		Map<Long, Integer> soldById = kitOptionSaleRepository.findByRaceId(raceId).stream()
 			.collect(Collectors.toMap(KitOptionSale::getId, KitOptionSale::getSold));

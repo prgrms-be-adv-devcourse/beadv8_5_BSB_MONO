@@ -185,7 +185,7 @@ class ApiV1SellerKitTest {
 	}
 
 	@Test
-	@DisplayName("판매자가 아닌 회원은 네 API 모두 403 ORDER_SELLER_FORBIDDEN이고, 다른 판매자의 참가권은 403 ORDER_FORBIDDEN이다")
+	@DisplayName("판매자가 아닌 회원은 네 API 모두 403 ORDER_SELLER_FORBIDDEN이고, 다른 판매자의 참가권은 없는 주문 상품과 같은 404다")
 	void notSellerOrOtherSeller() throws Exception {
 		approveSellers();
 		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null, LocalDate.now().minusDays(1)));
@@ -201,13 +201,21 @@ class ApiV1SellerKitTest {
 				.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"))
 				.andExpect(jsonPath("$.message").value("승인된 판매자만 쓸 수 있습니다."));
 		}
-		ship(OTHER_SELLER_MEMBER_ID, itemId, "kr.cjlogistics", "684912345678")
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_FORBIDDEN"));
+		// 남의 참가권과 없는 주문 상품을 응답으로 구분할 수 없다 (CRU-92)
+		String othersBody = ship(OTHER_SELLER_MEMBER_ID, itemId, "kr.cjlogistics", "684912345678")
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = ship(OTHER_SELLER_MEMBER_ID, 999_999, "kr.cjlogistics", "684912345678")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_ITEM_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 		ship(SELLER_MEMBER_ID, itemId, "kr.cjlogistics", "684912345678").andExpect(status().isOk());
-		mockMvc.perform(post(BASE_URL + "/" + itemId + "/delivery").header("X-Member-Id", OTHER_SELLER_MEMBER_ID))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_FORBIDDEN"));
+		String othersDeliveryBody = mockMvc.perform(post(BASE_URL + "/" + itemId + "/delivery")
+				.header("X-Member-Id", OTHER_SELLER_MEMBER_ID))
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersDeliveryBody).isEqualTo(missingBody);
 		mockMvc.perform(get(BASE_URL).header("X-Member-Id", OTHER_SELLER_MEMBER_ID))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.totalElements").value(0));
