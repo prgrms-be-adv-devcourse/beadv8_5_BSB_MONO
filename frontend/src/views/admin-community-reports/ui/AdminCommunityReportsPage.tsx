@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 
 import { ConsoleCard, ConsoleMessage, ConsolePage } from '@/widgets/console-page'
@@ -76,7 +77,7 @@ export function AdminCommunityReportsPage() {
   }
 
   return (
-    <ConsolePage title="커뮤니티 신고">
+    <ConsolePage title="커뮤니티 신고" className="flex-1">
       {reports.isPending ? (
         <div role="status" aria-label="불러오는 중" className="flex flex-col gap-4">
           <Skeleton shape="rect" className="h-24 rounded-lg" />
@@ -93,7 +94,14 @@ export function AdminCommunityReportsPage() {
       ) : (
         <>
           {items.length === 0 ? (
-            <EmptyState title="숨겨진 글 · 댓글이 없어요" />
+            <div className="flex flex-1 items-center justify-center">
+              <EmptyState
+                illustration={
+                  <Image src="/brand/mascot-default.svg" alt="" width={96} height={96} />
+                }
+                title="숨겨진 글 · 댓글이 없어요"
+              />
+            </div>
           ) : (
             <DataTable
               label="숨겨진 글 · 댓글"
