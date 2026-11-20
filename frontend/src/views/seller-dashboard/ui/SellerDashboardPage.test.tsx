@@ -117,7 +117,7 @@ describe('SellerDashboardPage', () => {
     expect(screen.getByText('승인된 판매자만 볼 수 있습니다.')).toBeInTheDocument()
   })
 
-  it('처리할 일 제목 옆에 합계를 보여 주고, 줄마다 이동할 메뉴 이름을 보여 준다', async () => {
+  it('처리할 일 제목 옆에는 합계를 두지 않고(줄마다 건수가 있다), 줄마다 이동할 메뉴 이름을 보여 준다', async () => {
     renderPage()
 
     const todo = await card('처리할 일')
@@ -125,7 +125,7 @@ describe('SellerDashboardPage', () => {
       await within(todo).findByRole('link', { name: /송장 입력 대기\s*2건\s*키트 배송/ }),
     ).toBeInTheDocument()
     expect(within(todo).getByRole('link', { name: /지급보류\s*1건\s*정산/ })).toBeInTheDocument()
-    expect(todo).toHaveTextContent(/처리할 일\s*\d+/)
+    expect(todo).not.toHaveTextContent(/처리할 일\s*\d/)
   })
 
   it('제목 아래 기준일과 대회별 판매의 대회 관리 버튼은 두지 않는다', async () => {
