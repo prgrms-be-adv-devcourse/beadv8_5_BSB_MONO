@@ -29,7 +29,7 @@ services:
   # 입구: 80 포트 하나만 열고 /api는 gateway, 나머지는 web으로 넘긴다 (설정: docker/nginx/default.conf)
   # 운영(EC2)은 compose.prod.yml이 443과 Let's Encrypt 인증서를 덧붙인다
   nginx:
-    image: nginx:1.28-alpine
+    image: nginx:1.30.7-alpine
     container_name: bukang-nginx
     profiles: [ app ]
     ports:
