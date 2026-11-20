@@ -211,9 +211,19 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       title="대회 등록"
       actions={
         <>
-          <Button variant="secondary" disabled>
-            미리보기
-          </Button>
+          {/* 꺼진 버튼은 마우스 이벤트를 받지 않아, 감싼 span의 :hover로 말풍선을 띄운다 */}
+          <span className="group relative inline-flex">
+            <Button variant="secondary" disabled aria-describedby="race-preview-reason">
+              미리보기
+            </Button>
+            <span
+              id="race-preview-reason"
+              role="tooltip"
+              className="pointer-events-none absolute top-full right-0 z-10 mt-2 hidden w-max rounded-md bg-bg-inverse px-3 py-2 text-caption-regular text-text-inverse shadow-md group-hover:block"
+            >
+              미리보기는 아직 준비 중이에요
+            </span>
+          </span>
           <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>
