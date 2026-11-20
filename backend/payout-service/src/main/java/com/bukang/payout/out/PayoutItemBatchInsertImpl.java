@@ -18,7 +18,6 @@ import com.bukang.payout.domain.PayoutItem;
  * JpaTransactionManager가 트랜잭션의 JDBC 연결을 DataSource에도 걸어 두므로, 같은 연결 · 같은 트랜잭션에서 돈다
  */
 class PayoutItemBatchInsertImpl implements PayoutItemBatchInsert {
-	static final int BATCH_SIZE = 1000;
 	// bundle_key는 참가권 줄이면 NULL이라 넣지 않는다 (PayoutItem.assignBundleKey와 같다)
 	private static final String INSERT_SQL = """
 		insert into payout_payout_item

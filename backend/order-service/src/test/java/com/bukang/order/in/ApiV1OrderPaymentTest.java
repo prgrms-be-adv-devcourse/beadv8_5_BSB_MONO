@@ -274,18 +274,20 @@ class ApiV1OrderPaymentTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 주문은 403, 없는 주문은 404이고 예치금을 건드리지 않는다")
+	@DisplayName("다른 회원의 주문과 없는 주문은 같은 404이고 예치금을 건드리지 않는다")
 	void payNotOwnerOrMissing() throws Exception {
 		long orderId = orderAndGetId(MEMBER_ID);
 
-		pay(OTHER_MEMBER_ID, orderId)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 주문만 결제할 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_FORBIDDEN"));
-		pay(MEMBER_ID, 999999)
+		String othersBody = pay(OTHER_MEMBER_ID, orderId)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = pay(MEMBER_ID, 999999)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 주문입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 		assertThat(walletPort.payCalls()).isEmpty();
 	}
 

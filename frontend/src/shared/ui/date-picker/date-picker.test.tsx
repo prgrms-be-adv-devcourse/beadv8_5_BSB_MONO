@@ -337,3 +337,19 @@ describe('한 주 보기에서 연·월 휠로 달 이동', () => {
     expect(screen.getByRole('button', { name: /1995년 9월, 연·월 고르기/ })).toBeInTheDocument()
   })
 })
+
+describe('휠이 열린 채로 선택 완료', () => {
+  it('확정하지 않고 휠을 닫아 고른 달의 달력을 보여 준다', async () => {
+    const onConfirm = vi.fn()
+    render(<DatePicker mode="single" defaultMonth={day(1)} footer={{ onConfirm }} />)
+    await userEvent.click(await screen.findByRole('button', { name: /연·월 고르기/ }))
+    await userEvent.click(screen.getByRole('option', { name: '2025년' }))
+    await userEvent.click(screen.getByRole('option', { name: '3월' }))
+    await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
+
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /2025년 3월 2일/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+})

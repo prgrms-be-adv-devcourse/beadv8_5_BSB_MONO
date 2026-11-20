@@ -107,21 +107,7 @@ function TodoCard() {
       : shippable + waiting + held
 
   return (
-    <ConsoleCard
-      title={
-        <>
-          <span className="flex items-center gap-2">
-            처리할 일
-            {total !== undefined && (
-              <span className="font-display text-number-s text-text-secondary">
-                {formatNumber(total)}
-              </span>
-            )}
-          </span>
-        </>
-      }
-      className={CARD}
-    >
+    <ConsoleCard title="처리할 일" className={CARD}>
       {total === 0 ? (
         <p className="py-2 text-body2-regular text-text-secondary">처리할 일이 없어요</p>
       ) : (

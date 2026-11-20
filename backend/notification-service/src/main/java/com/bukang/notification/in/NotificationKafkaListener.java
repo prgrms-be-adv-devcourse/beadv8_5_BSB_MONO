@@ -34,7 +34,7 @@ public class NotificationKafkaListener {
 		try {
 			event = jsonConverter.fromJson(message, NotificationRequestedEvent.class);
 		} catch (IllegalArgumentException broken) {
-			log.warn("읽을 수 없는 알림 메시지라 버립니다. message={}", message, broken);
+			log.warn("읽을 수 없는 알림 메시지라 버립니다. messageId={}", messageId, broken);
 			return;
 		}
 		// 헤더가 없으면(직접 넣은 메시지 등) 본문의 eventId로 거른다. NotificationKafkaSender는 둘에 같은 값을 넣는다

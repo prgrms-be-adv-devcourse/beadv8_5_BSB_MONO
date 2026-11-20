@@ -35,21 +35,21 @@ public class OrderKafkaDltConsumer {
 	// 환불하지 못한 참가권이 남아 있다. 예치금 서비스 등 원인을 고친 뒤 다시 보내면 실패한 주문만 다시 환불한다
 	@KafkaListener(topics = RACE_CANCEL_DLT, groupId = GROUP_ID)
 	public void handleRaceCancelDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 대회 취소 환불 메시지: {}", record.value());
+		log.error("처리하지 못한 대회 취소 환불 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 크루를 나간 사람이 모집 중 파티에 남아 있다. 원인을 고친 뒤 다시 보내야 한다
 	@KafkaListener(topics = CREW_MEMBER_LEFT_DLT, groupId = GROUP_ID)
 	public void handleCrewMemberLeftDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 크루 떠남 메시지: {}", record.value());
+		log.error("처리하지 못한 크루 떠남 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 일정 변경 알림을 보내지 못했다. 원인을 고친 뒤 다시 보내면 아직 알리지 않은 변경만 알린다 (BUK-82)
 	@KafkaListener(topics = RACE_CHANGED_DLT, groupId = GROUP_ID)
 	public void handleRaceChangedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 대회 변경 메시지: {}", record.value());
+		log.error("처리하지 못한 대회 변경 메시지. key={}", record.key());
 		record(record);
 	}
 

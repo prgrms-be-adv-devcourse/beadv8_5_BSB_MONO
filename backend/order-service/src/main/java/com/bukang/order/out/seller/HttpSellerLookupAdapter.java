@@ -9,7 +9,6 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -44,8 +43,8 @@ public class HttpSellerLookupAdapter implements SellerLookupPort {
 				.body(RESPONSE_TYPE);
 		} catch (HttpClientErrorException exception) {
 			// 4xx는 다시 시도해도 풀리지 않는다. 경로 계약이 어긋났을 수 있어 장애와 구분해 남긴다
-			log.error("회원 서비스가 판매자 조회를 거절했습니다. status={}, memberId={}, body={}", exception.getStatusCode(),
-				memberId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+			log.error("회원 서비스가 판매자 조회를 거절했습니다. status={}, memberId={}", exception.getStatusCode(),
+				memberId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		} catch (RestClientException exception) {
 			log.warn("회원 서비스에 판매자를 묻지 못했습니다. memberId={}, cause={}", memberId, exception.toString());
@@ -53,14 +52,14 @@ public class HttpSellerLookupAdapter implements SellerLookupPort {
 		}
 		SellerResponse body = response == null ? null : response.data();
 		if (body == null) {
-			log.error("회원 서비스의 판매자 조회 응답이 비어 있습니다. memberId={}, response={}", memberId, response);
+			log.error("회원 서비스의 판매자 조회 응답이 비어 있습니다. memberId={}", memberId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (!APPROVED.equals(body.status())) {
 			return Optional.empty();
 		}
 		if (body.sellerId() == null) {
-			log.error("회원 서비스가 승인된 판매자에 판매자 ID 없이 답했습니다. memberId={}, response={}", memberId, response);
+			log.error("회원 서비스가 승인된 판매자에 판매자 ID 없이 답했습니다. memberId={}", memberId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return Optional.of(body.sellerId());

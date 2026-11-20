@@ -1,0 +1,74 @@
+time="2026-11-17T04:41:44Z" level=warning msg="The test has generated metrics with 100101 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T04:42:20Z" level=warning msg="The test has generated metrics with 200046 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T04:43:59Z" level=warning msg="The test has generated metrics with 400015 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+
+
+  █ THRESHOLDS 
+
+    dropped_iterations
+    ✗ 'count==0' count=30
+
+    http_req_duration{api:pay,phase:after}
+    ✓ 'p(95)<200' p(95)=33.95ms
+
+    http_req_duration{api:pay,phase:before}
+    ✓ 'p(95)<200' p(95)=27.92ms
+
+    http_req_duration{api:pay,phase:during}
+    ✓ 'p(95)<200' p(95)=69.73ms
+    ✓ 'p(99)<1000' p(99)=150.13ms
+    ✓ 'p(95)<2000' p(95)=69.73ms
+
+    http_req_failed{api:pay}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:payout}
+    ✓ 'rate<0.01' rate=0.00%
+
+    iterations{phase:after}
+    ✓ 'count>=0' count=17716
+
+    iterations{phase:before}
+    ✓ 'count>=0' count=17517
+
+    iterations{phase:during}
+    ✓ 'count>=0' count=10048
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 56035   266.812462/s
+    checks_succeeded...................: 100.00% 56035 out of 56035
+    checks_failed......................: 0.00%   0 out of 56035
+
+    ✓ 결제 200·결제됨
+    ✓ 정산 지급 200
+
+    HTTP
+    http_req_duration.......................................................: avg=21.59ms med=8.04ms  p(95)=48.03ms p(99)=126.41ms max=5.3s    
+      { api:pay,phase:after }...............................................: avg=12.93ms med=7.95ms  p(95)=33.95ms p(99)=83.12ms  max=698.23ms
+      { api:pay,phase:before }..............................................: avg=13.15ms med=7.84ms  p(95)=27.92ms p(99)=98.24ms  max=1.28s   
+      { api:pay,phase:during }..............................................: avg=23.26ms med=10.19ms p(95)=69.73ms p(99)=150.13ms max=4.38s   
+      { expected_response:true }............................................: avg=21.59ms med=8.04ms  p(95)=48.03ms p(99)=126.41ms max=5.3s    
+    http_req_failed.........................................................: 0.00% 0 out of 56035
+      { api:pay }...........................................................: 0.00% 0 out of 54864
+      { api:payout }........................................................: 0.00% 0 out of 1171
+    http_reqs...............................................................: 56035 266.812462/s
+
+    EXECUTION
+    dropped_iterations......................................................: 30    0.142846/s
+    iteration_duration......................................................: avg=22.16ms med=8.52ms  p(95)=49.73ms p(99)=129.62ms max=5.3s    
+    iterations..............................................................: 56035 266.812462/s
+      { phase:after }.......................................................: 17716 84.355306/s
+      { phase:before }......................................................: 17517 83.407761/s
+      { phase:during }......................................................: 10048 47.843876/s
+    vus.....................................................................: 4     min=4          max=72
+    vus_max.................................................................: 78    min=48         max=78
+
+    NETWORK
+    data_received...........................................................: 12 MB 56 kB/s
+    data_sent...............................................................: 13 MB 61 kB/s
+
+
+
+time="2026-11-17T04:44:39Z" level=error msg="thresholds on metrics 'dropped_iterations' have been crossed"

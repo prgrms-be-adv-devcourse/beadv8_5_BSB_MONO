@@ -120,6 +120,10 @@ public class PartyUseCase {
 
 	public Party regenerateJoinLink(long partyId, long memberId, LocalDateTime now) {
 		Party party = lockParty(partyId);
+		// 파티원이 아니면 파티장만(403) 대신 없는 파티(404)로 답해 남의 파티가 있는지 알리지 않는다 (CRU-91)
+		if (!party.isLeader(memberId) && !isActiveMember(partyId, memberId)) {
+			throw new PartyNotFoundException("존재하지 않는 파티입니다.");
+		}
 		party.regenerateJoinToken(memberId, now);
 		return party;
 	}
@@ -162,7 +166,7 @@ public class PartyUseCase {
 		// 파티원인지 먼저 본다. 모집이 끝난 거절(409)은 파티 상태를 알려 주므로 파티원이 아닌 사람에게 주지 않는다
 		PartyMember member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
 			.filter(PartyMember::isActive)
-			.orElseThrow(PartyAccessDeniedException::notMember);
+			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
 		party.checkMembersChangeable();
 		return removeMember(party, member, now);
 	}
@@ -281,6 +285,11 @@ public class PartyUseCase {
 
 	private static PartyNotFoundException joinLinkNotFound() {
 		return new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요.");
+	}
+
+	private boolean isActiveMember(long partyId, long memberId) {
+		return partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
+			.filter(PartyMember::isActive).isPresent();
 	}
 
 	private Party lockParty(long partyId) {

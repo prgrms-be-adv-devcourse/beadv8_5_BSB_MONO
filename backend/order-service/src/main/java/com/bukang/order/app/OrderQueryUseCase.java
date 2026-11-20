@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.ShippingAddress;
-import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.OrderSearchPeriodException;
 import com.bukang.order.dto.AdminOrderPageDto;
@@ -50,7 +49,7 @@ public class OrderQueryUseCase {
 		Order order = orderRepository.findById(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (!order.isOwnedBy(memberId)) {
-			throw new OrderAccessDeniedException("본인의 주문만 볼 수 있습니다.");
+			throw new OrderNotFoundException("존재하지 않는 주문입니다.");
 		}
 		if (!order.getShipments().isEmpty()) {
 			return order.toDto();

@@ -106,7 +106,7 @@ class HttpMemberAdminAdapterTest {
 		// 연결은 받지만 아무 응답도 하지 않는 서버
 		try (ServerSocket silentServer = new ServerSocket(0)) {
 			HttpMemberAdminAdapter slowAdapter = new MemberClientConfig().httpMemberAdminAdapter(
-				"http://localhost:" + silentServer.getLocalPort(), Duration.ofMillis(300));
+				RestClient.builder(), "http://localhost:" + silentServer.getLocalPort(), Duration.ofMillis(300));
 			long startedAt = System.nanoTime();
 
 			assertThatThrownBy(() -> slowAdapter.isAdmin(MEMBER_ID))

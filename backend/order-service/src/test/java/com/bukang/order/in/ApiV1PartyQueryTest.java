@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -124,7 +125,7 @@ class ApiV1PartyQueryTest {
 	}
 
 	@Test
-	@DisplayName("파티원이 아니거나 나간 사람은 상세를 볼 수 없고(403), 없는 파티는 404")
+	@DisplayName("파티원이 아니거나 나간 사람은 상세를 볼 수 없고, 없는 파티와 같은 404다")
 	void detailForbidden() throws Exception {
 		String token = create(LEADER, COURSE);
 		long partyId = partyId();
@@ -132,11 +133,16 @@ class ApiV1PartyQueryTest {
 		mockMvc.perform(post(BASE_URL + "/" + partyId + "/leave").header("X-Member-Id", MEMBER))
 			.andExpect(status().isOk());
 
-		detail(OTHER, partyId).andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_MEMBER"));
-		detail(MEMBER, partyId).andExpect(status().isForbidden());
-		detail(LEADER, partyId + 999).andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"));
+		String othersBody = detail(OTHER, partyId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String leftBody = detail(MEMBER, partyId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = detail(LEADER, partyId + 999).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 파티와 없는 파티를 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
+		assertThat(leftBody).isEqualTo(missingBody);
 		detail(LEADER, partyId).andExpect(jsonPath("$.data.memberCount").value(1));
 	}
 

@@ -463,18 +463,20 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 신청서는 403, 없는 신청서는 404다")
+	@DisplayName("다른 회원의 신청서와 없는 신청서는 같은 404다")
 	void notOwnerOrMissing() throws Exception {
 		long participationId = applyAndGetId(MEMBER_ID);
 
-		create(OTHER_MEMBER_ID, participationId, newKey())
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 참가 신청만 결제할 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_FORBIDDEN"));
-		create(MEMBER_ID, 999999, newKey())
+		String othersBody = create(OTHER_MEMBER_ID, participationId, newKey())
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = create(MEMBER_ID, 999999, newKey())
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 참가 신청입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 
 		assertThat(seatHoldPort.holdCalls()).isZero();
 	}

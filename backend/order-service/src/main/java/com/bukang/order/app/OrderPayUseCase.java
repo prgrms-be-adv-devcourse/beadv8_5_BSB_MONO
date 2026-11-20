@@ -17,7 +17,6 @@ import com.bukang.order.domain.Party;
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
-import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
@@ -315,7 +314,7 @@ public class OrderPayUseCase {
 		OrderItemRepository.PayTarget target = orderItemRepository.findPayTargets(orderId).stream().findFirst()
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (target.getBuyerId() != memberId) {
-			throw new OrderAccessDeniedException("본인의 주문만 결제할 수 있습니다.");
+			throw new OrderNotFoundException("존재하지 않는 주문입니다.");
 		}
 		if (target.getStatus() == OrderStatus.PAID) {
 			return null;
@@ -365,7 +364,7 @@ public class OrderPayUseCase {
 		Order order = orderRepository.findByIdForUpdate(orderId)
 			.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (!order.isOwnedBy(memberId)) {
-			throw new OrderAccessDeniedException("본인의 주문만 결제할 수 있습니다.");
+			throw new OrderNotFoundException("존재하지 않는 주문입니다.");
 		}
 		return order;
 	}

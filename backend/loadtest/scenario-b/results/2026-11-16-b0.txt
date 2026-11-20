@@ -1,0 +1,43 @@
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✗ 'rate==1' rate=99.79%
+
+    http_req_failed
+    ✗ 'rate==0' rate=0.20%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 4351   54.373198/s
+    checks_succeeded...: 99.79% 4342 out of 4351
+    checks_failed......: 0.20%  9 out of 4351
+
+    ✓ 같은 주문 결제 200·결제됨
+    ✗ 같은 정산 지급 200 또는 503
+      ↳  82% — ✓ 41 / ✗ 9
+    ✓ 결제 200·결제됨
+    ✓ 환불 200
+    ✓ 정산 지급 200
+
+    HTTP
+    http_req_duration..............: avg=23.29ms min=3.48ms med=9.1ms   max=491.75ms p(90)=22.83ms p(95)=30.12ms 
+      { expected_response:true }...: avg=23.02ms min=3.48ms med=9.09ms  max=491.75ms p(90)=22.69ms p(95)=29.3ms  
+    http_req_failed................: 0.20%  9 out of 4351
+    http_reqs......................: 4351   54.373198/s
+
+    EXECUTION
+    iteration_duration.............: avg=40.79ms min=8.77ms med=19.61ms max=500.44ms p(90)=31.04ms p(95)=249.57ms
+    iterations.....................: 2551   31.879115/s
+    vus............................: 1      min=0         max=1  
+    vus_max........................: 220    min=220       max=220
+
+    NETWORK
+    data_received..................: 918 kB 12 kB/s
+    data_sent......................: 852 kB 11 kB/s
+
+
+
+time="2026-11-16T15:29:19+09:00" level=error msg="thresholds on metrics 'checks, http_req_failed' have been crossed"

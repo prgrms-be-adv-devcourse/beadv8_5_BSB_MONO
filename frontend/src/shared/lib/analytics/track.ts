@@ -30,7 +30,6 @@ export type AnalyticsEvents = {
   queue_pass: { raceId: string; waitSeconds: number }
   queue_leave: { raceId: string; waitSeconds: number }
   apply_start: { raceId: string; courseId: string }
-  add_to_cart: { item: TrackItem }
   begin_checkout: { items: TrackItem[]; value: number }
   deposit_short: { shortage: number }
   deposit_charge_start: { amount: number; duringCheckout: boolean }
@@ -107,7 +106,7 @@ const charge = ({ amount, duringCheckout }: AnalyticsEvents['deposit_charge_star
   during_checkout: duringCheckout,
 })
 
-// GA4 추천 이벤트(view_item · add_to_cart · begin_checkout · purchase)는 ecommerce 값을 함께 보내야
+// GA4 추천 이벤트(view_item · begin_checkout · purchase)는 ecommerce 값을 함께 보내야
 // GA4 구매 보고서가 따로 설정 없이 채워진다.
 const PAYLOADS: { [K in AnalyticsEventName]: (params: AnalyticsEvents[K]) => DataLayerEntry } = {
   view_item_list: ({ hasKeyword, resultCount }) => ({
@@ -124,12 +123,6 @@ const PAYLOADS: { [K in AnalyticsEventName]: (params: AnalyticsEvents[K]) => Dat
   queue_pass: queueWait,
   queue_leave: queueWait,
   apply_start: ({ raceId, courseId }) => ({ race_id: raceId, course_id: courseId }),
-  add_to_cart: ({ item }) => ({
-    race_id: item.raceId,
-    course_id: item.courseId,
-    value: item.price,
-    ecommerce: { currency: KRW, value: item.price, items: ecommerceItems([item]) },
-  }),
   begin_checkout: ({ items, value }) => ({
     item_count: items.length,
     value,

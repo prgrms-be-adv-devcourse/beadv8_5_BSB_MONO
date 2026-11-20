@@ -497,7 +497,10 @@ function DatePickerBody(props: DatePickerProps & { today: Date }) {
       {footer && (
         <div className="flex items-center gap-3 pt-2">
           <span className="min-w-0 flex-1 truncate text-body2-bold text-text-primary">{text}</span>
-          <Button onClick={footer.onConfirm}>{footer.confirmLabel ?? '선택 완료'}</Button>
+          {/* 휠이 열려 있으면 연·월만 정한 것이라, 확정하지 않고 그 달의 달력으로 돌아간다 */}
+          <Button onClick={wheelOpen ? () => setWheelOpen(false) : footer.onConfirm}>
+            {footer.confirmLabel ?? '선택 완료'}
+          </Button>
         </div>
       )}
     </div>

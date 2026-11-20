@@ -7,7 +7,6 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -45,8 +44,8 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 			if (isMemberNotFound(exception)) {
 				return false;
 			}
-			log.error("회원 서비스가 관리자 여부 요청에 회원 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. memberId={}, body={}",
-				memberId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()), exception);
+			log.error("회원 서비스가 관리자 여부 요청에 회원 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. memberId={}",
+				memberId, exception);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		} catch (HttpClientErrorException exception) {
 			// 4xx는 다시 시도해도 풀리지 않는다. 경로 계약이 어긋났을 수 있어 장애와 구분해 남긴다
@@ -58,7 +57,7 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().admin() == null) {
-			log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
+			log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}", memberId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return response.data().admin();

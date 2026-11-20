@@ -633,7 +633,12 @@ class KitDeliveryTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("아직 발송하지 않은 키트입니다."));
 		ship(itemId);
-		confirmReceipt(MEMBER_ID + 1, orderId, itemId).andExpect(status().isForbidden());
+		// 남의 주문은 없는 주문과 같은 404다 (CRU-91)
+		String othersBody = confirmReceipt(MEMBER_ID + 1, orderId, itemId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = confirmReceipt(MEMBER_ID + 1, 999999, itemId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitReceivedAt").isEmpty());
 
 		confirmReceipt(MEMBER_ID, orderId, itemId)

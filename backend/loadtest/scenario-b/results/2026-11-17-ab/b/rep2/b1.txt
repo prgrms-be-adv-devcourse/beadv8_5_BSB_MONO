@@ -1,0 +1,58 @@
+time="2026-11-17T05:14:37Z" level=warning msg="The test has generated metrics with 100105 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T05:15:32Z" level=warning msg="The test has generated metrics with 200113 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T05:17:12Z" level=warning msg="The test has generated metrics with 400107 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{stage:vus4}
+    ✓ 'p(99)<1000' p(99)=138.68ms
+
+    http_req_duration{stage:vus8}
+    ✓ 'p(99)<1000' p(99)=312.98ms
+
+    http_req_failed{stage:vus4}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:vus8}
+    ✓ 'rate<0.01' rate=0.00%
+
+    iterations{stage:vus4}
+    ✓ 'count>=0' count=26097
+
+    iterations{stage:vus8}
+    ✓ 'count>=0' count=27463
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 53560   223.133141/s
+    checks_succeeded...................: 100.00% 53560 out of 53560
+    checks_failed......................: 0.00%   0 out of 53560
+
+    ✓ 결제 200·결제됨
+
+    HTTP
+    http_req_duration.......................................................: avg=26.47ms med=15.88ms p(95)=73.09ms p(99)=222.69ms max=5.35s
+      { expected_response:true }............................................: avg=26.47ms med=15.88ms p(95)=73.09ms p(99)=222.69ms max=5.35s
+      { stage:vus4 }........................................................: avg=17.99ms med=7.95ms  p(95)=57.87ms p(99)=138.68ms max=5.35s
+      { stage:vus8 }........................................................: avg=34.52ms med=17.14ms p(95)=83.95ms p(99)=312.98ms max=4.38s
+    http_req_failed.........................................................: 0.00% 0 out of 53560
+      { stage:vus4 }........................................................: 0.00% 0 out of 26097
+      { stage:vus8 }........................................................: 0.00% 0 out of 27463
+    http_reqs...............................................................: 53560 223.133141/s
+
+    EXECUTION
+    iteration_duration......................................................: avg=26.88ms med=16.26ms p(95)=73.76ms p(99)=223.04ms max=5.35s
+    iterations..............................................................: 53560 223.133141/s
+      { stage:vus4 }........................................................: 26097 108.721165/s
+      { stage:vus8 }........................................................: 27463 114.411976/s
+    vus.....................................................................: 8     min=4          max=8 
+    vus_max.................................................................: 12    min=12         max=12
+
+    NETWORK
+    data_received...........................................................: 11 MB 47 kB/s
+    data_sent...............................................................: 12 MB 50 kB/s
+
+
+

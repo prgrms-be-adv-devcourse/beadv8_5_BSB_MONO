@@ -67,12 +67,12 @@ describe('TicketDetailPage', () => {
     expect(screen.getByText('L')).toBeInTheDocument()
     expect(screen.queryByText(/기념 티셔츠/)).not.toBeInTheDocument()
     expect(screen.getByText('키트 배송지')).toBeInTheDocument()
-    expect(screen.getByText('서울 성동구 왕십리로 00 101동 1001호')).toBeInTheDocument()
+    expect(screen.getByText('(04700) 서울 성동구 왕십리로 00 101동 1001호')).toBeInTheDocument()
     expect(screen.getByText('비상 연락처')).toBeInTheDocument()
     // Clarity 화면 녹화에서 참가자 이름 · 연락처를 가린다
     expect(screen.getByText('김러너 · 10K').closest('[data-clarity-mask="true"]')).not.toBeNull()
     expect(
-      screen.getByText('김가족 · 010-98**-5432').closest('[data-clarity-mask="true"]'),
+      screen.getByText('김가족 · 010-9876-5432').closest('[data-clarity-mask="true"]'),
     ).not.toBeNull()
     expect(screen.getByRole('link', { name: '참가자 정보 수정하기' })).toHaveAttribute(
       'href',

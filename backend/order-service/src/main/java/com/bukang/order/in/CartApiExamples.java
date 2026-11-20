@@ -89,10 +89,6 @@ final class CartApiExamples {
 		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
-	static final String NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_CART_ITEM_FORBIDDEN", "message": "본인의 장바구니 항목만 뺄 수 있습니다.", "data": null }
-		""";
-
 	static final String COURSE_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_COURSE_NOT_FOUND", "message": "존재하지 않는 종목입니다.", "data": null }
 		""";
@@ -201,10 +197,6 @@ final class CartApiExamples {
 
 	static final String INVALID_IDEMPOTENCY_KEY = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "Idempotency-Key는 1~64자로 보내주세요.", "data": null }
-		""";
-
-	static final String PARTICIPATION_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_PARTICIPATION_FORBIDDEN", "message": "본인의 참가 신청만 결제할 수 있습니다.", "data": null }
 		""";
 
 	static final String PARTICIPATION_NOT_FOUND = """
