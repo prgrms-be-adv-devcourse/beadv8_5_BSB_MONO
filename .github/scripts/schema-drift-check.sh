@@ -56,11 +56,22 @@ build_reference() {
 		--character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci >/dev/null
 	trap 'docker rm -f drift-mysql >/dev/null 2>&1 || true; docker network rm "'"$net"'" >/dev/null 2>&1 || true' RETURN
 
-	local i
+	# 실제 쿼리가 될 때까지 기다린다. mysqladmin ping은 접속이 거부돼도 서버만 떠 있으면 성공이라 쓰지 않는다 (리뷰 #695)
+	# TCP로 붙는 이유: MySQL 이미지는 초기화 때 임시 서버를 소켓만 열어(--skip-networking) 잠깐 띄웠다 내린다.
+	# 소켓으로 확인하면 그 임시 서버에서 통과해, 진짜 서버가 뜨기 전에 다음 줄이 실패할 수 있다
+	local i ready=0
 	for i in $(seq 1 60); do
-		docker exec drift-mysql mysqladmin ping -uroot -p"$pw" --silent >/dev/null 2>&1 && break
+		if docker exec drift-mysql mysql --protocol=tcp -h127.0.0.1 -uroot -p"$pw" -e 'SELECT 1' >/dev/null 2>&1; then
+			ready=1
+			break
+		fi
 		sleep 2
 	done
+	if [ "$ready" != 1 ]; then
+		echo "::error::정답용 MySQL이 120초 안에 준비되지 않았습니다"
+		docker logs --tail 20 drift-mysql 2>&1 || true
+		return 1
+	fi
 
 	for svc in "${SERVICES[@]}"; do
 		local dir="$HERE/../../backend/${svc}-service/src/main/resources/db/migration"
