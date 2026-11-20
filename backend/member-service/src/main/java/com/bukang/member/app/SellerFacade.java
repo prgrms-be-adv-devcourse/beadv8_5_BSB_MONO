@@ -13,10 +13,12 @@ import com.bukang.member.domain.VerifiedPayoutAccount;
 import com.bukang.member.domain.exception.MemberNotFoundException;
 import com.bukang.member.domain.exception.SellerNotFoundException;
 import com.bukang.member.dto.MemberSellerDto;
+import com.bukang.member.dto.MyPayoutAccountDto;
 import com.bukang.member.dto.SellerApplyRequestDto;
 import com.bukang.member.dto.SellerBusinessInfoDto;
 import com.bukang.member.dto.SellerDto;
 import com.bukang.member.dto.SellerPayoutAccountDto;
+import com.bukang.member.dto.SellerPayoutAccountModifyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 
@@ -31,6 +33,7 @@ public class SellerFacade {
 	private final Clock clock;
 	private final SellerApplyUseCase sellerApplyUseCase;
 	private final PayoutAccountVerifyUseCase payoutAccountVerifyUseCase;
+	private final SellerPayoutAccountModifyUseCase sellerPayoutAccountModifyUseCase;
 	private final SellerReviewUseCase sellerReviewUseCase;
 	private final SellerResultCheckUseCase sellerResultCheckUseCase;
 	private final AdminVerifyUseCase adminVerifyUseCase;
@@ -52,6 +55,24 @@ public class SellerFacade {
 			Boolean.TRUE.equals(request.getSellerTermsAgreed()),
 			ClockTimes.now(clock)
 		));
+	}
+
+	// 승인된 판매자가 자기 정산 계좌를 본다. 전체 계좌번호는 돌려주지 않는다 (CRU-80)
+	public MyPayoutAccountDto findMyPayoutAccount(long memberId) {
+		memberRepository.findActiveById(memberId)
+			.orElseThrow(MemberNotFoundException::new);
+		Seller seller = sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
+			.orElseThrow(() -> new SellerNotFoundException("판매자 신청 내역이 없습니다."));
+		seller.requireApproved();
+		return MyPayoutAccountDto.from(seller);
+	}
+
+	// 예금주 확인(오픈뱅킹)은 트랜잭션 밖에서 하고, 통과한 계좌만 저장 트랜잭션에서 바꾼다 (CRU-80)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public MyPayoutAccountDto modifyMyPayoutAccount(long memberId, SellerPayoutAccountModifyRequestDto request) {
+		VerifiedPayoutAccount payoutAccount = payoutAccountVerifyUseCase.verifyForChange(memberId, request,
+			ClockTimes.now(clock));
+		return MyPayoutAccountDto.from(sellerPayoutAccountModifyUseCase.modify(memberId, payoutAccount));
 	}
 
 	public SellerDto findMine(long memberId) {
