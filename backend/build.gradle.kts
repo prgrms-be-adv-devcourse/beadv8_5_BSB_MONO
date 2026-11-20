@@ -69,6 +69,8 @@ subprojects {
 			"developmentOnly"("org.springframework.boot:spring-boot-starter-opentelemetry")
 			// Logback 로그를 OTLP로도 보내는 연결 코드. OTel처럼 bootRun에만 들어가고 운영 jar에는 빠진다
 			"developmentOnly"(project(":observability-dev"))
+			// 운영(prod + LOKI_URL)에서만 Logback 로그를 Loki로 보낸다 (CRU-95). 다른 환경에서는 붙지 않는다
+			"runtimeOnly"(project(":observability-loki"))
 		}
 	}
 

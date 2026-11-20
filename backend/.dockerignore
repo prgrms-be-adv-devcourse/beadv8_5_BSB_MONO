@@ -22,6 +22,8 @@
 !ai-service/
 # bootRun 전용 모듈이라 운영 jar에는 들어가지 않지만, settings.gradle.kts에 등록돼 있어 폴더가 있어야 Gradle이 시작한다
 !observability-dev/
+# 운영 로그를 Loki로 보내는 부품. 모든 앱 jar에 들어간다
+!observability-loki/
 
 # 위에서 허용한 모듈 폴더 안의 빌드 결과물은 다시 제외한다
 **/build/

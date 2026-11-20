@@ -10,7 +10,7 @@
 #
 # 규칙 (backend/Dockerfile이 이미지에 넣는 폴더 기준)
 #   backend/<앱>/**                                    → 그 앱
-#   backend/common/**, backend/jwt/**, backend/gradle/** → 백엔드 12개 전부 (모든 앱 jar에 들어가거나 빌드 도구라서)
+#   backend/common/**, backend/jwt/**, backend/observability-loki/**, backend/gradle/** → 백엔드 12개 전부 (모든 앱 jar에 들어가거나 빌드 도구라서)
 #   backend/build.gradle.kts, settings.gradle.kts, gradlew, Dockerfile, .dockerignore → 백엔드 12개 전부
 #   frontend/**                                        → web
 #   빼는 것: 문서(*.md), 테스트 코드(src/test·src/testFixtures, jar에 들어가지 않음),
@@ -38,7 +38,7 @@ while IFS= read -r path; do
 		*.md | */src/test/* | */src/testFixtures/*) continue ;;
 	esac
 	case "$path" in
-		backend/common/* | backend/jwt/* | backend/gradle/* \
+		backend/common/* | backend/jwt/* | backend/observability-loki/* | backend/gradle/* \
 			| backend/build.gradle.kts | backend/settings.gradle.kts | backend/gradlew \
 			| backend/Dockerfile | backend/.dockerignore)
 			for app in "${BACKEND_APPS[@]}"; do CHANGED[$app]=1; done

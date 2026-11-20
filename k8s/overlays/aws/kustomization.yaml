@@ -74,6 +74,11 @@ patches:
   - path: app-config.yaml
   # 상품 서비스의 테스트용 당일 판매 설정 (CRU-36). product Pod에만 넣어, 켜고 끌 때 product만 다시 뜬다
   - path: product-same-day-sale.yaml
+  # 앱 로그를 Loki로 직접 보낸다 (CRU-95). Spring 앱 12개에만 붙인다
+  - path: loki-logging.yaml
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/component=spring
   # 도메인과 HTTPS. 인증서는 Traefik이 Let's Encrypt에서 받는다 (infra/main-node/traefik-config.yaml)
   - path: ingress.yaml
   # GHCR 이미지가 비공개라, 이미지를 받을 때 로그인 정보(Secret ghcr-pull)를 쓰게 한다

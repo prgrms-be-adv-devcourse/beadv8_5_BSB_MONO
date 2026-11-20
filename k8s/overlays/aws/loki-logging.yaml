@@ -1,0 +1,25 @@
+# 운영 Spring 앱 12개가 로그를 Loki(onair EC2, Caddy 뒤)로 직접 보내게 한다 (CRU-95)
+#   앱의 observability-loki 모듈이 prod 프로필이고 LOKI_URL이 있을 때만 appender를 붙인다. 로컬 k3d는 이 패치가 없어 꺼진다
+#   비밀번호는 Secret alloy-loki(키 password)에서 읽는다. deploy.sh가 아니라 손으로 만든 Secret이다
+#     만드는 법: kubectl -n crewrun create secret generic alloy-loki --from-literal=password=<Caddy Basic 인증 비밀번호>
+#   optional이라 Secret이 없어도 앱은 뜨고, Loki가 401로 거절해 로그만 버려진다
+# kustomization.yaml의 target(라벨 component=spring)으로 고르므로 아래 이름은 쓰이지 않는다
+# env 목록은 이름으로 합쳐지므로 공통 설정(base/patches/spring-common.yaml)의 JAVA_TOOL_OPTIONS는 그대로 남는다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki-logging
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          env:
+            - name: LOKI_URL
+              value: https://crewrun-logs.duckdns.org/loki/api/v1/push
+            - name: LOKI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: alloy-loki
+                  key: password
+                  optional: true

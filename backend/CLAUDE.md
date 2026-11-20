@@ -12,6 +12,7 @@
 | `common` | 라이브러리(jar) | - | 모든 서비스가 함께 쓰는 코드 (응답 형식, 예외, JPA 부모 클래스, 서비스 간 이벤트) |
 | `jwt` | 라이브러리(jar) | - | JWT 발급·검증 (`JwtProvider`). 웹·JPA 의존성이 없어 게이트웨이(WebFlux)에서도 쓴다 |
 | `observability-dev` | 라이브러리(jar), bootRun 전용 | - | dev에서 Logback 로그를 OTLP로도 내보내는 appender를 붙인다. 루트 `build.gradle.kts`가 모든 실행 앱에 `developmentOnly`로 넣어 운영 jar와 테스트에는 없다 |
+| `observability-loki` | 라이브러리(jar) | - | 운영(prod)에서 환경변수 `LOKI_URL`이 있을 때만 Logback 로그를 Loki로 보내는 loki4j appender를 붙인다(CRU-95). 루트 `build.gradle.kts`가 모든 실행 앱에 `runtimeOnly`로 넣는다 |
 | `gateway` | Spring Boot 앱 (WebFlux) | 8000 | API 게이트웨이. Access Token을 검사하고 `/api/v1/<도메인>/**`를 경로에 맞는 서비스로 넘긴다 (Spring Cloud Gateway) |
 | `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
 | `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
@@ -68,7 +69,7 @@ Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다
 
 ```
 backend/
-├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service", "observability-dev")
+├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service", "observability-dev", "observability-loki")
 ├── build.gradle.kts           모든 모듈 공통 설정
 ├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너 + nginx·web(프론트)
 ├── compose.prod.yml           옛 운영(EC2 compose) 덮어쓰기: Nginx HTTPS + certbot. 2026-11-15 k3s 전환 뒤 되돌리기용
@@ -93,6 +94,7 @@ backend/
 │       └── resulttype/        ResultType
 ├── jwt/         com.bukang.jwt     JwtProvider, JwtProperties(jwt.*), JwtAutoConfiguration(빈 자동 등록)
 ├── observability-dev/ com.bukang.observability  OtelLogbackAppenderAutoConfiguration (로그 주소가 있을 때만 appender를 붙임, bootRun 전용)
+├── observability-loki/ com.bukang.observability.loki  LokiLogbackAppenderAutoConfiguration (prod + LOKI_URL일 때 loki-appender.xml을 Logback에 더함)
 ├── gateway/     com.bukang.gateway GatewayApplication, auth/(JwtAuthenticationFilter, PublicPaths). 라우팅 규칙·공개 주소(gateway.auth.*)는 application.yaml, 서비스 주소는 프로파일별 yaml(gateway.services.*)
 ├── member-service/  com.bukang.member
 │   ├── in/ app/ domain/ out/  컨트롤러 / Facade·UseCase / 엔티티·도메인 예외 / Repository
