@@ -2,7 +2,7 @@ spring:
   datasource:
     # 운영(k8s)은 MYSQL_DB를 주지 않아 이 서비스 DB(crewrun_payout)를 쓴다. 로컬 compose·부하 측정은 MYSQL_DB=bukang-db로 한 DB를 쓴다 (BUK-238)
     # 정산 줄 JDBC 일괄 INSERT를 한 문장으로 묶어 보낸다 (BUK-252, PayoutItemBatchInsertImpl)
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB:crewrun_payout}?rewriteBatchedStatements=true&useCursorFetch=true
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB:crewrun_payout}?rewriteBatchedStatements=true
     username: ${MYSQL_USER}
     password: ${MYSQL_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver

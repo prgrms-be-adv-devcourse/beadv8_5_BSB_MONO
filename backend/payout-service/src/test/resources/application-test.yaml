@@ -42,3 +42,6 @@ payout:
     order: http://localhost:8084
     product: http://localhost:8085
     member: http://localhost:8080
+  # H2는 음수 fetch size(MySQL 스트리밍 값)를 거부한다. 0 = 드라이버 기본 (PayoutSaleLineStreamImpl)
+  reconcile:
+    stream-fetch-size: 0
