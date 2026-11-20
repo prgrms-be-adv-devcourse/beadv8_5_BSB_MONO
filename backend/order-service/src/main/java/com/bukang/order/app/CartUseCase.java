@@ -18,7 +18,6 @@ import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.CartConflictException;
-import com.bukang.order.domain.exception.CartItemAccessDeniedException;
 import com.bukang.order.domain.exception.CartItemNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
 import com.bukang.order.dto.CartDto;
@@ -107,7 +106,7 @@ public class CartUseCase {
 			.orElseThrow(() -> new CartItemNotFoundException("장바구니에 없는 항목입니다."));
 		Cart cart = item.getCart();
 		if (!cart.isOwnedBy(memberId)) {
-			throw new CartItemAccessDeniedException("본인의 장바구니 항목만 뺄 수 있습니다.");
+			throw new CartItemNotFoundException("장바구니에 없는 항목입니다.");
 		}
 		cart.removeItem(item);
 		return cart;

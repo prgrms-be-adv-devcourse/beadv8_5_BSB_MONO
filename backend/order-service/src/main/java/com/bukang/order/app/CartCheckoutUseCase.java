@@ -15,7 +15,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.bukang.common.global.exception.BusinessException;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.exception.CartCheckoutInvalidException;
-import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.dto.CartCheckoutDto;
 import com.bukang.order.dto.CartCheckoutItemDto;
@@ -76,7 +75,7 @@ public class CartCheckoutUseCase {
 				throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
 			}
 			if (!participation.isOwnedBy(memberId)) {
-				throw new ParticipationAccessDeniedException("본인의 참가 신청만 결제할 수 있습니다.");
+				throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
 			}
 		}
 	}

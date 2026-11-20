@@ -384,9 +384,15 @@ class ApiV1PartyTest {
 		leave(MEMBER, partyId)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.status").value("CANCELED"));
-		leave(MEMBER, partyId)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_MEMBER"));
+		// 이미 나간 사람은 없는 파티와 같은 404다 (CRU-91)
+		String leftBody = leave(MEMBER, partyId)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = leave(MEMBER, partyId + 999)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(leftBody).isEqualTo(missingBody);
 		// 그 사이 크루를 나갔다 다시 가입했으면, 되살린 줄의 크루 가입 시각도 새 값이 된다 (크루 탈퇴 이벤트와 비교할 값)
 		LocalDateTime rejoinedCrewAt = StubCrewPort.JOINED_AT.plusDays(30);
 		crewPort.rejoinedCrewAt(MEMBER, rejoinedCrewAt);
@@ -426,10 +432,10 @@ class ApiV1PartyTest {
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"))
 			.andExpect(jsonPath("$.data.partyId").value(partyId))
 			.andExpect(jsonPath("$.data.partyStatus").value("CLOSED"));
-		// 파티원이 아니면 상태를 알려 주지 않고 403
+		// 파티원이 아니면 상태를 알려 주지 않고 없는 파티와 같은 404 (CRU-91)
 		leave(LEADER, partyId)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_MEMBER"));
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"));
 	}
 
 	@Test

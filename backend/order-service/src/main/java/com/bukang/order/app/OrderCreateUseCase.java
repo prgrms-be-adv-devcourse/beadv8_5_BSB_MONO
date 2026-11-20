@@ -16,7 +16,6 @@ import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.OrderConflictException;
 import com.bukang.order.domain.exception.OrderNotPayableException;
-import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.domain.exception.QueueNotAdmittedException;
@@ -132,7 +131,7 @@ public class OrderCreateUseCase {
 		CreateTarget target = participationRepository.findCreateTarget(participationId)
 			.orElseThrow(() -> new ParticipationNotFoundException("존재하지 않는 참가 신청입니다."));
 		if (target.memberId() != memberId) {
-			throw new ParticipationAccessDeniedException("본인의 참가 신청만 결제할 수 있습니다.");
+			throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
 		}
 		if (orderRepository.existsByBuyerIdAndIdempotencyKey(memberId, idempotencyKey)) {
 			return Precheck.existingOrder();

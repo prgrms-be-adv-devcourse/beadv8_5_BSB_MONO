@@ -140,7 +140,7 @@ public class KitDeliveryUseCase {
 			Order order = orderRepository.findByIdForUpdate(orderId)
 				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 			if (!order.isOwnedBy(memberId)) {
-				throw new OrderAccessDeniedException("본인의 주문만 수령 확인할 수 있습니다.");
+				throw new OrderNotFoundException("존재하지 않는 주문입니다.");
 			}
 			OrderItem item = order.findItem(orderItemId);
 			order.confirmKitReceipt(item, now);

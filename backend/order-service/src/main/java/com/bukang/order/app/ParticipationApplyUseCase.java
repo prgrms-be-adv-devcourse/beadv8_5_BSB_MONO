@@ -16,7 +16,6 @@ import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.AgeRestrictionException;
 import com.bukang.order.domain.exception.ApplicationPeriodException;
 import com.bukang.order.domain.exception.DuplicateParticipationException;
-import com.bukang.order.domain.exception.ParticipationAccessDeniedException;
 import com.bukang.order.domain.exception.ParticipationChangeRetryException;
 import com.bukang.order.domain.exception.ParticipationNotCancelableException;
 import com.bukang.order.domain.exception.ParticipationNotEditableException;
@@ -177,7 +176,7 @@ public class ParticipationApplyUseCase {
 
 	static void checkOwner(Participation participation, long memberId) {
 		if (!participation.isOwnedBy(memberId)) {
-			throw new ParticipationAccessDeniedException("본인의 참가 신청만 보거나 고칠 수 있습니다.");
+			throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
 		}
 	}
 

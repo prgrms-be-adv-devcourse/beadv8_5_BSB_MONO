@@ -221,9 +221,9 @@ class CrewMemberLeftUseCaseTest {
 			int removed = event.get(10, TimeUnit.SECONDS);
 			pool.shutdown();
 
-			// 나가기가 먼저면 200·메시지는 건너뜀, 메시지가 먼저면 나가기는 403(이미 파티원 아님)
+			// 나가기가 먼저면 200·메시지는 건너뜀, 메시지가 먼저면 나가기는 404(이미 파티원 아님, CRU-91)
 			assertThat(leaveStatus == 200 ? 0 : 1).isEqualTo(removed);
-			assertThat(leaveStatus).isIn(200, 403);
+			assertThat(leaveStatus).isIn(200, 404);
 			assertThat(member(partyId, MEMBER).isActive()).isFalse();
 			assertThat(participationRepository.findAll()).filteredOn(p -> p.getMemberId() == MEMBER)
 				.singleElement().satisfies(p -> assertThat(p.getStatus()).isEqualTo(ParticipationStatus.CANCELED));

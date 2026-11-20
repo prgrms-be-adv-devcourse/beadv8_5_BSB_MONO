@@ -270,10 +270,6 @@ final class ParticipationApiExamples {
 		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
-	static final String NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_PARTICIPATION_FORBIDDEN", "message": "본인의 참가 신청만 보거나 고칠 수 있습니다.", "data": null }
-		""";
-
 	static final String COURSE_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_COURSE_NOT_FOUND", "message": "존재하지 않는 종목입니다.", "data": null }
 		""";

@@ -491,7 +491,7 @@ class ApiV1ParticipationTest {
 	}
 
 	@Test
-	@DisplayName("본인 신청은 조회되고, 다른 회원의 신청은 403, 없는 신청은 404다")
+	@DisplayName("본인 신청은 조회되고, 다른 회원의 신청과 없는 신청은 같은 404다")
 	void findById() throws Exception {
 		long id = applyAndGetId(MEMBER_ID);
 
@@ -500,15 +500,16 @@ class ApiV1ParticipationTest {
 			.andExpect(jsonPath("$.message").value("참가 신청을 조회했습니다."))
 			.andExpect(jsonPath("$.data.id").value(id));
 
-		mockMvc.perform(get(BASE_URL + "/" + id).header("X-Member-Id", OTHER_MEMBER_ID))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 참가 신청만 보거나 고칠 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_FORBIDDEN"));
-
-		mockMvc.perform(get(BASE_URL + "/999999").header("X-Member-Id", MEMBER_ID))
+		String othersBody = mockMvc.perform(get(BASE_URL + "/" + id).header("X-Member-Id", OTHER_MEMBER_ID))
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = mockMvc.perform(get(BASE_URL + "/999999").header("X-Member-Id", MEMBER_ID))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 참가 신청입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 	}
 
 	@Test
@@ -578,12 +579,13 @@ class ApiV1ParticipationTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 신청은 403, 끝난 신청은 409, 나이 제한 밖으로 고치면 400이다")
+	@DisplayName("다른 회원의 신청은 404, 끝난 신청은 409, 나이 제한 밖으로 고치면 400이다")
 	void changeParticipantRejected() throws Exception {
 		long id = applyAndGetId(MEMBER_ID);
 
 		change(OTHER_MEMBER_ID, id, participant("박러너", "1990-01-01", "M"))
-			.andExpect(status().isForbidden());
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
 
 		memberPorts.identity(MEMBER_ID, new MemberIdentity("김러너", LocalDate.now().minusYears(10), "010-1234-5678"));
 		change(MEMBER_ID, id, participant("김러너", "1994-06-25", "L"))
@@ -624,18 +626,20 @@ class ApiV1ParticipationTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 신청서는 403, 없는 신청서는 404이고 신청서는 그대로 남는다")
+	@DisplayName("다른 회원의 신청서와 없는 신청서는 같은 404이고 신청서는 그대로 남는다")
 	void cancelBeforePaymentNotOwned() throws Exception {
 		long id = applyAndGetId(MEMBER_ID);
 
-		cancel(OTHER_MEMBER_ID, id)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 참가 신청만 보거나 고칠 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_FORBIDDEN"));
-		cancel(MEMBER_ID, id + 1000)
+		String othersBody = cancel(OTHER_MEMBER_ID, id)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = cancel(MEMBER_ID, id + 1000)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 참가 신청입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 
 		assertThat(participationRepository.findById(id).orElseThrow().getStatus())
 			.isEqualTo(ParticipationStatus.PENDING);

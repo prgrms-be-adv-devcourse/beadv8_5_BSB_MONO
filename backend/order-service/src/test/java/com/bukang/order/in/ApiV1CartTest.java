@@ -209,15 +209,20 @@ class ApiV1CartTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 장바구니 항목은 뺄 수 없다")
+	@DisplayName("다른 회원의 장바구니 항목은 뺄 수 없고, 없는 항목과 같은 404다")
 	void removeOthersItem() throws Exception {
 		long itemId = addAndGetId(MEMBER_ID, COURSE_ID);
 
-		remove(OTHER_MEMBER_ID, itemId)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 장바구니 항목만 뺄 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_CART_ITEM_FORBIDDEN"));
+		String othersBody = remove(OTHER_MEMBER_ID, itemId)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_CART_ITEM_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = remove(OTHER_MEMBER_ID, 999999)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
 
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 		assertThat(cartItemRepository.existsById(itemId)).isTrue();
 	}
 

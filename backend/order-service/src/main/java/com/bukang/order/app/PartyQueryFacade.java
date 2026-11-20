@@ -60,7 +60,7 @@ public class PartyQueryFacade {
 		Rows rows = load(List.of(party));
 		List<PartyMember> members = rows.members(partyId);
 		if (members.stream().noneMatch(member -> member.getMemberId() == memberId)) {
-			throw PartyAccessDeniedException.notMember();
+			throw new PartyNotFoundException("존재하지 않는 파티입니다.");
 		}
 		Map<Long, String> nicknames = findNicknames(
 			members.stream().map(PartyMember::getMemberId).toList());

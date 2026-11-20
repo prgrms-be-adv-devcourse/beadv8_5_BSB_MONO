@@ -110,10 +110,6 @@ final class OrderApiExamples {
 		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
-	static final String NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_PARTICIPATION_FORBIDDEN", "message": "본인의 참가 신청만 결제할 수 있습니다.", "data": null }
-		""";
-
 	static final String QUEUE_NOT_ADMITTED = """
 		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "대기열에서 입장한 뒤 결제할 수 있습니다.", "data": null }
 		""";
@@ -270,10 +266,6 @@ final class OrderApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "한 번에 100개까지 조회할 수 있습니다.", "data": null }
 		""";
 
-	static final String VIEW_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 볼 수 있습니다.", "data": null }
-		""";
-
 	static final String PAY_INVALID_KIT_OPTION_ID = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "키트 옵션 ID가 올바르지 않습니다.", "data": null }
 		""";
@@ -351,10 +343,6 @@ final class OrderApiExamples {
 			"message": "결제를 확인하고 있습니다. 잠시 뒤 주문 상세에서 결과를 확인해주세요.",
 			"data": { "id": 1, "orderNo": "OD-20261012-0001", "status": "PAYING", "paidAt": null }
 		}
-		""";
-
-	static final String PAY_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 결제할 수 있습니다.", "data": null }
 		""";
 
 	static final String INSUFFICIENT_BALANCE = """
@@ -448,10 +436,6 @@ final class OrderApiExamples {
 		}
 		""";
 
-	static final String CANCEL_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 취소할 수 있습니다.", "data": null }
-		""";
-
 	static final String ORDER_ITEM_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_ITEM_NOT_FOUND", "message": "주문에 없는 상품입니다.", "data": null }
 		""";
@@ -537,10 +521,6 @@ final class OrderApiExamples {
 				"kitTrackingUrl": null
 			}
 		}
-		""";
-
-	static final String KIT_RECEIPT_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 수령 확인할 수 있습니다.", "data": null }
 		""";
 
 	static final String KIT_NOT_SHIPPED = """
