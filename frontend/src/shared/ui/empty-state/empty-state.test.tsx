@@ -22,6 +22,15 @@ describe('EmptyState', () => {
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
+  it('그림을 넘기면 아이콘 대신 그림을 보여 준다', () => {
+    const { container } = render(
+      <EmptyState illustration={<span data-testid="mascot" />} title="없어요" />,
+    )
+
+    expect(screen.getByTestId('mascot')).toBeInTheDocument()
+    expect(container.querySelector('svg')).not.toBeInTheDocument()
+  })
+
   it('role을 넘기지 않으면 알림으로 읽지 않는다', () => {
     render(<EmptyState title="아직 내역이 없어요" />)
 

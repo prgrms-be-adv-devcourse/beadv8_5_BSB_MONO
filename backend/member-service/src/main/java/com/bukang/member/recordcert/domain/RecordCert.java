@@ -26,7 +26,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = PROTECTED)
-@Table(name = "member_record_cert", indexes = @Index(name = "idx_record_cert_member", columnList = "member_id"))
+@Table(name = "member_record_cert", indexes = {
+	@Index(name = "idx_record_cert_member", columnList = "member_id"),
+	@Index(name = "idx_record_cert_file", columnList = "file_id")
+})
 public class RecordCert {
 	@Id
 	@GeneratedValue(strategy = IDENTITY)

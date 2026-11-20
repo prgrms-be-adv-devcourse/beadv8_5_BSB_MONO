@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 
-import { fileApi, productApi, unwrapData, type productModel } from '@/shared/api'
+import { fileApi, productApi, unwrapData, type fileModel, type productModel } from '@/shared/api'
 
 import { toRaceEditRequest } from '../model/seller-race'
 
@@ -26,6 +26,8 @@ export type RaceForEdit = {
   race: productModel.RaceDetailDto
   /** 지금 상태 그대로의 수정 요청. 바꿀 값만 덮어써 PUT 한다 */
   request: productModel.RaceSaveRequestDto
+  /** 연결된 파일 (보기 주소 포함). 대표 이미지는 대회에, 소개 이미지는 종목마다 붙는다 */
+  files: { race: fileModel.FileDto[]; courses: Record<number, fileModel.FileDto[]> }
 }
 
 /**
@@ -46,7 +48,11 @@ export async function fetchRaceForEdit(raceId: number): Promise<RaceForEdit> {
     ),
   ])
   const filesByCourse = Object.fromEntries(courseIds.map((id, i) => [id, files[i]]))
-  return { race, request: toRaceEditRequest(race, raceFiles, filesByCourse) }
+  return {
+    race,
+    request: toRaceEditRequest(race, raceFiles, filesByCourse),
+    files: { race: raceFiles, courses: filesByCourse },
+  }
 }
 
 export function raceForEditQueryOptions(raceId: number) {

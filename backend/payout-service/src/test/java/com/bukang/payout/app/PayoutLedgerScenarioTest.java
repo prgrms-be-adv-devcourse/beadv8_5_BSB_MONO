@@ -3,6 +3,7 @@ package com.bukang.payout.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.Mockito.mock;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,6 +22,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.notify.SlackNotifier;
+import com.bukang.common.shared.notification.NotificationKafkaSender;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FirstPayoutSource;
@@ -105,6 +108,8 @@ class PayoutLedgerScenarioTest {
 		raceCancelUseCase = new PayoutRaceCancelUseCase(payoutRepository, ledgerUseCase);
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository, (claimCode, amount, dueDate) -> Optional.empty(),
+			new PayoutClaimNotifier(raceId -> Optional.empty(), mock(NotificationKafkaSender.class),
+				mock(SlackNotifier.class)),
 			new TransactionTemplate(transactionManager));
 		PayoutPayStepUseCase payStepUseCase = new PayoutPayStepUseCase(payoutRepository, raceCancelUseCase,
 				payoutCreateFailureRepository);

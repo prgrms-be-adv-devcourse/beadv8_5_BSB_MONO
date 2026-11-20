@@ -27,7 +27,7 @@ class ApiV1AiChatToolTest extends AiTestBase {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private static final List<String> SELLER_TOOLS =
 		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales",
-			"crewrunPolicy");
+			"sellerRecordCertReviewsWaiting", "crewrunPolicy");
 	// 정책 답을 흐리는 말 (다윗님 11/20 「확실하게 대답」). 규칙에 원래 있는 조건(「며칠 걸릴 수 있다」)은 여기에 넣지 않는다
 	private static final String HEDGE = "로 보여|자세한 (건|내용은) 확인|변경될 수 있|바뀔 수 있|잠정|확정 전";
 	private static final List<String> ADMIN_TOOLS =

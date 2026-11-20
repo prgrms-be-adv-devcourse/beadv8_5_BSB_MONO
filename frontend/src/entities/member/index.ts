@@ -14,5 +14,11 @@ export {
   NICKNAME_PATTERN,
   nicknameWidth,
 } from './model/nickname'
+export {
+  modifyErrorMessage,
+  PROFILE_ERRORS,
+  profileSchema,
+  type ProfileValues,
+} from './model/profile-schema'
 export { formatSellerDate, isNoApplication, SELLER_STATUS, SELLER_TYPE_LABEL } from './model/seller'
 export { BirthDateField, type BirthDateFieldProps } from './ui/BirthDateField'

@@ -3,6 +3,11 @@ package com.bukang.payout.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -16,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -24,6 +30,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.notify.SlackNotifier;
+import com.bukang.common.shared.notification.NotificationKafkaSender;
+import com.bukang.common.shared.notification.NotificationKind;
+import com.bukang.common.shared.notification.event.NotificationRequestedEvent;
 import com.bukang.payout.app.PayoutClaimUseCase.ClaimRunResult;
 import com.bukang.payout.app.PayoutCreateStepUseCase.CourseSale;
 import com.bukang.payout.app.PayoutCreateStepUseCase.FinalPayoutSource;
@@ -49,6 +59,7 @@ import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
+import com.bukang.payout.out.RaceSellerPort;
 import com.bukang.payout.out.SoldEntry;
 
 import jakarta.persistence.EntityManager;
@@ -65,6 +76,7 @@ class PayoutClaimUseCaseTest {
 	private static final long SELLER_ID = 1;
 	private static final long RACE_ID = 7;
 	private static final long ADMIN_ID = 99;
+	private static final long SELLER_MEMBER_ID = 500;
 	private static final long PRICE = 50_000L;
 	private static final LocalDate REFUND_DEADLINE = LocalDate.of(2026, 10, 31);
 	private static final LocalDate RACE_DATE = LocalDate.of(2026, 12, 13);
@@ -103,6 +115,10 @@ class PayoutClaimUseCaseTest {
 	private PlatformTransactionManager transactionManager;
 	// 캐시의 가상계좌 발급 API 대신. 테스트마다 바꿔 끼운다 (기본: 발급 전이라 빈 값)
 	private ClaimVirtualAccountPort virtualAccountPort;
+	// 상품 서비스의 대회 판매자 조회 대신. 테스트마다 바꿔 끼운다 (기본: 회원 500)
+	private RaceSellerPort raceSellerPort;
+	private final NotificationKafkaSender notificationSender = mock(NotificationKafkaSender.class);
+	private final SlackNotifier slackNotifier = mock(SlackNotifier.class);
 
 	@BeforeEach
 	void setUp() {
@@ -115,9 +131,12 @@ class PayoutClaimUseCaseTest {
 				payoutCreateFailureRepository), transfer -> {
 		});
 		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.empty();
+		raceSellerPort = raceId -> raceId == RACE_ID ? Optional.of(SELLER_MEMBER_ID) : Optional.empty();
 		claimUseCase = new PayoutClaimUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository,
 			payoutClaimRepository,
 			(claimCode, amount, dueDate) -> virtualAccountPort.issue(claimCode, amount, dueDate),
+			new PayoutClaimNotifier(raceId -> raceSellerPort.findSellerMemberId(raceId), notificationSender,
+				slackNotifier),
 			new TransactionTemplate(transactionManager));
 	}
 
@@ -649,5 +668,86 @@ class PayoutClaimUseCaseTest {
 	void depositForUnknownClaimIsRejected() {
 		assertThatThrownBy(() -> claimUseCase.confirmByDeposit("RC-20261214-FFFF", 105_500L, DEPOSITED_AT))
 			.isInstanceOf(PayoutClaimNotFoundException.class);
+	}
+
+	private List<NotificationRequestedEvent> sentNotices(int times) {
+		ArgumentCaptor<NotificationRequestedEvent> sent = ArgumentCaptor.forClass(NotificationRequestedEvent.class);
+		verify(notificationSender, times(times)).send(sent.capture());
+		return sent.getAllValues();
+	}
+
+	@Test
+	@DisplayName("TC-NOTICE-1-1 가상계좌가 있는 청구는 판매자 회원에게 대회 · 금액 · 계좌 · 입금 기한을 알리고, 같은 날 다시 돌아도 한 번만 보낸다")
+	void sendsSellerNoticeWithVirtualAccountOncePerDay() {
+		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.of(
+			new ClaimVirtualAccount("신한은행", "56211234567890"));
+		eightRefundsThenFinal();
+
+		run(FINAL_CREATED_DATE);
+		run(FINAL_CREATED_DATE);
+
+		NotificationRequestedEvent notice = sentNotices(1).getFirst();
+		assertThat(notice.memberId()).isEqualTo(SELLER_MEMBER_ID);
+		assertThat(notice.kind()).isEqualTo(NotificationKind.PAYOUT_CLAIM_REQUESTED);
+		assertThat(notice.body()).contains("대회 A", "105,500원", "신한은행 56211234567890", "2027.1.13");
+		assertThat(notice.href()).isEqualTo("/seller/settlements");
+	}
+
+	@Test
+	@DisplayName("TC-NOTICE-1-2 가상계좌가 아직 없으면 계좌 대신 안내 문구를 보내고, 발급된 다음 날 알림에 계좌가 실린다")
+	void sendsSellerNoticeWithoutAccountUntilIssued() {
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.of(
+			new ClaimVirtualAccount("신한은행", "56211234567890"));
+		run(FINAL_CREATED_DATE.plusDays(1));
+
+		List<NotificationRequestedEvent> notices = sentNotices(2);
+		assertThat(notices.get(0).body()).contains("입금 계좌: 발급되는 대로 다시 알려 드려요").doesNotContain("신한은행");
+		assertThat(notices.get(1).body()).contains("입금 계좌: 신한은행 56211234567890");
+	}
+
+	@Test
+	@DisplayName("TC-NOTICE-2-1 입금을 확인한 청구에는 판매자 알림을 보내지 않는다")
+	void doesNotSendNoticeForConfirmedClaim() {
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		claimUseCase.confirm(claims().getFirst().getId(), ADMIN_ID, LocalDateTime.of(2026, 12, 20, 10, 0));
+
+		run(FINAL_CREATED_DATE.plusDays(7));
+
+		sentNotices(1);
+	}
+
+	@Test
+	@DisplayName("TC-NOTICE-3-1 판매자 회원을 찾지 못해도 배치는 끝나고 청구와 알림 날짜는 남는다")
+	void sellerLookupFailureDoesNotBreakBatch() {
+		raceSellerPort = raceId -> {
+			throw new IllegalStateException("상품 서비스 응답 없음");
+		};
+		eightRefundsThenFinal();
+
+		assertThat(run(FINAL_CREATED_DATE)).isEqualTo(new ClaimRunResult(1, 1, 0));
+
+		assertThat(claims()).extracting(PayoutClaim::getSellerNotifiedDate).containsExactly(FINAL_CREATED_DATE);
+		verify(notificationSender, never()).send(any());
+	}
+
+	@Test
+	@DisplayName("TC-NOTICE-4-1 30일째 관리자 알림은 Slack으로 한 번만 가고 계좌번호는 넣지 않는다")
+	void sendsAdminNoticeToSlackOnce() {
+		virtualAccountPort = (claimCode, amount, dueDate) -> Optional.of(
+			new ClaimVirtualAccount("신한은행", "56211234567890"));
+		eightRefundsThenFinal();
+		run(FINAL_CREATED_DATE);
+		verify(slackNotifier, never()).send(any());
+
+		run(FINAL_CREATED_DATE.plusDays(29));
+		run(FINAL_CREATED_DATE.plusDays(30));
+
+		ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
+		verify(slackNotifier, times(1)).send(text.capture());
+		assertThat(text.getValue()).contains(claims().getFirst().getClaimCode(), "105,500원")
+			.doesNotContain("56211234567890");
 	}
 }

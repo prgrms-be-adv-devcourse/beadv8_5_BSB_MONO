@@ -355,6 +355,54 @@ export const FindMineResponse = zod.object({
 
 
 /**
+ * X-Member-Id 헤더의 회원이 자기 정산 계좌를 조회한다. 승인된 판매자만 볼 수 있다. 은행 코드, 예금주, 계좌번호 끝 4자리만 돌려주고 전체 계좌번호는 돌려주지 않는다. 계좌가 없으면 registered가 false이고, 이때 정산 지급은 보류된다.
+ * @summary 내 정산 계좌 조회
+ */
+export const FindMyPayoutAccountResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "registered": zod.boolean().describe('정산 계좌가 있으면 true. false면 정산 지급이 보류된다'),
+  "bankCode": zod.string().optional().describe('은행 표준 코드'),
+  "accountHolderName": zod.string().optional().describe('은행이 돌려준 예금주 이름'),
+  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).optional().describe('계좌 명의 구분'),
+  "accountNumberLast4": zod.string().optional().describe('계좌번호 끝 4자리')
+}).optional().describe('내 정산 계좌 (계좌번호는 끝 4자리만)')
+})
+
+
+/**
+ * X-Member-Id 헤더의 승인된 판매자가 정산 계좌를 등록하거나 바꾼다. 관리자 승인은 거치지 않는다. 판매자 신청과 같은 오픈뱅킹 계좌실명조회를 통과해야 저장하고, 통과하지 못하면 기존 계좌를 그대로 둔다. 사업자 명의는 판매자 신청서의 사업자등록번호로, 본인 명의는 본인인증 생년월일로 조회한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있고, 신청 때 쓴 횟수와 합쳐 센다. 응답에는 전체 계좌번호 없이 끝 4자리만 담는다.
+ * @summary 내 정산 계좌 등록·수정
+ */
+
+
+export const modifyMyPayoutAccountBodyBankCodeRegExp = new RegExp('^\\d{3}$');
+
+
+export const modifyMyPayoutAccountBodyAccountNumberRegExp = new RegExp('^\\d{6,16}$');
+
+
+export const ModifyMyPayoutAccountBody = zod.object({
+  "bankCode": zod.string().min(1).regex(modifyMyPayoutAccountBodyBankCodeRegExp).describe('정산 계좌 은행 표준 코드 (숫자 3자리)'),
+  "accountNumber": zod.string().min(1).regex(modifyMyPayoutAccountBodyAccountNumberRegExp).describe('정산 계좌번호 (하이픈 없이 숫자 6~16자리)'),
+  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).describe('계좌 명의 (BUSINESS: 사업자 명의, 사업자 판매자만 / PERSONAL: 본인 명의)')
+}).describe('정산 계좌 등록·수정 요청')
+
+export const ModifyMyPayoutAccountResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "registered": zod.boolean().describe('정산 계좌가 있으면 true. false면 정산 지급이 보류된다'),
+  "bankCode": zod.string().optional().describe('은행 표준 코드'),
+  "accountHolderName": zod.string().optional().describe('은행이 돌려준 예금주 이름'),
+  "accountHolderType": zod.enum(['BUSINESS', 'PERSONAL']).optional().describe('계좌 명의 구분'),
+  "accountNumberLast4": zod.string().optional().describe('계좌번호 끝 4자리')
+}).optional().describe('내 정산 계좌 (계좌번호는 끝 4자리만)')
+})
+
+
+/**
  * 관리자가 판매자 신청을 최근 신청부터 조회한다. status를 주면 그 상태만, 비우면 전체를 돌려준다.
  * @summary 판매자 신청 목록 조회
  */

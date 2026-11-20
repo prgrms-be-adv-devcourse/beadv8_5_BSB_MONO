@@ -19,14 +19,47 @@ import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
-	// 최종 대사: 정산 내역들의 판매 줄을 엔티티가 아닌 값으로 읽는다 (BUK-252). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert,
+	PayoutSaleLineStream {
+	// 최종 대사: 판매 줄을 (코스, 금액)으로 묶어 센다. 판매 가격과 다른 묶음이 있을 때만 그 줄을 읽는다 (CRU-57)
+	@Query("""
+		select new com.bukang.payout.out.SaleLineGroup(i.raceCourseId, i.amount, count(i))
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		group by i.raceCourseId, i.amount
+		""")
+	List<SaleLineGroup> summarizeSaleLines(Collection<Payout> payouts);
+
+	// 최종 대사: 어긋난 참가권의 판매 줄만 값으로 읽는다. ID가 많으면 부르는 쪽이 나눠 부른다
 	@Query("""
 		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
 		from PayoutItem i
 		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.orderItemId in :orderItemIds
 		""")
-	List<SaleLine> findSaleLines(Collection<Payout> payouts);
+	List<SaleLine> findSaleLines(Collection<Payout> payouts, Collection<Long> orderItemIds);
+
+	// 최종 대사: 한 (코스, 금액) 묶음의 판매 줄. 코스 없는 줄은 = null로 고를 수 없어 따로 묻는다
+	default List<SaleLine> findSaleLines(Collection<Payout> payouts, Long raceCourseId, long amount) {
+		return raceCourseId == null ? findSaleLinesWithoutCourse(payouts, amount)
+			: findSaleLinesOfCourse(payouts, raceCourseId, amount);
+	}
+
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.raceCourseId = :raceCourseId and i.amount = :amount
+		""")
+	List<SaleLine> findSaleLinesOfCourse(Collection<Payout> payouts, long raceCourseId, long amount);
+
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.raceCourseId is null and i.amount = :amount
+		""")
+	List<SaleLine> findSaleLinesWithoutCourse(Collection<Payout> payouts, long amount);
 
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,

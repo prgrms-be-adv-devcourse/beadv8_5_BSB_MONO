@@ -36,6 +36,7 @@ class AiToolsTest {
 		sellerTools.sellerNextPayout(toolContext);
 		sellerTools.sellerPayoutHoldReasons(toolContext);
 		sellerTools.sellerMonthlySales(toolContext);
+		sellerTools.sellerRecordCertReviewsWaiting(toolContext);
 		adminTools.adminWaitingInquiries(toolContext);
 		adminTools.adminPendingSellers(toolContext);
 
@@ -205,6 +206,16 @@ class AiToolsTest {
 
 		assertThat(objectMapper.writeValueAsString(result))
 			.isEqualTo("{\"pendingCount\":2,\"oldestRequestedDate\":\"2026-10-03\"}");
+	}
+
+	@Test
+	@DisplayName("심사할 기록증은 건수만 돌려주고, 출처는 버튼 없이 남긴다 (심사 화면이 아직 없다)")
+	void recordCertReviews() {
+		ops.waitingRecordCertReviews = 4;
+
+		assertThat(sellerTools.sellerRecordCertReviewsWaiting(toolContext))
+			.isEqualTo(new SellerTools.RecordCertReviewsResult(4));
+		assertThat(trace.sources()).singleElement().satisfies(source -> assertThat(source.path()).isNull());
 	}
 
 	@Test

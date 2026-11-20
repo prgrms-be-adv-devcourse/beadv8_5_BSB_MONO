@@ -3,7 +3,12 @@ import type { AnalyticsEventName } from '@/shared/lib'
 // 어드민 이용 통계의 단계별 사람 수. 이벤트 이름은 shared/lib/analytics의 GTM 이벤트와 같아야 한다.
 // 구매자는 site_area=shop, 판매자는 site_area=seller인 기록만 센다 (GTM이 화면 주소로 정한다).
 
-export type FunnelStep = { event: AnalyticsEventName; label: string }
+export type FunnelStep = {
+  event: AnalyticsEventName
+  label: string
+  /** 앞 단계와 다른 사람이 시작하는 새 흐름의 첫 단계. 앞 단계와 비교하지 않는다 */
+  start?: boolean
+}
 
 export type FunnelKind = 'buyer' | 'seller'
 
@@ -16,7 +21,6 @@ export const FUNNELS: Record<FunnelKind, { siteArea: 'shop' | 'seller'; steps: F
       { event: 'queue_enter', label: '대기열 진입' },
       { event: 'queue_pass', label: '대기열 통과' },
       { event: 'apply_start', label: '신청 시작' },
-      { event: 'add_to_cart', label: '장바구니' },
       { event: 'begin_checkout', label: '결제 시작' },
       { event: 'purchase', label: '결제 완료' },
     ],
@@ -26,7 +30,7 @@ export const FUNNELS: Record<FunnelKind, { siteArea: 'shop' | 'seller'; steps: F
     steps: [
       { event: 'seller_apply_start', label: '판매자 신청 시작' },
       { event: 'seller_apply_submit', label: '신청 제출' },
-      { event: 'seller_race_form_start', label: '대회 등록 시작' },
+      { event: 'seller_race_form_start', label: '대회 등록 시작', start: true },
       { event: 'seller_race_register', label: '대회 등록 성공' },
     ],
   },
@@ -40,9 +44,9 @@ export type FunnelStepStat = FunnelStep & {
 }
 
 export type FunnelStepView = FunnelStepStat & {
-  /** 앞 단계 대비 남은 비율(0~1). 첫 단계이거나 앞 단계가 0명이면 없음 */
+  /** 앞 단계 대비 남은 비율(0~1). 첫 단계 · 새 흐름의 시작 단계이거나 앞 단계가 0명이면 없음 */
   rate?: number
-  /** 첫 단계를 1로 본 막대 길이(0~1). 첫 단계가 0명이면 0 */
+  /** 흐름의 첫 단계를 1로 본 막대 길이(0~1). 그 첫 단계가 0명이면 0 */
   barRatio: number
   /** 앞 단계 대비 비율이 가장 낮은 단계 (가장 많이 빠지는 단계) */
   biggestDrop: boolean
@@ -50,18 +54,22 @@ export type FunnelStepView = FunnelStepStat & {
 
 /** 단계마다 앞 단계 대비 비율과 막대 길이를 붙이고, 비율이 가장 낮은 단계를 표시한다. */
 export function toFunnelView(steps: FunnelStepStat[]): FunnelStepView[] {
-  const first = steps[0]?.users ?? 0
   const rates = steps.map((step, i) =>
-    i > 0 && steps[i - 1].users > 0 ? step.users / steps[i - 1].users : undefined,
+    i > 0 && !step.start && steps[i - 1].users > 0 ? step.users / steps[i - 1].users : undefined,
   )
   const known = rates.filter((rate): rate is number => rate !== undefined)
   // 모든 단계가 그대로 남았으면(비율 100%) 강조할 단계가 없다
   const lowest = known.length > 0 && Math.min(...known) < 1 ? Math.min(...known) : undefined
   const lowestIndex = lowest === undefined ? -1 : rates.indexOf(lowest)
-  return steps.map((step, i) => ({
-    ...step,
-    rate: rates[i],
-    barRatio: first > 0 ? Math.min(step.users / first, 1) : 0,
-    biggestDrop: i === lowestIndex,
-  }))
+  // 막대는 그 단계가 속한 흐름의 첫 단계를 1로 본다
+  let flowFirst = 0
+  return steps.map((step, i) => {
+    if (i === 0 || step.start) flowFirst = step.users
+    return {
+      ...step,
+      rate: rates[i],
+      barRatio: flowFirst > 0 ? Math.min(step.users / flowFirst, 1) : 0,
+      biggestDrop: i === lowestIndex,
+    }
+  })
 }

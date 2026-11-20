@@ -14,6 +14,7 @@ import com.bukang.common.shared.seller.domain.SellerStatus;
 import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.domain.exception.SellerAlreadyReviewedException;
+import com.bukang.member.domain.exception.SellerNotApprovedException;
 import com.bukang.member.domain.exception.SellerNotReviewedException;
 
 import jakarta.persistence.Column;
@@ -139,6 +140,23 @@ public class Seller extends BaseEntity {
 	// 정산 서비스가 계좌 미등록 판매자의 정산을 보류할 때 쓴다
 	public boolean hasPayoutAccount() {
 		return payoutAccountVerifiedAt != null;
+	}
+
+	// 승인된 판매자만 정산 계좌를 보거나 바꾼다 (CRU-80)
+	public void requireApproved() {
+		if (status != SellerStatus.APPROVED) {
+			throw new SellerNotApprovedException();
+		}
+	}
+
+	// 승인된 판매자가 계좌실명조회를 통과한 계좌로 바꾼다. 확인에 실패하면 이 메서드까지 오지 않아 기존 계좌가 남는다 (CRU-80)
+	public void changePayoutAccount(VerifiedPayoutAccount payoutAccount) {
+		requireApproved();
+		this.payoutBankCode = payoutAccount.bankCode();
+		this.payoutAccountNumber = payoutAccount.accountNumber();
+		this.payoutAccountHolderName = payoutAccount.holderName();
+		this.payoutAccountHolderType = payoutAccount.holderType();
+		this.payoutAccountVerifiedAt = payoutAccount.verifiedAt();
 	}
 
 	// 하이픈 유무와 상관없이 123-45-67890 모양으로 저장한다 (형식 검사는 요청 DTO에서 끝남)

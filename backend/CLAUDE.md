@@ -23,7 +23,7 @@
 | `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
 | `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
 | `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
-| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB·Kafka 없음 (BUK-165, BUK-170). 문의 답변 초안도 만든다(BUK-191) |
+| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB 없음. Kafka는 기록증 서버 확인(확인 요청 받기 · 확인 결과 보내기)에만 쓴다 (BUK-165, BUK-170, BUK-275). 문의 답변 초안도 만든다(BUK-191) |
 
 인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
 
@@ -164,7 +164,7 @@ backend/
   예외로 두 화면에 함께 붙는 정책 안내 도구(`PolicyTools`, CRU-104)는 문의 초안과 같은 `InquiryPolicy` 주제 이름만 인자로 받는다. 출처·규칙에서 「(잠정)」·「정해지지 않았다」 같은 말은 빼고 넘긴다.
   도구는 필요한 값만 돌려주고 개인정보(구매자 이름·배송지·신청자 이름)는 모델에 보내지 않는다. 출처·버튼·목록은 `AiToolTrace`에 모아 코드가 응답에 붙인다.
   도구를 더하면 `AiSource`(화면 이름·프론트 경로)와 `AiApiExamples`도 함께 고친다. 한 질문의 도구 호출 상한은 `spring.ai.tools.limits`.
-  common은 통째로 스캔하지 않고 오류 응답과 `@LoginMemberId`만 고른다(Kafka·DB가 없다). 테스트는 가짜 모델(`FakeChatModel`)과 Testcontainers Redis로 돈다(Docker 필요).
+  common은 통째로 스캔하지 않고 오류 응답 · `@LoginMemberId` · `JsonConverter` · `SlackNotifier`만 고른다(DB가 없다). 테스트는 가짜 모델(`FakeChatModel`)과 Testcontainers Redis로 돈다(Docker 필요).
 - 회원 ID는 `X-Member-Id` 헤더로 받는다. 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId long memberId`로 받는다(int·Integer로는 받지 않는다). 헤더가 없으면 401 `LOGIN_REQUIRED`, 숫자가 아니거나 0 이하면 400 `INVALID_REQUEST`로 common이 응답한다(`shared/member/web`). 게이트웨이의 `auth/JwtAuthenticationFilter`가 클라이언트가 보낸 이 헤더를 지우고, Access Token을 검사해 토큰 속 회원 ID로 다시 넣는다.
   토큰 없이 통과하는 주소는 `gateway`의 `application.yaml` `gateway.auth.public-paths`에 있다. 로그인 전에 쓰는 API를 추가하면 여기에도 추가한다(빠뜨리면 401로 막힌다).
   서비스는 이 헤더를 그대로 믿으므로, `compose.yml`은 서비스 포트를 호스트에 열지 않는다. 서비스를 직접 부르며 확인할 때는 `bootRun`(dev)으로 띄운 서비스 포트(예: 8084)로 부른다.
@@ -175,7 +175,7 @@ backend/
 
 - `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.
   서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.
-  (DB·Kafka가 없는 `ai-service`만 예외로, 오류 응답과 `@LoginMemberId` 패키지만 고릅니다. common에 모든 서비스가 써야 하는 빈을 새 패키지로 더하면 `AiApplication`에도 더합니다.)
+  (DB가 없는 `ai-service`만 예외로, 필요한 패키지(오류 응답, `@LoginMemberId`, JSON, Slack)만 고릅니다. common에 모든 서비스가 써야 하는 빈을 새 패키지로 더하면 `AiApplication`에도 더합니다.)
 - **서비스끼리는 서로 의존하지 않습니다.** 다른 서비스의 클래스가 필요하면 `common`에 올릴지(계약: 이벤트, 공개 필드) 먼저 검토합니다.
   `common`에는 특정 서비스 전용 코드(Spring Security 인증·필터, 회원 엔티티 등)를 넣지 않습니다.
   단, 암호화 유틸(`spring-security-crypto`)은 `global/crypto`에 두고, yaml에 `crypto.enabled: true`를 넣은 서비스에서만 빈을 만듭니다(`@ConditionalOnProperty`).

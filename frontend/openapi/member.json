@@ -1473,6 +1473,244 @@
         }
       }
     },
+    "/api/v1/member/sellers/me/payout-account": {
+      "get": {
+        "tags": [
+          "Seller"
+        ],
+        "summary": "내 정산 계좌 조회",
+        "description": "X-Member-Id 헤더의 회원이 자기 정산 계좌를 조회한다. 승인된 판매자만 볼 수 있다. 은행 코드, 예금주, 계좌번호 끝 4자리만 돌려주고 전체 계좌번호는 돌려주지 않는다. 계좌가 없으면 registered가 false이고, 이때 정산 지급은 보류된다.",
+        "operationId": "findMyPayoutAccount",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "조회 성공 (계좌가 없으면 registered false)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "정산 계좌를 조회했습니다.",
+                  "data": {
+                    "registered": true,
+                    "bankCode": "004",
+                    "accountHolderName": "김러너",
+                    "accountHolderType": "PERSONAL",
+                    "accountNumberLast4": "0678"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인되지 않은 판매자 (심사 중 또는 반려)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 403,
+                  "code": "SELLER_NOT_APPROVED",
+                  "message": "승인된 판매자만 정산 계좌를 이용할 수 있습니다.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 판매자 신청 내역 없음",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 404,
+                  "code": "SELLER_NOT_FOUND",
+                  "message": "판매자 신청 내역이 없습니다.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Seller"
+        ],
+        "summary": "내 정산 계좌 등록·수정",
+        "description": "X-Member-Id 헤더의 승인된 판매자가 정산 계좌를 등록하거나 바꾼다. 관리자 승인은 거치지 않는다. 판매자 신청과 같은 오픈뱅킹 계좌실명조회를 통과해야 저장하고, 통과하지 못하면 기존 계좌를 그대로 둔다. 사업자 명의는 판매자 신청서의 사업자등록번호로, 본인 명의는 본인인증 생년월일로 조회한다. 계좌 확인은 회원 한 명당 하루 5번까지 할 수 있고, 신청 때 쓴 횟수와 합쳐 센다. 응답에는 전체 계좌번호 없이 끝 4자리만 담는다.",
+        "operationId": "modifyMyPayoutAccount",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerPayoutAccountModifyRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "저장 성공",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "정산 계좌를 저장했습니다.",
+                  "data": {
+                    "registered": true,
+                    "bankCode": "088",
+                    "accountHolderName": "김러너",
+                    "accountHolderType": "PERSONAL",
+                    "accountNumberLast4": "0123"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력값 검증 실패, 요청 본문 형식 오류, 비사업자의 사업자 명의 선택, 예금주 정보 불일치 또는 본인인증 다시 필요",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 400,
+                  "code": "SELLER_ACCOUNT_NOT_VERIFIED",
+                  "message": "예금주 정보가 맞지 않아요. 계좌번호와 계좌 명의를 확인해 주세요.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음 (로그인하지 않은 요청)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "승인되지 않은 판매자 (심사 중 또는 반려)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 403,
+                  "code": "SELLER_NOT_APPROVED",
+                  "message": "승인된 판매자만 정산 계좌를 이용할 수 있습니다.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "헤더의 회원이 없거나 판매자 신청 내역 없음",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 404,
+                  "code": "SELLER_NOT_FOUND",
+                  "message": "판매자 신청 내역이 없습니다.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "오늘 계좌 확인을 5번 넘게 함",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 429,
+                  "code": "SELLER_ACCOUNT_VERIFY_TOO_MANY_REQUESTS",
+                  "message": "계좌 확인은 하루 5번까지 할 수 있어요. 내일 다시 시도해 주세요.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "오픈뱅킹이 응답하지 않음 (시간 초과, 서버 오류, 설정 누락)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 503,
+                  "code": "SELLER_ACCOUNT_VERIFY_UNAVAILABLE",
+                  "message": "잠시 뒤 다시 시도해 주세요.",
+                  "data": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/member/admin/sellers": {
       "get": {
         "tags": [
@@ -5429,6 +5667,78 @@
         },
         "required": [
           "receiverUuids"
+        ]
+      },
+      "SellerPayoutAccountModifyRequestDto": {
+        "type": "object",
+        "description": "정산 계좌 등록·수정 요청",
+        "properties": {
+          "bankCode": {
+            "type": "string",
+            "description": "정산 계좌 은행 표준 코드 (숫자 3자리)",
+            "example": "004",
+            "minLength": 1,
+            "pattern": "^\\d{3}$"
+          },
+          "accountNumber": {
+            "type": "string",
+            "description": "정산 계좌번호 (하이픈 없이 숫자 6~16자리)",
+            "example": "1101230000678",
+            "minLength": 1,
+            "pattern": "^\\d{6,16}$"
+          },
+          "accountHolderType": {
+            "type": "string",
+            "description": "계좌 명의 (BUSINESS: 사업자 명의, 사업자 판매자만 / PERSONAL: 본인 명의)",
+            "enum": [
+              "BUSINESS",
+              "PERSONAL"
+            ],
+            "example": "PERSONAL"
+          }
+        },
+        "required": [
+          "accountHolderType",
+          "accountNumber",
+          "bankCode"
+        ]
+      },
+      "MyPayoutAccountDto": {
+        "type": "object",
+        "description": "내 정산 계좌 (계좌번호는 끝 4자리만)",
+        "properties": {
+          "registered": {
+            "type": "boolean",
+            "description": "정산 계좌가 있으면 true. false면 정산 지급이 보류된다",
+            "example": true
+          },
+          "bankCode": {
+            "type": "string",
+            "description": "은행 표준 코드",
+            "example": "004"
+          },
+          "accountHolderName": {
+            "type": "string",
+            "description": "은행이 돌려준 예금주 이름",
+            "example": "김러너"
+          },
+          "accountHolderType": {
+            "type": "string",
+            "description": "계좌 명의 구분",
+            "enum": [
+              "BUSINESS",
+              "PERSONAL"
+            ],
+            "example": "PERSONAL"
+          },
+          "accountNumberLast4": {
+            "type": "string",
+            "description": "계좌번호 끝 4자리",
+            "example": "0678"
+          }
+        },
+        "required": [
+          "registered"
         ]
       }
     }

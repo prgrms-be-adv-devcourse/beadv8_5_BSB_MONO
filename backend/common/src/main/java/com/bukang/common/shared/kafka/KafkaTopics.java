@@ -34,6 +34,8 @@ public final class KafkaTopics {
 
 	// 기록증 제출을 저장했다. ai-service가 원본의 칸별 상자 자리를 다시 읽는다 (member → ai, key 제출 ID, BUK-274 · BUK-275)
 	public static final String RECORD_CERT_CHECK_REQUESTED = "queuing.recordcert.checkrequested";
+	// ai-service가 원본을 다시 읽은 칸별 글자. member가 판정해 제출 상태를 정한다 (ai → member, key 제출 ID, BUK-275)
+	public static final String RECORD_CERT_CHECKED = "queuing.recordcert.checked";
 
 	// 대회·종목을 저장한 뒤 이미지 연결을 요청한다 (product → file). member도 기록증 사진 연결에 쓴다 (BUK-274)
 	public static final String RACE_FILE_LINK_REQUESTED = "race.filelink.requested";

@@ -40,7 +40,7 @@ export function TicketBox({ children, footer }: { children: ReactNode; footer?: 
 
 export function TicketInfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex gap-3 text-body1-regular">
+    <div className="flex items-center gap-3 text-body1-regular">
       <span className="w-22 shrink-0 text-text-secondary">{label}</span>
       <div className="min-w-0 flex-1 text-text-primary">{children}</div>
     </div>

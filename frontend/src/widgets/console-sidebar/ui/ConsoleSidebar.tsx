@@ -42,7 +42,7 @@ const MENU: Record<
   admin: {
     label: '관리자',
     home: '/admin',
-    settings: { href: '/admin/settings', label: '설정', icon: 'Settings' },
+    settings: { href: '/admin/settings', label: '내 계정', icon: 'User' },
     items: [
       { href: '/admin', label: '대시보드', icon: 'Dashboard' },
       { href: '/admin/members', label: '회원 관리', icon: 'User', groupStart: true },
