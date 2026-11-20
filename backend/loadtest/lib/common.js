@@ -1,6 +1,7 @@
 // 회원·크루·문의·게시판 부하 테스트가 같이 쓰는 값과 함수
 // 기본 대상은 운영 서버다. 운영 DB는 발표 전에 비우기로 해서 테스트 데이터가 쌓여도 된다 (2026-11-16 결정)
 import http from 'k6/http';
+import { sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 
 export const BASE_URL = __ENV.BASE_URL || 'https://crewrun.duckdns.org';
@@ -79,4 +80,39 @@ export function accountAt(i) {
 
 export function pick(list) {
 	return list[Math.floor(Math.random() * list.length)];
+}
+
+// 화면 흐름(e2e/) 테스트용: 가상 사용자 1명이 계정 하나를 맡아 화면 순서대로 움직인다
+// 단계별 사용자 수: smoke 1명 30초, load 100명 5분, stress 0에서 200명까지 10분
+const E2E_USERS = { smoke: 1, load: 100, stress: 200 };
+
+// cap은 맡을 수 있는 최대 사용자 수(계정 수에서 나온다). 넘으면 줄이고 알린다
+export function e2eExecutor(cap = Infinity) {
+	const target = Math.min(cap, E2E_USERS[STAGE_NAME]);
+	if (target < E2E_USERS[STAGE_NAME]) {
+		console.warn(`계정이 모자라 사용자를 ${E2E_USERS[STAGE_NAME]}명에서 ${target}명으로 줄입니다`);
+	}
+	if (STAGE.ramp) {
+		return { executor: 'ramping-vus', startVUs: 0, stages: [{ target, duration: `${STAGE.minutes}m` }] };
+	}
+	return { executor: 'constant-vus', vus: target, duration: `${STAGE.minutes * 60}s` };
+}
+
+// 화면(group)마다 p95 1초. group 태그 값은 앞에 ::가 붙는다
+export function screenThresholds(names) {
+	const result = { ...thresholds };
+	for (const name of names) {
+		result[`group_duration{group:::${name}}`] = ['p(95)<1000'];
+	}
+	return result;
+}
+
+// 화면 사이에 사람이 읽는 시간 3~5초
+export function thinkTime() {
+	sleep(3 + Math.random() * 2);
+}
+
+// 401·403이면 로그인이 끊긴 것이다. 그 반복은 더 두드리지 않고 끝낸다
+export function isAuthLost(res) {
+	return res.status === 401 || res.status === 403;
 }
