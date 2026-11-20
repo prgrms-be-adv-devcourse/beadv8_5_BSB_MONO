@@ -1,7 +1,7 @@
 name: cash-load-test
 
 # 예치금 부하 측정 (docs/measurements/2026-11-16-예치금-부하-판정기준.md). 손으로만 실행한다. 운영·dev 서버에는 닿지 않고
-# 실행 머신 안에서 docker compose(backend/loadtest/scenario-b/container/compose.load.yml)로 예치금과 인프라를 띄워 잰다
+# 실행 머신 안에서 docker compose(docs/loadtest/scenario-b/container/compose.load.yml)로 예치금과 인프라를 띄워 잰다
 # - Actions 탭의 Run workflow (workflow_dispatch): 이 파일이 기본 브랜치에 있어야 버튼이 보인다
 # - 그 전에는 PR에 라벨을 붙여 시작한다 (주문 측정의 load-test 라벨과 따로)
 #   cash-load-test    : 그 PR 커밋을 A로 3번 잰다
@@ -58,7 +58,7 @@ jobs:
       REF_A: ${{ inputs.ref_a || github.event.pull_request.head.sha || github.sha }}
       REF_B: ${{ inputs.ref_b || (github.event.label.name == 'cash-load-test-ab' && github.event.pull_request.head.sha) || '' }}
       # A·B 라벨이면 A는 B에서 이 파일의 커밋만 되돌려 만든다
-      A_REVERTS: ${{ github.event.label.name == 'cash-load-test-ab' && 'backend/loadtest/scenario-b/container/ab-fixes.txt' || '' }}
+      A_REVERTS: ${{ github.event.label.name == 'cash-load-test-ab' && 'docs/loadtest/scenario-b/container/ab-fixes.txt' || '' }}
       REPEAT: ${{ inputs.repeat || '3' }}
       # 2차 라벨이면 2차 순서로 돈다 (B-1 한계는 LIMIT=1이 맨 끝에 붙인다)
       SCENARIOS: ${{ inputs.scenarios || (github.event.label.name == 'cash-load-test-2' && 'warmup b0 b2 b0-again b0-split pg4 b6 proxy b7 b8 direct') || '' }}
@@ -111,7 +111,7 @@ jobs:
               scenarios="$base"
               if [ "$LIMIT" = 1 ]; then scenarios="$base b1-limit"; fi
               # 한 바퀴가 실패해도 남은 반복은 돈다. 실패한 바퀴는 요약에 남긴다
-              LABEL=$label REP=$rep SCENARIOS="$scenarios" backend/loadtest/scenario-b/container/run.sh \
+              LABEL=$label REP=$rep SCENARIOS="$scenarios" docs/loadtest/scenario-b/container/run.sh \
                 || echo "$label rep$rep" >> "$OUT/failed-runs.txt"
             done
           done
@@ -121,7 +121,7 @@ jobs:
         if: always()
         run: |
           [ -d "$OUT" ] || exit 0
-          python3 backend/loadtest/scenario-b/container/report.py summary "$OUT" "$OUT/report" \
+          python3 docs/loadtest/scenario-b/container/report.py summary "$OUT" "$OUT/report" \
             || echo "::warning::결과 정리 실패 (원본은 아티팩트에 있음)"
           {
             if [ -f "$OUT/failed-runs.txt" ]; then echo "실패한 바퀴: $(paste -sd' ' "$OUT/failed-runs.txt")"; echo; fi

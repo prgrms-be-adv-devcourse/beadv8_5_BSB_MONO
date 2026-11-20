@@ -64,8 +64,8 @@ check.sql/.sh    정합성 확인
 
 ## 로컬에서 돌리기
 
-`backend/loadtest/seat-sync/stack.sh start`로 서비스와 프론트(3177)를 띄운다. 알림 서비스(8087)도 띄운다(파티원이 알림을 본다).
-k6는 도커로 돌린다 (`grafana/k6:1.2.3`). 아래는 모두 `backend/loadtest/real-flow`에서 실행한다.
+`docs/loadtest/seat-sync/stack.sh start`로 서비스와 프론트(3177)를 띄운다. 알림 서비스(8087)도 띄운다(파티원이 알림을 본다).
+k6는 도커로 돌린다 (`grafana/k6:1.2.3`). 아래는 모두 `docs/loadtest/real-flow`에서 실행한다.
 
 ```bash
 K6='docker run --rm -v "$(pwd -W):/work" -w /work grafana/k6:1.2.3'   # Git Bash. 리눅스·맥은 $(pwd)
@@ -89,7 +89,7 @@ bash check.sh 15,16
 
 1. **nginx 로그인 제한 스위치를 끈다**: `k8s/overlays/aws/nginx-upstreams.conf`의 `map "false"`를 `"true"`로 바꿔 main에 배포. 부하 PC는 IP 하나라 제한(IP마다 초당 1건)에 바로 막히지만 실제 사용자는 IP가 모두 다르다
 2. 상품 당일 판매 설정(`k8s/overlays/aws/product-same-day-sale.yaml`)이 켜져 있는지 본다. 꺼져 있으면 오늘 오픈하는 대회가 판매 예정으로 남아 줄을 설 수 없다
-3. 준비 데이터: `identities.sh`를 운영 Redis에 넣고(`backend/loadtest/README.md`의 1번과 같은 방법), `seed.js`를 `JOIN=1`로(CHARGE 없이) 돌린다. 예치금은 `seed/charge-prod.sql`, 크루 가입일은 `seed/backdate-crews.sql`(crewrun_member)을 보조 서버 MySQL에서 돌린다
+3. 준비 데이터: `identities.sh`를 운영 Redis에 넣고(`docs/loadtest/README.md`의 1번과 같은 방법), `seed.js`를 `JOIN=1`로(CHARGE 없이) 돌린다. 예치금은 `seed/charge-prod.sql`, 크루 가입일은 `seed/backdate-crews.sql`(crewrun_member)을 보조 서버 MySQL에서 돌린다
    판매자: 운영에는 `seller1@crewrun.com`이 없다. 테스트 계정 `realflow0`을 가입시키고(`identities.sh 0 0`, 토큰 `realflow-0`)
    `crewrun_product.product_seller`에 승인 상태로 넣은 뒤 `-e SELLER_EMAIL=realflow0@crewrun.test`로 돌린다 (상품 쪽 판매자 표만이라 정산 대상이 되기 전에 정리한다)
    SQL에 한글(크루 이름)이 있으면 `SET NAMES utf8mb4;`를 먼저 넣는다. 없으면 0행이 바뀐다

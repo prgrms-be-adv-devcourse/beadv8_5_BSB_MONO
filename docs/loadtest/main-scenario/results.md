@@ -4,7 +4,7 @@
 
 ## 왜 이게 빈칸인가 (11/18 팀 가이드 반영)
 
-팀이 11/17 밤 운영 부하 테스트를 이미 했으나, 대상은 **결제 단계·동시결제·member·crew·board·둘러보기**였다. 예매 funnel(scenario-a)은 `backend/loadtest/README.md`에서 **"로컬만"**이라 운영에서 안 돌렸다. → **이 funnel 운영 테스트가 내 과제이자 팀의 빈칸.**
+팀이 11/17 밤 운영 부하 테스트를 이미 했으나, 대상은 **결제 단계·동시결제·member·crew·board·둘러보기**였다. 예매 funnel(scenario-a)은 `docs/loadtest/README.md`에서 **"로컬만"**이라 운영에서 안 돌렸다. → **이 funnel 운영 테스트가 내 과제이자 팀의 빈칸.**
 
 11/17 결과(참고 baseline):
 - 결제 단계적 증가: **초당 10건까지 버팀, 20건에서 1분 P99 5초 초과 자동멈춤**(병목 미확인).
@@ -15,9 +15,9 @@
 
 ## 쓰는 자산 (전부 레포 정식, origin/dev)
 
-- `backend/loadtest/accounts/identities.sh` + `accounts/login.js`: 운영 대상, throttle 로그인(1.1s/건, `JOIN=1`이면 가입). 토큰을 `.accounts.json`에 저장.
-- `backend/loadtest/lib/common.js`: 운영 기본 URL, 단계(smoke/load/stress), `arrival()`, 자동멈춤(실패율 5% → 30초 뒤 abort), `assertTokensFresh()`, 409 태깅.
-- `backend/loadtest/scenario-a/scenario-a.js`: 몰림 funnel 로직(입장→폴링→입장허가→신청→주문→결제). **단 localhost 가드** → 운영용으로 가드만 풀고 common.js 규약(토큰 파일·태그·자동멈춤)에 맞춘 변형을 쓴다. 원본은 안 건드린다.
+- `docs/loadtest/accounts/identities.sh` + `accounts/login.js`: 운영 대상, throttle 로그인(1.1s/건, `JOIN=1`이면 가입). 토큰을 `.accounts.json`에 저장.
+- `docs/loadtest/lib/common.js`: 운영 기본 URL, 단계(smoke/load/stress), `arrival()`, 자동멈춤(실패율 5% → 30초 뒤 abort), `assertTokensFresh()`, 409 태깅.
+- `docs/loadtest/scenario-a/scenario-a.js`: 몰림 funnel 로직(입장→폴링→입장허가→신청→주문→결제). **단 localhost 가드** → 운영용으로 가드만 풀고 common.js 규약(토큰 파일·태그·자동멈춤)에 맞춘 변형을 쓴다. 원본은 안 건드린다.
 - 발생기: 미니 PC(`k6 v0.54` 설치됨). team05 밖에서 `crewrun.duckdns.org`로 쏜다.
 
 ## 토큰 전략 (팀 방식 그대로)

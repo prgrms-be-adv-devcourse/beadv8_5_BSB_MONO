@@ -6,7 +6,7 @@ name: cashload
 
 services:
   cash:
-    build: { context: ../../.., args: { MODULE: cash-service } }
+    build: { context: ../../../../backend, args: { MODULE: cash-service } }
     image: cashload-cash:${LABEL:-local}
     restart: "no"
     cpus: 0.5

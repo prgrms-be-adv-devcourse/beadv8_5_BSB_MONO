@@ -568,7 +568,7 @@ Little의 법칙(동시에 처리 중인 요청 = 초당 들어오는 요청 × 
 <div class="card">
 <h2>자료 위치</h2>
 <ul>
-<li>스크립트: <code>backend/loadtest/real-flow/</code> (rush.js, lib/flows.js, seed/, check.sql)</li>
+<li>스크립트: <code>docs/loadtest/real-flow/</code> (rush.js, lib/flows.js, seed/, check.sql)</li>
 <li>결과: <code>real-flow/results/prod-x2.*</code> (요약 json·로그·k6 리포트 html·Prometheus 지표 json·정합성), 1차는 <code>prod-x.*</code></li>
 <li>Grafana: 크루런 · 부하 테스트 / 서버 / 통합 / MySQL / JVM, k6 테스트 <code>${d.testid}</code></li>
 <li>요청 순서 원본: 구글 시트 「크루런 시나리오 URL 정리」의 「부하 시나리오」 탭, 결정: 「부하 시나리오 작성 팁」(2026-11-19)</li>

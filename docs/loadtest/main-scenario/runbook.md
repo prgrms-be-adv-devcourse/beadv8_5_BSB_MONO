@@ -7,7 +7,7 @@ team05(운영 dev, 2 vCPU·7.6GB, k3s)에서 예매 오픈 몰림(대기열→�
 - **k6**(발생기, team05 밖에서 실행 — 미니 PC나 개인 PC). team05 위에서 돌리지 않는다.
 - **team05 SSH**(`team05` 스킬, `sudo kubectl`).
 - **Grafana**: `https://grafana.bukang-devops.duckdns.org`(admin, 비번은 팀에 문의) — Prometheus가 전 서비스·노드 수집.
-- 레포 스크립트: `backend/loadtest/scenario-a/`(funnel 로직), `backend/loadtest/accounts/login.js`(throttle 로그인), `lib/common.js`.
+- 레포 스크립트: `docs/loadtest/scenario-a/`(funnel 로직), `docs/loadtest/accounts/login.js`(throttle 로그인), `lib/common.js`.
   운영용 변형(가드 완화·단계·자동멈춤)은 미니 PC `C:\Users\user\loadtest\prod-run\`(`funnel.js`, `login-prod.js`). 측정 스크립트 `docs-local/ops/promsnap.py`.
 
 ## 1. DB·Redis 접근 (team05 경유)
