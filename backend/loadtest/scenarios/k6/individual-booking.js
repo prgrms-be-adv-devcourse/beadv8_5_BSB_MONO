@@ -1,6 +1,6 @@
 // 개인 예매 흐름(write) — funnel 백엔드 흐름 + 엑셀 화면 부수 API + think-time. 초안: 응답 data.* 키는 실측 전 확인.
-// ../main_scenario/funnel.js 를 복사해 exec(book)만 화면 부수 호출·think-time으로 바꾼 것.
-// 토큰: ../../main_scenario/k6/login-prod.js (.accounts.json, 30분 안). 실행: k6 run -e STAGE=load -e RACE=10 -e RACE_COURSE=20 individual-booking.js
+// ../main-scenario/funnel.js 를 복사해 exec(book)만 화면 부수 호출·think-time으로 바꾼 것.
+// 토큰: ../../main-scenario/k6/login-prod.js (.accounts.json, 30분 안). 실행: k6 run -e STAGE=load -e RACE=10 -e RACE_COURSE=20 individual-booking.js
 // 부수 조회 끄기(기준선 funnel과 A/B): -e SIDE=off
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -12,7 +12,7 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|^https:\/\/crewrun\.duckdns\.
 	throw new Error(`허용되지 않은 주소라 멈춥니다: ${BASE_URL}`);
 }
 
-const accounts = new SharedArray('accounts', () => JSON.parse(open('../../main_scenario/k6/.accounts.json')));
+const accounts = new SharedArray('accounts', () => JSON.parse(open('../../main-scenario/k6/.accounts.json')));
 const RACE = { raceId: Number(__ENV.RACE || 10), raceCourseId: Number(__ENV.RACE_COURSE || 20) };
 const SIDE = (__ENV.SIDE || 'on') !== 'off'; // 화면 부수 조회(similar·file·balance 등) 포함 여부
 const POLL_INTERVAL_SECONDS = 3;
