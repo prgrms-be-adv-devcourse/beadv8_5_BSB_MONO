@@ -28,7 +28,8 @@ import com.bukang.ai.out.ops.OpsPort;
 
 /**
  * 각 서비스의 화면용 API와 계약(경로, 회원 번호 헤더, 읽는 칸)이 맞는지 확인한다
- * 응답 예시는 각 서비스 DTO(SellerKitDto, PayoutSummaryDto, SellerPayoutHoldDto, InquiryManagePageDto, SellerDto)의 칸 이름이다
+ * 응답 예시는 각 서비스 DTO(SellerKitDto, PayoutSummaryDto, SellerPayoutHoldDto, InquiryManagePageDto, SellerDto,
+ * RecordCertReviewCountDto)의 칸 이름이다
  */
 class HttpOpsAdapterTest {
 	private MockRestServiceServer server;
@@ -128,6 +129,17 @@ class HttpOpsAdapterTest {
 				+ "\"status\":\"PENDING\",\"requestedAt\":\"2026-10-03T09:00:00\"}]"));
 
 		assertThat(adapter.pendingSellerRequestedAts(20L)).containsExactly(LocalDateTime.of(2026, 10, 3, 9, 0));
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("회원: 심사할 기록증 건수를 판매자 심사 건수 API로 묻는다")
+	void recordCertReviews() {
+		server.expect(requestTo("http://svc/api/v1/member/seller/record-certs/review-count"))
+			.andExpect(header("X-Member-Id", "3"))
+			.andRespond(ok("{\"waitingCount\":12}"));
+
+		assertThat(adapter.waitingRecordCertReviewCount(3L)).isEqualTo(12);
 		server.verify();
 	}
 
