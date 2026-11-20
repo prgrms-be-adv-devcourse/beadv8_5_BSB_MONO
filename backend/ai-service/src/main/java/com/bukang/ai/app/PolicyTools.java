@@ -36,12 +36,17 @@ public class PolicyTools {
 		+ "RECOVERY: 1차 정산 뒤 판매자에게 돌려받는 돈(청구)·가상계좌 입금";
 	static final String NO_POLICY = "맞는 정책이 없다. 지어내지 말고 「아직 크루런 AI로는 조회할 수 없어요. 해당 화면에서 확인해 주세요.」라고 답한다.";
 	static final int MAX_TOPICS = 3;
+	// 다윗님 결정(11/20): 목록에 있는 규칙은 확정된 규칙처럼 단정해서 답한다
+	static final String HOW_TO_ANSWER = "rules는 지금 서비스가 따르는 확정 규칙이다. 규칙을 그대로 단정해서 말한다. "
+		+ "「~로 보여요」, 「자세한 건 확인해 주세요」, 「변경될 수 있어요」 같은 흐리는 말을 붙이지 않는다. 숫자는 rules에 있는 것만 쓴다. "
+		+ "rules의 「~한다」 문장을 그대로 옮기지 말고 「~해요」로 바꿔 쓴다.";
 	private static final Pattern TENTATIVE = Pattern.compile("잠정|확정 전|확정되기 전|정해지지 않|회의에서|회의 후");
 	private static final Pattern SENTENCE_END = Pattern.compile("(?<=\\.) ");
 
 	@Tool(description = "마지막 질문이 환불·취소·환급·충전·양도·키트 반품 같은 크루런의 규칙(정책)을 물을 때만 부른다"
 		+ "(예: 「환불 정책 어떻게 돼?」, 「대회가 취소되면 환불은?」, 「키트 반품 돼?」). "
-		+ "건수·금액 같은 운영 숫자 질문에는 부르지 않는다. "
+		+ "건수·금액 같은 운영 숫자 질문과, 「청구 금액 있어?」, 「대회 취소 요청 들어온 거 있어?」, 「이상 충전 검토할 거 있어?」처럼 "
+		+ "지금 무엇이 있는지 묻는 현황 질문에는 부르지 않는다. "
 		+ "크루런에는 포인트 적립·쿠폰·멤버십이 없다. 이런 질문처럼 주제 목록에 딱 맞는 주제가 없으면 부르지 않는다. "
 		+ "policies의 rules에 있는 내용만 답에 쓰고, 답 첫 줄은 질문에 바로 답하는 한 문장으로 쓴다")
 	public Object crewrunPolicy(@ToolParam(description = TOPICS) List<InquiryPolicy> topics, ToolContext toolContext) {
@@ -54,7 +59,7 @@ public class PolicyTools {
 			.map(policy -> new Policy(name(policy), rules(policy)))
 			.toList();
 		policies.forEach(policy -> trace.policy(policy.name()));
-		return Map.of("policies", policies);
+		return Map.of("policies", policies, "howToAnswer", HOW_TO_ANSWER);
 	}
 
 	static String name(InquiryPolicy policy) {

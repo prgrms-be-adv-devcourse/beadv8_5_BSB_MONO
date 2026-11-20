@@ -16,12 +16,13 @@ class PolicyToolsTest {
 	}
 
 	@Test
-	@DisplayName("챗봇에 넘기는 정책 이름·규칙에는 「잠정」·「정해지지 않았다」 같은 말이 없다")
+	@DisplayName("챗봇에 넘기는 정책 이름·규칙에는 「잠정」·「정해지지 않았다」나 답을 흐리는 말이 없다")
 	void noTentativeWords() {
 		for (InquiryPolicy policy : InquiryPolicy.values()) {
 			assertThat(PolicyTools.name(policy) + PolicyTools.rules(policy))
 				.as(policy.name())
-				.doesNotContain("잠정", "확정", "정해지지 않", "회의");
+				.doesNotContain("잠정", "확정", "정해지지 않", "회의")
+				.doesNotContainPattern("로 보여|자세한 (건|내용은) 확인|변경될 수 있|바뀔 수 있");
 		}
 		assertThat(PolicyTools.name(InquiryPolicy.KIT_RETURN)).isEqualTo("정책 5장 3-1 키트 반품");
 	}

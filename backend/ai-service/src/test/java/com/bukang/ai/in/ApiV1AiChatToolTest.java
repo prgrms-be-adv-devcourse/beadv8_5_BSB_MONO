@@ -28,6 +28,8 @@ class ApiV1AiChatToolTest extends AiTestBase {
 	private static final List<String> SELLER_TOOLS =
 		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales",
 			"crewrunPolicy");
+	// 정책 답을 흐리는 말 (다윗님 11/20 「확실하게 대답」). 규칙에 원래 있는 조건(「며칠 걸릴 수 있다」)은 여기에 넣지 않는다
+	private static final String HEDGE = "로 보여|자세한 (건|내용은) 확인|변경될 수 있|바뀔 수 있|잠정|확정 전";
 	private static final List<String> ADMIN_TOOLS =
 		List.of("adminWaitingInquiries", "adminPendingSellers", "crewrunPolicy");
 
@@ -79,6 +81,10 @@ class ApiV1AiChatToolTest extends AiTestBase {
 
 			assertThat(chatModel.toolResults()).singleElement().asString()
 				.contains("관리자가 승인하면 참가자 공지와 전액 환불").contains("단순 변심 반품")
+				.contains("확정 규칙이다");
+			// 답하는 법(howToAnswer)은 흐리는 말을 예로 들어 금지하므로 빼고, 모델이 옮겨 쓸 정책 이름·규칙만 본다
+			assertThat(chatModel.toolResults().getFirst().replaceAll("\"howToAnswer\":\"[^\"]*\",?", ""))
+				.doesNotContainPattern(HEDGE)
 				.doesNotContain("잠정").doesNotContain("충전");
 			assertThat(opsPort.calledMemberIds).isEmpty();
 		}

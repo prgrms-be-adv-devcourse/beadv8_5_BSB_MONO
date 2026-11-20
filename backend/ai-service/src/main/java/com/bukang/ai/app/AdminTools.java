@@ -23,6 +23,7 @@ public class AdminTools {
 	private final OpsPort opsPort;
 
 	@Tool(description = "마지막 질문이 답변 대기 문의 수를 물을 때만 부른다(예: 「고객 문의 대기 현황」, 「답 안 한 문의 몇 개야?」). "
+		+ "본인인증 검토·이상 충전 검토처럼 문의가 아닌 대기에는 부르지 않는다. "
 		+ "waitingCount: 전체 답변 대기 문의 수, "
 		+ "adminAssignedWaitingCount: 그중 관리자가 답해야 하는(관리자 담당) 문의 수")
 	public Object adminWaitingInquiries(ToolContext toolContext) {
