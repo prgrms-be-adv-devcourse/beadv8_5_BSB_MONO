@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -58,16 +59,16 @@ class LokiLogbackAppenderAutoConfigurationTest {
 	@DisplayName("prod이고 LOKI_URL이 있으면 INFO 이상만 라벨을 붙여 보낸다")
 	void sendsInfoAndAboveWithLabelsInProd() throws Exception {
 		String url = "http://127.0.0.1:" + fakeLoki.getAddress().getPort() + "/loki/api/v1/push";
-		System.setProperty("LOKI_URL", url);
-		System.setProperty("LOKI_PASSWORD", "test-password");
-		try {
-			runner.withPropertyValues("spring.profiles.active=prod", "LOKI_URL=" + url).run(context -> {
+		runner.withPropertyValues("spring.profiles.active=prod", "LOKI_URL=" + url, "LOKI_PASSWORD=test-password")
+			.run(context -> {
 				assertThat(rootLogger().getAppender("LOKI")).isNotNull();
 				// 로거가 DEBUG를 내보내게 열어, 걸러 내는 일을 appender 필터가 하는지 본다
 				Logger log = (Logger)LoggerFactory.getLogger("loki-test");
 				log.setLevel(Level.DEBUG);
 				log.debug("보내면 안 되는 디버그");
+				MDC.put("requestId", "req-123");
 				log.info("보낼 정보 로그");
+				MDC.remove("requestId");
 				log.error("보낼 오류 로그", new IllegalStateException("오류 원인"));
 				// batch.timeoutMs(5초)보다 먼저 보내도록 appender를 멈춰 남은 로그를 비운다
 				rootLogger().getAppender("LOKI").stop();
@@ -79,15 +80,11 @@ class LokiLogbackAppenderAutoConfigurationTest {
 				assertThat(push[0]).isEqualTo(expectedAuth);
 				assertThat(push[1])
 					.contains("\"namespace\":\"crewrun\"", "\"service\":\"order-service\"", "\"env\":\"prod\"",
-						"\"level\":\"INFO\"", "보낼 정보 로그")
+						"\"level\":\"INFO\"", "보낼 정보 로그", "\"requestId\":\"req-123\"")
 					// 예외 스택도 메시지에 실린다 (PatternLayout이 %ex를 스스로 붙인다)
 					.contains("\"level\":\"ERROR\"", "java.lang.IllegalStateException: 오류 원인")
 					.doesNotContain("보내면 안 되는 디버그");
 			});
-		} finally {
-			System.clearProperty("LOKI_URL");
-			System.clearProperty("LOKI_PASSWORD");
-		}
 	}
 
 	@Test

@@ -1,5 +1,5 @@
 <!-- LokiLogbackAppenderAutoConfiguration이 Boot가 만든 Logback 설정 위에 더한다 (콘솔 출력은 그대로 둔다) -->
-<!-- ${LOKI_URL}·${LOKI_PASSWORD}는 환경변수, ${LOKI_SERVICE}는 자동 설정이 spring.application.name으로 채운다 -->
+<!-- ${LOKI_URL}·${LOKI_PASSWORD}·${LOKI_SERVICE}(spring.application.name)는 자동 설정이 Spring Environment에서 읽어 채운다 -->
 <configuration>
 	<appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
 		<!-- DEBUG·TRACE는 보내지 않는다 -->
@@ -14,13 +14,19 @@
 			</auth>
 			<connectionTimeoutMs>5000</connectionTimeoutMs>
 		</http>
-		<!-- 라벨은 값 종류가 적은 것만 둔다. 요청 번호(MDC requestId)·로거·스레드는 기본 구조화 메타데이터로 간다 -->
+		<!-- 라벨은 값 종류가 적은 것만 둔다. 요청 번호·로거·스레드는 라벨이 아닌 구조화 메타데이터로 보낸다 -->
 		<labels>
 			namespace=crewrun
 			service=${LOKI_SERVICE}
 			env=prod
 			level=%level
 		</labels>
+		<!-- MDC는 고른 키만 보낸다. 기본값(*=%%mdc)이면 나중에 MDC에 넣은 개인정보까지 그대로 나간다 (CRU-81) -->
+		<structuredMetadata>
+			logger=%logger
+			thread=%thread
+			requestId=%mdc{requestId}
+		</structuredMetadata>
 		<!-- loki4j 기본 형식. 적지 않으면 시작할 때 경고가 찍힌다. 레벨은 라벨, 예외 스택은 PatternLayout이 스스로 붙인다 -->
 		<message>
 			<pattern>[%thread] %logger{20} - %msg%n</pattern>

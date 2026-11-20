@@ -164,6 +164,10 @@ services:
       GATEWAY_SERVICES_AI: http://${MAIN_NODE_IP:-10.0.1.145}:30092
       # 메인 k3s의 Spring 앱과 같은 JVM 옵션 (k8s/base/patches/spring-common.yaml)
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k"
+      # 게이트웨이 1처럼 로그를 Loki로 직접 보낸다 (CRU-95, k8s/overlays/aws/loki-logging.yaml)
+      #   비밀번호는 메인 k3s의 Secret alloy-loki와 같은 값. 비어 있으면 Loki가 거절해 로그만 버려진다
+      LOKI_URL: https://crewrun-logs.duckdns.org/loki/api/v1/push
+      LOKI_PASSWORD: ${LOKI_PASSWORD:-}
     mem_limit: 512m
     # 메인 nginx만 접속한다. 보안 그룹이 메인 EC2에서 오는 8000만 허용한다
     ports:
