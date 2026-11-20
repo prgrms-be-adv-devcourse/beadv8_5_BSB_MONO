@@ -6,6 +6,7 @@ import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, SELLER_STATUS, SELLER_TYPE_LABEL } from '@/entities/member'
 import { ApiError, memberApi, unwrapData, type memberModel } from '@/shared/api'
+import { formatPhoneNumber } from '@/shared/lib'
 import { Alert, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
 import { PayoutAccountCard } from './PayoutAccountCard'
@@ -65,6 +66,8 @@ export function SellerSettingsPage() {
 function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
   const status = SELLER_STATUS[seller.status]
   const business = seller.sellerType === 'BUSINESS'
+  // 연락처 · 가입일은 회원 정보(GET /api/v1/member/members/me)에 있다. 판매자 신청 응답에는 없다
+  const me = memberApi.useFindMe({ query: { select: unwrapData } }).data
   const fields: [string, string][] = [
     ['판매자 종류', SELLER_TYPE_LABEL[seller.sellerType]],
     ...(business
@@ -74,9 +77,13 @@ function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
           ['대표자', seller.representativeName],
         ] as [string, string][])
       : ([['성명', seller.representativeName]] as [string, string][])),
-    seller.status === 'APPROVED' && seller.reviewedAt
-      ? ['승인일', formatSellerDate(seller.reviewedAt)]
-      : ['신청일', formatSellerDate(seller.requestedAt)],
+    ['휴대전화', me?.phone ? formatPhoneNumber(me.phone) : '-'],
+    ['이메일', me?.email ?? '-'],
+    ['가입일', me?.createDate ? formatSellerDate(me.createDate) : '-'],
+    ['신청일', formatSellerDate(seller.requestedAt)],
+    ...(seller.status === 'APPROVED' && seller.reviewedAt
+      ? ([['승인일', formatSellerDate(seller.reviewedAt)]] as [string, string][])
+      : []),
   ]
 
   return (
