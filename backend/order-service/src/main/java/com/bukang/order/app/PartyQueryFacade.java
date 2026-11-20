@@ -17,7 +17,6 @@ import com.bukang.order.domain.PartyMember;
 import com.bukang.order.domain.PartyStatus;
 import com.bukang.order.domain.exception.CrewNotFoundException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.domain.exception.PartyAccessDeniedException;
 import com.bukang.order.domain.exception.PartyNotFoundException;
 import com.bukang.order.dto.PartyDetailDto;
 import com.bukang.order.dto.PartyPreviewDto;
@@ -101,13 +100,11 @@ public class PartyQueryFacade {
 			now.isBefore(party.getJoinTokenExpiresAt()));
 	}
 
-	// 그 크루의 크루원만 본다. 크루가 없으면 404, 크루원이 아니면 403
+	// 그 크루의 크루원만 본다. 크루가 없거나 크루원이 아니면 같은 404다. 크루가 있는지 알리지 않는다 (CRU-92)
 	public List<PartySummaryDto> findActiveInCrew(long crewId, long memberId) {
-		CrewMembership membership = crewPort.findMembership(crewId, memberId)
+		crewPort.findMembership(crewId, memberId)
+			.filter(CrewMembership::crewMember)
 			.orElseThrow(() -> new CrewNotFoundException("존재하지 않는 크루입니다."));
-		if (!membership.crewMember()) {
-			throw PartyAccessDeniedException.crewMemberRequired();
-		}
 		return summaries(partyRepository.findByCrewIdAndStatusInOrderByIdDesc(crewId, ACTIVE_STATUSES), memberId);
 	}
 

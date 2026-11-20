@@ -368,7 +368,7 @@ class ApiV1OrderKitOptionTest {
 	}
 
 	@Test
-	@DisplayName("이 대회에 다른 판매자의 주문이 있으면 옵션별 판매 현황은 403이다")
+	@DisplayName("이 대회에 다른 판매자의 주문이 있으면 옵션별 판매 현황은 옵션이 없는 대회와 같은 빈 목록이다")
 	void sellerViewsOtherRace() throws Exception {
 		sellerLookupPort.approve(SELLER_MEMBER_ID + 1, StubRaceCoursePort.SELLER_ID + 1);
 		long orderId = orderAndGetId(1, COURSE_ID);
@@ -376,8 +376,18 @@ class ApiV1OrderKitOptionTest {
 
 		mockMvc.perform(get("/api/v1/order/seller/kits/options").param("raceId", String.valueOf(RACE_ID))
 				.header("X-Member-Id", SELLER_MEMBER_ID + 1))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_SELLER_FORBIDDEN"));
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data").isEmpty());
+		// 상품이 찾지 못한 대회와 본문이 같아 남의 대회인지 알 수 없다 (CRU-92)
+		kitOptionPort.markNotFound(999_999);
+		String missingBody = mockMvc.perform(get("/api/v1/order/seller/kits/options").param("raceId", "999999")
+				.header("X-Member-Id", SELLER_MEMBER_ID + 1))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		String othersBody = mockMvc.perform(get("/api/v1/order/seller/kits/options")
+				.param("raceId", String.valueOf(RACE_ID)).header("X-Member-Id", SELLER_MEMBER_ID + 1))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 	}
 
 	@Test
