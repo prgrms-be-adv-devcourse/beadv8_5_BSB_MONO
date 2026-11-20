@@ -13,8 +13,13 @@ export const SEND_PAGES = __ENV.PAGES !== '0';
 export const EMAIL_PREFIX = __ENV.EMAIL_PREFIX || 'realflow';
 export const EMAIL_DOMAIN = __ENV.EMAIL_DOMAIN || 'crewrun.test';
 export const PASSWORD = __ENV.LOADTEST_PASSWORD;
+// 앞 실행의 주문·파티 기록이 없는 새 계정으로 다시 잴 때 번호를 민다 (ACCOUNT_OFFSET=3000이면 realflow3001부터)
+export const ACCOUNT_OFFSET = Number(__ENV.ACCOUNT_OFFSET || 0);
+export function accountNoOf(no) {
+	return no + ACCOUNT_OFFSET;
+}
 export function emailOf(no) {
-	return `${EMAIL_PREFIX}${no}@${EMAIL_DOMAIN}`;
+	return `${EMAIL_PREFIX}${accountNoOf(no)}@${EMAIL_DOMAIN}`;
 }
 
 // 판매자 계정 (대회를 등록한다). 로컬은 시드 판매자 seller1@crewrun.com
@@ -58,7 +63,11 @@ export const THINK = {
 	failScreen: 3, // 결제 실패 화면을 읽고 「다시 결제하기」
 	retryPay: 2, // 다시 열린 결제 화면에서 결제를 다시 누르기까지
 	browse: 3, // 보기만 하는 사람이 화면을 보는 시간
+	pageRetry: 3, // 화면이 오류(502·504·연결 실패)로 뜨면 보고 새로고침하기까지
 };
+// 화면 오류 때 새로고침하는 횟수. 그래도 안 뜨면 그 사람은 다음 단계로 못 가고 흐름이 끊긴다
+// (오류 화면에는 다음 버튼이 없다. 예전에는 화면 결과를 보지 않고 다음 API로 넘어가, web이 무너질 때 결제가 부풀었다)
+export const PAGE_RETRIES = 2;
 // 화면이 순서·입장을 다시 묻는 주기 (frontend ADMISSION_POLL_MS)
 export const POLL_SECONDS = 3;
 // 8-3: 결제 503이면 최대 5번까지 누른다

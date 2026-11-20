@@ -7,7 +7,7 @@
 // 실행 방법은 README.md
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { API, PARTY_SIZE, PASSWORD, accountLayout, emailOf } from '../config.js';
+import { API, PARTY_SIZE, PASSWORD, accountLayout, accountNoOf, emailOf } from '../config.js';
 
 if (!PASSWORD) {
 	throw new Error('LOADTEST_PASSWORD 환경 변수가 없습니다');
@@ -44,8 +44,8 @@ export function setup() {
 		const joined = batch(missing.map((no) => ({
 			method: 'POST', url: `${API}/auth/join`,
 			body: JSON.stringify({
-				email: emailOf(no), password: PASSWORD, nickname: `rflow${no}`,
-				agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14'], verificationToken: `realflow-${no}`,
+				email: emailOf(no), password: PASSWORD, nickname: `rflow${accountNoOf(no)}`,
+				agreedTerms: ['SERVICE', 'PRIVACY', 'AGE_OVER_14'], verificationToken: `realflow-${accountNoOf(no)}`,
 			}),
 			params: { headers: JSON_HEADERS },
 		})));
