@@ -93,14 +93,15 @@ public class AiBriefingUseCase {
 					won(payout.scheduledPayoutAmount()),
 					payout.heldCount() > 0 ? "보류 %d건 빼고".formatted(payout.heldCount()) : "보류 없음", null));
 		}
-		// 기록증 심사는 1건 이상일 때만 알린다 (CRU-16). 숫자 칸이 없어, 가져오지 못하면 이 항목만 빼고 실패 문구도 붙이지 않는다
+		// 기록증 심사는 1건 이상일 때만 알린다 (CRU-16). 가져오지 못하면 할 일·숫자 칸은 넣지 않고
+		// (심사 화면이 아직 없다), 「할 일이 없어요」로 읽히지 않게 첫 문장에만 실패를 알린다
 		if (certReviews != null && certReviews > 0) {
 			sentences.add("심사할 기록증이 %d건 있어요.".formatted(certReviews));
 			todos.add(new Todo("기록증 심사 대기 %d건".formatted(certReviews), "참가자가 심사 결과를 기다리고 있어요",
 				"기록증 심사", "/seller/record-certs"));
 		}
-		return new AiBriefingDto(headline(sentences, kits == null || payout == null), now.format(BASIS),
-			todos, metrics);
+		return new AiBriefingDto(headline(sentences, kits == null || payout == null || certReviews == null),
+			now.format(BASIS), todos, metrics);
 	}
 
 	// shortcut: 조회를 차례로 부른다(조회마다 시간 초과 ai.clients.timeout 2초). 카드가 느려지면 병렬로 바꾼다
