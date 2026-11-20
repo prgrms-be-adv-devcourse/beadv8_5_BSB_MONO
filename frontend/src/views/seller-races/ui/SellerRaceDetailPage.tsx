@@ -18,6 +18,7 @@ import {
   SaleRateBar,
   SELLER_SALE_STATUS_TEXT,
   toSellerRaceRow,
+  type RaceForEdit,
 } from '@/entities/race'
 import { ApiError, productApi, unwrapData, type productModel } from '@/shared/api'
 import { cn, formatNumber } from '@/shared/lib'
@@ -35,6 +36,8 @@ import {
   TableHeaderCell,
   useToast,
 } from '@/shared/ui'
+
+import { coverUrl, initialImageChange } from '../model/race-image-change'
 
 const n = formatNumber
 const KEY = '[&>span:first-child]:w-30'
@@ -75,11 +78,6 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
     <ConsolePage
       title={row?.title ?? '대회 상세'}
       description={row ? meta.join(' · ') : undefined}
-      backLink={
-        <Link href="/seller/races" className={cn('rounded-sm text-body2-medium', FOCUS_RING)}>
-          ← 대회 관리
-        </Link>
-      }
       status={
         row && (
           <span className={row.saleStatus ? SELLER_SALE_STATUS_TEXT[row.saleStatus] : ''}>
@@ -175,8 +173,8 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
               title="대회 정보를 불러오지 못했어요"
               description="잠시 후 다시 시도해 주세요."
             />
-          ) : full ? (
-            <RaceInfoSections race={full} />
+          ) : detail.data ? (
+            <RaceInfoSections race={detail.data.race} edit={detail.data} />
           ) : (
             <ConsoleLoading />
           )}
@@ -318,7 +316,8 @@ function KitSection({ raceId }: { raceId: number }) {
   )
 }
 
-function RaceInfoSections({ race }: { race: productModel.RaceDetailDto }) {
+function RaceInfoSections({ race, edit }: { race: productModel.RaceDetailDto; edit: RaceForEdit }) {
+  const intro = initialImageChange(edit).intro
   const courses = race.courses ?? []
   const kitCourses = courses.filter((c) => c.kitIncluded)
   const dateTime = (value?: string | null) => (value ? fullDateTime(value) : '-')
@@ -350,9 +349,20 @@ function RaceInfoSections({ race }: { race: productModel.RaceDetailDto }) {
         </div>
       </ConsoleCard>
       <ConsoleCard title="이미지">
-        <div className="flex gap-4" aria-label="대표 이미지와 소개 이미지">
-          <ImageTile label="대표 이미지" />
-          <ImageTile label="소개 이미지" />
+        <div className="flex flex-wrap gap-4" aria-label="대표 이미지와 소개 이미지">
+          <ImageTile label="대표 이미지" url={coverUrl(edit)} />
+          {intro.length === 0 ? (
+            <ImageTile label="소개 이미지" />
+          ) : (
+            intro.map((slot, i) => (
+              <ImageTile
+                key={slot.key}
+                label={i === 0 ? `소개 이미지 ${intro.length}장` : ''}
+                alt={`소개 이미지 ${i + 1}`}
+                url={slot.url}
+              />
+            ))
+          )}
         </div>
       </ConsoleCard>
       <ConsoleCard title="종목 · 참가권">
@@ -408,12 +418,27 @@ function fullDateTime(value: string): string {
   return `${value.slice(0, 10)} ${short.slice(short.indexOf('('))}`
 }
 
-function ImageTile({ label }: { label: string }): ReactNode {
+function ImageTile({
+  label,
+  alt = label,
+  url,
+}: {
+  label: string
+  alt?: string
+  url?: string
+}): ReactNode {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-caption-regular text-text-tertiary">{label}</span>
-      <div className="flex size-32 items-center justify-center rounded-md bg-bg-subtle">
-        <Icon name="Image" className="size-6 text-text-tertiary" aria-hidden />
+      {/* 둘째 소개 이미지부터는 이름 자리만 비워 사진 높이를 맞춘다 */}
+      <span className="min-h-4 text-caption-regular text-text-tertiary">{label}</span>
+      <div className="flex size-32 items-center justify-center overflow-hidden rounded-md bg-bg-subtle">
+        {url ? (
+          // 만료되는 S3 주소라 next/image로 최적화하지 않는다
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt={alt} className="size-full object-cover" />
+        ) : (
+          <Icon name="Image" className="size-6 text-text-tertiary" aria-hidden />
+        )}
       </div>
     </div>
   )
