@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.common.global.json.JsonConverter;
 import com.bukang.common.shared.kafka.dlt.KafkaDltMessage;
+import com.bukang.common.shared.order.event.OrderItemRefundedEvent;
 import com.bukang.common.shared.recordcert.event.RecordCertCheckedEvent;
 import com.bukang.member.app.MemberDltUseCase;
 import com.bukang.member.recordcert.domain.SubmissionStatus;
@@ -26,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RecordCertFacade {
 	private final RecordCertSubmitUseCase recordCertSubmitUseCase;
 	private final RecordCertCheckResultUseCase recordCertCheckResultUseCase;
+	private final RecordCertRefundCloseUseCase recordCertRefundCloseUseCase;
 	private final RecordCertSubmissionRepository recordCertSubmissionRepository;
 	private final MemberDltUseCase memberDltUseCase;
 	private final JsonConverter jsonConverter;
@@ -64,5 +66,15 @@ public class RecordCertFacade {
 			.ifPresentOrElse(submission -> submission.giveUpCheck(LocalDateTime.now()),
 				() -> log.info("확인 중이 아닌 제출이라 실패 토픽의 결과를 넘기지 않습니다. submissionId={}",
 					result.submissionId()));
+	}
+
+	// 참가권 환불로 그 참가권의 제출을 닫는다 (BUK-277). 이미 닫힌 제출은 상태가 막아 같은 알림을 다시 받아도 안전하다
+	public void closeByRefund(OrderItemRefundedEvent event) {
+		recordCertRefundCloseUseCase.close(event.orderItemId(), LocalDateTime.now());
+	}
+
+	// 실패 토픽으로 간 환불 알림 (BUK-277): 실패만 남긴다. 원인을 고친 뒤 다시 보내면 그때 닫힌다
+	public void handleRefundedDlt(KafkaDltMessage message) {
+		memberDltUseCase.record(message);
 	}
 }

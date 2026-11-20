@@ -7,8 +7,10 @@ import static lombok.AccessLevel.PROTECTED;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.bukang.member.recordcert.domain.exception.SubmissionNotCheckingException;
@@ -43,6 +45,9 @@ import lombok.NoArgsConstructor;
 	}
 )
 public class RecordCertSubmission {
+	private static final Set<SubmissionStatus> CANCELABLE = EnumSet.of(SubmissionStatus.CHECKING,
+		SubmissionStatus.NEEDS_REVIEW, SubmissionStatus.AUTO_APPROVED, SubmissionStatus.APPROVED);
+
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "submission_id")
@@ -176,6 +181,16 @@ public class RecordCertSubmission {
 		}
 		this.status = result;
 		this.reviewedAt = now;
+		this.updatedAt = now;
+	}
+
+	// 참가권이 환불되면 닫는다 (BUK-277). 반려 · 승인 불가는 실패 사유를 남기려고 그대로 두고, 이미 취소됨이면 그대로 둔다
+	// 그래서 같은 환불 알림을 두 번 받아도 처음 닫은 시각이 남는다. 기록증과 승인 기록 값은 지우지 않는다
+	public void cancel(LocalDateTime now) {
+		if (!CANCELABLE.contains(status)) {
+			return;
+		}
+		this.status = SubmissionStatus.CANCELED;
 		this.updatedAt = now;
 	}
 
