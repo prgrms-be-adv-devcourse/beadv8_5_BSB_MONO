@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { PROFILE_ERRORS } from '@/entities/member'
 import { memberApi, setAccessToken } from '@/shared/api'
 import { memberMock, server } from '@/shared/testing'
 
-import { PROFILE_ERRORS } from '@/entities/member'
 import { ProfileEditPage } from './ProfileEditPage'
 
 const replace = vi.fn()

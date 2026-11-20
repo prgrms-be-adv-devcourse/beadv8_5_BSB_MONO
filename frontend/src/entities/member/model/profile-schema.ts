@@ -1,8 +1,9 @@
 import { z } from 'zod'
 
-import { isNicknameWidthValid } from './nickname'
 import { ApiError } from '@/shared/api'
 import { memberZod } from '@/shared/api-zod'
+
+import { isNicknameWidthValid } from './nickname'
 
 // 내 정보 수정 입력 검사. 이름 · 생년월일 · 휴대폰은 본인인증으로 확인한 값이라 고치지 않고 닉네임만 검사한다.
 // 규칙은 orval이 만든 memberZod.ModifyMeBody(백엔드 MemberModifyRequestDto)를 따르고, 문구만 화면 말투로 바꾼다.

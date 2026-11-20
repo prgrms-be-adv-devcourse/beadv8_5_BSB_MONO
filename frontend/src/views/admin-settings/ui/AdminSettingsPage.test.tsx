@@ -67,7 +67,11 @@ describe('AdminSettingsPage', () => {
     server.use(
       http.put('*/api/v1/member/members/me', async ({ request }) => {
         sent = await request.json()
-        return HttpResponse.json({ status: 200, message: '수정', data: { ...ME, nickname: '새운영' } })
+        return HttpResponse.json({
+          status: 200,
+          message: '수정',
+          data: { ...ME, nickname: '새운영' },
+        })
       }),
     )
     const user = userEvent.setup()
