@@ -161,18 +161,36 @@ S.forEach((st, i) => st.uriAvgMs.forEach((r) => {
 }));
 S.forEach((st, i) => st.uriCount.forEach((r) => { const k = `${r.m.job} ${r.m.method} ${r.m.uri}`; if (uriMap.has(k)) uriMap.get(k).n[i] = r.v; }));
 S.forEach((st, i) => st.uriMaxMs.forEach((r) => { const k = `${r.m.job} ${r.m.method} ${r.m.uri}`; if (uriMap.has(k)) uriMap.get(k).max[i] = r.v; }));
+S.forEach((st, i) => (st.uriP95Ms || []).forEach((r) => { const k = `${r.m.job} ${r.m.method} ${r.m.uri}`; if (uriMap.has(k) && !Number.isNaN(r.v)) uriMap.get(k).p95 = Object.assign(uriMap.get(k).p95 || [], { [i]: r.v }); }));
 const uris = [...uriMap.values()].filter((u) => u.n[2] >= 50);
 const uriRows = uris.sort((a, b) => (b.avg[2] || 0) * b.n[2] - (a.avg[2] || 0) * a.n[2]).slice(0, 22).map((u) => {
 	const busy = ((u.avg[2] || 0) * u.n[2]) / 1000;
+	const p = u.p95 || [];
 	return `<tr><td class="l">${esc(u.job.replace('-service', ''))}</td><td class="l">${esc(u.method)} ${esc(u.uri)}</td><td>${n0(u.n[2])}</td>
-	<td>${n1(u.avg[0])}</td><td>${n1(u.avg[1])}</td><td><b>${n1(u.avg[2])}</b></td><td>${n0(u.max[2])}</td><td>${n1(busy)}초 <span class="bar" style="width:${Math.round(Math.min(busy, 170) / 170 * 110)}px"></span></td></tr>`;
+	<td>${n1(u.avg[2])}</td><td>${n0(p[0])}</td><td>${n0(p[1])}</td><td><b>${n0(p[2])}</b></td><td>${n0(u.max[2])}</td><td>${n1(busy)}초 <span class="bar" style="width:${Math.round(Math.min(busy, 170) / 170 * 110)}px"></span></td></tr>`;
+}).join('');
+
+// ── 표: 사용자 쪽 p95 vs 서버 쪽 p95 (같은 API) ─────────
+// k6 이름 "POST /order/orders/{orderId}/payment" ↔ 서버 "/api/v1/order/orders/{orderId}/payment"
+const norm = (path) => path.split('?')[0].replace(/\{[^}]+\}/g, '{}');
+const cmpRows = [...names.values()].filter((r) => r.kind !== 'page' && r.n[2] >= 50).map((r) => {
+	const [method, path] = r.name.split(' ');
+	const srv = [...uriMap.values()].find((u) => u.method === method && norm(u.uri) === norm(`/api/v1${path}`));
+	return srv && srv.p95 ? { r, srv } : null;
+}).filter(Boolean).sort((a, b) => (b.r.p95[2] || 0) - (a.r.p95[2] || 0)).slice(0, 16).map(({ r, srv }) => {
+	const cells = [0, 1, 2].map((i) => {
+		const user = (r.p95[i] || 0) * 1000, server = srv.p95[i];
+		const share = server && user ? Math.min(100, (server / user) * 100) : undefined;
+		return `<td>${n0(user)}</td><td>${n0(server)}</td><td class="${share !== undefined && share < 20 ? 'up' : ''}">${share === undefined ? '-' : n0(share) + '%'}</td>`;
+	}).join('');
+	return `<tr><td>${KIND_KO[r.kind]}</td><td class="l">${esc(r.name)}</td>${cells}</tr>`;
 }).join('');
 
 // ── 표: 서비스 합계 ─────────────────────────────────────
 const jobs = [...new Set(S[2].svcReqs.map((r) => r.m.job))];
 const svcRows = jobs.map((j) => ({ j, n: S[2].svcReqs.find((r) => r.m.job === j)?.v || 0 })).sort((a, b) => b.n - a.n).map(({ j }) => {
 	const f = (st, key) => st[key].find((r) => r.m.job === j)?.v;
-	return `<tr><td class="l">${esc(j)}</td>${S.map((st) => `<td>${n0(f(st, 'svcReqs'))}</td>`).join('')}${S.map((st) => `<td>${n1(f(st, 'svcAvgMs'))}</td>`).join('')}
+	return `<tr><td class="l">${esc(j)}</td>${S.map((st) => `<td>${n0(f(st, 'svcReqs'))}</td>`).join('')}${S.map((st) => `<td>${n1(f(st, 'svcAvgMs'))}</td>`).join('')}${S.map((st) => `<td>${n0(f(st, 'svcP95Ms'))}</td>`).join('')}
 	<td>${n0(f(S[2], 'svcMaxMs'))}</td><td>${n0(Math.max(...S.map((st) => f(st, 'hikariActiveMax') || 0)))}/${n0(f(S[2], 'hikariMax'))}</td><td>${n0(Math.max(...S.map((st) => f(st, 'hikariPendingMax') || 0)))}</td>
 	<td>${n0(Math.max(...S.map((st) => (f(st, 'heapPct') || 0) * 100)))}%</td><td>${n2(f(S[2], 'gcPause'))}</td></tr>`;
 }).join('');
@@ -185,6 +203,7 @@ const qParty1 = q1.uriAvgMs.find((r) => r.m.job === 'queue-service' && r.m.uri =
 const qPartyMax1 = q1.uriMaxMs.find((r) => r.m.job === 'queue-service' && r.m.uri === '/api/v1/queue/parties');
 
 const s3 = S[2], s1 = S[0];
+const sp = (st, job) => st.svcP95Ms?.find((r) => r.m.job === job)?.v;
 const X30 = xPeak('30s', '300x3');
 
 const html = `<!doctype html>
@@ -260,7 +279,7 @@ code{font-size:12px;background:var(--navbg);padding:1px 5px;border-radius:5px}
 <div class="card verdict">
 <p class="big">X는 약 <b>초당 10건</b>에서 멈춘다. 막는 곳은 <b>메인 EC2의 CPU 2코어</b>다</p>
 <p>대회를 1쌍에서 2쌍으로 늘리면 초당 처리가 ${n2(xPeak('30s', '300x1'))} → ${n2(xPeak('30s', '300x2'))}건으로 늘지만, 3쌍에서는 ${n2(X30)}건으로 거의 늘지 않는다(몰린 사람 3배 → 처리 ${n1(X30 / xPeak('30s', '300x1'))}배).
-같은 시간 메인 EC2 CPU는 2구간부터 99~100%였고, 1분 부하는 코어당 ${n1(inst(s3.load1, MAIN) / 2)}까지 올라갔다. 반면 서비스 안에서 API 하나를 처리하는 시간은 평균 수십 ms로 짧았다.
+같은 시간 메인 EC2 CPU는 2구간부터 99~100%였고, 1분 부하는 코어당 ${n1(inst(s3.load1, MAIN) / 2)}까지 올라갔다. 반면 서비스가 스스로 잰 처리 시간 p95는 가장 긴 order도 ${n0(sp(s3, 'order-service'))}ms, product ${n0(sp(s3, 'product-service'))}ms였고, 같은 순간 사용자 쪽 쓰기 p95는 ${ms(kindP(s3, 'kindP95', 'write'))}ms였다.
 → 사용자가 기다린 시간의 대부분은 <b>CPU 차례를 기다린 시간</b>이고, 서비스 코드나 DB가 느려서가 아니다.</p>
 </div>
 <div class="card">
@@ -368,10 +387,17 @@ ${lineChart({ series: [{ label: '결제 완료 예매 / 초 (30초 창)', color:
 결제·신청처럼 1쌍 p95가 2쌍보다 높은 요청이 있다. 1구간이 준비(계정 2,310 로그인·대회·파티 만들기) 직후 첫 몰림이라 서비스가 덜 데워진 상태(JIT·커넥션·캐시)였던 영향으로 보인다 — 가설이며 같은 조건으로 다시 돌려 확인할 것.</p>
 </div>
 <div class="card">
+<h2>사용자 쪽 p95 vs 서버 쪽 p95 — 기다린 시간은 어디서 생겼나</h2>
+<p class="chcap">같은 API를 사용자(k6)가 잰 p95와 그 서비스가 스스로 잰 p95. 「서버 몫」이 작을수록 서비스 밖(메인 EC2 CPU 차례·Traefik·nginx·게이트웨이 앞 줄)에서 기다린 시간이 크다. 20% 미만은 빨간색</p>
+<div class="tscroll"><table><thead><tr><th>종류</th><th class="l">API</th><th>사용자 1쌍</th><th>서버 1쌍</th><th>서버 몫</th><th>사용자 2쌍</th><th>서버 2쌍</th><th>서버 몫</th><th>사용자 3쌍</th><th>서버 3쌍</th><th>서버 몫</th></tr></thead><tbody>${cmpRows}</tbody></table></div>
+<p class="note">단위 ms. 서버 p95는 공통 설정(<code>common/observability.yaml</code>의 <code>percentiles-histogram</code>)으로 이미 운영에 있는 구간 지표에 <code>histogram_quantile(0.95, …)</code>를 구간 전체로 적용한 값. 구간 경계 사이는 이어 붙여 계산한 근삿값이다.
+게이트웨이 시간은 서비스 시간을 포함하므로 표에 넣지 않았다(「서비스·자원」 합계에 있음).</p>
+</div>
+<div class="card">
 <h2>서버 안에서 걸린 시간 (Spring 지표, 서비스별 API)</h2>
-<p class="chcap">사용자 쪽 p95가 수 초인데 서버 안은 수십 ms다 → 차이는 CPU 차례 기다림과 입구 줄 서기. 「일한 시간」 = 평균 × 요청 수(3구간), 이 API가 서비스 스레드를 붙잡은 총 시간이라 개선 우선순위로 쓴다</p>
-<div class="tscroll"><table><thead><tr><th class="l">서비스</th><th class="l">API</th><th>요청 수 (3쌍)</th><th>평균 1쌍</th><th>2쌍</th><th>3쌍</th><th>최대 (3쌍)</th><th>일한 시간 (3쌍)</th></tr></thead><tbody>${uriRows}</tbody></table></div>
-<p class="note">평균·최대는 ms. <code>http_server_requests_seconds</code>의 sum/count(평균)와 max. 운영에는 백분위 구간(histogram)이 없어 서버 쪽 p95는 없다. 게이트웨이 줄은 경로가 UNKNOWN으로 묶여 빼고 「서비스·자원」에 합계로 둔다.</p>
+<p class="chcap">「일한 시간」 = 평균 × 요청 수(3구간). 이 API가 서비스 스레드를 붙잡은 총 시간이라 개선 우선순위로 쓴다</p>
+<div class="tscroll"><table><thead><tr><th class="l">서비스</th><th class="l">API</th><th>요청 수 (3쌍)</th><th>평균 (3쌍)</th><th>서버 p95 1쌍</th><th>2쌍</th><th>3쌍</th><th>최대 (3쌍)</th><th>일한 시간 (3쌍)</th></tr></thead><tbody>${uriRows}</tbody></table></div>
+<p class="note">평균·p95·최대는 ms. <code>http_server_requests_seconds</code>의 sum/count(평균), 구간 지표(p95), max. 게이트웨이 줄은 경로가 UNKNOWN으로 묶여 빼고 「서비스·자원」에 합계로 둔다.</p>
 </div>
 </section>
 
@@ -381,7 +407,7 @@ ${lineChart({ series: [{ label: '결제 완료 예매 / 초 (30초 창)', color:
 <p class="sub">증상(지연·오류)과 같은 시간에 원인 지표(CPU·메모리·풀·DB)를 겹쳐 본다. 대기가 쌓이는 곳 앞은 붐비고 뒤는 한가하다</p>
 <div class="card verdict">
 <p class="big">대기가 쌓인 곳은 <b>메인 EC2 CPU</b> — 그 뒤(서비스·DB)는 한가했다</p>
-<p>CPU 사용률 100% + CPU 기다림(PSI) 약 90% + 1분 부하 코어당 최대 ${n1(inst(s3.load1, MAIN) / 2)} ↔ 서비스 처리 평균 수십 ms, 커넥션 풀 대기 0, MySQL 실행 중 스레드 최대 ${n0(Math.max(...S.map((s) => s.mysqlThreadsRunning[0]?.v || 0)))}.
+<p>CPU 사용률 100% + CPU 기다림(PSI) 약 90% + 1분 부하 코어당 최대 ${n1(inst(s3.load1, MAIN) / 2)} ↔ 서비스 처리 p95 order ${n0(sp(s3, 'order-service'))}ms · product ${n0(sp(s3, 'product-service'))}ms · queue ${n0(sp(s3, 'queue-service'))}ms, 커넥션 풀 대기 0, MySQL 실행 중 스레드 최대 ${n0(Math.max(...S.map((s) => s.mysqlThreadsRunning[0]?.v || 0)))}.
 「응답이 느림 + CPU 높음」은 트래픽 초과 쪽이고, 「응답이 느림 + CPU 한가」(잠금·I/O·풀 대기)가 아니다.</p>
 </div>
 <div class="card">
@@ -397,7 +423,7 @@ ${lineChart({ series: podSeries, yFmt: (v) => v.toFixed(2), marks: opens, title:
 </div>
 <div class="card">
 <h2>서비스별 합계 (Spring 지표)</h2>
-<div class="tscroll"><table><thead><tr><th class="l">서비스</th><th>요청 1쌍</th><th>2쌍</th><th>3쌍</th><th>평균 ms 1쌍</th><th>2쌍</th><th>3쌍</th><th>최대 ms (3쌍)</th><th>풀 사용 최대/크기</th><th>풀 대기 최대</th><th>힙 최대</th><th>GC 멈춤 합 (3쌍, 초)</th></tr></thead><tbody>${svcRows}</tbody></table></div>
+<div class="tscroll"><table><thead><tr><th class="l">서비스</th><th>요청 1쌍</th><th>2쌍</th><th>3쌍</th><th>평균 ms 1쌍</th><th>2쌍</th><th>3쌍</th><th>서버 p95 ms 1쌍</th><th>2쌍</th><th>3쌍</th><th>최대 ms (3쌍)</th><th>풀 사용 최대/크기</th><th>풀 대기 최대</th><th>힙 최대</th><th>GC 멈춤 합 (3쌍, 초)</th></tr></thead><tbody>${svcRows}</tbody></table></div>
 <p class="note">gateway 요청 수가 가장 많은 것은 모든 API가 지나기 때문. 게이트웨이는 메인(k3s)과 보조 EC2에 하나씩 있고 nginx가 번갈아 보낸다. GC 멈춤은 SerialGC + CPU 경합으로 늘었지만 합계 수 초로 원인 수준은 아니다.</p>
 </div>
 <div class="card">
@@ -463,8 +489,8 @@ ${lineChart({ series: podSeries, yFmt: (v) => v.toFixed(2), marks: opens, title:
 <p class="sub">숫자를 어떻게 읽었고, 무엇을 믿고 무엇을 조심해야 하는지</p>
 <div class="card">
 <h2>1. 「서버가 느리다」가 아니라 「서버가 줄 서 있다」</h2>
-<p>사용자 쪽 p95는 수 초인데 서비스 안 처리는 수십 ms다. 이 차이가 이번 결과의 핵심이다.
-Little의 법칙(동시에 처리 중인 요청 = 초당 들어오는 요청 × 한 건 걸리는 시간)으로 보면, 3구간 초당 약 ${n0(s3.rps[0]?.v)}건 × 중간값 약 ${n1(kindP(s3, 'kindP50', 'read'))}초 ≈ <b>${n0(s3.rps[0]?.v * kindP(s3, 'kindP50', 'read'))}건이 동시에 서버 안에 머물렀다</b>. 서비스가 한 건을 수십 ms에 끝내도 CPU 2개를 차례로 기다리면 그만큼 밀린다.
+<p>사용자 쪽 p95는 수 초인데, 서비스가 스스로 잰 p95는 order ${n0(sp(s3, 'order-service'))}ms · product ${n0(sp(s3, 'product-service'))}ms · gateway ${n0(sp(s3, 'gateway'))}ms다. 이 차이가 이번 결과의 핵심이다(「API별 응답 시간」의 사용자 vs 서버 표).
+Little의 법칙(동시에 처리 중인 요청 = 초당 들어오는 요청 × 한 건 걸리는 시간)으로 보면, 3구간 초당 약 ${n0(s3.rps[0]?.v)}건 × 중간값 약 ${n1(kindP(s3, 'kindP50', 'read'))}초 ≈ <b>${n0(s3.rps[0]?.v * kindP(s3, 'kindP50', 'read'))}건이 동시에 서버 안에 머물렀다</b>. 서비스가 한 건을 수백 ms 안에 끝내도 CPU 2개를 차례로 기다리면 그만큼 밀린다.
 그래서 서비스 코드를 몇 ms 줄이는 것보다 <b>CPU를 덜 쓰게 하거나(화면 렌더링·호출 수) CPU를 늘리는 것</b>이 X를 올린다.</p>
 </div>
 <div class="card">
@@ -486,7 +512,7 @@ Little의 법칙(동시에 처리 중인 요청 = 초당 들어오는 요청 × 
 <li><b>화면 요청은 실제 브라우저와 다르다</b>: k6는 <code>?_rsc=</code> 요청만 보내고 JS·이미지·CSS는 받지 않는다. 실제 사용자는 web·S3에 더 많이 보내므로 web 부담은 이보다 크다.</li>
 <li><b>IP 하나에서 보냈다</b>: 로그인 제한을 잠시 껐다. 실제로는 IP가 모두 다르다. TLS 연결도 실제보다 적게 맺는다(가상 사용자가 연결을 다시 쓴다).</li>
 <li><b>X는 이 시나리오의 X</b>: 신청서 30초·결제 5초를 사람처럼 기다리므로, X는 「서버가 끝낼 수 있는 최대」가 아니라 「사람이 이렇게 움직일 때 끝나는 속도」다. 그래도 쌍을 늘려도 처리가 늘지 않은 것은 서버 한계라서다.</li>
-<li><b>서버 p95가 없다</b>: 운영 Spring 지표에 백분위 구간이 없어 서버 쪽은 평균·최대만 있다. 서버 p95가 필요하면 <code>percentiles-histogram</code>을 켠다.</li>
+<li><b>서버 p95는 근삿값</b>: 공통 설정으로 켜져 있는 구간 지표(1ms~30s, 구간 약 69개)로 계산해 구간 사이는 이어 붙인 값이다. 구간이 촘촘해 판정에는 충분하다. 구간 지표는 지금도 항상 켜져 있고(약 7,800개), 수집기는 한도 안에서 돈다.</li>
 <li><b>새벽(03:59~04:15)에 한 번</b>: 다른 사람의 트래픽은 거의 없었다. 같은 조건으로 한 번 더 돌려 차이를 보는 것이 좋다.</li>
 </ul>
 </div>
@@ -495,7 +521,7 @@ Little의 법칙(동시에 처리 중인 요청 = 초당 들어오는 요청 × 
 <ol>
 <li>product 인덱스 Flyway를 넣고(교착 제거), web 생존 확인 제한을 늘린 뒤 <b>같은 300×1~3을 다시</b> → 개선 전후 비교.</li>
 <li>N을 찾으려면 100 → 200 → 300(1쌍)으로 다시. 지금 기준(조회 300ms)은 화면 요청이 함께 몰리는 운영 2코어에서 300명도 못 넘는다.</li>
-<li>Spring에 서버 쪽 히스토그램을 켜서 서비스별 p95를 함께 본다.</li>
+<li>개선 뒤 실행에서도 「사용자 p95 vs 서버 p95」 표를 같이 뽑아, 서비스 밖에서 기다린 시간이 얼마나 줄었는지 비교한다.</li>
 </ol>
 </div>
 </section>

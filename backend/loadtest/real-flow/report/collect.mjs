@@ -60,6 +60,9 @@ for (let i = 0; i < Number(N); i++) {
 	st.uriAvgMs = await q(`sum by (job, method, uri) (increase(http_server_requests_seconds_sum{uri!~"/actuator.*"}[${w}s])) / sum by (job, method, uri) (increase(http_server_requests_seconds_count{uri!~"/actuator.*"}[${w}s])) * 1000`, at);
 	st.uriCount = await q(`sum by (job, method, uri) (increase(http_server_requests_seconds_count{uri!~"/actuator.*"}[${w}s]))`, at);
 	st.uriMaxMs = await q(`max by (job, method, uri) (max_over_time(http_server_requests_seconds_max{uri!~"/actuator.*"}[${w}s])) * 1000`, at);
+	// 서버 쪽 p95: 공통 observability.yaml의 percentiles-histogram으로 _bucket이 이미 있다 (구간 전체를 합쳐 계산)
+	st.uriP95Ms = await q(`histogram_quantile(0.95, sum by (job, method, uri, le) (increase(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[${w}s]))) * 1000`, at);
+	st.svcP95Ms = await q(`histogram_quantile(0.95, sum by (job, le) (increase(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[${w}s]))) * 1000`, at);
 	st.svc5xx = await q(`sum by (job) (increase(http_server_requests_seconds_count{status=~"5.."}[${w}s]))`, at);
 	st.hikariActiveMax = await q(`max by (job) (max_over_time(hikaricp_connections_active[${w}s]))`, at);
 	st.hikariPendingMax = await q(`max by (job) (max_over_time(hikaricp_connections_pending[${w}s]))`, at);
