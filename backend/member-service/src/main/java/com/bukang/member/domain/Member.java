@@ -46,7 +46,9 @@ import lombok.NoArgsConstructor;
 }, indexes = {
 	@Index(name = "idx_member_name_birth_hash", columnList = "name_birth_hash"),
 	@Index(name = "idx_member_withdrawn_identity_hash", columnList = "withdrawn_identity_hash"),
-	@Index(name = "idx_member_withdrawn_ci_hash", columnList = "withdrawn_ci_hash")
+	@Index(name = "idx_member_withdrawn_ci_hash", columnList = "withdrawn_ci_hash"),
+	@Index(name = "idx_member_ci_hash", columnList = "ci_hash"),
+	@Index(name = "idx_member_withdrawn_at", columnList = "withdrawn_at")
 },
 	check = @CheckConstraint(name = "ck_member_personal_info", constraint = Member.PERSONAL_INFO_CHECK))
 @AttributeOverride(name = "nickname", column = @Column(name = "nickname", length = 16))
