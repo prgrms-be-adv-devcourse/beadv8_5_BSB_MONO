@@ -87,6 +87,11 @@ public class PayoutTaxInvoice extends BaseIdAndTime {
 		return totalAmount * 10 / 110;
 	}
 
+	// 부가세 포함 합계에서 공급가액을 구한다 = 합계 − 세액 (응답 DTO가 뺄셈을 직접 하지 않도록 한곳에 둔다, CRU-13)
+	public static long supplyOf(long totalAmount) {
+		return totalAmount - taxOf(totalAmount);
+	}
+
 	public YearMonth getSupplyYearMonth() {
 		return YearMonth.parse(supplyMonth);
 	}

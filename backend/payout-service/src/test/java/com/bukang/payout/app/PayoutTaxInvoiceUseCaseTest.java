@@ -101,10 +101,13 @@ class PayoutTaxInvoiceUseCaseTest {
 	@DisplayName("세액은 합계 × 10/110에서 원 미만을 버리고, 공급가액은 합계 − 세액이다")
 	void taxIsTotalTimesTenOverHundredTen() {
 		assertThat(PayoutTaxInvoice.taxOf(8_250)).isEqualTo(750);
+		// 공급가액 = 합계 − 세액 (CRU-13: DTO가 아니라 PayoutTaxInvoice.supplyOf 한 곳에서)
+		assertThat(PayoutTaxInvoice.supplyOf(8_250)).isEqualTo(7_500);
 		// 1,000 × 10/110 = 90.9… → 90
 		PayoutTaxInvoice invoice = new PayoutTaxInvoice(SELLER_ID, YearMonth.of(2026, 10), 1_000);
 		assertThat(invoice.getTaxAmount()).isEqualTo(90);
 		assertThat(invoice.getSupplyAmount()).isEqualTo(910);
+		assertThat(PayoutTaxInvoice.supplyOf(1_000)).isEqualTo(910);
 	}
 
 	@Test
