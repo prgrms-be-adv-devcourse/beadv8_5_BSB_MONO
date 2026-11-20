@@ -64,8 +64,8 @@ check.sql/.sh    정합성 확인
 
 ## 로컬에서 돌리기
 
-`backend/loadtest/seat-sync/stack.sh start`로 서비스와 프론트(3177)를 띄운다. 알림 서비스(8087)도 띄운다(파티원이 알림을 본다).
-k6는 도커로 돌린다 (`grafana/k6:1.2.3`). 아래는 모두 `backend/loadtest/real-flow`에서 실행한다.
+`docs/loadtest/seat-sync/stack.sh start`로 서비스와 프론트(3177)를 띄운다. 알림 서비스(8087)도 띄운다(파티원이 알림을 본다).
+k6는 도커로 돌린다 (`grafana/k6:1.2.3`). 아래는 모두 `docs/loadtest/real-flow`에서 실행한다.
 
 ```bash
 K6='docker run --rm -v "$(pwd -W):/work" -w /work grafana/k6:1.2.3'   # Git Bash. 리눅스·맥은 $(pwd)
@@ -89,7 +89,7 @@ bash check.sh 15,16
 
 1. **nginx 로그인 제한 스위치를 끈다**: `k8s/overlays/aws/nginx-upstreams.conf`의 `map "false"`를 `"true"`로 바꿔 main에 배포. 부하 PC는 IP 하나라 제한(IP마다 초당 1건)에 바로 막히지만 실제 사용자는 IP가 모두 다르다
 2. 상품 당일 판매 설정(`k8s/overlays/aws/product-same-day-sale.yaml`)이 켜져 있는지 본다. 꺼져 있으면 오늘 오픈하는 대회가 판매 예정으로 남아 줄을 설 수 없다
-3. 준비 데이터: `identities.sh`를 운영 Redis에 넣고(`backend/loadtest/README.md`의 1번과 같은 방법), `seed.js`를 `JOIN=1`로(CHARGE 없이) 돌린다. 예치금은 `seed/charge-prod.sql`, 크루 가입일은 `seed/backdate-crews.sql`(crewrun_member)을 보조 서버 MySQL에서 돌린다
+3. 준비 데이터: `identities.sh`를 운영 Redis에 넣고(`docs/loadtest/README.md`의 1번과 같은 방법), `seed.js`를 `JOIN=1`로(CHARGE 없이) 돌린다. 예치금은 `seed/charge-prod.sql`, 크루 가입일은 `seed/backdate-crews.sql`(crewrun_member)을 보조 서버 MySQL에서 돌린다
    판매자: 운영에는 `seller1@crewrun.com`이 없다. 테스트 계정 `realflow0`을 가입시키고(`identities.sh 0 0`, 토큰 `realflow-0`)
    `crewrun_product.product_seller`에 승인 상태로 넣은 뒤 `-e SELLER_EMAIL=realflow0@crewrun.test`로 돌린다 (상품 쪽 판매자 표만이라 정산 대상이 되기 전에 정리한다)
    SQL에 한글(크루 이름)이 있으면 `SET NAMES utf8mb4;`를 먼저 넣는다. 없으면 0행이 바뀐다
@@ -118,6 +118,10 @@ X 실행은 N·M 결과를 본 뒤 `-e STAGES=600x1,600x2,600x3`처럼 쌍당 �
 
 - k6는 기본으로 반복마다 쿠키를 비운다. 구간마다 같은 계정을 다시 쓰므로 `rush.js`에 `noCookiesReset: true`가 있어야 한다 (없으면 다음 구간에서 재발급이 401)
 - 앱 열기(재발급·로그인)가 안 되면 `flow_broken{where=앱 열기}`로 센다
+- 화면 요청이 오류(502·504·연결 실패)면 3초 뒤 새로고침을 2번 하고, 그래도 안 뜨면 그 사람은 다음 단계로 못 가고 `flow_broken{where=화면}`으로 센다 (`lib/session.js`의 `page()`).
+  오류 화면에는 다음 버튼이 없기 때문이다. 예전에는 화면 결과를 보지 않고 다음 API로 넘어가, web이 무너질 때 결제가 몰려 X가 부풀었다(2·4차)
+- 개선 전후를 비교할 때는 앞 실행의 주문·파티 기록이 없는 새 계정으로 돌린다: `-e ACCOUNT_OFFSET=3000`이면 realflow3001부터 쓴다.
+  `identities.sh`는 밀린 번호대로(`3001 5310`), `seed.js`도 같은 `ACCOUNT_OFFSET`과 새 `CREWS_FILE`로 돌린다. 예열 실행(300x1, 옛 계정)을 먼저 돌려 JVM을 데운 뒤 잰다
 
 ## 운영 결과 (2026-11-20 03:59~04:15, testid `realflow-x2-1120-0345`)
 
@@ -134,3 +138,20 @@ X 실행은 N·M 결과를 본 뒤 `-e STAGES=600x1,600x2,600x3`처럼 쌍당 �
 - 3쌍에서 web Pod가 생존 확인(TCP 1초 × 3)에 답하지 못해 재시작 → 화면 요청 19.9%가 502·504
 - 상품 자리 확보 교착 11건: 운영 `participation_hold`에 `participation_id` 유니크 인덱스가 없어 판매 `findForUpdate`가 표 전체를 잠근다 (흐름 끊김 11)
 - 자세한 해석: 「크루런_운영_예매오픈몰림_X_부하테스트_결과_2026-11-20.html」 (팀 공유 폴더)
+- 이 2차 X는 화면 실패를 건너뛴 스크립트로 잰 값이라 부풀어 있다(3구간 web 재시작 직후 결제가 몰림). 아래 5·6차와 비교하지 않는다
+
+## 운영 결과 5·6차 (2026-11-20, 상품 자리 확보 인덱스 지움 vs 되살림)
+
+CRU-88 효과를 보려고 같은 날 운영에서 `participation_hold` 유니크 인덱스를 지우고(5차, `realflow-x5-1120-1446`) 되살려(6차, `realflow-x6-1120-1533`) 같은 조건으로 쟀다.
+두 실행 모두 예열 실행 뒤, 새 계정(`ACCOUNT_OFFSET` 6000·9000)과 고친 화면 처리로 돌렸다.
+
+| 지표 | 5차 · 인덱스 없음 | 6차 · 인덱스 있음 |
+|---|---|---|
+| 교착 (상품 로그) · 주문에서 실패한 사람 | 28줄 · 7명 | 0 · 0 |
+| 판매 확정 API 서버 p95 (구간 1·2·3) | 237 · 209 · 88ms | 33 · 31 · 32ms |
+| X (30초 창 최대, 2쌍) | 10.66건/초 | 10.87건/초 |
+| 3구간 화면이 안 떠 멈춘 사람 | 269명 | 274명 |
+| 정합성 어긋남 | 0 (1,213석) | 0 (1,225석) |
+
+- 인덱스로 교착은 사라졌고, X는 메인 EC2 CPU(web 화면)에 막혀 그대로다
+- 자세한 내용: [`docs/measurements/2026-11-20-예매-오픈-몰림-인덱스-5차-6차.md`](../../../docs/measurements/2026-11-20-예매-오픈-몰림-인덱스-5차-6차.md). 비교 HTML은 `report/compare56.mjs`로 만든다

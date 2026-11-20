@@ -33,7 +33,7 @@ k6/
 3. 측정: `GRAFANA_PW=<비번> python promrange.py <시작UTC> <끝UTC> s1.prom.json` (시간창은 `s1.window.txt`), `python analyze.py s1-raw.csv s1.tps.json`.
 
 ## 알아둘 것
-- **운영 k6 스크립트다**(prod 가드 완화). 로컬 전용인 `backend/loadtest/scenario-a`와 별도이며, funnel 로직의 원본은 거기 있다.
+- **운영 k6 스크립트다**(prod 가드 완화). 로컬 전용인 `docs/loadtest/scenario-a`와 별도이며, funnel 로직의 원본은 거기 있다.
 - **대회는 실행마다 새로 만든다**(`prepare-race.js`). 신청은 대회당 1번이라, 대회를 재사용하면 구매가 전부 409(중복 신청)로 끝나 주문·결제가 한 건도 실행되지 않는다. 2026-11-19 오전 실행이 그랬고, 실패율 0%로 "통과"처럼 보였다. 그래서 funnel.js는 신청 409를 실패로 센다.
 - 실행한 뒤에는 **체크 건수**(`신청 201`·`주문 201/200`·`결제 200/202`)가 0이 아닌지 꼭 본다.
 - **실행별 배포 커밋을 남긴다**(`runs\<태그>\MANIFEST.md`). 배포가 끼면 같은 날 실행이라도 조건이 다르다.

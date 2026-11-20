@@ -52,7 +52,7 @@ export function arrival(exec, rate, cap = Infinity) {
 	};
 }
 
-// 통과 기준은 시나리오 A(backend/loadtest/scenario-a)와 같다
+// 통과 기준은 시나리오 A(docs/loadtest/scenario-a)와 같다
 // 전체 실패율이 5%를 넘으면 30초 뒤부터 테스트를 멈춘다. 운영 서버를 계속 두드리지 않게 하는 안전장치다
 export const thresholds = {
 	'http_req_duration{kind:read}': ['p(95)<300'],

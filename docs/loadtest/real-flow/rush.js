@@ -27,7 +27,7 @@ import {
 	courseIndexOf,
 	emailOf,
 } from './config.js';
-import { Session, data } from './lib/session.js';
+import { PageFailed, Session, data } from './lib/session.js';
 import {
 	browseOnly,
 	flowBroken,
@@ -285,8 +285,22 @@ function roleOf(no, s) {
 
 // 가상 사용자마다 따로 있는 값 (k6는 가상 사용자마다 이 파일을 따로 읽는다)
 let usedSetupToken = false;
+// 지금 구간에서 맡은 역할의 지표 태그 (화면이 끝내 안 떠 흐름이 끊겼을 때 센다)
+let currentTags = null;
 
 export function rush(setupData) {
+	currentTags = null;
+	try {
+		play(setupData);
+	} catch (e) {
+		if (!(e instanceof PageFailed) || !currentTags) {
+			throw e;
+		}
+		flowBroken.add(1, { ...currentTags, where: '화면' });
+	}
+}
+
+function play(setupData) {
 	const no = exec.vu.idInTest;
 	const s = exec.vu.iterationInScenario;
 	const role = roleOf(no, s);
@@ -300,6 +314,7 @@ export function rush(setupData) {
 	}
 	exec.vu.metrics.tags.stage = `${stage.n}x${stage.pairs}`;
 	const metricTags = { stage: `${stage.n}x${stage.pairs}`, flow: role.type };
+	currentTags = metricTags;
 	const session = new Session(role.type);
 	// 처음 나서는 구간에만 준비 단계의 Refresh Token을 넣는다. 그 뒤로는 쿠키 저장소에 재발급으로 바뀐 토큰이 있다
 	if (!usedSetupToken) {
