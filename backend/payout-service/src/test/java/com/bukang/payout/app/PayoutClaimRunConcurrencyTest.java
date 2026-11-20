@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +47,10 @@ import com.bukang.payout.support.MySqlContainerTest;
 @Import({PayoutClaimUseCase.class, PayoutClaimRunConcurrencyTest.DepositDuringIssue.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class PayoutClaimRunConcurrencyTest {
+	// 알림은 이 테스트가 보는 것이 아니라 보내지 않는다 (CRU-94)
+	@MockitoBean
+	private PayoutClaimNotifier claimNotifier;
+
 	private static final long SELLER_ID = 1;
 	private static final long RACE_ID = 7;
 	private static final long AMOUNT = 105_500L;

@@ -48,6 +48,7 @@ const KIND_CATEGORY: Record<string, NoticeCategory> = {
   KIT_SHIPMENT_REQUIRED: 'seller',
   KIT_TRACKING_STOPPED: 'seller',
   PAYOUT_HELD: 'seller',
+  PAYOUT_CLAIM_REQUESTED: 'seller',
   INQUIRY_RECEIVED: 'seller',
 }
 
@@ -65,6 +66,7 @@ const KIND_ACTION: Record<string, string> = {
   // 파티 초대는 링크로 합류 화면에 간다 (BUK-182). 묶음 문구 「크루 보러 가기」와 맞지 않는다
   PARTY_INVITED: '파티 합류하기',
   PAYOUT_HELD: '보류 사유 보기',
+  PAYOUT_CLAIM_REQUESTED: '정산 내역 보기',
   KIT_TRACKING_STOPPED: '송장 번호 확인하기',
   KIT_SHIPMENT_REQUIRED: '송장 입력하기',
   INQUIRY_RECEIVED: '답변하기',
