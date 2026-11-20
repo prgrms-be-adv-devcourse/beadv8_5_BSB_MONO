@@ -41,7 +41,14 @@ public class PayoutTaxInvoiceQueryUseCase {
 	}
 
 	public PayoutQuarterSalesReportDto quarterSalesReport(PayoutTaxQuarter quarter) {
-		return PayoutQuarterSalesReportDto.of(quarter,
-			payoutItemRepository.sumSalesBySeller(quarter.from(), quarter.to()));
+		List<PayoutQuarterSalesReportDto.SellerSalesDto> sellers = payoutItemRepository
+			.sumSalesBySeller(quarter.from(), quarter.to()).stream()
+			.map(sale -> new PayoutQuarterSalesReportDto.SellerSalesDto(sale.sellerId(), sale.salesCount(),
+				sale.salesAmount()))
+			.toList();
+		long totalCount = sellers.stream().mapToLong(PayoutQuarterSalesReportDto.SellerSalesDto::salesCount).sum();
+		long totalAmount = sellers.stream().mapToLong(PayoutQuarterSalesReportDto.SellerSalesDto::salesAmount).sum();
+		return new PayoutQuarterSalesReportDto(quarter.year(), quarter.quarter(), quarter.from(), quarter.to(),
+			quarter.dueDate(), totalCount, totalAmount, sellers);
 	}
 }

@@ -134,6 +134,12 @@ public class PayoutItem extends BaseIdAndTime {
 		return item;
 	}
 
+	// 판매 줄의 수수료 = 판매가(amount) × 수수료율(feeRate), 원 미만 버림 (수수료율이 있는 판매 줄에서만 뜻이 있다)
+	// 수수료 계산식을 여기 한 곳에 둬서, 응답 DTO는 읽기만 하고 화면 수수료와 지급 수수료가 갈리지 않게 한다 (CRU-13)
+	public long feeAmount() {
+		return TwoStagePayoutCalculator.rate(amount, feeRate);
+	}
+
 	// 정산 내역(payout)은 먼저 저장돼 ID가 있으므로 줄을 저장하기 직전에 키를 만든다
 	@PrePersist
 	void assignBundleKey() {
