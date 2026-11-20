@@ -251,9 +251,10 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
-      # SLACK_WEBHOOK_URL 시크릿이 없으면 Slack 대신 로그로만 알린다(파이프라인은 안 깨짐). 드리프트가 있어도 배포는 막지 않는다
+      # 드리프트가 있으면 #crewrun-alert로 알린다. 웹훅 주소는 운영 Parameter Store 값을 메인 EC2가 읽어 보낸다 (GitHub 시크릿 없음)
+      # Slack 전송이 실패해도 경고만 남기고, 드리프트가 있어도 배포는 막지 않는다
       - name: 스키마 드리프트 검사
         env:
           DATA_INSTANCE_ID: ${{ vars.DATA_INSTANCE_ID }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          MAIN_INSTANCE_ID: ${{ vars.MAIN_INSTANCE_ID }}
         run: bash .github/scripts/schema-drift-check.sh

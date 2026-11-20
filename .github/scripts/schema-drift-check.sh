@@ -11,9 +11,11 @@
 #      운영은 서비스마다 DB가 따로다(crewrun_<서비스>, BUK-238)라 DB별로 돌린다. 운영 ddl-auto=validate라 Flyway가 유일한 소스.
 #   2) 라이브: 러너는 프라이빗 VPC의 DB에 직접 못 닿으므로, SSM으로 data-node EC2에서 bukang-db를 읽어 받아온다
 #      (gzip+base64로 SSM 출력 24000자 제한을 피한다).
-#   3) 양쪽 facts를 정렬해 diff. 다르면 Slack 알림(SLACK_WEBHOOK_URL). 배포는 계속한다(이 스크립트는 항상 0으로 끝난다).
+#   3) 양쪽 facts를 정렬해 diff. 다르면 Slack(#crewrun-alert) 알림. 드리프트가 있어도 배포는 되돌리지 않고 성공으로 끝난다.
+#      웹훅 주소는 백엔드 SlackNotifier가 쓰는 운영 값(Parameter Store)을 그대로 쓴다. 메인 EC2 역할만 읽을 수 있어
+#      메인 EC2에 SSM으로 "이 글을 보내라"고 시킨다 (GitHub 시크릿을 따로 두지 않고, 값이 서버 밖으로 나오지 않는다).
 #
-# 필요(워크플로가 준다): docker(정답 빌드), AWS 자격 증명 OIDC(SSM), 환경변수 DATA_INSTANCE_ID, (선택) SLACK_WEBHOOK_URL
+# 필요(워크플로가 준다): docker(정답 빌드), AWS 자격 증명 OIDC(SSM), 환경변수 DATA_INSTANCE_ID · MAIN_INSTANCE_ID
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -26,6 +28,8 @@ SERVICES=(member cash payout file order product queue notification inquiry board
 MYSQL_IMAGE="mysql:8.4"
 FLYWAY_IMAGE="flyway/flyway:11-alpine"
 DB_CONTAINER="bukang-db"   # data-node의 MySQL 컨테이너 이름
+SLACK_PARAM="/crewrun/prod/SLACK_WEBHOOK_URL"   # 운영 앱이 쓰는 웹훅 (infra/main-node/env-to-parameter-store.sh가 올린 값)
+SLACK_MAX_CHARS=3000
 
 # ── 라이브(운영)에서 사실을 긁어 오는 원격 명령을 만든다 ──────────────────────────────
 # data-node EC2에서 root로 돈다(SSM). 컨테이너 안에서 root 비밀번호(컨테이너 env)로 조회해 gzip+base64로 한 줄로 찍는다.
@@ -81,7 +85,7 @@ fetch_live() {
 }
 
 # ── 비교·알림 (Docker·AWS 없이 돌아가는 순수 로직. 자가검증 대상) ──────────────────────
-# 쓰임: compare_and_report <정답파일> <라이브파일>  → 드리프트 요약을 stdout에 찍고, 있으면 0이 아닌 값을 THINK... 아니다:
+# 쓰임: compare_and_report <정답파일> <라이브파일>  → 드리프트 요약을 stdout에 찍는다
 #   반환값으로 드리프트 유무를 알린다(0=같음, 10=드리프트). 알림/종료는 호출부가 판단한다.
 compare_and_report() {
 	local ref="$1" live="$2"
@@ -107,19 +111,32 @@ compare_and_report() {
 	return 10
 }
 
-# ── Slack 알림 (웹훅 없으면 로그로 대체) ─────────────────────────────────────────
-notify() {
+# ── Slack 알림 ────────────────────────────────────────────────────────────────
+# 글을 Slack JSON으로 감싸 base64 한 줄로 만든다. 따옴표·줄바꿈·한글이 섞여도 SSM 명령 안에서 깨지지 않게 하려는 것이다
+slack_payload() {
 	local text="$1"
-	if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
-		# 텍스트는 JSON 값이라 jq로 안전하게 감싼다
-		curl -sS -X POST -H 'Content-Type: application/json' \
-			--data "$(jq -n --arg t "$text" '{text: $t}')" "$SLACK_WEBHOOK_URL" >/dev/null \
-			&& echo "[drift] Slack 알림 보냄" || echo "::warning::Slack 전송 실패(웹훅 확인)"
-	else
-		echo "::warning::SLACK_WEBHOOK_URL이 없어 Slack 대신 로그로만 알립니다"
+	if [ "${#text}" -gt "$SLACK_MAX_CHARS" ]; then
+		text="${text:0:$SLACK_MAX_CHARS}
+… (이하 생략. 전체는 k8s-cd의 drift-check 로그)"
 	fi
-	# Actions 로그·요약에도 남긴다
+	jq -n --arg t "$text" '{text: $t}' | base64 -w0
+}
+
+# 메인 EC2가 Parameter Store에서 웹훅 주소를 읽어 보낸다. 주소는 서버 출력에 찍지 않는다 (curl 오류 출력도 버린다)
+notify() {
+	local text="$1" cmd out
+	# Actions 로그에는 전문을 남긴다
 	printf '%s\n' "$text"
+	cmd="url=\$(aws ssm get-parameter --name ${SLACK_PARAM} --with-decryption --query Parameter.Value --output text)"
+	cmd+=" && echo $(slack_payload "$text") | base64 -d"
+	cmd+=" | curl -sS -f -o /dev/null -X POST -H 'Content-Type: application/json' --data-binary @- \"\$url\" 2>/dev/null"
+	cmd+=" && echo SLACK_SENT"
+	out="$(bash "$HERE/ssm-run.sh" "${MAIN_INSTANCE_ID:?MAIN_INSTANCE_ID 필요}" 60 "$cmd" 2>&1)" || true
+	if grep -q '^SLACK_SENT$' <<<"$out"; then
+		echo "[drift] Slack 알림 보냄"
+	else
+		echo "::warning::Slack 알림을 보내지 못했습니다(메인 EC2에서 ${SLACK_PARAM} 읽기 또는 전송 실패). 드리프트 내용은 위 로그에 있습니다"
+	fi
 }
 
 main() {
@@ -155,6 +172,13 @@ case "${1:-}" in
 		echo "--- 검증 ---"
 		[ "$rc" = 10 ] && echo "$out" | grep -q 'idx_race_seller' && echo "$out" | grep -q 'idx_hand' \
 			&& echo "PASS: 누락·추가 모두 잡음(반환 $rc)" || { echo "FAIL(반환 $rc)"; exit 1; }
+		# Slack 글: 따옴표·줄바꿈·한글이 base64를 거쳐도 그대로인지, 긴 글이 잘리는지
+		msg=$'드리프트 "idx" \'따옴표\'\n둘째 줄 $HOME'
+		[ "$(slack_payload "$msg" | base64 -d | jq -r .text)" = "$msg" ] \
+			&& echo "PASS: Slack 글 왕복 일치" || { echo "FAIL: Slack 글이 바뀜"; exit 1; }
+		long="$(printf 'x%.0s' $(seq 1 5000))"
+		[ "$(slack_payload "$long" | base64 -d | jq -r .text | head -1 | wc -c)" -le $((SLACK_MAX_CHARS + 1)) ] \
+			&& echo "PASS: 긴 글은 ${SLACK_MAX_CHARS}자에서 자름" || { echo "FAIL: 긴 글이 안 잘림"; exit 1; }
 		;;
 	*)
 		main
