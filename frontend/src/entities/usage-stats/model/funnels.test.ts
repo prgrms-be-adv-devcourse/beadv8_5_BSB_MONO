@@ -51,6 +51,7 @@ describe('toFunnelView', () => {
 
     expect(view.map((s) => s.rate)).toEqual([undefined, undefined, undefined, 0.8])
     expect(view.map((s) => s.biggestDrop)).toEqual([false, false, false, true])
+    expect(view.map((s) => s.barRatio)).toEqual([0, 0, 1, 0.8])
   })
 
   it('구매 단계는 실제로 보내는 이벤트만, 판매자 단계는 대회 등록 시작을 새 흐름으로 센다', () => {

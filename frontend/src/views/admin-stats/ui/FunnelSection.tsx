@@ -57,8 +57,8 @@ export function funnelSummary(kind: FunnelKind, steps: FunnelStepView[]): string
 }
 
 function rateText(step: FunnelStepView, first: boolean) {
-  if (first) return '시작 단계'
-  return step.rate === undefined ? '계산할 수 없어요' : `앞 단계의 ${Math.round(step.rate * 100)}%`
+  if (first || step.start) return '시작 단계'
+  return step.rate === undefined ? '앞 단계 0명' : `앞 단계의 ${Math.round(step.rate * 100)}%`
 }
 
 function FunnelTable({ steps }: { steps: FunnelStepView[] }) {

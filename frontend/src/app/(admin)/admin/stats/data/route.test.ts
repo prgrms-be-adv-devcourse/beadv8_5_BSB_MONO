@@ -95,7 +95,7 @@ describe('GET /admin/stats/data 숫자', () => {
         ],
       }),
     )
-    expect(body.data.steps).toHaveLength(8)
+    expect(body.data.steps).toHaveLength(7)
     expect(body.data.steps[0]).toEqual({
       event: 'view_item_list',
       label: '대회 목록',
