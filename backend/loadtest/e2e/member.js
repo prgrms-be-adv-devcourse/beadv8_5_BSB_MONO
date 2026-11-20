@@ -8,7 +8,7 @@ import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import exec from 'k6/execution';
 import {
-	API, accounts, assertTokensFresh, e2eExecutor, isAuthLost, params, screenThresholds, thinkTime,
+	API, accounts, assertTokensFresh, e2eExecutor, isAuthLost, params, screenThresholds, thinkTime, warnAccounts,
 } from '../lib/common.js';
 
 assertTokensFresh();
@@ -29,6 +29,10 @@ export const options = {
 	scenarios: { member: e2eExecutor(accounts.length) },
 	thresholds: screenThresholds(SCREENS),
 };
+
+export function setup() {
+	warnAccounts(accounts.length);
+}
 
 // VU 변수. 토큰은 여기에 들고 다닌다. k6는 반복이 끝날 때마다 쿠키 저장소를 비워서 저장소에 두면 다음 반복에 쿠키가 빠진다
 let me = null;

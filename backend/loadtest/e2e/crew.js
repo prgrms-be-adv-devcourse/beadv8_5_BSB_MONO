@@ -9,7 +9,7 @@ import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 import exec from 'k6/execution';
 import {
-	API, accounts, assertTokensFresh, e2eExecutor, isAuthLost, params, screenThresholds, thinkTime,
+	API, accounts, assertTokensFresh, e2eExecutor, isAuthLost, params, e2eUsers, screenThresholds, thinkTime, warnAccounts,
 } from '../lib/common.js';
 
 assertTokensFresh(2);
@@ -25,10 +25,12 @@ export const options = {
 	thresholds: screenThresholds(SCREENS),
 };
 
+// 이번 단계의 사용자 수만큼만 짝을 준비한다. smoke(1명)에서 크루장 100명을 다 돌지 않게 한다
 // 돌려주는 값: crews[p] = p번 짝(크루장 계정 2p, 초대받는 계정 2p+1)의 크루 id
 export function setup() {
+	warnAccounts(PAIRS);
 	const crews = [];
-	for (let p = 0; p < PAIRS; p++) {
+	for (let p = 0; p < e2eUsers(PAIRS); p++) {
 		const leader = accounts[2 * p];
 		if (!leader) {
 			crews.push(null);

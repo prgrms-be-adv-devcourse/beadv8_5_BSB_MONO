@@ -86,9 +86,21 @@ export function pick(list) {
 // 단계별 사용자 수: smoke 1명 30초, load 100명 5분, stress 0에서 200명까지 10분
 const E2E_USERS = { smoke: 1, load: 100, stress: 200 };
 
-// cap은 맡을 수 있는 최대 사용자 수(계정 수에서 나온다). 넘으면 줄이고 알린다
+// 이번 단계의 사용자 수. cap은 맡을 수 있는 최대 사용자 수(계정 수에서 나온다)
+export function e2eUsers(cap = Infinity) {
+	return Math.min(cap, E2E_USERS[STAGE_NAME]);
+}
+
 export function e2eExecutor(cap = Infinity) {
-	const target = Math.min(cap, E2E_USERS[STAGE_NAME]);
+	const target = e2eUsers(cap);
+	if (STAGE.ramp) {
+		return { executor: 'ramping-vus', startVUs: 0, stages: [{ target, duration: `${STAGE.minutes}m` }] };
+	}
+	return { executor: 'constant-vus', vus: target, duration: `${STAGE.minutes * 60}s` };
+}
+
+// 계정 문제를 알린다. init 코드는 가상 사용자마다 돌아서 경고가 사용자 수만큼 찍히므로 setup()에서 한 번만 부른다
+export function warnAccounts(cap = Infinity) {
 	// login.js는 로그인에 실패한 계정 자리에 null을 넣는다. 그 번호를 맡은 사용자는 쉬기만 해서 부하가 줄어든다
 	let missing = 0;
 	for (let i = 0; i < accounts.length; i++) {
@@ -99,13 +111,9 @@ export function e2eExecutor(cap = Infinity) {
 	if (missing > 0) {
 		console.warn(`로그인에 실패한 계정이 ${missing}개라 그 번호의 사용자는 요청을 보내지 않습니다. login.js를 다시 돌리세요`);
 	}
-	if (target < E2E_USERS[STAGE_NAME]) {
-		console.warn(`계정이 모자라 사용자를 ${E2E_USERS[STAGE_NAME]}명에서 ${target}명으로 줄입니다`);
+	if (e2eUsers(cap) < E2E_USERS[STAGE_NAME]) {
+		console.warn(`계정이 모자라 사용자를 ${E2E_USERS[STAGE_NAME]}명에서 ${e2eUsers(cap)}명으로 줄입니다`);
 	}
-	if (STAGE.ramp) {
-		return { executor: 'ramping-vus', startVUs: 0, stages: [{ target, duration: `${STAGE.minutes}m` }] };
-	}
-	return { executor: 'constant-vus', vus: target, duration: `${STAGE.minutes * 60}s` };
 }
 
 // 화면(group)마다 p95 1초. group 태그 값은 앞에 ::가 붙는다
