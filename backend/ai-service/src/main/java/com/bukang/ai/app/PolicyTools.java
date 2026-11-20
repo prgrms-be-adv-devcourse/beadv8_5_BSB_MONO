@@ -3,6 +3,7 @@ package com.bukang.ai.app;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -34,7 +35,8 @@ public class PolicyTools {
 		+ "PERSONAL_INFO: 참가자 개인정보 보관·파기, "
 		+ "RECOVERY: 1차 정산 뒤 판매자에게 돌려받는 돈(청구)·가상계좌 입금";
 	static final String NO_POLICY = "맞는 정책이 없다. 지어내지 말고 「아직 크루런 AI로는 조회할 수 없어요. 해당 화면에서 확인해 주세요.」라고 답한다.";
-	private static final Pattern TENTATIVE = Pattern.compile("잠정|확정|정해지지 않|회의");
+	static final int MAX_TOPICS = 3;
+	private static final Pattern TENTATIVE = Pattern.compile("잠정|확정 전|확정되기 전|정해지지 않|회의에서|회의 후");
 	private static final Pattern SENTENCE_END = Pattern.compile("(?<=\\.) ");
 
 	@Tool(description = "마지막 질문이 환불·취소·환급·충전·양도·키트 반품 같은 크루런의 규칙(정책)을 물을 때만 부른다"
@@ -44,10 +46,11 @@ public class PolicyTools {
 		+ "policies의 rules에 있는 내용만 답에 쓰고, 답 첫 줄은 질문에 바로 답하는 한 문장으로 쓴다")
 	public Object crewrunPolicy(@ToolParam(description = TOPICS) List<InquiryPolicy> topics, ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
-		if (topics == null || topics.isEmpty()) {
+		if (topics == null || topics.stream().allMatch(Objects::isNull)) {
 			return Map.of("error", NO_POLICY);
 		}
-		List<Policy> policies = topics.stream().distinct()
+		// 다른 상황의 규칙이 섞이면 모델이 그 규칙으로 빈 곳을 채운다. 설명대로 3개까지만 넘긴다
+		List<Policy> policies = topics.stream().filter(Objects::nonNull).distinct().limit(MAX_TOPICS)
 			.map(policy -> new Policy(name(policy), rules(policy)))
 			.toList();
 		policies.forEach(policy -> trace.policy(policy.name()));
@@ -64,7 +67,7 @@ public class PolicyTools {
 			.map(line -> Arrays.stream(SENTENCE_END.split(line))
 				.filter(sentence -> !TENTATIVE.matcher(sentence).find())
 				.collect(Collectors.joining(" ")))
-			.filter(line -> !line.isBlank() && !line.equals("-"))
+			.filter(line -> !line.isBlank())
 			.collect(Collectors.joining("\n"));
 	}
 

@@ -49,10 +49,14 @@ public class ApiV1AiChatController {
 			+ "질문과 답은 대화 기록에 남는다. "
 			+ "운영 숫자는 화면 종류에 맞는 조회 도구로 가져오고, 부른 도구대로 출처(sources: 기준 화면, 조회 시각 asOf, 버튼 글, 프론트 경로)를 붙인다. "
 			+ "조회에 실패한 출처는 asOf가 null이고, 버튼이 없는 화면은 buttonLabel·path가 null이다. "
-			+ "목록이 필요한 답은 list(rows, moreCount)를 함께 주고 아니면 null이다.")
+			+ "목록이 필요한 답은 list(rows, moreCount)를 함께 주고 아니면 null이다. "
+			+ "환불·취소 같은 정책 질문은 정책 안내 도구로 답하고, 출처 screen에 정책 이름이 오며 buttonLabel·path는 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "답변 성공",
-			content = @Content(examples = @ExampleObject(value = AiApiExamples.CHAT_SUCCESS))),
+			content = @Content(examples = {
+				@ExampleObject(name = "숫자 조회", value = AiApiExamples.CHAT_SUCCESS),
+				@ExampleObject(name = "정책 안내", value = AiApiExamples.CHAT_SUCCESS_POLICY)
+			})),
 		@ApiResponse(responseCode = "400", description = "질문이 비었거나 1,000자 초과, 회원 ID가 0 이하이거나 숫자가 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 오류", value = AiApiExamples.INVALID_BODY),

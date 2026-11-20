@@ -85,6 +85,31 @@ class ApiV1AiChatToolTest extends AiTestBase {
 	}
 
 	@Test
+	@DisplayName("모델이 목록에 없는 주제를 보내도 503이 아니고, 오류가 도구 결과로 모델에 돌아가며 정책 출처는 붙지 않는다")
+	void policyUnknownTopic() throws Exception {
+		chatModel.callTool("crewrunPolicy", "{\"topics\":[\"POINT\"]}");
+
+		chat("seller", SELLER, "포인트 적립 정책은요?")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sources").isEmpty());
+
+		assertThat(chatModel.toolResults()).singleElement().asString().doesNotContain("policies");
+	}
+
+	@Test
+	@DisplayName("정책 도구는 주제를 3개까지만 넘긴다 (다른 상황 규칙이 섞이지 않게)")
+	void policyTopicLimit() throws Exception {
+		chatModel.callTool("crewrunPolicy",
+			"{\"topics\":[\"REFUND_DEADLINE\",\"RACE_CANCEL\",\"KIT_RETURN\",\"CHARGE\"]}");
+
+		chat("seller", SELLER, "정책 다 알려줘")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sources.length()").value(3));
+
+		assertThat(chatModel.toolResults()).singleElement().asString().doesNotContain("충전");
+	}
+
+	@Test
 	@DisplayName("정책 도구를 불렀어도 맞는 규칙이 없어 「조회할 수 없어요」로 답하면 정책 출처를 붙이지 않는다")
 	void policyNotAnswered() throws Exception {
 		chatModel.callTool("crewrunPolicy", "{\"topics\":[\"REFUND_DEADLINE\"]}");

@@ -119,7 +119,8 @@ public class AiChatUseCase {
 			}
 		}
 		// 정책 도구를 불렀어도 맞는 규칙이 없어 「조회할 수 없어요」로 답했으면 정책 출처를 붙이지 않는다
-		if (answer.contains(NO_TOOL)) {
+		// 정책을 안내하고 다른 부분만 조회할 수 없다고 한 답은 정책 결론으로 시작하므로 출처를 남긴다
+		if (answer.strip().startsWith(NO_TOOL)) {
 			trace.dropPolicies();
 		}
 		return new AiChatDto(answer, trace.sources(), trace.list());
@@ -169,6 +170,8 @@ public class AiChatUseCase {
 	}
 
 	// 질문에 있던 아이디·이메일 속 숫자 조각(seller2 등)은 빼고 본다. 거절 답이 그 이름을 되풀이하는 것은 지어낸 숫자가 아니다
+	// shortcut: 정책 도구만 불러도 출처가 있어 통과한다. 「판매액이랑 환불 정책」에 정책 도구만 부르고 판매액을 지어내면 못 잡는다,
+	// 정책 답의 숫자는 모델이 바꿔 써서(30만 원 → 300,000원) 정책 규칙과 맞춰 볼 수 없다. 그런 답이 보이면 숫자 도구 출처만 보게 바꾼다
 	static boolean madeUp(String answer, String message, AiToolTrace trace) {
 		if (!trace.sources().isEmpty()) {
 			return false;
