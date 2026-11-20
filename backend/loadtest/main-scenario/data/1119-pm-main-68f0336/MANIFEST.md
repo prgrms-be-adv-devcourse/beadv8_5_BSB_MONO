@@ -17,7 +17,7 @@
 
 ## 부하 발생기
 - 미니 PC, k6 v0.54.0, `C:\Users\user\loadtest\prod-run\`
-- 스크립트: 레포 `docs/loadtest/main_scenario/k6/` (funnel.js, prepare-race.js, run-stage.ps1) — 브랜치 `docs/loadtest-main-scenario`
+- 스크립트: 레포 `backend/loadtest/main-scenario/k6/` (funnel.js, prepare-race.js, run-stage.ps1) — 브랜치 `docs/loadtest-main-scenario`
 - **이전 실행과 달라진 점:** 단계마다 새 대회 2개(구매용·대기용)를 API로 만들어 쓴다. funnel.js는 신청 409를 실패로 센다. 부하 모양(도착률·시간·계정 범위)은 그대로다.
 - 계정: loadtest1~1000 (1000번은 판매자), 로그인 16:07~16:27 KST (s1~s3), 16:38~16:57 KST (buystress)
 

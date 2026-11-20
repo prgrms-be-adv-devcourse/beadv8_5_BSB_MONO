@@ -1,11 +1,11 @@
 # 시나리오: 개인 예매 흐름 (funnel + 화면 부수 API, write)
 
 엑셀 「개인·대회·참가하기」 전 화면을, 한 사용자가 처음부터 끝까지 지나가는 **예매 funnel**로 옮긴 것.
-`../main_scenario/funnel.js`의 백엔드 흐름(대기열→입장→신청서→주문→결제)은 그대로 두고, **각 화면이 실제로 부르는
+`../main-scenario/funnel.js`의 백엔드 흐름(대기열→입장→신청서→주문→결제)은 그대로 두고, **각 화면이 실제로 부르는
 부수 조회(상세·이미지·잔액 등)와 화면 전환마다의 사용자 대기(think-time)**를 더해 현실 부하에 가깝게 만든다.
-공통 틀은 `../main_scenario/guide.md` B~G.
+공통 틀은 `../main-scenario/guide.md` B~G.
 
-> `../main_scenario/funnel.js`는 **순수 백엔드 funnel(부수 조회 없음) 기준선**으로 남겨 둔다.
+> `../main-scenario/funnel.js`는 **순수 백엔드 funnel(부수 조회 없음) 기준선**으로 남겨 둔다.
 > 이 문서/스크립트는 거기에 **화면 부수 API + think-time**을 입힌 버전이다. 둘을 비교하면 "화면 부수 조회가
 > 노드 CPU·조회 부하에 얼마나 더 얹히나"가 보인다.
 
@@ -49,7 +49,7 @@
   - 1순위 **노드 CPU(2코어)** — 화면 부수 GET이 더해져 조회 부하가 funnel 기준선보다 커진다(F-1). `node_cpu`.
   - 2순위 **결제 cash 동시성 / order→cash hikari** — 503 비율, `hikaricp_connections_pending`(order·cash)(F-2).
   - 3순위 **`/similar` 검색 서버** + **file 조회** — 외부·이미지 부수 호출. 켜고 끈 run 비교로 기여분 분리.
-  - 기준선(main_scenario funnel)과 **같은 단계로 돌려 차이**를 본다(부수 조회의 비용).
+  - 기준선(main-scenario funnel)과 **같은 단계로 돌려 차이**를 본다(부수 조회의 비용).
 
 - **정리**(만든 역순, 넣기 전 작성 — 스키마·컬럼은 초안):
   - `DELETE FROM crewrun_order.payment/orders/participation WHERE ...;` + 예치금 원복(`cash_wallet`·ledger) + 좌석 리셋.

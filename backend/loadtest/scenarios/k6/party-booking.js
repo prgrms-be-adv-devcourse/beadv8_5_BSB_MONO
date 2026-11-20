@@ -1,6 +1,6 @@
 // 파티 예매 흐름(write) — 파티장 신청(applyLeader) 또는 파티원 결제(payMember). 화면 부수 API + think-time.
 // 상태 의존(신청→결제)이라 ROLE로 한 번에 하나만 돌린다. 초안: 응답 data.* 키·좌석 시드는 실측 전 확인.
-// 토큰: ../../main_scenario/k6/login-prod.js (.accounts.json, 30분 안).
+// 토큰: ../../main-scenario/k6/login-prod.js (.accounts.json, 30분 안).
 // 실행(파티장): k6 run -e ROLE=leader -e STAGE=load -e RACE=10 -e RACE_COURSE=20 party-booking.js
 // 실행(파티원): k6 run -e ROLE=member -e STAGE=load -e RACE=10 party-booking.js
 import http from 'k6/http';
@@ -13,7 +13,7 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|^https:\/\/crewrun\.duckdns\.
 	throw new Error(`허용되지 않은 주소라 멈춥니다: ${BASE_URL}`);
 }
 
-const accounts = new SharedArray('accounts', () => JSON.parse(open('../../main_scenario/k6/.accounts.json')));
+const accounts = new SharedArray('accounts', () => JSON.parse(open('../../main-scenario/k6/.accounts.json')));
 const RACE = { raceId: Number(__ENV.RACE || 10), raceCourseId: Number(__ENV.RACE_COURSE || 20) };
 const SIDE = (__ENV.SIDE || 'on') !== 'off';
 const THINK = Number(__ENV.THINK || 2);
