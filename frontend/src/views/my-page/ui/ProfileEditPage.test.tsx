@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { memberApi, setAccessToken } from '@/shared/api'
 import { memberMock, server } from '@/shared/testing'
 
-import { PROFILE_ERRORS } from '../model/profile-schema'
+import { PROFILE_ERRORS } from '@/entities/member'
 import { ProfileEditPage } from './ProfileEditPage'
 
 const replace = vi.fn()

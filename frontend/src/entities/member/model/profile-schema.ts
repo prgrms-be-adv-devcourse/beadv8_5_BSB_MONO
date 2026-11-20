@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { isNicknameWidthValid } from '@/entities/member'
+import { isNicknameWidthValid } from './nickname'
 import { ApiError } from '@/shared/api'
 import { memberZod } from '@/shared/api-zod'
 
