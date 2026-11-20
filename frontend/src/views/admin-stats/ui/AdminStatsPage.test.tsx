@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { pickDate, server } from '@/shared/testing'
+import { server } from '@/shared/testing'
 
 import { AdminStatsPage } from './AdminStatsPage'
 
@@ -328,31 +328,17 @@ describe('AdminStatsPage', () => {
     )
   })
 
-  it('직접 고르기는 시작이 끝보다 늦으면 적용할 수 없다', async () => {
+  it('직접 고르기는 달력 하나에서 시작일과 끝일을 눌러 그 기간으로 바로 다시 묻는다', async () => {
     mockStats()
     const user = userEvent.setup()
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
     await user.click(screen.getByRole('button', { name: '직접 고르기' }))
-    await pickDate(user, '시작 날짜', '2026-10-30')
-    await pickDate(user, '끝 날짜', '2026-10-20')
-    expect(screen.getByRole('button', { name: '적용' })).toBeDisabled()
-
-    await pickDate(user, '끝 날짜', '2026-11-01')
-    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled()
-  })
-
-  it('직접 고른 기간은 YYYY-MM-DD로 적용해 그 기간으로 다시 묻는다', async () => {
-    mockStats()
-    const user = userEvent.setup()
-    renderPage()
-    await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
-
-    await user.click(screen.getByRole('button', { name: '직접 고르기' }))
-    await pickDate(user, '시작 날짜', '2026-10-05')
-    await pickDate(user, '끝 날짜', '2026-10-12')
-    await user.click(screen.getByRole('button', { name: '적용' }))
+    const popup = await openRangeMonth(user, 10)
+    await user.click(within(popup).getByRole('button', { name: /2026년 10월 5일/ }))
+    await user.click(within(popup).getByRole('button', { name: /2026년 10월 12일/ }))
+    await user.click(within(popup).getByRole('button', { name: '선택 완료' }))
 
     await waitFor(() =>
       expect(requests).toEqual(
@@ -362,21 +348,28 @@ describe('AdminStatsPage', () => {
       ),
     )
   })
-  it('끝 날짜는 오늘까지 고를 수 있고 내일부터는 고를 수 없다', async () => {
+
+  it('기간은 오늘까지 고를 수 있고 내일부터는 고를 수 없다', async () => {
     mockStats()
     const user = userEvent.setup()
     renderPage()
     await within(await screen.findByRole('region', { name: '구매 단계' })).findByText('1,240명')
 
     await user.click(screen.getByRole('button', { name: '직접 고르기' }))
-    await user.click(screen.getByRole('button', { name: /^끝 날짜/ }))
-    const popup = await screen.findByRole('dialog', { name: '끝 날짜 고르기' })
-    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
-    await user.click(within(popup).getByRole('option', { name: '2026년' }))
-    await user.click(within(popup).getByRole('option', { name: '11월' }))
-    await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+    const popup = await openRangeMonth(user, 11)
 
     expect(within(popup).getByRole('button', { name: /2026년 11월 2일/ })).toBeEnabled()
     expect(within(popup).getByRole('button', { name: /2026년 11월 3일/ })).toBeDisabled()
   })
 })
+
+/** 기간 칸의 달력을 열고 연·월 휠로 2026년 month월로 옮긴다 */
+async function openRangeMonth(user: ReturnType<typeof userEvent.setup>, month: number) {
+  await user.click(screen.getByRole('button', { name: /^기간/ }))
+  const popup = await screen.findByRole('dialog', { name: '기간 고르기' })
+  await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+  await user.click(within(popup).getByRole('option', { name: '2026년' }))
+  await user.click(within(popup).getByRole('option', { name: `${month}월` }))
+  await user.click(within(popup).getByRole('button', { name: /연·월 고르기/ }))
+  return popup
+}

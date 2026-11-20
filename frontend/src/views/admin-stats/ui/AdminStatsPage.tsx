@@ -17,7 +17,7 @@ import {
 import { clientEnv } from '@/shared/config'
 import { DateTimeField } from '@/shared/date-picker'
 import { formatNumber, useSearchParamsState } from '@/shared/lib'
-import { Button, buttonClassName, Chip, DataTable, EmptyState } from '@/shared/ui'
+import { buttonClassName, Chip, DataTable, EmptyState } from '@/shared/ui'
 
 import { useRealtimeStats } from '../model/use-usage-stats'
 import { FunnelSection } from './FunnelSection'
@@ -93,13 +93,8 @@ function PeriodPicker({
   onChange: (next: StatsPeriodQuery) => void
 }) {
   const [kind, setKind] = useState<StatsPeriodKind>(query.period)
-  const [custom, setCustom] = useState<DateSpan>(
-    query.period === 'custom' ? { start: query.start, end: query.end } : { start: '', end: '' },
-  )
   const today = seoulToday()
   const period = resolveStatsPeriod(query, today)
-  const customQuery = statsPeriodQuerySchema.safeParse({ period: 'custom', ...custom })
-  const customValid = customQuery.success && custom.start <= custom.end
 
   const choose = (next: StatsPeriodKind) => {
     setKind(next)
@@ -121,35 +116,28 @@ function PeriodPicker({
         </p>
       )}
       {kind === 'custom' && (
-        <div className="flex items-end gap-2">
-          <DateTimeField
-            mode="single"
-            withTime={false}
-            label="시작 날짜"
-            className="w-52"
-            defaultValue={custom.start ? parseISO(custom.start) : undefined}
-            endMonth={parseISO(today)}
-            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
-            onValueChange={(start) => setCustom((c) => ({ ...c, start }))}
-          />
-          <DateTimeField
-            mode="single"
-            withTime={false}
-            label="끝 날짜"
-            className="w-52"
-            defaultValue={custom.end ? parseISO(custom.end) : undefined}
-            endMonth={parseISO(today)}
-            isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
-            onValueChange={(end) => setCustom((c) => ({ ...c, end }))}
-          />
-          <Button
-            variant="secondary"
-            disabled={!customValid}
-            onClick={() => customQuery.success && onChange(customQuery.data)}
-          >
-            적용
-          </Button>
-        </div>
+        // 달력 하나에서 시작일과 끝일을 차례로 누르고 '선택 완료'로 바로 적용한다
+        <DateTimeField
+          mode="range"
+          withTime={false}
+          label="기간"
+          className="w-80"
+          defaultValue={
+            query.period === 'custom'
+              ? { from: parseISO(query.start), to: parseISO(query.end) }
+              : undefined
+          }
+          endMonth={parseISO(today)}
+          isDateDisabled={(date) => format(date, 'yyyy-MM-dd') > today}
+          onValueChange={({ from, to }) => {
+            const next = statsPeriodQuerySchema.safeParse({
+              period: 'custom',
+              start: from,
+              end: to,
+            })
+            if (next.success) onChange(next.data)
+          }}
+        />
       )}
     </div>
   )
