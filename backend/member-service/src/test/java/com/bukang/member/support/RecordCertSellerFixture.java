@@ -78,6 +78,15 @@ public class RecordCertSellerFixture {
 		return submission(sellerMemberId, raceId, status, FieldCheck.MATCH);
 	}
 
+	// 사진 정리 배치가 원본을 지운 상태로 둔다 (file_deleted_at 기록)
+	public void markFileDeleted(long submissionId) {
+		jdbcTemplate.update("""
+			update member_record_cert set file_deleted_at = ?
+			where record_cert_id = (
+				select record_cert_id from member_record_cert_submission where submission_id = ?)
+			""", CREATED, submissionId);
+	}
+
 	public void clear() {
 		jdbcTemplate.update("delete from member_record_cert_submission");
 		jdbcTemplate.update("delete from member_record_cert");

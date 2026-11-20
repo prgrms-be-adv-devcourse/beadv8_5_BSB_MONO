@@ -59,7 +59,9 @@ public class RecordCertSellerFacade {
 			.orElseThrow(RecordCertSubmissionNotFoundException::new);
 		access.requireOwner(memberId, submission);
 		RecordCert cert = certsOf(List.of(submission)).get(submission.getRecordCertId());
-		return SellerRecordCertDetailDto.of(submission, cert, fileViewUrlPort.viewUrl(cert.getFileId()));
+		// 사진 정리 배치가 지운 건(file_deleted_at)은 file을 부르지 않는다. 안 그러면 없는 파일이 503으로 보인다 (리뷰 #646)
+		String fileUrl = cert.getFileDeletedAt() != null ? null : fileViewUrlPort.viewUrl(cert.getFileId());
+		return SellerRecordCertDetailDto.of(submission, cert, fileUrl);
 	}
 
 	public SellerRecordCertSubmissionDto approve(long memberId, long submissionId) {

@@ -121,6 +121,19 @@ class RecordCertSellerQueryTest {
 	}
 
 	@Test
+	@DisplayName("사진이 지워진 제출(file_deleted_at)의 상세는 503 대신 보기 주소 없이 준다")
+	void detailWithDeletedFileHasNoViewUrl() {
+		long submissionId = fixture.submission(sellerId, 1, SubmissionStatus.AUTO_APPROVED, FieldCheck.MATCH);
+		fixture.markFileDeleted(submissionId);
+
+		SellerRecordCertDetailDto detail = recordCertSellerFacade.findDetail(sellerId, submissionId);
+
+		assertThat(detail.fileUrl()).isNull();
+		assertThat(detail.bib()).isEqualTo("M-8363");
+		verify(fileViewUrlPort, never()).viewUrl(anyLong());
+	}
+
+	@Test
 	@DisplayName("남의 제출 상세는 볼 수 없고, 보기 주소도 받지 않는다 (403)")
 	void othersDetailIsForbidden() {
 		long submissionId = fixture.submission(fixture.approvedSeller(), 1, SubmissionStatus.NEEDS_REVIEW);
