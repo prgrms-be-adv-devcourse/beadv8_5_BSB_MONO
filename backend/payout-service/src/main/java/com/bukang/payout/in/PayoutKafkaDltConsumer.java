@@ -27,6 +27,8 @@ public class PayoutKafkaDltConsumer {
 	private static final String ITEM_REFUNDED_DLT = KafkaTopics.ORDER_ITEM_REFUNDED + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
 	private static final String RACE_REFUND_DLT = KafkaTopics.ORDER_RACE_REFUND + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
 	private static final String CLAIM_DEPOSITED_DLT = KafkaTopics.CLAIM_DEPOSITED + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
+	private static final String SELLER_ACCOUNT_REGISTERED_DLT =
+		KafkaTopics.SELLER_ACCOUNT_REGISTERED + PayoutKafkaRetry.DLT_TOPIC_SUFFIX;
 
 	private final PayoutDltFacade payoutDltFacade;
 
@@ -55,6 +57,13 @@ public class PayoutKafkaDltConsumer {
 	@KafkaListener(topics = CLAIM_DEPOSITED_DLT, groupId = GROUP_ID)
 	public void handleClaimDepositedDlt(ConsumerRecord<String, String> record) {
 		log.error("처리하지 못한 청구 입금 메시지: {}", record.value());
+		record(record);
+	}
+
+	// 판매자가 계좌를 등록했는데도 자동 보류가 풀리지 않아 지급이 막혀 있다. 원인을 고친 뒤 다시 보낸다
+	@KafkaListener(topics = SELLER_ACCOUNT_REGISTERED_DLT, groupId = GROUP_ID)
+	public void handleSellerAccountRegisteredDlt(ConsumerRecord<String, String> record) {
+		log.error("처리하지 못한 정산 계좌 등록 메시지: {}", record.value());
 		record(record);
 	}
 

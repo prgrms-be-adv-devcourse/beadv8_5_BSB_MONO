@@ -1,6 +1,7 @@
 package com.bukang.payout.app;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 
 import org.springframework.stereotype.Service;
@@ -67,6 +68,18 @@ public class PayoutHoldUseCase {
 		PayoutHold hold = payoutHoldRepository.findById(holdId).orElseThrow(PayoutHoldNotFoundException::new);
 		payout.release(hold, releasedBy, now, businessDayCalendar);
 		return PayoutHoldDto.from(hold);
+	}
+
+	/**
+	 * 판매자가 정산 계좌를 등록하면, 계좌 미등록으로 자동 보류된 그 판매자의 정산을 모두 푼다 (회원 서비스 이벤트로 부른다)
+	 * 관리자 보류 · 다른 사유, 취소로 닫힌 정산은 건드리지 않는다. 지급보류인 것만 풀므로 같은 이벤트를 다시 받아도 안전하다
+	 * 지급 배치와 같은 정산 내역을 동시에 바꾸면 @Version으로 실패하고, 소비자가 메시지를 다시 처리해 따라잡는다
+	 */
+	@Transactional
+	public void releaseAccountHolds(long sellerId, LocalDateTime now) {
+		for (PayoutHold hold : payoutHoldRepository.findReleasableAccountHolds(sellerId)) {
+			hold.getPayout().release(hold, PayoutHold.SYSTEM_MEMBER_ID, now, businessDayCalendar);
+		}
 	}
 
 	/**
