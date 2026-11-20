@@ -89,6 +89,16 @@ const E2E_USERS = { smoke: 1, load: 100, stress: 200 };
 // cap은 맡을 수 있는 최대 사용자 수(계정 수에서 나온다). 넘으면 줄이고 알린다
 export function e2eExecutor(cap = Infinity) {
 	const target = Math.min(cap, E2E_USERS[STAGE_NAME]);
+	// login.js는 로그인에 실패한 계정 자리에 null을 넣는다. 그 번호를 맡은 사용자는 쉬기만 해서 부하가 줄어든다
+	let missing = 0;
+	for (let i = 0; i < accounts.length; i++) {
+		if (!accounts[i]) {
+			missing++;
+		}
+	}
+	if (missing > 0) {
+		console.warn(`로그인에 실패한 계정이 ${missing}개라 그 번호의 사용자는 요청을 보내지 않습니다. login.js를 다시 돌리세요`);
+	}
 	if (target < E2E_USERS[STAGE_NAME]) {
 		console.warn(`계정이 모자라 사용자를 ${E2E_USERS[STAGE_NAME]}명에서 ${target}명으로 줄입니다`);
 	}

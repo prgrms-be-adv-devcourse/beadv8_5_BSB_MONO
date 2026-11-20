@@ -101,11 +101,11 @@ k6 run -e STAGE=smoke loadtest/e2e/crew.js
 | 이름 | 기본값 | 뜻 |
 |---|---|---|
 | `LOADTEST_PASSWORD` | 없음 | `member.js`의 로그인 화면에 쓰는 비밀번호(필수). `accounts/login.js`와 같은 값 |
-| `LOGIN_EVERY` | 10 | `member.js`가 로그아웃과 로그인 화면을 몇 번 반복마다 한 번 할지 |
+| `LOGIN_EVERY` | 0(안 함) | `member.js`가 로그아웃과 로그인 화면을 몇 번 반복마다 한 번 할지 |
 | `ORDER_DETAIL_MAX` | 10 | 마이페이지에서 상세를 조회할 주문 수 상한 |
 | `MANAGE_EVERY` | 5 | `crew.js`가 크루 관리 화면을 몇 번 반복마다 한 번 할지 |
 
-운영 nginx가 로그인을 IP당 초당 1건으로 막고 있어서, 로그인 화면은 매 반복이 아니라 `LOGIN_EVERY`번마다 한 번만 합니다.
-CRU-83 스위치로 제한을 끄면 `-e LOGIN_EVERY=1`로 매 반복마다 로그인할 수 있습니다.
+운영 nginx가 로그아웃·로그인을 IP당 초당 1건(몰리면 20건까지)으로 막고 있습니다. 100명이면 10번에 한 번만 해도 이 제한을 넘어 사용자가 하나씩 멈춥니다.
+그래서 로그아웃과 로그인 화면은 기본으로 하지 않습니다. CRU-83 스위치로 제한을 끈 실행에서만 `-e LOGIN_EVERY=10`처럼 켭니다.
 스위치는 `k8s/overlays/aws/nginx-upstreams.conf`의 `map "false" $auth_limit_key` 줄이고, `"true"`로 바꿔 배포하면 꺼집니다. 절차는 `docs/loadtest/main_scenario/runbook.md` 8절에 있습니다.
 끄면 모든 IP의 로그인·가입 제한이 함께 풀리므로 부하가 끝나면 다시 `"false"`로 되돌립니다.

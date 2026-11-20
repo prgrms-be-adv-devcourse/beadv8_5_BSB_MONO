@@ -17,8 +17,9 @@ const PASSWORD = __ENV.LOADTEST_PASSWORD;
 if (!PASSWORD) {
 	throw new Error('LOADTEST_PASSWORD 환경 변수가 없습니다');
 }
-// 로그인은 운영 nginx 제한(IP당 초당 1건) 때문에 반복마다가 아니라 이 횟수마다 한 번만 한다
-const LOGIN_EVERY = Number(__ENV.LOGIN_EVERY || 10);
+// 로그아웃·로그인은 운영 nginx 제한(IP당 초당 1건, 몰림 20건)에 걸린다. 100명이면 10번에 한 번이어도 넘어서 사용자가 하나씩 멈춘다
+// 그래서 기본은 끄고(0), CRU-83 스위치로 제한을 끈 실행에서만 -e LOGIN_EVERY=10처럼 켠다
+const LOGIN_EVERY = Number(__ENV.LOGIN_EVERY || 0);
 // 마이페이지는 주문마다 상세를 한 건씩 부른다. 주문이 아주 많은 계정이 시간을 다 쓰지 않게 상한을 둔다
 const ORDER_DETAIL_MAX = Number(__ENV.ORDER_DETAIL_MAX || 10);
 
@@ -100,19 +101,14 @@ function notifySettings() {
 
 function relogin() {
 	const out = send('POST', '/auth/logout', 'write', '/auth/logout', { cookie: me.refreshToken });
-	check(out, { '로그아웃 200': (r) => r.status === 200 });
+	// 로그아웃이 안 됐으면(nginx 제한 429 등) 토큰이 그대로 살아 있어 다음 반복을 이어 간다
+	if (!check(out, { '로그아웃 200': (r) => r.status === 200 })) {
+		return;
+	}
 	// 로그아웃하면 이 Refresh Token은 서버에서 지워진다. 로그인이 실패하면 이 계정은 더 쓸 수 없다
 	me.dead = true;
-	// nginx 로그인 제한(429)에 걸리면 계정을 버리지 않고 잠깐 쉬었다가 다시 보낸다. 버리면 부하가 몰래 줄어든다
-	let res;
-	for (let attempt = 0; attempt < 3; attempt++) {
-		res = send('POST', '/auth/login', 'write', '/auth/login',
-			{ token: null, expected: [200, 429], body: { email: me.email, password: PASSWORD } });
-		if (res.status !== 429) {
-			break;
-		}
-		sleep(1 + Math.random());
-	}
+	const res = send('POST', '/auth/login', 'write', '/auth/login',
+		{ token: null, body: { email: me.email, password: PASSWORD } });
 	const cookie = res.cookies.refreshToken;
 	if (check(res, { '로그인 200': (r) => r.status === 200 && Boolean(r.json('data.accessToken')) && Boolean(cookie) })) {
 		me.accessToken = res.json('data.accessToken');
