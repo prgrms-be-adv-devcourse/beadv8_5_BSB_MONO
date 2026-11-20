@@ -42,6 +42,8 @@ public class RecordCertSellerFacade {
 		if (submissions.isEmpty()) {
 			return List.of();
 		}
+		// 한 대회의 판매자는 한 명이라(대회당 1 판매자), 제출 하나의 소유로 대회 소유를 판단한다.
+		// 남의 대회(제출 있음)는 403 (11/18). sellerMemberId로 쿼리를 거르면 그 403이 빈 목록이 되므로 거르지 않는다
 		access.requireOwner(memberId, submissions.get(0));
 		List<RecordCertSubmission> filtered = submissions.stream()
 			.filter(s -> status == null || s.getStatus() == status)

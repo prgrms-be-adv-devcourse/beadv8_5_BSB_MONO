@@ -4,5 +4,5 @@ ALTER TABLE member_record_cert_submission ADD COLUMN deny_reason VARCHAR(20);
 ALTER TABLE member_record_cert_submission ADD COLUMN deny_memo VARCHAR(200);
 ALTER TABLE member_record_cert_submission ADD COLUMN reviewed_at DATETIME(6);
 
--- 판매자별 심사 필요 건수 (대시보드 카드 · AI 브리핑). seller_member_id 칸은 BUK-274가 더한다
+-- 판매자별 심사 필요 건수 (대시보드 카드 · AI 브리핑). seller_member_id 칸은 BUK-274에서 이미 더했다
 CREATE INDEX idx_record_cert_submission_seller ON member_record_cert_submission (seller_member_id, status);
