@@ -17,7 +17,7 @@ import {
   useCreateParty,
   type PartyFailure,
 } from '@/entities/party'
-import { fetchRacePage, RaceSort } from '@/entities/race'
+import { fetchRacePage, raceQueryOptions, RaceSort } from '@/entities/race'
 import { ApiError, memberApi, productApi, productModel, unwrapData } from '@/shared/api'
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
@@ -75,8 +75,9 @@ export function PartyNewPage({ crewId }: { crewId?: number }) {
   const [serverMessage, setServerMessage] = useState<string>()
   // 결제율 미달로 크루의 파티 만들기가 제한된 경우, 제한이 끝나는 시각
   const [restrictedEnd, setRestrictedEnd] = useState<string>()
-  const detail = productApi.useFindRace(raceId ?? 0, {
-    query: { enabled: raceId !== undefined, select: unwrapData },
+  const detail = useQuery({
+    ...raceQueryOptions(raceId ?? 0),
+    enabled: raceId !== undefined,
   })
   const crew = memberApi.useFindCrew(crewId ?? 0, {
     query: { enabled: crewId !== undefined, select: unwrapData },

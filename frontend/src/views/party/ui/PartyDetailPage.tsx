@@ -1,7 +1,7 @@
 'use client'
 
 import { Menu } from '@base-ui/react/menu'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -24,14 +24,8 @@ import {
   type PartyDetail,
   type PartyMember,
 } from '@/entities/party'
-import {
-  ApiError,
-  memberApi,
-  orderApi,
-  productApi,
-  unwrapData,
-  useIdempotencyKey,
-} from '@/shared/api'
+import { raceQueryOptions } from '@/entities/race'
+import { ApiError, memberApi, orderApi, unwrapData, useIdempotencyKey } from '@/shared/api'
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
@@ -120,7 +114,7 @@ function PartyDetailBody({
   const queryClient = useQueryClient()
   const raceStatus = useMyRaceStatus(party.raceId)
   const me = memberApi.useFindMe({ query: { select: unwrapData } })
-  const race = productApi.useFindRace(party.raceId, { query: { select: unwrapData } })
+  const race = useQuery(raceQueryOptions(party.raceId))
   const crew = memberApi.useFindCrew(party.crewId, { query: { select: unwrapData } })
   const regenerate = useRegenerateJoinLink()
   const leave = useLeaveParty()

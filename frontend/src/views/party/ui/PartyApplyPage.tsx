@@ -1,5 +1,6 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,7 +14,8 @@ import {
   usePartyQueueStatus,
   useRegisterPartyQueue,
 } from '@/entities/party'
-import { ApiError, memberApi, productApi, unwrapData } from '@/shared/api'
+import { raceQueryOptions } from '@/entities/race'
+import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import {
   Alert,
   BottomCta,
@@ -35,8 +37,9 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
   const router = useRouter()
   const party = usePartyDetail(partyId)
   const data = party.data
-  const race = productApi.useFindRace(data?.raceId ?? 0, {
-    query: { enabled: data !== undefined, select: unwrapData },
+  const race = useQuery({
+    ...raceQueryOptions(data?.raceId ?? 0),
+    enabled: data !== undefined,
   })
   const crew = memberApi.useFindCrew(data?.crewId ?? 0, {
     query: { enabled: data !== undefined, select: unwrapData },
