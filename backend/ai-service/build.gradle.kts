@@ -25,6 +25,8 @@ dependencies {
 	// 기록증 다시 읽기(BUK-272): 인식 모델 실행 · 사진 자르기. 골든 세트를 만든 기준 구현(Python ORT)과 같은 버전
 	implementation("com.microsoft.onnxruntime:onnxruntime:1.31.1")
 	implementation("org.openpnp:opencv:4.9.0-0")
+	// 기록증 서버 확인(BUK-275): "확인 요청"을 받고 "확인 결과"를 보낸다
+	implementation("org.springframework.boot:spring-boot-starter-kafka")
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools
 	// App 실행시 compose.yml 인프라 자동 실행 (bootRun/IDE 실행에만 포함, 운영 jar에서는 제외)

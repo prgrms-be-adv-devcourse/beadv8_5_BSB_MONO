@@ -46,5 +46,7 @@ export type MyRecordCertSubmission = {
   reasons: JudgementReason[]
   /** 판매자가 승인 불가로 둔 사유 */
   denyReason?: string | null
+  /** 판매자가 승인 불가와 함께 남긴 메모 (선택) */
+  denyMemo?: string | null
   submittedAt: string
 }
