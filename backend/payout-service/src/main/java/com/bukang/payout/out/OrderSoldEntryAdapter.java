@@ -22,7 +22,7 @@ import com.bukang.payout.domain.exception.PayoutOrderLookupUnavailableException;
  * 응답은 참가권마다 칸을 반복하지 않고 대회 · 코스로 묶어 줄였다 (BUK-244)
  * 결제 완료 ID를 어떤 형식으로 달라고 할지는 FORMAT_PROPERTY(IDS 기본 · BITSET · ROARING)로 고른다. 부하 테스트에서 셋을 비교한다
  * 받은 비트맵을 어떤 형식으로 읽을지는 설정이 아니라 응답의 paidFormat을 따른다 (두 서비스 설정이 어긋나도 잘못 읽지 않게)
- * 최종 정산 생성은 findSoldCourses로 묶음을 그대로 받아, 비트맵을 목록으로 풀지 않는다
+ * 최종 정산 생성과 대사는 findSoldCourses로 묶음을 그대로 받아, 비트맵을 목록으로 풀지 않는다 (CRU-57)
  *
  * 주문 서비스가 멈추거나 오류로 응답하면 예외를 던진다. 배치는 그 대회를 실패로 남기고,
  * 다음 실행이 되돌아보기(7일)로 따라잡는다 (PRO-61). 빈 목록으로 바꾸면 그 대회 정산을 조용히 건너뛴 것처럼 보이므로 삼키지 않는다
@@ -67,7 +67,7 @@ public class OrderSoldEntryAdapter implements SoldEntryPort {
 		IDS, BITSET, ROARING
 	}
 
-	// 대사는 참가권 목록으로 비교하므로 묶음을 풀어 준다
+	// 포트 계약상 목록도 줄 수 있게 풀어 준다. 생성 · 대사는 findSoldCourses로 묶음을 그대로 받는다
 	@Override
 	public List<SoldEntry> findSoldEntries(long raceId) {
 		return findSoldCourses(raceId).toEntriesSortedById();

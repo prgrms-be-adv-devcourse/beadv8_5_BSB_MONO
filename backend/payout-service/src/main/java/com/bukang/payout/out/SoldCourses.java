@@ -6,12 +6,15 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 
 /**
  * 대회 하나의 판매 내역을 코스 묶음 그대로 들고 있는 것 (주문 응답 BUK-244 모양)
@@ -76,7 +79,52 @@ public record SoldCourses(List<Course> courses) {
 		}
 	}
 
-	// 대사처럼 참가권 목록이 필요한 곳에서 쓴다. 주문 상품 ID 순으로 정렬한다
+	/**
+	 * 최종 대사가 비교할 판매 쪽 ID 모음 (결제 완료 + 미루는 참가권). 받은 형식 그대로 합치고 SoldEntry를 만들지 않는다 (CRU-57)
+	 * 기준 ID를 정하려고 ID를 두 번 훑는다 (가장 작은 · 큰 ID, 그다음 담기)
+	 */
+	public OrderItemIds orderItemIds() {
+		long[] range = {Long.MAX_VALUE, Long.MIN_VALUE};
+		forEachId(id -> {
+			range[0] = Math.min(range[0], id);
+			range[1] = Math.max(range[1], id);
+		});
+		OrderItemIds ids = OrderItemIds.emptyFor(courses.stream().map(Course::paidIds).toList(), range[0], range[1]);
+		forEachId(ids::add);
+		return ids;
+	}
+
+	// 코스마다 판매 가격들. 대사가 정산 줄의 (코스, 금액) 집계와 맞춰 본다. 코스 없는 참가권은 null 키
+	public Map<Long, Set<Long>> pricesByCourse() {
+		Map<Long, Set<Long>> prices = new HashMap<>();
+		courses.forEach(course -> prices.computeIfAbsent(course.key().raceCourseId(), key -> new HashSet<>())
+			.add(course.key().price()));
+		return prices;
+	}
+
+	// 고른 ID의 참가권만 꺼낸다. 대사가 어긋난 참가권의 코스 · 가격을 볼 때만 쓴다
+	public Map<Long, SoldEntry> entriesOf(Collection<Long> orderItemIds) {
+		if (orderItemIds.isEmpty()) {
+			return Map.of();
+		}
+		Set<Long> wanted = new HashSet<>(orderItemIds);
+		Map<Long, SoldEntry> found = new HashMap<>();
+		forEachEntry(entry -> {
+			if (wanted.contains(entry.orderItemId())) {
+				found.put(entry.orderItemId(), entry);
+			}
+		});
+		return found;
+	}
+
+	private void forEachId(LongConsumer action) {
+		for (Course course : courses) {
+			course.paidIds().forEach(action);
+			course.blockingIds().forEach(action::accept);
+		}
+	}
+
+	// 참가권 목록이 필요한 곳(테스트 등)에서 쓴다. 주문 상품 ID 순으로 정렬한다
 	public List<SoldEntry> toEntriesSortedById() {
 		List<SoldEntry> entries = new ArrayList<>(entryCount());
 		forEachEntry(entries::add);
