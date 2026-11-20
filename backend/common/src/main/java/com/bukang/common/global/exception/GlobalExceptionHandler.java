@@ -26,9 +26,7 @@ public class GlobalExceptionHandler {
 	// 도메인 예외: 상태 코드는 각 예외 클래스가 정한다 (BusinessException 상속)
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<RsData<Void>> businessException(BusinessException exception, HttpServletRequest request) {
-		if (exception.getStatus() == HttpStatus.BAD_REQUEST) {
-			logBadRequest(request, exception.getCode(), exception.getMessage());
-		}
+		logBusinessException(exception, request);
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(), null));
@@ -60,6 +58,24 @@ public class GlobalExceptionHandler {
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST, "요청 본문 형식이 올바르지 않습니다.", null));
+	}
+
+	// 도메인 예외도 응답에만 이유가 있으면 서버에서 원인을 찾을 수 없어 상태 코드마다 남긴다
+	// 4xx는 요청한 쪽 문제라 info로 한 줄만, 5xx(다른 서비스·저장소 장애 등)는 다시 부르면 풀릴 수 있어 warn으로 원인 스택까지 남긴다
+	// 던지기 전에 원인을 이미 남긴 5xx(예: Redis·Kafka 실패)는 두 번 남지만, 요청(메서드·주소)과 함께 보이도록 그대로 둔다
+	private static void logBusinessException(BusinessException exception, HttpServletRequest request) {
+		HttpStatus status = exception.getStatus();
+		if (status == HttpStatus.BAD_REQUEST) {
+			logBadRequest(request, exception.getCode(), exception.getMessage());
+			return;
+		}
+		if (status.is5xxServerError()) {
+			log.warn("{} {} {} code={}, message={}", status.value(), request.getMethod(), request.getRequestURI(),
+				exception.getCode(), exception.getMessage(), exception);
+			return;
+		}
+		log.info("{} {} {} code={}, message={}", status.value(), request.getMethod(), request.getRequestURI(),
+			exception.getCode(), exception.getMessage());
 	}
 
 	// 400은 응답에만 이유가 있어 서버에서 원인을 찾을 수 없었다 (CRU-74 운영 파티 합류 400). 같은 사람이 고쳐 다시 보내므로 info로 남긴다
