@@ -23,7 +23,8 @@ import tools.jackson.databind.ObjectMapper;
 class ApiV1AiChatToolTest extends AiTestBase {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private static final List<String> SELLER_TOOLS =
-		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales");
+		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales",
+			"sellerRecordCertReviewsWaiting");
 	private static final List<String> ADMIN_TOOLS = List.of("adminWaitingInquiries", "adminPendingSellers");
 
 	@Test

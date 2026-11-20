@@ -43,6 +43,9 @@ public interface OpsPort {
 	// 회원: 승인 대기 판매자 신청의 신청 시각들 (이름·사업자 정보는 읽지 않는다)
 	List<LocalDateTime> pendingSellerRequestedAts(long memberId);
 
+	// 회원: 판매자가 심사할 기록증 제출 수. 심사 필요 상태만 세고, 서버가 확인 중인 것은 뺀다
+	long waitingRecordCertReviewCount(long memberId);
+
 	// 문의: 판매자·관리자 문의 상세 (문의 답변 초안이 쓴다). 화면 종류대로 판매자용·관리자용 상세를 부른다
 	// 남의 대회 문의, 판매자 화면에서 연 관리자 담당 문의, 없거나 지운 문의는 문의 서비스가 404로 막고 여기서는 빈 값이다
 	Optional<Inquiry> inquiry(long memberId, AiScreen screen, long inquiryId);
