@@ -52,6 +52,8 @@ public class AiBriefingUseCase {
 	private AiBriefingDto seller(long memberId, LocalDateTime now) {
 		OpsPort.KitSummary kits = fetch("kits", memberId, () -> opsPort.kitSummary(memberId));
 		OpsPort.PayoutSummary payout = fetch("payout", memberId, () -> opsPort.payoutSummary(memberId));
+		Long certReviews =
+			fetch("recordCerts", memberId, () -> opsPort.waitingRecordCertReviewCount(memberId));
 		List<String> sentences = new ArrayList<>();
 		List<Todo> todos = new ArrayList<>();
 		List<Metric> metrics = new ArrayList<>();
@@ -90,6 +92,12 @@ public class AiBriefingUseCase {
 				: new Metric("다음 정산 · %s 지급".formatted(payout.nextPayDate().format(MONTH_DAY)),
 					won(payout.scheduledPayoutAmount()),
 					payout.heldCount() > 0 ? "보류 %d건 빼고".formatted(payout.heldCount()) : "보류 없음", null));
+		}
+		// 기록증 심사는 1건 이상일 때만 알린다 (CRU-16). 숫자 칸이 없어, 가져오지 못하면 이 항목만 빼고 실패 문구도 붙이지 않는다
+		if (certReviews != null && certReviews > 0) {
+			sentences.add("심사할 기록증이 %d건 있어요.".formatted(certReviews));
+			todos.add(new Todo("기록증 심사 대기 %d건".formatted(certReviews), "참가자가 심사 결과를 기다리고 있어요",
+				"기록증 심사", "/seller/record-certs"));
 		}
 		return new AiBriefingDto(headline(sentences, kits == null || payout == null), now.format(BASIS),
 			todos, metrics);
