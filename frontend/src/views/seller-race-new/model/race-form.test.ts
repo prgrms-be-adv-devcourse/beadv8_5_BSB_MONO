@@ -113,7 +113,6 @@ describe('courseDraftSchema 종목 추가 창', () => {
     timeLimitMinutes: '180',
     price: '55000',
     individualQuota: '500',
-    adultOnly: false,
   }
 
   // 칸별 첫 오류 문구
@@ -158,21 +157,12 @@ describe('courseDraftSchema 종목 추가 창', () => {
     })
   })
 
-  it('성인만 받기를 체크하면 최소 나이 19, 안 하면 14로 만들고 최대 나이는 만들지 않는다', () => {
-    for (const [adultOnly, minAge] of [
-      [true, 19],
-      [false, 14],
-    ] as const) {
-      const result = courseDraftSchema.safeParse({ ...draft, adultOnly })
-      if (!result.success) throw new Error('종목이 만들어져야 한다')
-      const course = toCourseInputFromParsed(result.data)
-      expect(course.minAge).toBe(minAge)
-      expect(course).not.toHaveProperty('maxAge')
-    }
-  })
-
-  it('새 종목의 기본값은 성인만 받기 해제(최소 나이 14)다', () => {
-    expect(COURSE_DRAFT_DEFAULTS.adultOnly).toBe(false)
+  it('종목 입력은 최소 나이 14로 만들고 최대 나이는 만들지 않는다 (참가 가능 나이는 화면에서 고른다)', () => {
+    const result = courseDraftSchema.safeParse(draft)
+    if (!result.success) throw new Error('종목이 만들어져야 한다')
+    const course = toCourseInputFromParsed(result.data)
+    expect(course.minAge).toBe(14)
+    expect(course).not.toHaveProperty('maxAge')
   })
 
   it('참가비 · 정원 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
@@ -285,5 +275,23 @@ describe('기본 종목의 나이', () => {
       expect(JSON.parse(JSON.stringify(course))).not.toHaveProperty('maxAge')
       expect([14, 19]).toContain(course.minAge)
     }
+  })
+})
+
+describe('참가 가능 나이', () => {
+  it('고른 나이를 모든 종목의 최소 나이로 보낸다', () => {
+    for (const minAge of [14, 19] as const) {
+      const request = toRaceSaveRequest(
+        { ...RACE_FORM_DEFAULTS, minAge },
+        [],
+        RACE_FORM_DEFAULTS.courses.map(() => []),
+      )
+      expect(request.courses.map((c) => c.minAge)).toEqual([minAge, minAge])
+    }
+  })
+
+  it('기본은 만 14세이고, 14 · 19 말고는 검사에서 막는다', () => {
+    expect(RACE_FORM_DEFAULTS.minAge).toBe(14)
+    expect(raceFormSchema.safeParse({ ...RACE_FORM_DEFAULTS, minAge: 20 }).success).toBe(false)
   })
 })
