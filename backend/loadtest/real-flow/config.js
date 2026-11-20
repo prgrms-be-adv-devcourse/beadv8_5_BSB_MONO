@@ -13,8 +13,13 @@ export const SEND_PAGES = __ENV.PAGES !== '0';
 export const EMAIL_PREFIX = __ENV.EMAIL_PREFIX || 'realflow';
 export const EMAIL_DOMAIN = __ENV.EMAIL_DOMAIN || 'crewrun.test';
 export const PASSWORD = __ENV.LOADTEST_PASSWORD;
+// 앞 실행의 주문·파티 기록이 없는 새 계정으로 다시 잴 때 번호를 민다 (ACCOUNT_OFFSET=3000이면 realflow3001부터)
+export const ACCOUNT_OFFSET = Number(__ENV.ACCOUNT_OFFSET || 0);
+export function accountNoOf(no) {
+	return no + ACCOUNT_OFFSET;
+}
 export function emailOf(no) {
-	return `${EMAIL_PREFIX}${no}@${EMAIL_DOMAIN}`;
+	return `${EMAIL_PREFIX}${accountNoOf(no)}@${EMAIL_DOMAIN}`;
 }
 
 // 판매자 계정 (대회를 등록한다). 로컬은 시드 판매자 seller1@crewrun.com
