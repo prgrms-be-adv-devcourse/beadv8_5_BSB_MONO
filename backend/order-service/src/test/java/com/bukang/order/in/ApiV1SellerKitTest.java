@@ -3,6 +3,7 @@ package com.bukang.order.in;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -211,6 +212,13 @@ class ApiV1SellerKitTest {
 			.andReturn().getResponse().getContentAsString();
 		assertThat(othersBody).isEqualTo(missingBody);
 		ship(SELLER_MEMBER_ID, itemId, "kr.cjlogistics", "684912345678").andExpect(status().isOk());
+		String othersTrackingBody = mockMvc.perform(put(BASE_URL + "/" + itemId + "/shipment")
+				.header("X-Member-Id", OTHER_SELLER_MEMBER_ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"carrierId\": \"kr.cjlogistics\", \"trackingNumber\": \"684912345679\"}"))
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersTrackingBody).isEqualTo(missingBody);
 		String othersDeliveryBody = mockMvc.perform(post(BASE_URL + "/" + itemId + "/delivery")
 				.header("X-Member-Id", OTHER_SELLER_MEMBER_ID))
 			.andExpect(status().isNotFound())

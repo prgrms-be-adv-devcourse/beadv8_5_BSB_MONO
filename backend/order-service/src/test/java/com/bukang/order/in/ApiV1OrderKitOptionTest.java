@@ -378,6 +378,16 @@ class ApiV1OrderKitOptionTest {
 				.header("X-Member-Id", SELLER_MEMBER_ID + 1))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data").isEmpty());
+		// 상품이 찾지 못한 대회와 본문이 같아 남의 대회인지 알 수 없다 (CRU-92)
+		kitOptionPort.markNotFound(999_999);
+		String missingBody = mockMvc.perform(get("/api/v1/order/seller/kits/options").param("raceId", "999999")
+				.header("X-Member-Id", SELLER_MEMBER_ID + 1))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		String othersBody = mockMvc.perform(get("/api/v1/order/seller/kits/options")
+				.param("raceId", String.valueOf(RACE_ID)).header("X-Member-Id", SELLER_MEMBER_ID + 1))
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 	}
 
 	@Test
