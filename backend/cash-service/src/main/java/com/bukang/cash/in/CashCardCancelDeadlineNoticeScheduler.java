@@ -27,7 +27,8 @@ public class CashCardCancelDeadlineNoticeScheduler {
 	private final CashCardCancelDeadlineNoticeUseCase cashCardCancelDeadlineNoticeUseCase;
 
 	@SchedulerLock(name = "cash-card-cancel-deadline-notice", lockAtMostFor = "PT30M", lockAtLeastFor = "PT30S")
-	@Scheduled(cron = "0 0 9 * * *", zone = ZONE)
+	// 부하 테스트(시나리오 B-4)는 실행 값으로 cron을 바꿔 바로 돌린다
+	@Scheduled(cron = "${cash.withdrawal.deadline-notice.cron:0 0 9 * * *}", zone = ZONE)
 	public void notifyDeadlines() {
 		// 기한과 알림 시각이 모두 한국 시간 기준이라 한국 시각을 넣는다
 		cashCardCancelDeadlineNoticeUseCase.notifyDeadlines(LocalDateTime.now(ZoneId.of(ZONE)));

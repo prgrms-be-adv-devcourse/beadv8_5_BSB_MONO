@@ -14,6 +14,8 @@ dependencies {
 	implementation("org.flywaydb:flyway-mysql")
 	implementation("org.springframework.boot:spring-boot-starter-kafka") // kafka (회원 이벤트 수신)
 	implementation("org.springframework.boot:spring-boot-starter-data-redis") // redis (충전 이상 패턴 감지: 쿨다운·잠금)
+	// RestClient.Builder 빈 자동 설정. 이 빌더로 만든 클라이언트라야 바깥 호출 시간이 지표(http_client_requests)에 남는다
+	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	// 계좌번호·pgPaymentKey 암호화(AES-GCM)는 common global/crypto를 쓴다 (spring-security-crypto도 common이 가져온다)
 
 	developmentOnly("org.springframework.boot:spring-boot-devtools") // dev-tools

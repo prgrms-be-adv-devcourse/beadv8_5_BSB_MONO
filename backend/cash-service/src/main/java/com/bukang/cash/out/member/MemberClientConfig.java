@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClient;
 public class MemberClientConfig {
 	@Bean
 	public HttpMemberAdminAdapter httpMemberAdminAdapter(
+		RestClient.Builder builder,
 		@Value("${cash.clients.member.base-url}") String baseUrl,
 		@Value("${cash.clients.member.timeout}") Duration timeout
 	) {
@@ -28,7 +29,7 @@ public class MemberClientConfig {
 			.build();
 		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(timeout);
-		return new HttpMemberAdminAdapter(RestClient.builder()
+		return new HttpMemberAdminAdapter(builder
 			.baseUrl(baseUrl)
 			.requestFactory(requestFactory)
 			.build());

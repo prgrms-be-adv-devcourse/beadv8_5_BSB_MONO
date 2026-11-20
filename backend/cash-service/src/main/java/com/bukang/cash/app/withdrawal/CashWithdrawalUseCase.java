@@ -4,6 +4,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -49,9 +53,13 @@ public class CashWithdrawalUseCase {
 	private final CashRefundableChargeQueryUseCase cashRefundableChargeQueryUseCase;
 	private final PaymentClient paymentClient;
 	private final TransactionTemplate transactionTemplate;
+	// 카드 몫마다 토스 결제취소를 동시에 불러, 응답 시간이 장수만큼 늘지 않게 한다. 기다리는 동안 쓰레드를 붙잡지 않게 가상 쓰레드를 쓴다.
+	// 가상 쓰레드는 부른 요청 쓰레드의 클래스 로더를 이어받아 jar로 띄워도 라이브러리 클래스를 찾는다 (공용 ForkJoin 풀은 못 찾음)
+	// shortcut: 한 환급의 카드를 모두 한꺼번에 부른다. 토스 동시 호출 제한에 걸리면 동시에 부르는 개수를 묶는다
+	private final ExecutorService pgCancelExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
 	// 정책 5장 2차 1: 토스를 부르는 동안 지갑 잠금을 잡지 않도록 세 단계로 나눈다 (충전 확정과 같은 구조).
-	// 1) 잠금 트랜잭션: 계획·차감·원장  2) 트랜잭션 밖: 카드 몫마다 토스 결제취소  3) 잠금 트랜잭션: 결과 반영
+	// 1) 잠금 트랜잭션: 계획·차감·원장  2) 트랜잭션 밖: 카드 몫마다 토스 결제취소(동시에)  3) 잠금 트랜잭션: 결과 반영
 	public CashWithdrawalResponseDto requestWithdrawal(
 		long customerId, String bankCode, String accountNumber, String accountHolder, String idempotencyKey,
 		LocalDateTime now
@@ -61,10 +69,7 @@ public class CashWithdrawalUseCase {
 		if (requested.replay() != null) {
 			return requested.replay();
 		}
-		List<CardOutcome> outcomes = new ArrayList<>();
-		for (CardCall call : requested.calls()) {
-			outcomes.add(callPg(call));
-		}
+		List<CardOutcome> outcomes = callPgConcurrently(requested.calls());
 		return transactionTemplate.execute(status -> applyOutcomesLocked(customerId, requested, outcomes));
 	}
 
@@ -133,6 +138,26 @@ public class CashWithdrawalUseCase {
 		return new CashWithdrawalResponseDto(withdrawal.getAmount(), balance, amounts.cardAmount(),
 			amounts.accountAmount(), amounts.switchedToAccountAmount(), amounts.processingAmount(),
 			amounts.revertedAmount(), false);
+	}
+
+	// 몫마다 결과(성공·거절·모름)를 받는다. 예상 못 한 예외는 모든 호출이 끝난 뒤에 던져, 반영 안 된 몫은 재확인이 같은 키로 맞춘다
+	private List<CardOutcome> callPgConcurrently(List<CardCall> calls) {
+		List<CompletableFuture<CardOutcome>> futures = calls.stream()
+			.map(call -> CompletableFuture.supplyAsync(() -> callPg(call), pgCancelExecutor))
+			.toList();
+		CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).exceptionally(failure -> null).join();
+		return futures.stream().map(CashWithdrawalUseCase::outcomeOf).toList();
+	}
+
+	private static CardOutcome outcomeOf(CompletableFuture<CardOutcome> future) {
+		try {
+			return future.join();
+		} catch (CompletionException wrapped) {
+			if (wrapped.getCause() instanceof RuntimeException cause) {
+				throw cause;
+			}
+			throw wrapped;
+		}
 	}
 
 	private CardOutcome callPg(CardCall call) {

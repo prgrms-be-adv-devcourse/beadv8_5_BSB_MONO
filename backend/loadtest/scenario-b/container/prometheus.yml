@@ -1,0 +1,16 @@
+# 예치금 지표, MySQL 지표, 앱 밖에서 잰 컨테이너 CPU·메모리(cAdvisor)를 1초마다 모은다 (2분짜리 단계에서도 그래프가 촘촘하게)
+global:
+  scrape_interval: 1s
+  evaluation_interval: 1s
+
+scrape_configs:
+  - job_name: cash
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [ "cash:8091" ]
+  - job_name: mysql
+    static_configs:
+      - targets: [ "mysqld-exporter:9104" ]
+  - job_name: cadvisor
+    static_configs:
+      - targets: [ "cadvisor:8080" ]

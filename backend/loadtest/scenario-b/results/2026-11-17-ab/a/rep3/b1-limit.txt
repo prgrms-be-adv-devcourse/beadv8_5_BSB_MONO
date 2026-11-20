@@ -1,0 +1,107 @@
+time="2026-11-17T06:18:36Z" level=warning msg="The test has generated metrics with 100030 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T06:20:20Z" level=warning msg="The test has generated metrics with 200097 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T06:22:12Z" level=warning msg="The test has generated metrics with 400042 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-17T06:22:33Z" level=warning msg="Insufficient VUs, reached 1600 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=rate_400
+
+
+  █ THRESHOLDS 
+
+    dropped_iterations{scenario:rate_100}
+    ✓ 'count==0' count=0
+
+    dropped_iterations{scenario:rate_20}
+    ✓ 'count==0' count=0
+
+    dropped_iterations{scenario:rate_200}
+    ✗ 'count==0' count=254
+
+    dropped_iterations{scenario:rate_400}
+    ✗ 'count==0' count=11841
+
+    dropped_iterations{scenario:rate_50}
+    ✓ 'count==0' count=0
+
+    http_req_duration{stage:100}
+    ✓ 'p(95)<200' p(95)=92.96ms
+    ✓ 'p(99)<1000' p(99)=271.7ms
+    ✓ 'p(95)<2000' p(95)=92.96ms
+
+    http_req_duration{stage:20}
+    ✓ 'p(95)<200' p(95)=5.42ms
+    ✓ 'p(99)<1000' p(99)=64.08ms
+    ✓ 'p(95)<2000' p(95)=5.42ms
+
+    http_req_duration{stage:200}
+    ✗ 'p(95)<200' p(95)=1.66s
+    ✗ 'p(99)<1000' p(99)=4.29s
+    ✓ 'p(95)<2000' p(95)=1.66s
+
+    http_req_duration{stage:400}
+    ✗ 'p(95)<200' p(95)=7.78s
+    ✗ 'p(99)<1000' p(99)=8.96s
+    ✗ 'p(95)<2000' p(95)=7.78s
+
+    http_req_duration{stage:50}
+    ✓ 'p(95)<200' p(95)=6.46ms
+    ✓ 'p(99)<1000' p(99)=22.65ms
+    ✓ 'p(95)<2000' p(95)=6.46ms
+
+    http_req_failed{stage:100}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:20}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:200}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:400}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{stage:50}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 80609   126.268738/s
+    checks_succeeded...................: 100.00% 80609 out of 80609
+    checks_failed......................: 0.00%   0 out of 80609
+
+    ✓ 결제 200·결제됨
+
+    HTTP
+    http_req_duration.......................................................: avg=2.37s    med=232.4ms  p(95)=6s      p(99)=8.82s   max=9.59s   
+      { expected_response:true }............................................: avg=2.37s    med=232.4ms  p(95)=6s      p(99)=8.82s   max=9.59s   
+      { stage:100 }.........................................................: avg=15.4ms   med=2.69ms   p(95)=92.96ms p(99)=271.7ms max=387.3ms 
+      { stage:20 }..........................................................: avg=5.01ms   med=3.13ms   p(95)=5.42ms  p(99)=64.08ms max=300.74ms
+      { stage:200 }.........................................................: avg=268.61ms med=7.57ms   p(95)=1.66s   p(99)=4.29s   max=5.47s   
+      { stage:400 }.........................................................: avg=5.1s     med=5.02s    p(95)=7.78s   p(99)=8.96s   max=9.59s   
+      { stage:50 }..........................................................: avg=4.24ms   med=3.13ms   p(95)=6.46ms  p(99)=22.65ms max=275.98ms
+    http_req_failed.........................................................: 0.00% 0 out of 80609
+      { stage:100 }.........................................................: 0.00% 0 out of 12001
+      { stage:20 }..........................................................: 0.00% 0 out of 2400
+      { stage:200 }.........................................................: 0.00% 0 out of 23747
+      { stage:400 }.........................................................: 0.00% 0 out of 36160
+      { stage:50 }..........................................................: 0.00% 0 out of 6001
+    http_reqs...............................................................: 80609 126.268738/s
+
+    EXECUTION
+    dropped_iterations......................................................: 12095 18.946028/s
+      { scenario:rate_100 }.................................................: 0     0/s
+      { scenario:rate_20 }..................................................: 0     0/s
+      { scenario:rate_200 }.................................................: 254   0.397874/s
+      { scenario:rate_400 }.................................................: 11841 18.548154/s
+      { scenario:rate_50 }..................................................: 0     0/s
+    iteration_duration......................................................: avg=2.37s    med=232.88ms p(95)=6s      p(99)=8.82s   max=9.59s   
+    iterations..............................................................: 80609 126.268738/s
+    vus.....................................................................: 10    min=0          max=1600
+    vus_max.................................................................: 2254  min=1200       max=2254
+
+    NETWORK
+    data_received...........................................................: 17 MB 27 kB/s
+    data_sent...............................................................: 18 MB 29 kB/s
+
+
+
+time="2026-11-17T06:24:21Z" level=error msg="thresholds on metrics 'dropped_iterations{scenario:rate_200}, dropped_iterations{scenario:rate_400}, http_req_duration{stage:200}, http_req_duration{stage:400}' have been crossed"
