@@ -15,7 +15,6 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -64,14 +63,12 @@ public class HttpCrewSeatHoldAdapter implements CrewSeatHoldPort {
 			// 처음 결과를 주므로, 400이면 이 파티 몫으로 잡힌 자리가 없다 → 신청 중 표시를 지우게 거절로 알린다 (지훈님 리뷰)
 			// 주문이 보낸 값이 계약과 어긋났을 수 있어 error로 남긴다
 			if (exception.getStatusCode().isSameCodeAs(HttpStatus.BAD_REQUEST)) {
-				log.error("상품 서비스가 크루 자리 확보 요청을 400으로 거절했습니다. partyId={}, body={}", partyId,
-					InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+				log.error("상품 서비스가 크루 자리 확보 요청을 400으로 거절했습니다. partyId={}", partyId);
 				throw new ParticipationNotPayableException(messageOf(exception));
 			}
 			// 그 밖의 4xx는 경로·인증 계약이 어긋났다. 다시 해도 안 되지만 자리를 모르므로 503으로 둔다
-			log.error("상품 서비스가 크루 자리 확보 요청을 거절했습니다. 계약을 확인해야 합니다. status={}, partyId={}, body={}",
-				exception.getStatusCode(), partyId,
-				InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+			log.error("상품 서비스가 크루 자리 확보 요청을 거절했습니다. 계약을 확인해야 합니다. status={}, partyId={}",
+				exception.getStatusCode(), partyId);
 			throw new ExternalServiceUnavailableException(HttpSeatHoldAdapter.UNAVAILABLE_MESSAGE);
 		} catch (RestClientException exception) {
 			log.warn("상품 서비스에 크루 자리 확보를 요청하지 못했습니다. partyId={}, cause={}", partyId, exception.toString());
@@ -79,7 +76,7 @@ public class HttpCrewSeatHoldAdapter implements CrewSeatHoldPort {
 		}
 		HoldBody body = response == null ? null : response.data();
 		if (body == null || body.held() == null || (body.held() && body.expiresAt() == null)) {
-			log.error("상품 서비스의 크루 자리 확보 응답 형식이 계약과 다릅니다. partyId={}, response={}", partyId, response);
+			log.error("상품 서비스의 크루 자리 확보 응답 형식이 계약과 다릅니다. partyId={}", partyId);
 			throw new ExternalServiceUnavailableException(HttpSeatHoldAdapter.UNAVAILABLE_MESSAGE);
 		}
 		if (body.held()) {

@@ -13,7 +13,6 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -52,9 +51,8 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 				return Optional.empty();
 			}
 			// 404 말고 4xx는 다시 시도해도 풀리지 않는다. 경로·형식 계약이 어긋났을 수 있어 장애와 구분해 남긴다
-			log.error("상품 서비스가 종목 정보 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceCourseId={}, body={}",
-				exception.getStatusCode(), raceCourseId,
-				InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+			log.error("상품 서비스가 종목 정보 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceCourseId={}",
+				exception.getStatusCode(), raceCourseId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		} catch (RestClientException exception) {
 			log.warn("상품 서비스에 종목 정보를 묻지 못했습니다. raceCourseId={}, cause={}", raceCourseId, exception.toString());
@@ -62,7 +60,7 @@ public class HttpRaceCourseAdapter implements RaceCoursePort {
 		}
 		CourseBody body = response == null ? null : response.data();
 		if (body == null || !body.isComplete()) {
-			log.error("상품 서비스의 종목 정보 응답 형식이 계약과 다릅니다. raceCourseId={}, response={}", raceCourseId, response);
+			log.error("상품 서비스의 종목 정보 응답 형식이 계약과 다릅니다. raceCourseId={}", raceCourseId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return Optional.of(body.toInfo());

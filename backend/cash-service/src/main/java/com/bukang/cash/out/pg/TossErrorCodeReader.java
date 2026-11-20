@@ -17,7 +17,7 @@ final class TossErrorCodeReader {
 		try {
 			return exception.getResponseBodyAs(ErrorResponse.class);
 		} catch (RuntimeException parseException) {
-			log.warn("Toss 오류 응답 본문을 파싱하지 못했습니다. body={}", exception.getResponseBodyAsString());
+			log.warn("Toss 오류 응답 본문을 파싱하지 못했습니다. status={}", exception.getStatusCode());
 			return null;
 		}
 	}

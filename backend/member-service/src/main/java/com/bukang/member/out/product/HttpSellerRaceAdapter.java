@@ -40,7 +40,7 @@ public class HttpSellerRaceAdapter implements SellerRacePort {
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().hasOnSaleRace() == null) {
-			log.error("상품 서비스의 판매 중인 대회 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
+			log.error("상품 서비스의 판매 중인 대회 응답에 값이 없습니다. memberId={}", memberId);
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		return response.data().hasOnSaleRace();

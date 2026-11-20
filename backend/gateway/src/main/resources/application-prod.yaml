@@ -1,5 +1,9 @@
 # member-service와 같은 .env의 REDIS_HOST·REDIS_PORT로 같은 Redis에 붙는다
 spring:
+  # 운영 로그는 파드 출력을 모아 보므로 터미널 색 코드를 넣지 않는다 (application.yaml은 always)
+  output:
+    ansi:
+      enabled: never
   data:
     redis:
       host: ${REDIS_HOST}

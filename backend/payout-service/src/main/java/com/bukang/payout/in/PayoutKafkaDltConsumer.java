@@ -35,28 +35,28 @@ public class PayoutKafkaDltConsumer {
 	// 닫히지 않은 정산 내역이 지급될 수 있다. 원인을 고치기 전이면 그 대회의 정산 내역에 직접 지급보류를 건다
 	@KafkaListener(topics = RACE_CANCEL_DLT, groupId = GROUP_ID)
 	public void handleRaceCancelDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 대회 취소 메시지: {}", record.value());
+		log.error("처리하지 못한 대회 취소 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 1차 정산을 받은 참가권의 회수가 생기지 않았다. 원인을 고친 뒤 다시 보낸다
 	@KafkaListener(topics = ITEM_REFUNDED_DLT, groupId = GROUP_ID)
 	public void handleItemRefundedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 참가권 환불 메시지: {}", record.value());
+		log.error("처리하지 못한 참가권 환불 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 환불 완료를 적지 못해 그 대회의 대회 취소 청구가 생기지 않는다. 원인을 고친 뒤 다시 보낸다
 	@KafkaListener(topics = RACE_REFUND_DLT, groupId = GROUP_ID)
 	public void handleRaceRefundDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 대회 환불 메시지: {}", record.value());
+		log.error("처리하지 못한 대회 환불 메시지. key={}", record.key());
 		record(record);
 	}
 
 	// 판매자는 돈을 냈는데 회수가 끝나지 않았다. 입금액과 청구를 맞춰 보고 다시 보내거나 관리자 입금 확인으로 끝낸다
 	@KafkaListener(topics = CLAIM_DEPOSITED_DLT, groupId = GROUP_ID)
 	public void handleClaimDepositedDlt(ConsumerRecord<String, String> record) {
-		log.error("처리하지 못한 청구 입금 메시지: {}", record.value());
+		log.error("처리하지 못한 청구 입금 메시지. key={}", record.key());
 		record(record);
 	}
 

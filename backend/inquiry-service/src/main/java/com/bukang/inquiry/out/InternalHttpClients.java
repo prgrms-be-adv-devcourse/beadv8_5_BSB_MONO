@@ -25,16 +25,6 @@ public final class InternalHttpClients {
 	private InternalHttpClients() {
 	}
 
-	// 상대 오류 본문을 로그에 남길 최대 길이. dev 오류 응답은 스택 트레이스를 통째로 담아 한 줄이 수십 줄이 된다
-	public static final int LOGGED_BODY_LIMIT = 300;
-
-	public static String abbreviate(String body) {
-		if (body == null || body.length() <= LOGGED_BODY_LIMIT) {
-			return body;
-		}
-		return body.substring(0, LOGGED_BODY_LIMIT) + "…(" + body.length() + "자)";
-	}
-
 	// 상대 오류 응답(RsData)의 code가 기대한 값인지 본다. 본문이 없거나 읽지 못하면 false (경로가 바뀐 기본 404 등)
 	public static boolean hasErrorCode(HttpClientErrorException exception, String code) {
 		try {
@@ -77,8 +67,8 @@ public final class InternalHttpClients {
 				return Optional.empty();
 			}
 			// 경로가 바뀐 기본 404를 「없음」으로 보면 모든 요청이 조용히 없음이 되므로 503으로 본다
-			log.error("{}가 {}에 대상 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. target={}, body={}", endpoint.service(),
-				endpoint.request(), target, abbreviate(exception.getResponseBodyAsString()), exception);
+			log.error("{}가 {}에 대상 없음이 아닌 404로 답했습니다. 계약(경로)을 확인해야 합니다. target={}", endpoint.service(),
+				endpoint.request(), target, exception);
 			throw new InquiryExternalServiceUnavailableException(endpoint.unavailableMessage());
 		} catch (HttpClientErrorException exception) {
 			log.error("{}가 {}을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, target={}", endpoint.service(),
@@ -89,8 +79,7 @@ public final class InternalHttpClients {
 			throw new InquiryExternalServiceUnavailableException(endpoint.unavailableMessage());
 		}
 		if (response == null || response.data() == null) {
-			log.error("{}의 {} 응답에 값이 없습니다. target={}, response={}", endpoint.service(), endpoint.request(), target,
-				response);
+			log.error("{}의 {} 응답에 값이 없습니다. target={}", endpoint.service(), endpoint.request(), target);
 			throw new InquiryExternalServiceUnavailableException(endpoint.unavailableMessage());
 		}
 		return Optional.of(response.data());
