@@ -24,9 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 public class AiToolTrace {
 	public static final String KEY = "trace";
 	public static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+	private static final String POLICY = "policy:";
 
 	private final long memberId;
-	private final Map<AiSource, AiSourceDto> sources = new LinkedHashMap<>();
+	private final Map<String, AiSourceDto> sources = new LinkedHashMap<>();
 	private AiListDto list;
 
 	public AiToolTrace(long memberId) {
@@ -59,7 +60,16 @@ public class AiToolTrace {
 	}
 
 	private synchronized void source(AiSource source, LocalDateTime asOf) {
-		sources.put(source, AiSourceDto.of(source, asOf));
+		sources.put(source.name(), AiSourceDto.of(source, asOf));
+	}
+
+	// 정책 안내 도구가 쓴 정책. 화면이 없어 버튼 없이 정책 이름만 남긴다
+	public synchronized void policy(String name) {
+		sources.put(POLICY + name, new AiSourceDto(name, LocalDateTime.now(ZONE).withNano(0), null, null));
+	}
+
+	public synchronized void dropPolicies() {
+		sources.keySet().removeIf(key -> key.startsWith(POLICY));
 	}
 
 	// 같은 도구를 다시 부를 때 앞 호출의 목록이 남지 않게 비운다

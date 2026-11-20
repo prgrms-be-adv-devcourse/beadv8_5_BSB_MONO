@@ -161,6 +161,7 @@ backend/
   Redis 저장소의 `metadata-fields`를 비우지 않는다. 비우면 OpenAI 답(숫자·목록 메타데이터)이 인덱스에 못 들어가 대화 기록에서 빠진다. 인덱스 모양을 바꾸면 `index-name`도 바꾼다.
   `ChatMemory`를 빈으로 등록하면 Spring AI가 Redis 저장소를 만들지 않고 메모리 저장소로 바뀌므로 등록하지 않는다(`AiChatConfig`).
   도구(`@Tool`)는 화면별 묶음(`SellerTools`, `AdminTools`)으로 나누고 인자를 받지 않는다. 회원 번호는 `ToolContext`의 `AiToolTrace`에서 꺼낸다(모델이 정하지 않음).
+  예외로 두 화면에 함께 붙는 정책 안내 도구(`PolicyTools`, CRU-104)는 문의 초안과 같은 `InquiryPolicy` 주제 이름만 인자로 받는다. 출처·규칙에서 「(잠정)」·「정해지지 않았다」 같은 말은 빼고 넘긴다.
   도구는 필요한 값만 돌려주고 개인정보(구매자 이름·배송지·신청자 이름)는 모델에 보내지 않는다. 출처·버튼·목록은 `AiToolTrace`에 모아 코드가 응답에 붙인다.
   도구를 더하면 `AiSource`(화면 이름·프론트 경로)와 `AiApiExamples`도 함께 고친다. 한 질문의 도구 호출 상한은 `spring.ai.tools.limits`.
   common은 통째로 스캔하지 않고 오류 응답과 `@LoginMemberId`만 고른다(Kafka·DB가 없다). 테스트는 가짜 모델(`FakeChatModel`)과 Testcontainers Redis로 돈다(Docker 필요).
