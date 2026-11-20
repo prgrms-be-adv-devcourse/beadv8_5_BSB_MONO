@@ -82,6 +82,10 @@ public class RecordCertCheckUseCase {
 			failReason = "파일 없음: " + notFound.getMessage();
 		} catch (DownloadFailedException exhausted) {
 			failReason = "재시도 끝: " + exhausted.getMessage();
+		} catch (RuntimeException unexpected) {
+			// 인식 모델 실행 실패 같은 예외가 빠져나가면 같은 요청을 끝없이 다시 처리하고 뒤의 요청도 멈춘다 (리뷰 #645)
+			log.error("기록증을 읽다가 예상하지 못한 오류가 났습니다. submissionId={}", request.submissionId(), unexpected);
+			failReason = "읽기 실패: " + unexpected;
 		}
 		String alert = "[ai] 기록증 서버 확인 실패 → 모든 칸 읽지 못함으로 보냄. submissionId=" + request.submissionId()
 			+ ", fileId=" + request.fileId() + ", 이유=" + failReason;

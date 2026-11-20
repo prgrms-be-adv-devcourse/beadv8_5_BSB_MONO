@@ -117,6 +117,21 @@ class RecordCertCheckUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("인식 모델 실행 실패처럼 예상하지 못한 예외도 모든 칸 읽지 못함과 이유를 보낸다")
+	void unexpectedReadFailureSendsFailure() {
+		given(certImagePort.download(FILE_ID)).willReturn(IMAGE);
+		given(certReader.read(eq(IMAGE), any(), anyString(), anyString()))
+			.willThrow(new IllegalStateException("인식 모델 실행 실패"));
+
+		useCase.check(REQUEST);
+
+		RecordCertCheckedEvent sent = sent();
+		assertThat(sent.texts()).isEmpty();
+		assertThat(sent.failReason()).contains("읽기 실패").contains("인식 모델 실행 실패");
+		verify(slackNotifier).send(anyString());
+	}
+
+	@Test
 	@DisplayName("파일이 없으면 재시도 없이 모든 칸 읽지 못함과 이유를 보낸다")
 	void missingFileSendsFailureWithoutRetry() {
 		given(certImagePort.download(FILE_ID)).willThrow(new CertImageNotFoundException(FILE_ID));
