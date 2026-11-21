@@ -77,6 +77,22 @@
           "$ref": "#/components/schemas/PayoutCreateFailuresDto"
         }
       }
+    },
+    "payouts_1": {
+      "200": {
+        "wrapper": "RsDataPayoutAdminPayoutsDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutAdminPayoutsDto"
+        }
+      }
+    },
+    "findPayout": {
+      "200": {
+        "wrapper": "RsDataPayoutDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutDto"
+        }
+      }
     }
   },
   "schemas": {
@@ -777,6 +793,107 @@
         "autoFilledCount",
         "orderLookupFailureCount",
         "records"
+      ]
+    },
+    "PayoutStatusSummaryDto": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/components/schemas/PayoutStatus"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "payoutAmount": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "status",
+        "count",
+        "payoutAmount"
+      ]
+    },
+    "PayoutAdminPayoutDto": {
+      "type": "object",
+      "properties": {
+        "payout": {
+          "$ref": "#/components/schemas/PayoutDto"
+        },
+        "sellerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "holds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutHoldDto"
+          }
+        }
+      },
+      "required": [
+        "payout",
+        "sellerId",
+        "holds"
+      ]
+    },
+    "PayoutAdminPayoutPageDto": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutAdminPayoutDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "content",
+        "page",
+        "size",
+        "totalElements",
+        "totalPages"
+      ]
+    },
+    "PayoutAdminPayoutsDto": {
+      "type": "object",
+      "properties": {
+        "payDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "summary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutStatusSummaryDto"
+          }
+        },
+        "payouts": {
+          "$ref": "#/components/schemas/PayoutAdminPayoutPageDto"
+        }
+      },
+      "required": [
+        "payDate",
+        "summary",
+        "payouts"
       ]
     }
   }

@@ -312,6 +312,32 @@ export interface PayoutCreateFailuresDto {
   records: PayoutCreateFailurePageDto;
 }
 
+export interface PayoutStatusSummaryDto {
+  status: PayoutStatus;
+  count: number;
+  payoutAmount: number;
+}
+
+export interface PayoutAdminPayoutDto {
+  payout: PayoutDto;
+  sellerId: number;
+  holds: PayoutHoldDto[];
+}
+
+export interface PayoutAdminPayoutPageDto {
+  content: PayoutAdminPayoutDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PayoutAdminPayoutsDto {
+  payDate: string;
+  summary: PayoutStatusSummaryDto[];
+  payouts: PayoutAdminPayoutPageDto;
+}
+
 export interface RsDataPayoutHoldDto {
   status?: number;
   message?: string;
@@ -348,6 +374,12 @@ export interface RsDataListSellerPayoutHoldDto {
   data?: SellerPayoutHoldDto[];
 }
 
+export interface RsDataPayoutDto {
+  status?: number;
+  message?: string;
+  data?: PayoutDto;
+}
+
 export interface RsDataPayoutCreateFailuresDto {
   status?: number;
   message?: string;
@@ -358,6 +390,12 @@ export interface RsDataPayoutAdminClaimsDto {
   status?: number;
   message?: string;
   data?: PayoutAdminClaimsDto;
+}
+
+export interface RsDataPayoutAdminPayoutsDto {
+  status?: number;
+  message?: string;
+  data?: PayoutAdminPayoutsDto;
 }
 
 export type RefundEligibilityParams = {
@@ -495,4 +533,23 @@ export const AdminClaimsStatus = {
   청구_중: '청구_중',
   입금_확인: '입금_확인',
 } as const;
+
+export type Payouts1Params = {
+/**
+ * 지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)
+ */
+payDate?: string;
+/**
+ * 정산 상태 (없으면 그날의 모든 상태)
+ */
+status?: PayoutStatus;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
+};
 
