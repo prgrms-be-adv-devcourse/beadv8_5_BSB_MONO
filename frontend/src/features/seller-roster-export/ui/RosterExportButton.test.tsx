@@ -151,4 +151,53 @@ describe('RosterExportButton', () => {
       { raceId: 7, reason: '배번 인쇄' },
     ])
   })
+
+  it('서버가 거절하면 창을 연 채로 이유를 보여 주고 알림을 띄우지 않는다', async () => {
+    server.use(
+      http.post(EXPORT_URL, () =>
+        HttpResponse.json(
+          {
+            status: 403,
+            code: 'ORDER_SELLER_FORBIDDEN',
+            message: '승인된 판매자만 쓸 수 있습니다.',
+            data: null,
+          },
+          { status: 403 },
+        ),
+      ),
+    )
+    renderButton()
+    await open()
+
+    await userEvent.type(screen.getByLabelText(/내려받는 사유/), '배번 인쇄')
+    await userEvent.click(screen.getByRole('button', { name: '엑셀로 내려받기' }))
+
+    expect(await screen.findByText('승인된 판매자만 쓸 수 있습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '명단 내려받기' })).toBeInTheDocument()
+    expect(screen.queryByText('명단을 받지 못했어요')).not.toBeInTheDocument()
+  })
+
+  it('다시 받기를 여러 번 눌러도 한 번만 다시 보낸다', async () => {
+    let calls = 0
+    server.use(
+      http.post(EXPORT_URL, () => {
+        calls += 1
+        return calls === 1
+          ? HttpResponse.json({ status: 503, message: '잠시 뒤', data: null }, { status: 503 })
+          : new HttpResponse('주문번호\n', { headers: { 'Content-Type': 'text/csv' } })
+      }),
+    )
+    renderButton()
+    await open()
+
+    await userEvent.type(screen.getByLabelText(/내려받는 사유/), '배번 인쇄')
+    await userEvent.click(screen.getByRole('button', { name: '엑셀로 내려받기' }))
+    const retry = await screen.findByRole('button', { name: '다시 받기', hidden: true })
+    await userEvent.click(retry)
+    await userEvent.click(retry)
+    await userEvent.click(retry)
+
+    await vi.waitFor(() => expect(clicked).toHaveLength(1))
+    expect(calls).toBe(2)
+  })
 })

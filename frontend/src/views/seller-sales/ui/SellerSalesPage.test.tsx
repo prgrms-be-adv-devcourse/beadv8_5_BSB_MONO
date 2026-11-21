@@ -208,12 +208,55 @@ describe('SellerSalesPage', () => {
 
     expect(await screen.findByText('「김철수」와 맞는 참가자가 없어요')).toBeInTheDocument()
     expect(keywords).toContain('김철수')
+    // 참가자 이름은 주소에 남기지 않는다
+    expect(decodeURIComponent(currentSearch())).not.toContain('김철수')
     // 전체 수는 찾기와 상관없이 대회의 전체 참가자 수다
     expect(screen.getByText('전체 1,780명')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '찾기 지우기' }))
     expect(await screen.findByText('OD-20261012-0231')).toBeInTheDocument()
     expect(screen.getByLabelText('이름 · 주문번호로 찾기')).toHaveValue('')
+  })
+
+  it('주소의 쪽 번호가 숫자가 아니면 첫 쪽을 받는다', async () => {
+    resetNavigationMock('page=1e21')
+    mockRaces([RACE])
+    const pages: (string | null)[] = []
+    server.use(
+      http.get('*/api/v1/order/seller/orders', ({ request }) => {
+        pages.push(new URL(request.url).searchParams.get('page'))
+        return HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { orders: ORDERS, page: 0, size: 50, totalElements: 2, totalPages: 1 },
+        })
+      }),
+    )
+    renderPage()
+
+    await screen.findByRole('table', { name: '참가자' })
+    expect(pages.every((p) => p === '0')).toBe(true)
+  })
+
+  it('쪽 번호가 전체 쪽 수를 넘으면 빈 문구 대신 쪽 넘기기를 보여 준다', async () => {
+    resetNavigationMock('page=9')
+    mockRaces([RACE])
+    server.use(
+      http.get('*/api/v1/order/seller/orders', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'))
+        const orders = page === 0 ? ORDERS : []
+        return HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: { orders, page, size: 50, totalElements: 120, totalPages: 3 },
+        })
+      }),
+    )
+    renderPage()
+
+    expect(await screen.findByText('9 / 3')).toBeInTheDocument()
+    expect(screen.queryByText('아직 참가자가 없어요')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이전 쪽' })).toBeEnabled()
   })
 
   it('파티별 탭은 파티 번호 · 인원 · 결제 · 상태를 보여 주고 파티 번호로 찾는다', async () => {

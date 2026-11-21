@@ -51,5 +51,7 @@ describe('판매 현황 명단 글', () => {
     expect(parsePartyNo('김철수')).toBeUndefined()
     expect(parsePartyNo('')).toBeUndefined()
     expect(parsePartyNo('0')).toBeUndefined()
+    // 서버의 Long을 넘는 큰 수는 묻지 않고 없는 파티로 본다
+    expect(parsePartyNo('P-99999999999999999999')).toBeUndefined()
   })
 })

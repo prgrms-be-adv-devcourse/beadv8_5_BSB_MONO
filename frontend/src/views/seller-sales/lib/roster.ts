@@ -38,5 +38,6 @@ export function kitOptionText(order: Pick<orderModel.SellerOrderDto, 'kitOptions
 export function parsePartyNo(text: string) {
   const match = /^p-?(\d+)$/i.exec(text.trim()) ?? /^(\d+)$/.exec(text.trim())
   const id = match ? Number(match[1]) : 0
-  return id > 0 ? id : undefined
+  // 서버는 Long으로 받는다. 정확히 셀 수 없는 큰 수는 맞는 파티가 없는 것으로 본다
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined
 }

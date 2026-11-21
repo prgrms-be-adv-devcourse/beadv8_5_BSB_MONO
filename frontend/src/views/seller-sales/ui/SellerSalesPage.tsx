@@ -39,8 +39,8 @@ function seatsOf(race: productModel.SellerRaceDto) {
 export function SellerSalesPage() {
   const races = useQuery(myRacesQueryOptions())
   // 고른 대회는 주소(?race=)에 담는다. 대회 상세의 바로 가기가 번호를 넘긴다.
-  // 명단의 탭 · 쪽 · 찾는 말도 주소에 있어서, 대회를 바꾸면 쪽과 찾는 말을 지운다
-  const [url, setUrl] = useSearchParamsState({ race: '', tab: 'participants', page: '1', q: '' })
+  // 명단의 탭 · 쪽도 주소에 있어서, 대회를 바꾸면 첫 쪽으로 돌린다
+  const [url, setUrl] = useSearchParamsState({ race: '', tab: 'participants', page: '1' })
   const picked = url.race
   const list = races.data ?? []
   // 고르기 전에는 판매 중인 대회를 먼저, 없으면 가장 최근 대회
@@ -92,7 +92,7 @@ export function SellerSalesPage() {
         className="w-100"
         items={list.map((r) => ({ value: String(r.raceId), label: r.title ?? '' }))}
         value={String(race.raceId)}
-        onValueChange={(value) => setUrl({ race: value ?? '', page: '1', q: '' })}
+        onValueChange={(value) => setUrl({ race: value ?? '', page: '1' })}
       />
       <SalesBody race={race} raceId={race.raceId} />
     </ConsolePage>

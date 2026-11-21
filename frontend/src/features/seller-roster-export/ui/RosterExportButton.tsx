@@ -2,20 +2,30 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useState } from 'react'
+import { z } from 'zod'
 
-import type { orderModel, productModel } from '@/shared/api'
+import { ApiError, type orderModel, type productModel } from '@/shared/api'
 import { orderZod } from '@/shared/api-zod'
 import { formatNumber } from '@/shared/lib'
-import { Button, buttonClassName, Radio, RadioGroup, TextField, useToast } from '@/shared/ui'
+import { Alert, Button, buttonClassName, Radio, RadioGroup, TextField, useToast } from '@/shared/ui'
 
 import { useExportRoster } from '../model/use-export-roster'
 
 const ALL = 'all'
 
-const reasonSchema = orderZod.ExportRosterBody.shape.reason
+// 생성 스키마의 max는 영어 기본 문구라 먼저 걸리면 영어가 보인다. 같은 규칙(필수 · 200자)을 한국어 문구로 쓴다
+const reasonSchema = z
+  .string()
   .trim()
   .min(1, '내려받는 사유를 입력해 주세요.')
   .max(orderZod.exportRosterBodyReasonMax, '사유는 200자까지 쓸 수 있어요.')
+
+/** 서버가 요청을 거절한 경우(4xx). 다시 보내도 같으니 창 안에 이유를 보여 준다 */
+function rejectedReason(error: unknown) {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500
+    ? error.serverMessage || '요청을 처리하지 못했어요.'
+    : undefined
+}
 
 type Race = Pick<productModel.SellerRaceDto, 'raceId' | 'courses'>
 
@@ -47,18 +57,30 @@ export function RosterExportButton({ race }: { race: Race }) {
       setScope(ALL)
       setReason('')
       setReasonError(undefined)
+      exportRoster.reset()
     }
   }
 
   function run(body: orderModel.SellerRosterExportRequestDto) {
     exportRoster.mutate(body, {
       onSuccess: () => changeOpen(false),
-      onError: () => {
-        setOpen(false)
+      onError: (error) => {
+        if (rejectedReason(error)) return
+        // 서버 · 연결 실패는 시안 2072:83305처럼 창을 닫고 다시 받기 알림을 띄운다.
+        // 공용 토스트는 행동을 눌러도 닫히지 않아서, 여러 번 눌러도 한 번만 다시 보낸다
+        changeOpen(false)
+        let retried = false
         showToast({
           message: '명단을 받지 못했어요',
           tone: 'error',
-          action: { label: '다시 받기', onClick: () => run(body) },
+          action: {
+            label: '다시 받기',
+            onClick: () => {
+              if (retried) return
+              retried = true
+              run(body)
+            },
+          },
         })
       },
     })
@@ -124,6 +146,13 @@ export function RosterExportButton({ race }: { race: Race }) {
               setReasonError(undefined)
             }}
           />
+          {rejectedReason(exportRoster.error) && (
+            <Alert
+              tone="danger"
+              title="내려받지 못했어요"
+              description={rejectedReason(exportRoster.error)}
+            />
+          )}
           <p className="text-center text-body1-medium text-text-danger">
             참가자 정보는 대회가 끝나고 1년 뒤 파기해야 해요
           </p>

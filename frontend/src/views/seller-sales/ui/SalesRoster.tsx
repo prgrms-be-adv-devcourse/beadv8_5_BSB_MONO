@@ -2,6 +2,7 @@
 
 import { keepPreviousData } from '@tanstack/react-query'
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { z } from 'zod'
 
 import { formatRaceDate } from '@/entities/race'
 import { ApiError, orderApi, unwrapData } from '@/shared/api'
@@ -32,6 +33,8 @@ import {
 export const ROSTER_PAGE_SIZE = 50
 
 const TABS = ['participants', 'parties'] as const
+// 주소의 쪽 번호. 숫자가 아니거나 너무 크면 첫 쪽 (서버는 쪽 번호를 int로 받는다)
+const pageSchema = z.coerce.number().int().min(1).max(1_000_000).catch(1)
 const TH = 'h-11 px-3 text-left text-caption-medium font-medium text-text-secondary'
 const TD = 'truncate px-3'
 const TONE: Record<StatusTone, string> = {
@@ -46,30 +49,31 @@ function errorText(error: unknown) {
 }
 
 // 시안 2070:66595 · 2070:66774 · 2072:83121: 참가자 · 파티별 탭과 찾기, 표, 쪽 넘기기.
-// 탭 · 쪽 · 찾는 말은 주소에 담는다. 대회를 바꾸면 위에서 key로 다시 그려 입력칸도 비운다.
+// 탭 · 쪽은 주소에 담는다. 찾는 말은 참가자 이름이라 주소(방문 기록 · 접근 로그 · 화면 녹화)에 남기지 않고 화면 상태로만 둔다.
+// 대회를 바꾸면 위에서 key로 다시 그려 찾는 말도 비운다.
 export function SalesRoster({ raceId }: { raceId: number }) {
-  const [url, setUrl] = useSearchParamsState(
-    { tab: 'participants', page: '1', q: '' },
-    { tab: [...TABS] },
-  )
-  const [draft, setDraft] = useState(url.q)
-  const page = Math.max(1, Math.trunc(Number(url.page)) || 1)
+  const [url, setUrl] = useSearchParamsState({ tab: 'participants', page: '1' }, { tab: [...TABS] })
+  const [draft, setDraft] = useState('')
+  const [q, setQ] = useState('')
+  const page = pageSchema.parse(url.page)
   const parties = url.tab === 'parties'
 
   function search(event: FormEvent) {
     event.preventDefault()
-    setUrl({ q: draft.trim(), page: '1' })
+    setQ(draft.trim())
+    setUrl({ page: '1' })
   }
   function clearSearch() {
     setDraft('')
-    setUrl({ q: '', page: '1' })
+    setQ('')
+    setUrl({ page: '1' })
   }
 
   const placeholder = parties ? '파티 번호로 찾기' : '이름 · 주문번호로 찾기'
   const list = {
     page,
     onPage: (next: number) => setUrl({ page: String(next) }),
-    q: url.q,
+    q,
     onClear: clearSearch,
   }
 
@@ -83,7 +87,8 @@ export function SalesRoster({ raceId }: { raceId: number }) {
           value={url.tab}
           onValueChange={(tab) => {
             setDraft('')
-            setUrl({ tab: String(tab), page: '1', q: '' })
+            setQ('')
+            setUrl({ tab: String(tab), page: '1' })
           }}
         >
           <TabBar layout="hug" className="border-b-0 px-0">
@@ -294,10 +299,16 @@ function RosterBody({
           <tbody>{rows}</tbody>
         </table>
       )}
-      {!rows ? null : rows.length === 0 ? (
+      {!rows ? null : rows.length === 0 && page > 1 && totalPages > 0 ? (
+        // 주소의 쪽이 전체 쪽 수를 넘었다(공유한 주소 등). 빈 문구 대신 앞쪽으로 갈 수 있게 쪽 넘기기만 보인다
+        <PageNav page={page} totalPages={totalPages} onPage={onPage} />
+      ) : rows.length === 0 ? (
         // 시안 2072:83121: 표 머리 아래 가운데에 문구와 찾기 지우기
         <div className="flex flex-col items-center gap-4 py-24">
-          <p className="text-title3 text-text-primary">{emptyText}</p>
+          {/* 찾는 말이 참가자 이름일 수 있어 화면 녹화에서 가린다 */}
+          <p className="text-title3 text-text-primary" data-clarity-mask="true">
+            {emptyText}
+          </p>
           {searching && (
             <Button variant="secondary" onClick={onClear}>
               찾기 지우기
