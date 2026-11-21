@@ -54,7 +54,7 @@ class RaceSameDaySaleTest {
 		return race()
 			.individualOpenAt(NOW.minusMinutes(1))
 			.applicationCloseAt(LocalDateTime.of(2026, 11, 28, 18, 0))
-			.raceDate(LocalDateTime.of(2026, 12, 3, 8, 0))
+			.raceDate(LocalDateTime.of(2026, 12, 20, 8, 0))
 			.refundDeadline(LocalDate.of(2026, 11, 28))
 			.build();
 	}

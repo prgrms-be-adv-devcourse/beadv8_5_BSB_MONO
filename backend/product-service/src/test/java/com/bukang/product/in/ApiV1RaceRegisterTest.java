@@ -146,7 +146,7 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	@DisplayName("부산 대회에 10K·하프 두 종목을 등록하면 대회·종목 값이 요청대로 저장되고, 종목 ID는 요청 순서대로 돌려준다")
 	void saveRaceAndCourses() throws Exception {
 		RaceBuilder builder = upcomingRace();
-		LocalDateTime raceDate = builder.now().plusDays(20);
+		LocalDateTime raceDate = builder.now().plusDays(35);
 		LocalDateTime applicationCloseAt = builder.now().plusDays(12);
 		LocalDate refundDeadline = raceDate.toLocalDate().minusDays(3);
 		RaceSaveRequestDto request = builder.title("2026 부산 바다 런")
@@ -498,23 +498,37 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("접수 마감 일시가 대회 일시보다 1분 늦으면 400이고, 대회 일시와 같으면 등록된다")
+	@DisplayName("접수 마감 일시가 대회 일시보다 1분 늦으면 400이다")
 	void rejectApplicationCloseAfterRaceDate() throws Exception {
 		RaceBuilder builder = upcomingRace();
 		LocalDateTime raceDate = builder.now().plusDays(15);
 		builder.raceDate(raceDate);
 
+		// 대회 일시와 같은 접수 마감은 이제 3주 간격 규칙(CRU-131)에 걸려 등록되지 않으므로, 늦은 경우만 본다
 		assertRejected(builder.applicationCloseAt(raceDate.plusMinutes(1)).build(),
 			"접수 마감 일시는 대회 일시보다 늦을 수 없습니다.");
+	}
 
-		register(builder.applicationCloseAt(raceDate).build());
+	@Test
+	@DisplayName("대회 일시가 접수 마감 일시로부터 딱 3주 뒤면 등록된다")
+	void registerRaceDateExactlyThreeWeeksAfterClose() throws Exception {
+		// given
+		RaceBuilder builder = upcomingRace();
+		LocalDateTime applicationCloseAt = builder.now().plusDays(10);
+		LocalDateTime raceDate = applicationCloseAt.plusWeeks(3);
+
+		// when
+		RegisteredRace registered = register(builder.applicationCloseAt(applicationCloseAt).raceDate(raceDate).build());
+
+		// then
+		assertThat(raceRepository.findById(registered.raceId()).orElseThrow().getRaceDate()).isEqualTo(raceDate);
 	}
 
 	@Test
 	@DisplayName("환불 기준일이 대회 날짜 다음 날이면 400이고, 대회 날짜와 같으면 등록된다")
 	void rejectRefundDeadlineAfterRaceDate() throws Exception {
 		RaceBuilder builder = upcomingRace();
-		LocalDateTime raceDate = builder.now().plusDays(15);
+		LocalDateTime raceDate = builder.now().plusDays(31);
 		builder.raceDate(raceDate);
 
 		assertRejected(builder.refundDeadline(raceDate.toLocalDate().plusDays(1)).build(),

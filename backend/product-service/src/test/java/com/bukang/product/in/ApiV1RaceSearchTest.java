@@ -106,7 +106,7 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.course(course().price(40_000), halfCourse().price(55_000), fiveKmCourse().price(30_000));
 		LocalDateTime now = builder.now();
 		RegisteredRace multi = registerOnSale(builder
-			.raceDate(now.plusDays(20))
+			.raceDate(now.plusDays(40))
 			.applicationCloseAt(now.plusDays(18))
 			.build());
 		// 기본 요청은 마감이 10일 뒤라 마감 임박순으로 앞에 온다
@@ -136,7 +136,7 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.races[1].courses[2].distanceKm").value(5.0));
 
 		String body = bodyOf(result);
-		assertThat(dateTimeAt(body, "$.data.races[1].raceDate")).isEqualTo(now.plusDays(20));
+		assertThat(dateTimeAt(body, "$.data.races[1].raceDate")).isEqualTo(now.plusDays(40));
 		assertThat(dateTimeAt(body, "$.data.races[1].applicationCloseAt")).isEqualTo(now.plusDays(18));
 		// 크루 예매가 없으면 개인 예매 오픈(기본 한 시간 전) 날짜가 판매 시작일이다
 		// 구매자 화면용으로 크루 예매 기간(없으면 null)과 개인 예매 오픈 일시도 준다
@@ -163,6 +163,7 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.location("내장산 일대")
 			.region("전북특별자치도", "정읍시")
 			.description("숲길을 달리는 대회")
+			.raceDate(now.plusDays(35))
 			.applicationCloseAt(now.plusDays(12))
 			.build());
 		RegisteredRace descriptionMatched = registerOnSale(race().title("2026 숲길 마라톤")
@@ -180,23 +181,23 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("정렬 5가지: 마감 임박순은 마감 5·10·20일 뒤 순, 대회일 빠른순은 대회 12·25·30일 뒤 순, 최신 등록순은 등록 역순, "
+	@DisplayName("정렬 5가지: 마감 임박순은 마감 5·10·20일 뒤 순, 대회일 빠른순은 대회 32·42·50일 뒤 순, 최신 등록순은 등록 역순, "
 		+ "가격 낮은순은 30,000·40,000·50,000원 순이고, 검색어 없는 정확도순은 마감 임박순과 같다")
 	void sortsByEachOption() throws Exception {
 		LocalDateTime now = LocalDateTime.now().withNano(0);
 		// 정렬마다 순서가 달라지게 마감·대회일·등록 순서·참가비를 엇갈려 둔다
 		RegisteredRace first = registerOnSale(race().title("첫 번째 등록 대회")
-			.raceDate(now.plusDays(30))
+			.raceDate(now.plusDays(50))
 			.applicationCloseAt(now.plusDays(5))
 			.course(course().price(30_000))
 			.build());
 		RegisteredRace second = registerOnSale(race().title("두 번째 등록 대회")
-			.raceDate(now.plusDays(12))
+			.raceDate(now.plusDays(32))
 			.applicationCloseAt(now.plusDays(10))
 			.course(course().price(50_000))
 			.build());
 		RegisteredRace third = registerOnSale(race().title("세 번째 등록 대회")
-			.raceDate(now.plusDays(25))
+			.raceDate(now.plusDays(42))
 			.applicationCloseAt(now.plusDays(20))
 			.course(course().price(40_000))
 			.build());
@@ -222,6 +223,7 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.applicationCloseAt(now.plusDays(8))
 			.build());
 		RegisteredRace inTitle = registerOnSale(nightRun("은하 나이트 런", "여의도 공원", "도심을 달리는 야간 대회")
+			.raceDate(now.plusDays(35))
 			.applicationCloseAt(now.plusDays(12))
 			.build());
 
@@ -263,6 +265,7 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.region("부산광역시", "해운대구")
 			.location("해운대 해변")
 			.description("바다를 보며 달리는 대회")
+			.raceDate(now.plusDays(35))
 			.applicationCloseAt(now.plusDays(12))
 			.build());
 		RegisteredRace busanOnly = registerOnSale(race().title("부산 바다 마라톤")
@@ -405,20 +408,20 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("대회 날짜 범위는 시작·끝 날짜를 모두 포함해, 20일 뒤~20일 뒤면 20일 뒤 대회만, 시작만 20일 뒤면 20·30일 뒤 대회, "
-		+ "끝만 20일 뒤면 10·20일 뒤 대회가 나오고, 21일 뒤~29일 뒤면 0건이다")
+	@DisplayName("대회 날짜 범위는 시작·끝 날짜를 모두 포함해, 40일 뒤~40일 뒤면 40일 뒤 대회만, 시작만 40일 뒤면 40·50일 뒤 대회, "
+		+ "끝만 40일 뒤면 30·40일 뒤 대회가 나오고, 41일 뒤~49일 뒤면 0건이다")
 	void filtersByRaceDateRange() throws Exception {
 		LocalDateTime now = LocalDateTime.now().withNano(0);
-		RegisteredRace in10Days = registerOnSale(raceOn(now.plusDays(10)));
-		RegisteredRace in20Days = registerOnSale(raceOn(now.plusDays(20)));
 		RegisteredRace in30Days = registerOnSale(raceOn(now.plusDays(30)));
-		String day20 = now.plusDays(20).toLocalDate().toString();
+		RegisteredRace in40Days = registerOnSale(raceOn(now.plusDays(40)));
+		RegisteredRace in50Days = registerOnSale(raceOn(now.plusDays(50)));
+		String day40 = now.plusDays(40).toLocalDate().toString();
 
-		expectRacesInAnyOrder(search("raceDateFrom", day20, "raceDateTo", day20), in20Days);
-		expectRacesInAnyOrder(search("raceDateFrom", day20), in20Days, in30Days);
-		expectRacesInAnyOrder(search("raceDateTo", day20), in10Days, in20Days);
-		expectNoRaces(search("raceDateFrom", now.plusDays(21).toLocalDate().toString(),
-			"raceDateTo", now.plusDays(29).toLocalDate().toString()));
+		expectRacesInAnyOrder(search("raceDateFrom", day40, "raceDateTo", day40), in40Days);
+		expectRacesInAnyOrder(search("raceDateFrom", day40), in40Days, in50Days);
+		expectRacesInAnyOrder(search("raceDateTo", day40), in30Days, in40Days);
+		expectNoRaces(search("raceDateFrom", now.plusDays(41).toLocalDate().toString(),
+			"raceDateTo", now.plusDays(49).toLocalDate().toString()));
 	}
 
 	// ---------- 가격 낮은순, 최저가 ----------
@@ -646,11 +649,11 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 			.description(description);
 	}
 
-	// 대회 일시만 다른 대회 (접수 마감은 모두 9일 뒤)
+	// 대회 일시만 다른 대회 (접수 마감은 모두 8일 뒤라 대회 일시는 29일 뒤부터 둘 수 있다)
 	private static RaceSaveRequestDto raceOn(LocalDateTime raceDate) {
 		RaceBuilder builder = race().title("%s 대회".formatted(raceDate.toLocalDate()));
 		return builder.raceDate(raceDate)
-			.applicationCloseAt(builder.now().plusDays(9))
+			.applicationCloseAt(builder.now().plusDays(8))
 			.build();
 	}
 

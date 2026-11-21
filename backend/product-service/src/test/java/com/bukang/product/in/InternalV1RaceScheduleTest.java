@@ -28,8 +28,8 @@ class InternalV1RaceScheduleTest extends ProductIntegrationTest {
 	private static final String BY_REFUND_DEADLINE_PATH = "/internal/v1/product/races/by-refund-deadline";
 	private static final String BY_RACE_DATE_PATH = "/internal/v1/product/races/by-race-date";
 
-	// 조회 기간 시작일. 기본 요청의 접수 마감(10일 뒤)보다 늦어야 대회를 등록할 수 있다
-	private final LocalDate from = LocalDate.now().plusDays(20);
+	// 조회 기간 시작일. 대회 일시는 기본 요청의 접수 마감(10일 뒤)으로부터 3주 뒤부터라, 그 전날 대회도 등록되게 40일 뒤로 둔다
+	private final LocalDate from = LocalDate.now().plusDays(40);
 	// 정산 배치처럼 7일 기간으로 묻는다
 	private final LocalDate to = from.plusDays(6);
 
