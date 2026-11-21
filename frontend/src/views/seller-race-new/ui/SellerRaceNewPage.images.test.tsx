@@ -264,7 +264,8 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     fireEvent.submit(document.getElementById('seller-race-new') as HTMLFormElement)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(registered).toBe(1)
-  })
+    // 폼을 끝까지 채우는 긴 시나리오라 CI에서 기본 5초를 넘길 수 있다
+  }, 20_000)
 })
 
 describe('SellerRaceNewPage 자동 저장 표시', () => {
