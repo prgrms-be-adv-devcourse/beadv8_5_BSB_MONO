@@ -80,8 +80,9 @@ function DetailBody({
   const ship = useShipKits()
   const deliver = useCompleteKitDeliveries()
   const change = useChangeKitTracking()
-  // 송장 입력 대기 · 송장 고치기에서만 입력 칸을 연다. 취소된 주문은 바꾸지 않는다
-  const formMode = !canceled && (status === 'PREPARING' || editing)
+  // 송장 입력 대기 · 송장 고치기에서만 입력 칸을 연다.
+  // 취소는 머리 표시에만 쓴다. 서버는 보낸 뒤 취소된 주문도 송장 고치기 · 배송 완료를 받는다
+  const formMode = status === 'PREPARING' || editing
   const form = useForm<DetailFormValues>({
     resolver: zodResolver(detailFormSchema),
     defaultValues: { carrier: '', trackingNumber: '' },
@@ -94,6 +95,8 @@ function DetailBody({
       : CARRIERS
 
   const submit = form.handleSubmit(async ({ carrier, trackingNumber }) => {
+    // 버튼은 loading으로 막히지만 입력칸에서 Enter로 보내는 길은 여기서 막는다
+    if (ship.isPending || change.isPending) return
     setError(null)
     if (editing) {
       try {
@@ -131,9 +134,14 @@ function DetailBody({
     form.reset({ carrier: kit.kitCarrier ?? '', trackingNumber: kit.kitTrackingNumber ?? '' })
   }
 
-  const footer = canceled ? null : editing ? (
+  function cancelEditing() {
+    setError(null)
+    setEditing(false)
+  }
+
+  const footer = editing ? (
     <>
-      <Button variant="secondary" size="l" className="flex-1" onClick={() => setEditing(false)}>
+      <Button variant="secondary" size="l" className="flex-1" onClick={cancelEditing}>
         취소
       </Button>
       <Button size="l" className="flex-1" loading={change.isPending} onClick={submit}>
@@ -224,6 +232,7 @@ function DetailBody({
                 <InfoRow label="송장 번호">
                   <button
                     type="button"
+                    aria-label={`송장 번호 ${formatTrackingNumber(kit.kitTrackingNumber)} 복사`}
                     onClick={copyTracking}
                     className={cn('cursor-pointer rounded-sm hover:underline', FOCUS_RING)}
                   >
@@ -235,7 +244,7 @@ function DetailBody({
                   <InfoRow label="받은 날">{formatMonthDay(kit.kitDeliveredAt)}</InfoRow>
                 )}
               </InfoGroup>
-              {status === 'SHIPPING' && !canceled && (
+              {status === 'SHIPPING' && (
                 <Button variant="secondary" size="s" className="self-start" onClick={startEditing}>
                   송장 수정하기
                 </Button>

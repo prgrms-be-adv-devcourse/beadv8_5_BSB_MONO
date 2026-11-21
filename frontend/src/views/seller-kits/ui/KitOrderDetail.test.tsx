@@ -106,7 +106,9 @@ describe('키트 주문 상세 창', () => {
 
     expect(within(panel).getByText('배송 중')).toBeInTheDocument()
     expect(within(panel).getByText('CJ대한통운')).toBeInTheDocument()
-    expect(within(panel).getByRole('button', { name: '6849 1234 5678' })).toBeInTheDocument()
+    expect(
+      within(panel).getByRole('button', { name: '송장 번호 6849 1234 5678 복사' }),
+    ).toBeInTheDocument()
     expect(within(panel).getByText('10/14 (수)')).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: '송장 수정하기' })).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: '배송 완료로 바꾸기' })).toBeInTheDocument()
@@ -117,7 +119,7 @@ describe('키트 주문 상세 창', () => {
     const user = userEvent.setup()
     renderPage()
     const panel = await openDetail(user, 'OD-20261003-0093')
-    await user.click(within(panel).getByRole('button', { name: '6849 1234 5678' }))
+    await user.click(within(panel).getByRole('button', { name: '송장 번호 6849 1234 5678 복사' }))
 
     expect(await screen.findByText('운송장 번호를 복사했어요')).toBeInTheDocument()
     expect(await navigator.clipboard.readText()).toBe('684912345678')
@@ -155,7 +157,9 @@ describe('키트 주문 상세 창', () => {
     await user.click(within(panel).getByRole('button', { name: '송장 수정하기' }))
     await user.click(within(panel).getByRole('button', { name: '취소' }))
 
-    expect(within(panel).getByRole('button', { name: '6849 1234 5678' })).toBeInTheDocument()
+    expect(
+      within(panel).getByRole('button', { name: '송장 번호 6849 1234 5678 복사' }),
+    ).toBeInTheDocument()
   })
 
   it('배송 중 창에서 배송 완료로 바꾸면 창이 닫힌다', async () => {
@@ -189,6 +193,76 @@ describe('키트 주문 상세 창', () => {
 
     expect(within(panel).getByText('취소')).toHaveClass('text-text-danger')
     expect(within(panel).queryByRole('button', { name: /바꾸기|수정하기/ })).not.toBeInTheDocument()
+  })
+
+  it('보낸 뒤 취소된 주문도 배송 중이면 배송 완료로 바꿀 수 있다 (서버 계약)', async () => {
+    let delivered = ''
+    server.use(
+      http.get('*/api/v1/order/seller/kits', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '키트 주문 목록을 조회했습니다.',
+          data: {
+            kits: [
+              {
+                orderItemId: 55,
+                orderNo: 'OD-20261001-0055',
+                orderItemStatus: 'CANCELED',
+                raceId: 1,
+                courseName: '10K',
+                kitDeliveryStatus: 'SHIPPING',
+                kitCarrier: 'CJ대한통운',
+                kitTrackingNumber: '684900000055',
+                kitShippedAt: '2026-10-09T10:00:00',
+              },
+            ],
+            page: 0,
+            size: 100,
+            totalElements: 1,
+            totalPages: 1,
+          },
+        }),
+      ),
+      http.post('*/api/v1/order/seller/kits/:orderItemId/delivery', ({ params }) => {
+        delivered = String(params.orderItemId)
+        return HttpResponse.json({ status: 200, message: 'ok', data: {} })
+      }),
+    )
+    resetNavigationMock('status=SHIPPING')
+    const user = userEvent.setup()
+    renderPage()
+    const panel = await openDetail(user, 'OD-20261001-0055')
+
+    expect(within(panel).getByText('취소')).toHaveClass('text-text-danger')
+    expect(within(panel).getByRole('button', { name: '송장 수정하기' })).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: '배송 완료로 바꾸기' }))
+    await screen.findByText('1건을 배송 완료로 바꿨어요')
+    expect(delivered).toBe('55')
+  })
+
+  it('송장 수정 저장이 실패한 뒤 취소하면 오류 문구도 사라진다', async () => {
+    server.use(
+      http.put('*/api/v1/order/seller/kits/:orderItemId/shipment', () =>
+        HttpResponse.json(
+          { status: 409, message: '배송 중인 키트만 송장을 고칠 수 있습니다.', data: null },
+          { status: 409 },
+        ),
+      ),
+    )
+    resetNavigationMock('status=SHIPPING')
+    const user = userEvent.setup()
+    renderPage()
+    const panel = await openDetail(user, 'OD-20261003-0093')
+    await user.click(within(panel).getByRole('button', { name: '송장 수정하기' }))
+    await user.click(within(panel).getByRole('button', { name: '저장하기' }))
+    expect(
+      await within(panel).findByText('배송 중인 키트만 송장을 고칠 수 있습니다.'),
+    ).toBeInTheDocument()
+
+    await user.click(within(panel).getByRole('button', { name: '취소' }))
+    expect(
+      within(panel).queryByText('배송 중인 키트만 송장을 고칠 수 있습니다.'),
+    ).not.toBeInTheDocument()
   })
 
   it('닫기 버튼으로 창을 닫는다', async () => {

@@ -149,6 +149,7 @@ export function SellerKitsPage() {
   const changeFilter = (patch: { race?: string; status?: string; page?: string }) => {
     setUrl({ page: '1', ...patch })
     setChecked([])
+    setOpenId(null)
     setResult(null)
   }
 
@@ -187,6 +188,8 @@ export function SellerKitsPage() {
   }
 
   const openKit = all.find((kit) => kitId(kit) === openId)
+  // 연 주문이 목록에서 빠지면(다른 곳에서 먼저 보냄 등) 창을 닫은 것으로 친다. 다시 보여도 저절로 열리지 않게
+  if (openId !== null && kits.data && !openKit) setOpenId(null)
 
   const orderNoOf = (id: number) => all.find((kit) => kitId(kit) === id)?.orderNo ?? String(id)
 
