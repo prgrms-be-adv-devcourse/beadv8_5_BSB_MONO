@@ -52,3 +52,10 @@ describe('toRaceEditRequest 종목 나이', () => {
     ])
   })
 })
+
+describe('toRaceEditRequest 크루 인원', () => {
+  it('크루 최소 인원이 없으면 등록 화면과 같은 4명으로 보내고, 있으면 그대로 보낸다', () => {
+    expect(toRaceEditRequest({ ...race, crewMinCount: undefined }, [], {}).crewMinCount).toBe(4)
+    expect(toRaceEditRequest({ ...race, crewMinCount: 6 }, [], {}).crewMinCount).toBe(6)
+  })
+})

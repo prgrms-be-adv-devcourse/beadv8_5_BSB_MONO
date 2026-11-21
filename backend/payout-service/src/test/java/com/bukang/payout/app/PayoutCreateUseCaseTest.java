@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongFunction;
 
 import org.junit.jupiter.api.DisplayName;
@@ -572,5 +573,107 @@ class PayoutCreateUseCaseTest {
 			.filteredOn(payout -> payout.getPayoutStage() == PayoutStage.일차_정산)
 			.extracting(Payout::getPayoutMonth, Payout::getPayoutAmount)
 			.containsExactly(tuple("2026-09", 40_000L));
+	}
+
+	// 주문 서비스를 몇 번 불렀는지 세는 포트로 만든다 (CRU-117). 대상 대회는 schedules로만 정한다
+	private PayoutCreateUseCase useCaseCountingCalls(List<SoldEntry> entries, List<RaceSchedule> schedules,
+		AtomicInteger summaryCalls, AtomicInteger entryCalls) {
+		PayoutCreateStepUseCase payoutCreateStepUseCase =
+			new PayoutCreateStepUseCase(payoutRepository, new BusinessDayCalendar(),
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
+				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository,
+					new BusinessDayCalendar()));
+		SoldEntryPort countingEntries = raceId -> {
+			entryCalls.incrementAndGet();
+			return soldEntriesReturning(entries).findSoldEntries(raceId);
+		};
+		SoldSummaryPort countingSummaries = raceId -> {
+			summaryCalls.incrementAndGet();
+			return summariesOf(entries).summarizeSold(raceId);
+		};
+		return new PayoutCreateUseCase(payoutRepository, payoutCreateStepUseCase, countingEntries, sellerId -> true,
+			new StubRacePort(RACE_NAMES, schedules, List.of()), countingSummaries,
+			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
+	}
+
+	@Test
+	@DisplayName("이미 1차 정산이 있는 대회는 다음 실행에서 판매 집계를 주문 서비스에 묻지 않고 건너뜀으로 센다 (CRU-117)")
+	void doesNotAskSummaryOfRaceWithFirstPayout() {
+		// 환불 마감 9/28, 대회 10/10: 최종 기간에는 걸리지 않는다
+		LocalDate raceDate = LocalDate.of(2026, 10, 10);
+		AtomicInteger summaryCalls = new AtomicInteger();
+		PayoutCreateUseCase useCase = useCaseCountingCalls(
+			List.of(new SoldEntry(100, 1, 10, 10L, raceDate, 50_000L)),
+			List.of(new RaceSchedule(10, "2026 한강 나이트런", raceDate, LocalDate.of(2026, 9, 28))),
+			summaryCalls, new AtomicInteger());
+
+		PayoutCreateResultDto first = useCase.run(LocalDate.of(2026, 9, 30), LocalDateTime.of(2026, 9, 30, 3, 0));
+		PayoutCreateResultDto second = useCase.run(LocalDate.of(2026, 10, 1), LocalDateTime.of(2026, 10, 1, 3, 0));
+
+		assertThat(first.created()).isEqualTo(1);
+		assertThat(summaryCalls).hasValue(1);
+		assertThat(second).extracting(PayoutCreateResultDto::created, PayoutCreateResultDto::skipped,
+			PayoutCreateResultDto::failed).containsExactly(0, 1, 0);
+		assertThat(payoutRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("이미 최종 정산이 있는 대회는 다음 실행에서 판매 내역을 주문 서비스에 묻지 않고 건너뜀으로 센다 (CRU-117)")
+	void doesNotAskEntriesOfRaceWithFinalPayout() {
+		AtomicInteger entryCalls = new AtomicInteger();
+		PayoutCreateUseCase useCase = useCaseCountingCalls(
+			List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L)),
+			List.of(new RaceSchedule(10, "2026 한강 나이트런", RACE_DATE, RACE_DATE.minusYears(1))),
+			new AtomicInteger(), entryCalls);
+
+		PayoutCreateResultDto first = useCase.run(TARGET_DATE, NOW);
+		PayoutCreateResultDto second = useCase.run(TARGET_DATE.plusDays(1), NOW.plusDays(1));
+
+		assertThat(first.created()).isEqualTo(1);
+		assertThat(entryCalls).hasValue(1);
+		assertThat(second).extracting(PayoutCreateResultDto::created, PayoutCreateResultDto::skipped,
+			PayoutCreateResultDto::failed).containsExactly(0, 1, 0);
+		assertThat(payoutRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("최종 정산이 먼저 있는 대회는 1차 판매 집계도 묻지 않는다 (CRU-117)")
+	void doesNotAskSummaryOfRaceWithFinalPayout() {
+		// 환불 마감 9/28, 대회 10/1: 10/2 실행의 되돌아보기 기간에 1차와 최종이 함께 들어온다
+		LocalDate raceDate = LocalDate.of(2026, 10, 1);
+		payoutRepository.save(Payout.finalStage(1, 10, "2026 한강 나이트런", raceDate, NOW, new BusinessDayCalendar()));
+		AtomicInteger summaryCalls = new AtomicInteger();
+		AtomicInteger entryCalls = new AtomicInteger();
+		PayoutCreateUseCase useCase = useCaseCountingCalls(
+			List.of(new SoldEntry(100, 1, 10, 10L, raceDate, 50_000L)),
+			List.of(new RaceSchedule(10, "2026 한강 나이트런", raceDate, LocalDate.of(2026, 9, 28))),
+			summaryCalls, entryCalls);
+
+		PayoutCreateResultDto result = useCase.run(LocalDate.of(2026, 10, 2), LocalDateTime.of(2026, 10, 2, 3, 0));
+
+		assertThat(summaryCalls).hasValue(0);
+		assertThat(entryCalls).hasValue(0);
+		// 1차 · 최종 단계가 각각 한 건씩 건너뛴다
+		assertThat(result.skipped()).isEqualTo(2);
+		assertThat(payoutRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("최종은 정산 월까지 본다. 다른 달의 최종 정산만 있는 대회는 지금처럼 판매 내역을 받아 만든다 (CRU-117)")
+	void asksEntriesWhenFinalPayoutIsOfAnotherMonth() {
+		payoutRepository.save(Payout.finalStage(1, 10, "2026 한강 나이트런", RACE_DATE.minusMonths(1), NOW,
+			new BusinessDayCalendar()));
+		AtomicInteger entryCalls = new AtomicInteger();
+		PayoutCreateUseCase useCase = useCaseCountingCalls(
+			List.of(new SoldEntry(100, 1, 10, 10L, RACE_DATE, 50_000L)),
+			List.of(new RaceSchedule(10, "2026 한강 나이트런", RACE_DATE, RACE_DATE.minusYears(1))),
+			new AtomicInteger(), entryCalls);
+
+		PayoutCreateResultDto result = useCase.run(TARGET_DATE, NOW);
+
+		assertThat(entryCalls).hasValue(1);
+		assertThat(result.created()).isEqualTo(1);
+		assertThat(payoutRepository.findAll()).extracting(Payout::getPayoutMonth)
+			.containsExactlyInAnyOrder("2026-08", "2026-09");
 	}
 }

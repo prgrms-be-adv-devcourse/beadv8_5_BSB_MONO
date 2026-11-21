@@ -281,7 +281,9 @@ describe('RaceListPage', () => {
     renderPage()
 
     await user.click(screen.getByRole('button', { name: '지역' }))
-    await user.click(screen.getByRole('button', { name: group }))
+    await user.click(
+      within(screen.getByRole('list', { name: '지역' })).getByRole('button', { name: group }),
+    )
     await user.click(screen.getByRole('button', { name: `${label} 전체 대회` }))
 
     await vi.waitFor(() => expect(regions.at(-1)).toBe(sido))

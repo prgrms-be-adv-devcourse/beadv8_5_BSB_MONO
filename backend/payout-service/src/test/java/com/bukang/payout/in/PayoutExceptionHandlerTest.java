@@ -73,7 +73,7 @@ class PayoutExceptionHandlerTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		assertThat(response.getBody().message()).isEqualTo("필수 요청 값이 없습니다.");
-		assertThat(line(output, "400 POST")).contains("INFO").contains("필수 요청 값 없음 name=raceDate");
+		assertThat(line(output, "400 POST")).contains("INFO").contains("message=필수 요청 값(raceDate)이 없습니다.");
 	}
 
 	@Test
@@ -91,8 +91,8 @@ class PayoutExceptionHandlerTest {
 	}
 
 	@Test
-	@DisplayName("낙관적 락 충돌은 409와 함께 메서드 · 경로만 warn으로 남기고, 예외 메시지와 스택은 남기지 않는다")
-	void optimisticLockLogsWarnWithPathOnly(CapturedOutput output) {
+	@DisplayName("낙관적 락 충돌은 409와 함께 메서드 · 경로를 info로 남기고, 예외 메시지와 스택은 남기지 않는다")
+	void optimisticLockLogsInfoWithPathOnly(CapturedOutput output) {
 		OptimisticLockingFailureException exception =
 			new OptimisticLockingFailureException("Row was updated by another transaction: Payout#7");
 
@@ -100,7 +100,7 @@ class PayoutExceptionHandlerTest {
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
 		assertThat(response.getBody().message()).isEqualTo("다른 요청이 먼저 정산 내역을 바꿨습니다. 다시 시도해주세요.");
-		assertThat(line(output, "409 POST")).contains("WARN").contains("409 POST " + PATH);
+		assertThat(line(output, "409 POST")).contains("INFO").contains("409 POST " + PATH + " code=null");
 		assertThat(output.getOut()).doesNotContain("Row was updated")
 			.doesNotContain("OptimisticLockingFailureException");
 	}

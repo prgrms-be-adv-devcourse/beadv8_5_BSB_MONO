@@ -21,6 +21,9 @@ function useInvalidateSellerPayouts() {
         payoutApi.getPayoutsQueryKey(),
         payoutApi.getItemsQueryKey(),
         payoutApi.getHoldsQueryKey(),
+        // 관리자 보류 걸기 · 풀기 창의 정산 목록과 정산 ID 조회
+        payoutApi.getPayouts1QueryKey(),
+        payoutApi.getFindPayoutQueryKey(),
       ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
     )
 }

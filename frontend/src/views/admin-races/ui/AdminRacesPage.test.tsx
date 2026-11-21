@@ -44,3 +44,20 @@ describe('AdminRacesPage 거르기', () => {
     )
   })
 })
+
+describe('AdminRacesPage 상세페이지 바로가기', () => {
+  it('고른 대회의 구매자용 상세 페이지를 새 탭으로 연다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const link = await screen.findByRole('link', { name: '상세페이지' })
+    expect(link).toHaveAttribute('href', expect.stringMatching(/^\/races\/\d+$/))
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+
+    const before = link.getAttribute('href')
+    const rows = screen.getAllByRole('row')
+    await user.click(rows[rows.length - 1])
+    expect(screen.getByRole('link', { name: '상세페이지' }).getAttribute('href')).not.toBe(before)
+  })
+})

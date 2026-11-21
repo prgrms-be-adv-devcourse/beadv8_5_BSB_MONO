@@ -25,9 +25,11 @@ export type DialogProps = {
   stacked?: boolean
   /** 확인 버튼에 덧붙일 클래스(예: 카카오 노란 바탕) */
   confirmClassName?: string
+  /** 창 폭 클래스. 안 넘기면 모바일 320, 태블릿 이상 400. 시안은 창마다 다르다(예: tablet:w-140) */
+  widthClassName?: string
 }
 
-// 화면 가운데 떠서 확인을 받는 창. 모바일 폭 320, 태블릿 이상 폭 400.
+// 화면 가운데 떠서 확인을 받는 창. 기본 폭은 모바일 320, 태블릿 이상 400(widthClassName으로 바꿈).
 // 글은 가운데 정렬, 버튼 줄은 모달 폭을 채우고 두 개면 같은 폭으로 나눈다(DS-025·DS-028).
 export function Dialog({
   open,
@@ -42,6 +44,7 @@ export function Dialog({
   confirming = false,
   stacked = false,
   confirmClassName,
+  widthClassName = 'tablet:w-100',
 }: DialogProps) {
   const cancel =
     type !== 'alert' ? (
@@ -68,7 +71,12 @@ export function Dialog({
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-bg-overlay/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-6 rounded-lg bg-bg-surface p-6 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 tablet:w-100">
+        <AlertDialog.Popup
+          className={cn(
+            'fixed top-1/2 left-1/2 z-50 flex w-80 max-w-[calc(100vw-var(--layout-page-margin)*2)] -translate-1/2 flex-col gap-6 rounded-lg bg-bg-surface p-6 shadow-lg transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0',
+            widthClassName,
+          )}
+        >
           <div className="flex flex-col gap-2">
             <AlertDialog.Title className="text-center text-title3 text-text-primary">
               {title}
@@ -87,7 +95,7 @@ export function Dialog({
               </AlertDialog.Description>
             )}
           </div>
-          <div className={cn('flex', stacked ? 'flex-col gap-2' : 'gap-6')}>
+          <div className={cn('flex', stacked && 'flex-col', 'gap-2')}>
             {/* 쌓으면 확인이 위, 취소가 아래. 화면 순서와 키보드 · 읽기 순서가 같도록 DOM 순서를 맞춘다 */}
             {stacked ? [confirm, cancel] : [cancel, confirm]}
           </div>

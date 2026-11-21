@@ -68,3 +68,13 @@ export function useCompleteKitDeliveries() {
     unwrapData(await orderApi.completeDelivery(orderItemId)),
   )
 }
+
+/** 보낸 키트의 택배사 · 송장 번호 고치기 (배송 중일 때만). 성공하면 목록을 새로 받는다 */
+export function useChangeKitTracking() {
+  const refresh = useRefreshKits()
+  return useMutation({
+    mutationFn: async ({ orderItemId, carrier, trackingNumber }: KitShipment) =>
+      unwrapData(await orderApi.changeTracking(orderItemId, { carrier, trackingNumber })),
+    onSuccess: refresh,
+  })
+}

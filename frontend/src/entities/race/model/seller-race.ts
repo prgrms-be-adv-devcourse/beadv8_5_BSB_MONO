@@ -153,7 +153,7 @@ export function toRaceEditRequest(
     applicationCloseAt: race.applicationCloseAt ?? '',
     refundDeadline: race.refundDeadline ?? '',
     refundPolicy: race.refundPolicy ?? undefined,
-    crewMinCount: race.crewMinCount ?? 5,
+    crewMinCount: race.crewMinCount ?? 4,
     crewMaxCount: race.crewMaxCount ?? undefined,
     images: toImageRequests(raceFiles, RACE_IMAGE_TYPES),
     courses: (race.courses ?? []).map((course) => ({
