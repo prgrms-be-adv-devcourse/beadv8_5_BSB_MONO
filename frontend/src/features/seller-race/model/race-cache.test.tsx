@@ -109,4 +109,39 @@ describe('대회 이미지를 바꾼 저장', () => {
     await act(() => result.current.mutateAsync(withThumbnail(2)))
     expect(client.getQueryState(cover)?.isInvalidated).toBe(true)
   })
+
+  it('이미지를 빼기만 한 저장도 뺀 이미지가 떨어질 때까지 기다린다', async () => {
+    const { wrapper } = setup()
+    let attempt = 0
+    // 처음 한 번은 지운 이미지(3)가 아직 붙어 있다
+    const calls = mockRaceFiles(() => (++attempt < 2 ? [2, 3] : [2]))
+    const { result } = renderHook(() => useUpdateRace(1), { wrapper })
+    await act(() => result.current.mutateAsync(withThumbnail(2)))
+    expect(calls()).toBe(2)
+  })
+
+  it('이번에 더한 종목의 이미지는 저장 응답의 종목 ID로 확인한다', async () => {
+    const { wrapper } = setup()
+    const asked: string[] = []
+    server.use(
+      http.get('*/api/v1/file/files', ({ request }) => {
+        const url = new URL(request.url)
+        asked.push(`${url.searchParams.get('refType')}:${url.searchParams.get('refId')}`)
+        return HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: [{ id: 7, status: 'ACTIVE' }],
+        })
+      }),
+      http.put('*/api/v1/product/races/:raceId', () =>
+        HttpResponse.json({ status: 200, message: 'ok', data: { raceId: 1, courseIds: [55] } }),
+      ),
+    )
+    const request = {
+      courses: [{ images: [{ fileId: 7, fileType: 'DETAIL', sortNo: 0 }] }],
+    } as unknown as productModel.RaceSaveRequestDto
+    const { result } = renderHook(() => useUpdateRace(1), { wrapper })
+    await act(() => result.current.mutateAsync(request))
+    expect(asked).toEqual(['RaceCourse:55'])
+  })
 })

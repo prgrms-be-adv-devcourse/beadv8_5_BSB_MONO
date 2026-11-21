@@ -7,24 +7,30 @@ const LINK_POLL_TRIES = 10
 
 /**
  * 이미지 연결은 메시지로 file 서비스에 넘어가 저장 응답보다 1초 넘게 늦게 반영된다.
- * 바로 다시 받으면 옛 이미지가 캐시에 남으므로, 보낸 이미지가 모두 연결될 때까지 기다린다.
- * shortcut: 5초만 기다리고 그래도 안 보이면 그냥 진행한다 (저장은 이미 끝났다). 더 걸리면 서버가 연결 완료를 알려 주게 바꾼다.
+ * 바로 다시 받으면 옛 이미지가 캐시에 남으므로, 연결된 파일이 보낸 이미지와 같아질 때까지 기다린다 (빼기만 한 저장도 포함).
+ * 새 종목은 요청 순서대로 오는 저장 응답의 courseIds로 ID를 알아낸다.
+ * shortcut: 5초만 기다리고 그래도 안 맞으면 그냥 진행한다 (저장은 이미 끝났다). 더 걸리면 서버가 연결 완료를 알려 주게 바꾼다.
  */
-async function waitForImageLink(raceId: number, request: productModel.RaceSaveRequestDto) {
+async function waitForImageLink(
+  raceId: number,
+  request: productModel.RaceSaveRequestDto,
+  courseIds: number[] = [],
+) {
   const targets = [
-    { refType: 'Race', refId: raceId, images: request.images ?? [] },
-    ...(request.courses ?? []).flatMap((c) =>
-      c.courseId === undefined
-        ? []
-        : [{ refType: 'RaceCourse', refId: c.courseId, images: c.images ?? [] }],
-    ),
-  ].filter((t) => t.images.length > 0)
+    { refType: 'Race', refId: raceId, images: request.images },
+    ...(request.courses ?? []).map((c, i) => ({
+      refType: 'RaceCourse',
+      refId: c.courseId ?? courseIds[i],
+      images: c.images,
+    })),
+  ].flatMap((t) => (t.images && t.refId !== undefined ? [{ ...t, images: t.images }] : []))
   for (let i = 0; i < LINK_POLL_TRIES; i++) {
     // 파일 목록을 못 받아도 저장은 끝났으므로 오류로 만들지 않고 진행한다
     const linked = await Promise.all(
       targets.map(async ({ refType, refId, images }) => {
         const files = unwrapData(await fileApi.findByRef({ refType, refId }))
-        return images.every((image) => files.some((file) => file.id === image.fileId))
+        const now = new Set(files.filter((f) => f.status !== 'DELETED').map((f) => f.id))
+        return now.size === images.length && images.every((image) => now.has(image.fileId))
       }),
     ).catch(() => [true])
     if (linked.every(Boolean)) return
@@ -38,7 +44,7 @@ export function useUpdateRace(raceId: number) {
   return useMutation({
     mutationFn: async (request: productModel.RaceSaveRequestDto) => {
       const saved = unwrapData(await productApi.update(raceId, request))
-      await waitForImageLink(raceId, request)
+      await waitForImageLink(raceId, request, saved.courseIds)
       return saved
     },
     onSuccess: () =>
