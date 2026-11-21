@@ -77,6 +77,7 @@ import {
 } from './races'
 import { recordCertHandlers } from './record-certs'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
+import { sellerOrderHandlers } from './seller-orders'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
 
 /** 경로 변수(:raceId) 수. 적은 것부터 둬야 /races/suggestions가 /races/:raceId에 먼저 걸리지 않는다. */
@@ -822,6 +823,7 @@ export const handlers = [
   ...orderHandlers,
   ...walletHandlers,
   ...sellerKitHandlers,
+  ...sellerOrderHandlers,
   ...payoutHandlers,
   ...generatedHandlers,
 ]
