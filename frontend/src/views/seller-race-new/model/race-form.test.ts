@@ -467,3 +467,37 @@ describe('새 대회 등록의 기본값', () => {
     expect(issuesOf({ ...base, kitOptions: [] })).toEqual([])
   })
 })
+
+describe('크루 최대 인원 (서버: 비우면 상한 없음, 값이 있으면 최소 인원 4 이상)', () => {
+  const issues = (patch: object) => issuesOf({ ...crewBase, ...patch })
+  const message = `crewMaxCount: ${RACE_FORM_ERRORS.crewMaxCount}`
+
+  it('기본은 비어 있고, 비워도 통과한다', () => {
+    expect(RACE_FORM_DEFAULTS.crewMaxCount).toBe('')
+    expect(issues({ crewMaxCount: '' })).toEqual([])
+  })
+
+  it('최소 인원(4) 이상의 정수면 통과하고, 그보다 작거나 숫자가 아니면 막는다', () => {
+    expect(issues({ crewMaxCount: '4' })).toEqual([])
+    expect(issues({ crewMaxCount: '20' })).toEqual([])
+    for (const crewMaxCount of ['3', '0', '4.5', 'abc', '-5']) {
+      expect(issues({ crewMaxCount })).toEqual([message])
+    }
+  })
+
+  it('크루 예매를 열지 않으면 값이 틀려도 보지 않는다', () => {
+    expect(issuesOf({ ...base, crewMaxCount: '3' })).toEqual([])
+  })
+
+  it('크루 예매를 열면 요청에 담아 보내고, 비우면 보내지 않으며, 열지 않으면 값이 있어도 보내지 않는다', () => {
+    expect(toRaceSaveRequest({ ...crewBase, crewMaxCount: '20' }, [], []).crewMaxCount).toBe(20)
+    expect(
+      toRaceSaveRequest({ ...crewBase, crewMaxCount: '' }, [], []).crewMaxCount,
+    ).toBeUndefined()
+    expect(toRaceSaveRequest({ ...base, crewMaxCount: '20' }, [], []).crewMaxCount).toBeUndefined()
+  })
+
+  it('크루 최소 인원은 서버 최솟값 4로 보낸다', () => {
+    expect(toRaceSaveRequest(base, [], []).crewMinCount).toBe(4)
+  })
+})

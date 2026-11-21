@@ -179,6 +179,32 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByRole('textbox', { name: '10K 크루 정원' })).toHaveValue('0')
   })
 
+  it('크루 선예매를 열면 크루 최대 인원 칸이 나오고, 열지 않으면 숨으며, 닫았다 열면 비워진다', async () => {
+    renderPage()
+    expect(screen.queryByRole('textbox', { name: '크루 최대 인원' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    const max = screen.getByRole('textbox', { name: '크루 최대 인원' })
+    expect(max).toHaveValue('')
+    await userEvent.type(max, '20')
+    expect(max).toHaveValue('20')
+
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    expect(screen.queryByRole('textbox', { name: '크루 최대 인원' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    expect(screen.getByRole('textbox', { name: '크루 최대 인원' })).toHaveValue('')
+  })
+
+  it('크루 최대 인원이 최소 인원보다 작으면 등록할 때 오류를 보여 주고, 숫자가 아닌 글자는 받지 않는다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    const max = screen.getByRole('textbox', { name: '크루 최대 인원' })
+    await userEvent.type(max, 'a3')
+    expect(max).toHaveValue('3')
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findByText(RACE_FORM_ERRORS.crewMaxCount)).toBeInTheDocument()
+  })
+
   it('크루 예매를 열고 비운 채 등록하면 크루 예매 날짜를 입력하라고 한다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '열기' }))

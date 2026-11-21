@@ -11,6 +11,7 @@ const values: RaceFormValues = {
   raceTime: '08:00',
   crewOpen: true,
   crewSaleStartAt: '2026-10-05 10:00',
+  crewMaxCount: '20',
   courses: SAMPLE_COURSES,
   kitOptions: [{ name: '티셔츠', value: 'M', stock: '100' }],
 }
@@ -67,5 +68,15 @@ describe('대회 등록 임시 저장 (회원별 localStorage)', () => {
     expect(() => saveRaceDraft(7, values)).not.toThrow()
     expect(loadRaceDraft(7)).toBeNull()
     expect(() => clearRaceDraft(7)).not.toThrow()
+  })
+
+  it('크루 최대 인원을 저장하고, 이 칸이 없던 옛 저장 내용도 비워서 불러온다', () => {
+    saveRaceDraft(7, values)
+    expect(loadRaceDraft(7)?.crewMaxCount).toBe('20')
+
+    const { crewMaxCount: _omit, ...older } = values
+    void _omit
+    localStorage.setItem(raceDraftKey(7), JSON.stringify(older))
+    expect(loadRaceDraft(7)?.crewMaxCount).toBe('')
   })
 })
