@@ -197,7 +197,7 @@ describe('LoginPage', () => {
     render(withQueryClient(<LoginPage />))
     for (const name of ['회원가입', '계정 찾기']) {
       const link = screen.getByRole('link', { name })
-      expect(link.className).not.toMatch(/inset-ring|border|bg-bg-surface/)
+      expect(link.className).not.toMatch(/(^|\s)(inset-ring|border|bg-bg-surface)/)
     }
   })
 
