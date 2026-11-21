@@ -267,6 +267,20 @@ describe('SellerRaceNewPage 두 번 제출', () => {
   })
 })
 
+describe('SellerRaceNewPage 자동 저장 표시', () => {
+  it('작성 내용을 저장하면 제목 아래에 「자동 저장됨 · 시각」을 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/member/members/me', () =>
+        HttpResponse.json({ status: 200, message: '', data: { id: 7 } }),
+      ),
+    )
+    renderPage()
+    expect(screen.queryByText(/자동 저장됨/)).not.toBeInTheDocument()
+    await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
+    expect(await screen.findByText(/^자동 저장됨 · \d{2}:\d{2}$/)).toBeInTheDocument()
+  })
+})
+
 describe('SellerRaceNewPage 임시 저장 지우기', () => {
   it('등록에 성공하면 저장해 둔 작성 내용을 지운다', async () => {
     server.use(
