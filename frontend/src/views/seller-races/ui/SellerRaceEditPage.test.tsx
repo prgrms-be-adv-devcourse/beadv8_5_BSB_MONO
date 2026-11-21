@@ -231,13 +231,39 @@ describe('SellerRaceEditPage', () => {
     expect(screen.queryByLabelText('크루 예매 시작 시간')).not.toBeInTheDocument()
   })
 
-  it('판매가 시작된 대회는 지난 크루 예매 시작과 크루 선예매 선택을 읽기 전용으로 보여 준다', async () => {
+  it('판매가 시작된 대회(판매 중 변경)에는 판매 일정 카드가 없다', async () => {
     useRace('ON_SALE', { ...CREW_AHEAD, crewSaleStartAt: at(-2, '10:00:00') })
     renderPage()
-    expect(await screen.findByRole('button', { name: '열기' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '열지 않기' })).toBeDisabled()
-    expect(screen.getByLabelText('크루 예매 시작 시간')).toBeDisabled()
-    expect(screen.getByLabelText('크루 예매 마감 시간')).toBeEnabled()
+    expect(await screen.findByLabelText('모집 정원 (10K)')).toBeInTheDocument()
+    expect(screen.queryByText('판매 일정')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '열지 않기' })).not.toBeInTheDocument()
+  })
+
+  it('판매가 시작된 대회를 저장해도 저장된 일정을 그대로 보낸다', async () => {
+    let body: productModel.RaceSaveRequestDto | undefined
+    useRace('ON_SALE', { ...CREW_AHEAD, crewSaleStartAt: at(-2, '10:00:00') })
+    server.use(
+      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
+        body = (await request.json()) as productModel.RaceSaveRequestDto
+        return HttpResponse.json({
+          status: 200,
+          message: '대회를 수정했습니다.',
+          data: { raceId: 1, saleStatus: 'ON_SALE', saleOpenDate: '2026-12-01', courseIds: [1] },
+        })
+      }),
+    )
+    renderPage()
+    const quota = await screen.findByLabelText('모집 정원 (10K)')
+    await userEvent.clear(quota)
+    await userEvent.type(quota, '700')
+    await userEvent.click(await saveButton())
+    expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
+    expect(body).toMatchObject({
+      crewSaleStartAt: at(-2, '10:00:00'),
+      crewSaleEndAt: CREW_AHEAD.crewSaleEndAt,
+      individualOpenAt: CREW_AHEAD.individualOpenAt,
+      applicationCloseAt: CREW_AHEAD.applicationCloseAt,
+    })
   })
 
   it('크루 선예매를 열지 않기로 바꿔 저장하면 크루 기간 없이 크루 정원 0으로 보낸다', async () => {
