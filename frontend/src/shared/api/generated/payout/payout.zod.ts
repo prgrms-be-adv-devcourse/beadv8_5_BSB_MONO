@@ -257,7 +257,27 @@ export const FindPayoutQueryParams = zod.object({
   "code": zod.string().describe('정산 ID (ST-…)')
 })
 
-export const FindPayoutResponse = zod.unknown()
+export const FindPayoutResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "id": zod.int(),
+  "payoutCode": zod.string(),
+  "raceId": zod.int(),
+  "raceName": zod.string(),
+  "payoutStage": zod.enum(['일차_정산', '최종_정산']).describe('정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)'),
+  "payoutMonth": zod.string(),
+  "salesAmount": zod.int(),
+  "refundAmount": zod.int(),
+  "feeAmount": zod.int(),
+  "advanceDeductionAmount": zod.int().describe('1차 정산금 차감 (최종에서 뺀 1차 지급액 − 회수액, 1차는 0)'),
+  "payoutAmount": zod.int(),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중, 지급_확인_필요: 지급 결과를 3번 몰라 사람이 확인 중)'),
+  "settledAt": zod.iso.datetime({"offset":true}),
+  "scheduledPayDate": zod.iso.date(),
+  "paidAt": zod.iso.datetime({"offset":true}).nullish()
+}).optional()
+})
 
 
 /**
@@ -345,6 +365,72 @@ export const AdminClaimsResponse = zod.object({
   "confirmedAt": zod.iso.datetime({"offset":true}).nullish(),
   "virtualBankName": zod.string().nullish().describe('판매자가 입금할 가상계좌 은행 이름. 발급 전에는 null'),
   "virtualAccountNumber": zod.string().nullish().describe('판매자가 입금할 가상계좌 번호. 발급 전에는 null')
+})),
+  "page": zod.int(),
+  "size": zod.int(),
+  "totalElements": zod.int(),
+  "totalPages": zod.int()
+})
+}).optional()
+})
+
+
+/**
+ * 지급 예정일 하루의 정산 내역을 돌려준다. 지급일을 빼면 오늘(한국 시간)보다 뒤인 가장 가까운 20일이고, 20일 당일이면 다음 달 20일이다. 조회한 지급일은 응답의 payDate에 담긴다. 줄마다 진행 중인 지급보류가 붙고, 그 id로 보류 해제 API를 부른다.
+ * @summary 지급일별 정산 목록 조회 (BUK-168)
+ */
+export const payouts1QueryPageDefault = 0;
+export const payouts1QuerySizeDefault = 50;
+
+export const Payouts1QueryParams = zod.object({
+  "payDate": zod.iso.date().optional().describe('지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)'),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).optional().describe('정산 상태 (없으면 그날의 모든 상태)'),
+  "page": zod.int().default(payouts1QueryPageDefault).describe('페이지 번호 (0부터)'),
+  "size": zod.int().default(payouts1QuerySizeDefault).describe('페이지 크기 (1 ~ 100)')
+})
+
+export const Payouts1Response = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "payDate": zod.iso.date(),
+  "summary": zod.array(zod.object({
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중, 지급_확인_필요: 지급 결과를 3번 몰라 사람이 확인 중)'),
+  "count": zod.int(),
+  "payoutAmount": zod.int()
+})),
+  "payouts": zod.object({
+  "content": zod.array(zod.object({
+  "payout": zod.object({
+  "id": zod.int(),
+  "payoutCode": zod.string(),
+  "raceId": zod.int(),
+  "raceName": zod.string(),
+  "payoutStage": zod.enum(['일차_정산', '최종_정산']).describe('정산 단계 (일차_정산: 1차 정산, 최종_정산: 최종 정산)'),
+  "payoutMonth": zod.string(),
+  "salesAmount": zod.int(),
+  "refundAmount": zod.int(),
+  "feeAmount": zod.int(),
+  "advanceDeductionAmount": zod.int().describe('1차 정산금 차감 (최종에서 뺀 1차 지급액 − 회수액, 1차는 0)'),
+  "payoutAmount": zod.int(),
+  "status": zod.enum(['지급_예정', '지급보류', '지급_중', '지급_완료', '취소', '지급_불일치', '지급_확인_필요']).describe('정산 상태 (지급_예정: 지급 예정, 지급보류: 지급보류, 지급_중: 지급 중, 지급_완료: 지급 완료, 취소: 취소, 지급_불일치: 캐시가 이미 다른 금액으로 지급했다고 답해 확인 중, 지급_확인_필요: 지급 결과를 3번 몰라 사람이 확인 중)'),
+  "settledAt": zod.iso.datetime({"offset":true}),
+  "scheduledPayDate": zod.iso.date(),
+  "paidAt": zod.iso.datetime({"offset":true}).nullish()
+}),
+  "sellerId": zod.int(),
+  "holds": zod.array(zod.object({
+  "id": zod.int(),
+  "holdCode": zod.string(),
+  "payoutId": zod.int(),
+  "reasonType": zod.enum(['정산_계좌_미등록', '대회_취소_처리', '대사_불일치']).describe('보류 사유 (정산_계좌_미등록: 정산 계좌 미등록, 대회_취소_처리: 대회 취소 처리, 대사_불일치: 대사 불일치)'),
+  "reason": zod.string().nullish(),
+  "status": zod.enum(['지급보류', '해제']).describe('지급보류 상태 (지급보류: 지급보류, 해제: 해제)'),
+  "heldBy": zod.int(),
+  "heldAt": zod.iso.datetime({"offset":true}),
+  "releasedBy": zod.int().nullish(),
+  "releasedAt": zod.iso.datetime({"offset":true}).nullish()
+}))
 })),
   "page": zod.int(),
   "size": zod.int(),
