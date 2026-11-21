@@ -28,5 +28,5 @@ if previousJti == ARGV[2] and tonumber(ARGV[4]) - tonumber(rotatedAt) <= tonumbe
 end
 
 redis.call('DEL', KEYS[1])  -- 같은 family의 이미 쓴 토큰: 누가 진짜인지 모르므로 이 family만 끊는다
-redis.call('SREM', KEYS[2], ARGV[1])
+redis.call('ZREM', KEYS[2], ARGV[1])
 return { 'THEFT' }

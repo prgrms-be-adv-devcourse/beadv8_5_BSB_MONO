@@ -3,5 +3,5 @@
 -- KEYS[2] members:{memberId}:refreshTokenFamilies
 -- ARGV[1] 들어온 토큰의 familyId
 -- 돌려주는 값: 기록을 지웠으면 1, 이미 없었으면 0
-redis.call('SREM', KEYS[2], ARGV[1])
+redis.call('ZREM', KEYS[2], ARGV[1])
 return redis.call('DEL', KEYS[1])

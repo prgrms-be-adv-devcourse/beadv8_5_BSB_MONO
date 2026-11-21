@@ -79,9 +79,9 @@ class RefreshTokenRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("로그인하면 회원의 로그인 목록(Set)에 familyId가 들어가고, 목록 TTL은 family 최대 기간에 맞는다")
+	@DisplayName("로그인하면 회원의 로그인 목록(Sorted Set)에 familyId가 들어가고, 목록 TTL은 family 최대 기간에 맞는다")
 	void createAddsFamilyToMemberSet() {
-		assertThat(redisTemplate.opsForSet().members(FAMILIES_KEY)).containsExactly("F1");
+		assertThat(redisTemplate.opsForZSet().range(FAMILIES_KEY, 0, -1)).containsExactly("F1");
 		assertThat(redisTemplate.getExpire(FAMILIES_KEY)).isBetween(
 			Duration.ofDays(30).minusMinutes(5).toSeconds(), Duration.ofDays(30).toSeconds());
 	}
@@ -100,7 +100,7 @@ class RefreshTokenRepositoryTest {
 	void secondLoginKeepsFirstFamily() {
 		login("F2", "K1");
 
-		assertThat(redisTemplate.opsForSet().members(FAMILIES_KEY)).containsExactlyInAnyOrder("F1", "F2");
+		assertThat(redisTemplate.opsForZSet().range(FAMILIES_KEY, 0, -1)).containsExactlyInAnyOrder("F1", "F2");
 		assertThat(redisTemplate.opsForHash().get(KEY, "currentJti")).isEqualTo("J1");
 		assertThat(repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", LOGIN_AT.plusSeconds(60))).outcome())
 			.isEqualTo(RotationOutcome.ROTATED);
@@ -109,13 +109,13 @@ class RefreshTokenRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("로그인할 때 키가 이미 사라진(만료된) familyId는 목록에서 빠진다")
+	@DisplayName("로그인할 때 최종 만료가 지난 familyId는 목록에서 빠지고, 지나지 않은 것은 남는다")
 	void loginPrunesExpiredFamilyIds() {
-		redisTemplate.opsForSet().add(FAMILIES_KEY, "EXPIRED");
+		redisTemplate.opsForZSet().add(FAMILIES_KEY, "EXPIRED", LOGIN_AT.minusSeconds(1).getEpochSecond());
 
 		login("F2", "K1");
 
-		assertThat(redisTemplate.opsForSet().members(FAMILIES_KEY)).containsExactlyInAnyOrder("F1", "F2");
+		assertThat(redisTemplate.opsForZSet().range(FAMILIES_KEY, 0, -1)).containsExactlyInAnyOrder("F1", "F2");
 	}
 
 	@Test
@@ -220,7 +220,7 @@ class RefreshTokenRepositoryTest {
 
 		assertThat(result.outcome()).isEqualTo(RotationOutcome.THEFT);
 		assertThat(redisTemplate.hasKey(KEY)).isFalse();
-		assertThat(redisTemplate.opsForSet().members(FAMILIES_KEY)).doesNotContain("F1");
+		assertThat(redisTemplate.opsForZSet().range(FAMILIES_KEY, 0, -1)).doesNotContain("F1");
 	}
 
 	@Test
@@ -233,7 +233,7 @@ class RefreshTokenRepositoryTest {
 		repository.rotate(MEMBER_ID, rotation("F1", "J1", "J3", rotatedAt.plusSeconds(6)));
 
 		assertThat(redisTemplate.hasKey(KEY)).isFalse();
-		assertThat(redisTemplate.opsForSet().members(FAMILIES_KEY)).containsExactly("F2");
+		assertThat(redisTemplate.opsForZSet().range(FAMILIES_KEY, 0, -1)).containsExactly("F2");
 		assertThat(repository.rotate(MEMBER_ID, rotation("F2", "K1", "K2", rotatedAt.plusSeconds(7))).outcome())
 			.isEqualTo(RotationOutcome.ROTATED);
 	}
@@ -298,7 +298,7 @@ class RefreshTokenRepositoryTest {
 		assertThat(repository.deleteFamily(MEMBER_ID, "F1")).isTrue();
 
 		assertThat(redisTemplate.hasKey(KEY)).isFalse();
-		assertThat(redisTemplate.opsForSet().members(FAMILIES_KEY)).containsExactly("F2");
+		assertThat(redisTemplate.opsForZSet().range(FAMILIES_KEY, 0, -1)).containsExactly("F2");
 		assertThat(repository.rotate(MEMBER_ID, rotation("F2", "K1", "K2", LOGIN_AT.plusSeconds(60))).outcome())
 			.isEqualTo(RotationOutcome.ROTATED);
 		assertThat(repository.rotate(MEMBER_ID, rotation("F1", "J1", "J2", LOGIN_AT.plusSeconds(60))).outcome())
@@ -342,7 +342,7 @@ class RefreshTokenRepositoryTest {
 		repository.deleteAll(MEMBER_ID);
 
 		assertThat(redisTemplate.hasKey("members:8:refreshTokens:G1")).isTrue();
-		assertThat(redisTemplate.opsForSet().members("members:8:refreshTokenFamilies")).containsExactly("G1");
+		assertThat(redisTemplate.opsForZSet().range("members:8:refreshTokenFamilies", 0, -1)).containsExactly("G1");
 		redisTemplate.delete(List.of("members:8:refreshTokens:G1", "members:8:refreshTokenFamilies"));
 	}
 

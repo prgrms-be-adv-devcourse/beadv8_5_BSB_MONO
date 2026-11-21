@@ -3,7 +3,7 @@
 -- KEYS[1] members:{memberId}:refreshTokenFamilies
 -- KEYS[2] members:{memberId}:refreshToken (배포 전 옛 키)
 -- ARGV[1] family 키 앞부분 members:{memberId}:refreshTokens:
-for _, id in ipairs(redis.call('SMEMBERS', KEYS[1])) do
+for _, id in ipairs(redis.call('ZRANGE', KEYS[1], 0, -1)) do
 	redis.call('DEL', ARGV[1] .. id)
 end
 redis.call('DEL', KEYS[1], KEYS[2])

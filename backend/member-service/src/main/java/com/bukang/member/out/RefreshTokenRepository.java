@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 로그인(family)마다 하나씩 두는 Refresh Token 기록 저장소 (Redis Hash).
  * 한 회원이 여러 기기에서 동시에 로그인할 수 있고, 로그인끼리는 서로의 기록을 건드리지 않는다.
- * 회원의 로그인 목록은 Set에 따로 두어, 탈퇴·비밀번호 재설정 때 KEYS·SCAN 없이 모든 기록을 찾아 지운다.
+ * 회원의 로그인 목록은 Sorted Set(점수 = family 최종 만료)에 따로 두어, 탈퇴·비밀번호 재설정 때 KEYS·SCAN 없이 모든 기록을 찾아 지운다.
  *
  * <p>Hash 칸: currentJti, currentExpiresAt(초), previousJti, rotatedAt(초), familyExpiresAt(초).
  * 키 TTL은 지금 토큰의 만료 시각이라, 그동안 재발급이 없으면 기록이 저절로 사라진다.
@@ -46,7 +46,7 @@ public class RefreshTokenRepository {
 		return "members:" + memberId + ":refreshTokens:";
 	}
 
-	// 회원의 family 목록(Set): members:{회원 ID}:refreshTokenFamilies
+	// 회원의 family 목록(Sorted Set): members:{회원 ID}:refreshTokenFamilies
 	static String familiesKey(long memberId) {
 		return "members:" + memberId + ":refreshTokenFamilies";
 	}
@@ -65,8 +65,7 @@ public class RefreshTokenRepository {
 			family.jti(),
 			seconds(family.issuedAt()),
 			seconds(family.familyExpiresAt()),
-			seconds(family.tokenExpiresAt()),
-			familyKeyPrefix(memberId));
+			seconds(family.tokenExpiresAt()));
 	}
 
 	/**
