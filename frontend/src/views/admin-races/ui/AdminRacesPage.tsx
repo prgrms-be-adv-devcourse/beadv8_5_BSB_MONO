@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import {
@@ -13,7 +14,7 @@ import {
 import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { adminRacesQueryOptions, toAdminRaceRow } from '@/entities/race'
 import { cn, formatNumber, useSearchParamsState } from '@/shared/lib'
-import { Chip, DataTable, EmptyState, KeyValue } from '@/shared/ui'
+import { buttonClassName, Chip, DataTable, EmptyState, KeyValue } from '@/shared/ui'
 
 const n = formatNumber
 
@@ -117,6 +118,15 @@ export function AdminRacesPage() {
               <KeyValue label="접수 기간" value={race.applicationPeriod} />
               <KeyValue label="환불 기준일" value={race.refundDeadline} />
             </div>
+            {/* 관리자가 고른 목록 상태를 잃지 않도록 구매자 화면은 새 탭으로 연다 */}
+            <Link
+              href={`/races/${race.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClassName({ variant: 'secondary', size: 'm', className: 'w-full' })}
+            >
+              상세페이지
+            </Link>
             <RaceSaleActionButton
               key={race.id}
               raceId={race.id}
