@@ -45,13 +45,28 @@
 
 /* 판매자센터 시안은 폭 1280 이상에서도 글자를 키우지 않는다(숫자 32 · 제목 20 · 굵은 본문 16). tokens.css의 Desktop 모드보다 뒤에 와서 이긴다. */
 @layer base {
-  .console-type {
+  .console-type,
+  /* 확인 창은 포털이라 판매자 레이아웃 밖에 그려진다. 판매자 화면이 열려 있으면 root에서도 같은 값을 쓴다. */
+  :root:has(.console-type),
+  :root:has(.console-sidebar) {
     --text-number-s: 32px;
     --text-number-s--line-height: 36px;
     --text-title3: 20px;
     --text-title3--line-height: 28px;
     --text-body1-bold: 16px;
     --text-body1-bold--line-height: 24px;
+  }
+}
+
+/* 토스트는 앱 전체에 한 번 그려지므로, 사이드바가 있는 판매자·관리자 화면에서는 본문 가운데로 옮길 거리(사이드바 폭의 절반)를 정한다. */
+@layer base {
+  :root:has(.console-sidebar) {
+    --toast-shift: 36px;
+  }
+  @media (min-width: 80rem) {
+    :root:has(.console-sidebar) {
+      --toast-shift: 120px;
+    }
   }
 }
 

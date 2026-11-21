@@ -33,7 +33,12 @@ export function ConsolePage({
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             {backLink && <div className="flex">{backLink}</div>}
-            {status && <p className="text-caption-regular text-text-secondary">{status}</p>}
+            {status && (
+              // 12 Medium 보조색. 판매 중(16 굵게 검정, 크기 클래스 있음)만 그대로 두고, 크기 클래스 없는 검정(판매 예정)은 보조색으로 되돌린다
+              <p className="mb-1 text-caption-medium text-text-secondary [&>.text-text-primary:not(.text-body1-medium)]:text-text-secondary">
+                {status}
+              </p>
+            )}
             <h1 className="text-title2">{title}</h1>
             {description && (
               <p className="text-caption-regular text-text-secondary">{description}</p>
