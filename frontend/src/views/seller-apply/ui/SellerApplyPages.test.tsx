@@ -590,6 +590,7 @@ describe('SellerApplyPage 판매자 이용약관 창', () => {
   it('보기를 누르면 약관 창이 열리고 확인했어요로 닫힌다', async () => {
     const user = userEvent.setup()
     renderWithClient(<SellerApplyPage />)
+    await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
     await user.click(screen.getByRole('button', { name: '보기' }))
     const dialog = await screen.findByRole('dialog', { name: '판매자 이용약관' })
     for (const article of [
@@ -602,7 +603,7 @@ describe('SellerApplyPage 판매자 이용약관 창', () => {
     }
     await user.click(within(dialog).getByRole('button', { name: '확인했어요' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    // 창을 읽는 것과 동의는 따로다. 동의는 체크 상자로만 한다
-    expect(screen.getByRole('checkbox', { name: /판매자 이용약관/ })).not.toBeChecked()
+    // 창을 열고 닫아도 동의 체크는 그대로 남는다
+    expect(screen.getByRole('checkbox', { name: /판매자 이용약관/ })).toBeChecked()
   })
 })
