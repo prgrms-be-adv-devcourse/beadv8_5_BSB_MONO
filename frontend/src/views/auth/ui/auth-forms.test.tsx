@@ -188,6 +188,19 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: '회원가입' })).toHaveAttribute('href', '/signup')
   })
 
+  it('계정 찾기 링크는 /find-email로 간다 (CRU-124)', () => {
+    render(withQueryClient(<LoginPage />))
+    expect(screen.getByRole('link', { name: '계정 찾기' })).toHaveAttribute('href', '/find-email')
+  })
+
+  it('회원가입·계정 찾기는 입력칸처럼 보이지 않게 테두리·채움 없는 글자 링크다 (CRU-124)', () => {
+    render(withQueryClient(<LoginPage />))
+    for (const name of ['회원가입', '계정 찾기']) {
+      const link = screen.getByRole('link', { name })
+      expect(link.className).not.toMatch(/inset-ring|border|bg-bg-surface/)
+    }
+  })
+
   it('하단 「고객센터」는 마이(/me)가 아니라 고객센터 화면(/me/support)으로 연결한다 (CRU-19)', () => {
     render(withQueryClient(<LoginPage />))
     expect(screen.getByRole('link', { name: '고객센터' })).toHaveAttribute('href', '/me/support')
@@ -270,6 +283,15 @@ describe('LoginPage 테스트 계정 로그인', () => {
     render(withQueryClient(<LoginPage />))
 
     expect(await screen.findByRole('button', { name: DEMO_BUTTON })).toBeInTheDocument()
+  })
+
+  it('입력칸과 달라 보이게 테두리 없는 회색 채움 버튼이다 (CRU-124)', async () => {
+    demoEnabled()
+    render(withQueryClient(<LoginPage />))
+
+    const button = await screen.findByRole('button', { name: DEMO_BUTTON })
+    expect(button).toHaveClass('bg-bg-subtle', 'inset-ring-0')
+    expect(button).not.toHaveClass('bg-bg-surface')
   })
 
   it('누르면 본문 없이 데모 로그인 API만 부르고, 성공하면 로그인 상태가 되어 가려던 곳으로 간다', async () => {
