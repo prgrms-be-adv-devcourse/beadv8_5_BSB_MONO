@@ -111,3 +111,23 @@ export function checkScheduleOrder(
     issue(racePath, raceAfterCloseMessage(earliestRaceAt(closeAt)))
   }
 }
+
+/** 환불 기한('yyyy-MM-dd')은 접수 마감 다음 날부터 정할 수 있다 (서버 Race.checkRefundDeadlineAfterClose와 같다) */
+export function earliestRefundDay(closeAt: string): string {
+  return format(addDays(parseISO(closeAt.slice(0, 10)), 1), 'yyyy-MM-dd')
+}
+
+export function refundAfterCloseMessage(earliestDay: string): string {
+  return `환불 기한은 접수 마감 다음 날(${format(parseISO(earliestDay), 'M월 d일')})부터 정할 수 있어요.`
+}
+
+/** 환불 기한이 접수 마감일 당일이나 그 이전이면 오류. 형식이 맞는 칸끼리만 본다 */
+export function checkRefundAfterClose(
+  refund: string | null,
+  closeAt: string | null,
+  issue: (message: string) => void,
+) {
+  if (refund && closeAt && refund < earliestRefundDay(closeAt)) {
+    issue(refundAfterCloseMessage(earliestRefundDay(closeAt)))
+  }
+}

@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { z } from 'zod'
 
 import {
+  checkRefundAfterClose,
   checkScheduleOrder,
   earliestSaleOpenDate,
   parseDateTimeInput,
@@ -228,6 +229,9 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       if (refund && raceDate && refund > raceDate) {
         issue(['refundDeadline'], RACE_FORM_ERRORS.refundBeforeRace)
       }
+      checkRefundAfterClose(refund, parseDateTimeInput(values.applicationCloseAt), (message) =>
+        issue(['refundDeadline'], message),
+      )
       // 판매 시작일은 크루 예매가 있으면 크루 예매 시작일, 없으면 일반 판매 시작일
       if (today) {
         const earliest = earliestSaleOpenDate(today)

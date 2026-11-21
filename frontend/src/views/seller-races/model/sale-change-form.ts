@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { z } from 'zod'
 
 import {
+  checkRefundAfterClose,
   checkScheduleOrder,
   earliestSaleOpenDate,
   fromLocalDateTime,
@@ -23,6 +24,7 @@ export const SALE_CHANGE_ERRORS = {
   dateFormat: '2026-10-31처럼 입력해 주세요.',
   refundAdvanced: '판매가 시작된 대회는 환불 기한을 앞당길 수 없어요.',
   ...SCHEDULE_ERRORS,
+  refundBeforeRace: '환불 기한은 대회 날짜보다 늦을 수 없어요.',
   scheduleLocked: '이미 지났거나 판매가 시작돼 바꿀 수 없는 일정이에요.',
   scheduleInPast: '지난 시각으로는 바꿀 수 없어요.',
   crewOpenLocked: '판매가 시작됐거나 크루 예매가 시작된 대회는 크루 선예매를 바꿀 수 없어요.',
@@ -174,6 +176,16 @@ function checkSchedule(
       checkGap: values.applicationCloseAt !== fromLocalDateTime(request.applicationCloseAt),
     },
   )
+  // 환불 기한은 접수 마감 다음 날부터 대회 날짜까지. 환불 기한이나 접수 마감을 바꿀 때만 본다
+  const refund = parseRaceDateInput(values.refundDeadline)
+  const closeText = parseDateTimeInput(values.applicationCloseAt)
+  const closeChanged = values.applicationCloseAt !== fromLocalDateTime(request.applicationCloseAt)
+  if (values.refundDeadline !== request.refundDeadline || closeChanged) {
+    checkRefundAfterClose(refund, closeText, (message) => issue(['refundDeadline'], message))
+    if (refund && refund > request.raceDate.slice(0, 10)) {
+      issue(['refundDeadline'], SALE_CHANGE_ERRORS.refundBeforeRace)
+    }
+  }
   if (values.crewOpen !== Boolean(request.crewSaleStartAt) && locks.crewOpen) {
     issue(['crewOpen'], SALE_CHANGE_ERRORS.crewOpenLocked)
   }

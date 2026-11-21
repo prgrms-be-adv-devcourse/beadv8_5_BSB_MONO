@@ -95,8 +95,10 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
   })
 
   it('접수 마감이 대회 시작보다 늦으면 막는다', () => {
+    // 접수 마감이 11/19라 환불 기한(10/29)도 마감일 이전이 되어 함께 막힌다
     expect(issuesOf({ ...base, applicationCloseAt: '2026-11-19 08:01' })).toEqual([
       `applicationCloseAt: ${RACE_FORM_ERRORS.closeBeforeRace}`,
+      `refundDeadline: ${refundAfterCloseMessage('2026-11-20')}`,
     ])
   })
 
