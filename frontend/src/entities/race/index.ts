@@ -39,6 +39,15 @@ export {
   toLocalDateTime,
   type ScheduleInput,
 } from './lib/race-schedule'
+export {
+  SCHEDULE_CHANGE_ERRORS,
+  scheduleChangeSchema,
+  scheduleLocks,
+  toScheduleChangeValues,
+  toScheduleRequest,
+  type ScheduleChangeField,
+  type ScheduleChangeValues,
+} from './lib/schedule-change'
 export { raceJsonLd, serializeJsonLd } from './lib/race-json-ld'
 export { RACE_BANNERS, RACE_DETAIL, type RaceBanner } from './model/fixtures'
 export { applicationPhase, toClosingSoonCard, toRaceListItem } from './model/mappers'
