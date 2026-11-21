@@ -32,14 +32,17 @@ import type {
   HoldsParams,
   ItemsParams,
   PayoutHoldRequestDto,
+  Payouts1Params,
   PayoutsParams,
   RefundEligibilityParams,
   RsData,
   RsDataListPayoutDto,
   RsDataListSellerPayoutHoldDto,
   RsDataPayoutAdminClaimsDto,
+  RsDataPayoutAdminPayoutsDto,
   RsDataPayoutClaimDto,
   RsDataPayoutCreateFailuresDto,
+  RsDataPayoutDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -1075,9 +1078,9 @@ export const getFindPayoutUrl = (params: FindPayoutParams,) => {
  * 정산 ID(ST-)로 정산 내역 한 건을 찾는다. 응답의 id를 지급보류 걸기 경로의 payoutId로 쓴다.
  * @summary 정산 ID로 정산 내역 찾기
  */
-export const findPayout = async (params: FindPayoutParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+export const findPayout = async (params: FindPayoutParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutDto> => {
 
-  return customFetch<unknown>(getFindPayoutUrl(params),
+  return customFetch<RsDataPayoutDto>(getFindPayoutUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1371,6 +1374,115 @@ export function useAdminClaims<TData = Awaited<ReturnType<typeof adminClaims>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getAdminClaimsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPayouts1Url = (params?: Payouts1Params,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/payout/admin/payouts?${stringifiedParams}` : `/api/v1/payout/admin/payouts`
+}
+
+/**
+ * 지급 예정일 하루의 정산 내역을 돌려준다. 지급일을 빼면 오늘(한국 시간)보다 뒤인 가장 가까운 20일이고, 20일 당일이면 다음 달 20일이다. 조회한 지급일은 응답의 payDate에 담긴다. 줄마다 진행 중인 지급보류가 붙고, 그 id로 보류 해제 API를 부른다.
+ * @summary 지급일별 정산 목록 조회 (BUK-168)
+ */
+export const payouts1 = async (params?: Payouts1Params, options?: Parameters<typeof customFetch>[1]): Promise<RsDataPayoutAdminPayoutsDto> => {
+
+  return customFetch<RsDataPayoutAdminPayoutsDto>(getPayouts1Url(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPayouts1QueryKey = (params?: Payouts1Params,) => {
+    return [
+    `/api/v1/payout/admin/payouts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getPayouts1QueryOptions = <TData = Awaited<ReturnType<typeof payouts1>>, TError = unknown>(params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPayouts1QueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof payouts1>>> = ({ signal }) => payouts1(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type Payouts1QueryResult = NonNullable<Awaited<ReturnType<typeof payouts1>>>
+export type Payouts1QueryError = unknown
+
+
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = unknown>(
+ params: undefined |  Payouts1Params, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof payouts1>>,
+          TError,
+          Awaited<ReturnType<typeof payouts1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = unknown>(
+ params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof payouts1>>,
+          TError,
+          Awaited<ReturnType<typeof payouts1>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = unknown>(
+ params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 지급일별 정산 목록 조회 (BUK-168)
+ */
+
+export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError = unknown>(
+ params?: Payouts1Params, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof payouts1>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPayouts1QueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

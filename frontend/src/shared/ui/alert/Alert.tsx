@@ -38,9 +38,23 @@ export function Alert({ tone = 'info', title, description, onClose, className }:
     >
       <Icon name={TONE[tone].icon} className={cn('size-5', TONE[tone].iconColor)} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-body1-bold text-text-primary">{title}</p>
+        <p
+          className={cn(
+            'text-body1-bold',
+            tone === 'danger' ? 'text-text-danger' : 'text-text-primary',
+          )}
+        >
+          {title}
+        </p>
         {description && (
-          <p className="line-clamp-2 text-body1-regular text-text-secondary">{description}</p>
+          <p
+            className={cn(
+              'line-clamp-2 text-body1-regular',
+              tone === 'danger' ? 'text-text-primary' : 'text-text-secondary',
+            )}
+          >
+            {description}
+          </p>
         )}
       </div>
       {onClose && (

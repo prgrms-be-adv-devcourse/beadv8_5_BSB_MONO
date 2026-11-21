@@ -1,0 +1,51 @@
+name: ghcr-cleanup
+
+# GHCR 앱 이미지 정리 (CRU-125). 앱마다 지금 운영 중인 이미지 + 옛 이미지 3개와 빌드 캐시(buildcache)만 남긴다
+# 배포할 때마다 새 이미지와 덮어써진 옛 빌드 캐시가 쌓여(다시 빌드한 백엔드 앱 하나에 약 220~250MB) 저장 용량이 계속 늘었다
+# 무엇을 남기고 지우는지는 .github/scripts/ghcr-cleanup.sh 머리말
+#
+# 되돌리기(k8s-cd를 옛 커밋 SHA로 손으로 실행)는 앱 13개 이미지가 모두 남아 있는 커밋으로만 할 수 있다
+# 자주 바뀌는 앱일수록 옛 이미지가 빨리 지워지므로, 되돌릴 수 있는 범위는 최근 몇 번의 배포다
+on:
+  # 매일 03:00 (한국 시간). 배포가 거의 없는 때
+  schedule:
+    - cron: '0 18 * * *'
+  # 손으로 실행. 기본은 지울 목록만 보여 준다
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '지울 목록만 보고 지우지 않기'
+        type: boolean
+        default: true
+
+# k8s-cd의 concurrency 그룹(k8s-deploy)은 함께 쓰지 않는다. 같은 그룹에 기다리는 실행은 하나만 남아 대기 중인 배포가 취소될 수 있다
+# 대신 스크립트가 만든 지 60분이 안 된 버전은 지우지 않아 돌고 있는 빌드와 겹치지 않는다
+concurrency:
+  group: ghcr-cleanup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      # 남길 이미지의 하위 버전을 읽으려고 로그인한다 (docker buildx imagetools inspect)
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 옛 이미지 정리
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 예약 실행은 실제로 지우고, 손으로 실행하면 고른 값(기본: 목록만)
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+        run: bash .github/scripts/ghcr-cleanup.sh

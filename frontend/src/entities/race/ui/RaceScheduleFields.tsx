@@ -1,6 +1,7 @@
 'use client'
 
 import { startOfToday } from 'date-fns'
+import type { ReactNode } from 'react'
 
 import { DateTimeField } from '@/shared/date-picker'
 import { Chip } from '@/shared/ui'
@@ -22,6 +23,8 @@ export type RaceScheduleFieldsProps = {
   disabled?: Partial<Record<ScheduleField, boolean>>
   /** 고를 수 없는 날 */
   isDateDisabled: (field: ScheduleField, date: Date) => boolean
+  /** 크루 선예매를 열었을 때 크루 예매 칸 아래에 더 보여 줄 입력 (크루 최대 인원 등) */
+  crewExtra?: ReactNode
 }
 
 // 피그마 V4 판매 일정 카드의 안쪽: 크루 선예매 열기·열지 않기, 크루 예매 시작·마감, 일반 판매 시작, 접수 마감.
@@ -35,6 +38,7 @@ export function RaceScheduleFields({
   defaults = {},
   disabled = {},
   isDateDisabled,
+  crewExtra,
 }: RaceScheduleFieldsProps) {
   const field = (name: ScheduleField, label: string, helper?: string) => (
     <DateTimeField
@@ -83,6 +87,7 @@ export function RaceScheduleFields({
           )}
         </div>
       )}
+      {crewOpen && crewExtra}
       <div className="flex gap-4">
         {field(
           'individualOpenAt',

@@ -23,6 +23,7 @@ const SECTION_OF: Record<keyof RaceFormValues, string> = {
   crewOpen: '판매 일정',
   crewSaleStartAt: '판매 일정',
   crewSaleEndAt: '판매 일정',
+  crewMaxCount: '판매 일정',
   individualOpenAt: '판매 일정',
   applicationCloseAt: '판매 일정',
   courses: '종목 · 참가권',

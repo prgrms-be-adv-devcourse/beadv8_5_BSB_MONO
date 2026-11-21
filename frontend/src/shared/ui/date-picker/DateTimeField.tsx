@@ -69,7 +69,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
     error,
     disabled,
     required,
-    placeholder = '날짜를 골라 주세요',
+    placeholder = '날짜 고르기',
     withTime = true,
     className,
     ref,

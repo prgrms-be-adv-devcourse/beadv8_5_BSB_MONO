@@ -113,24 +113,18 @@ export function LoginPage({
               <Button type="submit" size="l" disabled={!isValid || login.isPending}>
                 로그인
               </Button>
-              <div className="flex gap-2">
+              {/* 입력칸과 헷갈리지 않게 테두리 없는 글자 링크로 둔다 (CRU-124) */}
+              <div className="flex items-center justify-center gap-4">
                 <Link
                   href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
-                  className={buttonClassName({
-                    variant: 'secondary',
-                    size: 's',
-                    className: 'flex-1 enabled:hover:bg-bg-surface',
-                  })}
+                  className={buttonClassName({ variant: 'text', size: 's' })}
                 >
                   회원가입
                 </Link>
+                <span aria-hidden className="h-4 w-px bg-border-default" />
                 <Link
                   href="/find-email"
-                  className={buttonClassName({
-                    variant: 'secondary',
-                    size: 's',
-                    className: 'flex-1 enabled:hover:bg-bg-surface',
-                  })}
+                  className={buttonClassName({ variant: 'text', size: 's' })}
                 >
                   계정 찾기
                 </Link>
@@ -141,7 +135,7 @@ export function LoginPage({
                     type="button"
                     variant="secondary"
                     size="m"
-                    className="enabled:hover:bg-bg-surface"
+                    className="bg-bg-subtle inset-ring-0 enabled:hover:bg-bg-subtle-hover"
                     disabled={demoLogin.isPending}
                     onClick={() =>
                       demoLogin.mutate(undefined, {

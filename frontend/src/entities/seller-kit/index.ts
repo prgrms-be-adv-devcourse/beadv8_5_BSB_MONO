@@ -5,6 +5,7 @@ export {
   type KitShipment,
 } from './api/seller-kit-api'
 export {
+  useChangeKitTracking,
   useCompleteKitDeliveries,
   useSellerKits,
   useSellerKitSummary,

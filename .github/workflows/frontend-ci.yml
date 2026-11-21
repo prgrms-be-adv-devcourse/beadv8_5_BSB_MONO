@@ -1,12 +1,13 @@
 name: frontend-ci
 
-# 모든 PR에서 돌고, frontend/ 변경이 없으면 frontend job을 건너뛴다.
+# 모든 PR에서 돌고, frontend/ 변경이 없으면 검사 job들을 건너뛴다.
 # on.paths로 거르면 워크플로 자체가 안 떠서 필수 체크가 영원히 대기 상태가 된다.
 # 건너뛴 job은 필수 체크에서 통과로 친다.
+# dev push에서도 돌려 머지된 dev 코드를 한 번 검사한다. 그래서 dev→main 맞추기 PR에서는 같은 코드를 다시 검사하지 않는다 (CRU-125)
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,11 +21,15 @@ defaults:
   run:
     working-directory: frontend
 
+env:
+  API_MOCKING: 'on'
+
 jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
+      # dev→main 맞추기 PR은 dev push 실행에서 이미 검사한 코드라 false로 둬 검사를 건너뛴다 (CRU-125)
+      frontend: ${{ (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev') && 'false' || steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,30 +43,85 @@ jobs:
               # 기록증 OCR 모델 · 사전 두 벌(프론트 · ai-service)의 sha256 검사
               - 'backend/ai-service/src/main/resources/recordcert/**'
 
-  # 이 job 이름(frontend)이 main 브랜치 보호의 필수 체크다. 바꾸면 보호 규칙도 같이 바꾼다.
-  frontend:
+  # 검사·테스트·빌드를 동시에 돌린다 (CRU-125). 한 job에서 차례로 돌 때 약 5분 중 테스트가 3분 넘게 걸렸다
+  # 정적 검사: OCR 모델 해시·ESLint·Prettier·타입
+  check:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    env:
-      API_MOCKING: 'on'
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: frontend/package.json
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-
       - run: pnpm install --frozen-lockfile
       - run: pnpm ocr:check
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck
-      - run: pnpm test
+
+  # vitest를 테스트 파일 기준 두 묶음으로 나눠 동시에 돌린다
+  test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test --shard=${{ matrix.shard }}/2
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Next 빌드 캐시. 소스가 같으면 그대로, 다르면 가장 가까운 캐시에서 바뀐 부분만 다시 빌드한다
+      - uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ hashFiles('frontend/src/**', 'frontend/public/**', 'frontend/next.config.*') }}
+          restore-keys: |
+            nextjs-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
       - run: pnpm build
+
+  # 이 job 이름(frontend)이 main 브랜치 보호의 필수 체크다. 바꾸면 보호 규칙도 같이 바꾼다.
+  # 위 세 job의 결과를 모아 하나라도 실패하면 실패한다. 프론트 변경이 없으면 이 job도 건너뛰어 통과로 친다
+  frontend:
+    needs: [changes, check, test, build]
+    if: ${{ !cancelled() && needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 검사 결과 모으기
+        working-directory: .
+        run: |
+          echo "check=${{ needs.check.result }} test=${{ needs.test.result }} build=${{ needs.build.result }}"
+          test "${{ needs.check.result }}" = success
+          test "${{ needs.test.result }}" = success
+          test "${{ needs.build.result }}" = success

@@ -4,7 +4,7 @@ import { ConsoleSidebar } from '@/widgets/console-sidebar'
 
 export default function SellerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-1">
+    <div className="console-type flex min-h-dvh flex-1">
       <ConsoleSidebar role="seller" />
       {children}
     </div>

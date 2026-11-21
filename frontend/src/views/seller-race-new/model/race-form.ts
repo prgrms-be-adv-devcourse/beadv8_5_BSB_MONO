@@ -29,6 +29,7 @@ export const RACE_FORM_ERRORS = {
   dateRequired: '날짜를 골라 주세요.',
   timeRequired: '출발 시각을 입력해 주세요.',
   ...SCHEDULE_ERRORS,
+  crewMaxCount: `크루 최대 인원은 ${productZod.registerBodyCrewMinCountMin}명 이상의 숫자로 입력해 주세요.`,
   refundBeforeRace: '환불 기한은 대회 날짜보다 늦을 수 없어요.',
   coursesRequired: '종목을 1개 이상 추가해 주세요.',
   coverRequired: '대표 이미지를 올려 주세요.',
@@ -67,13 +68,15 @@ const quota = z
   .min(0, COURSE_FORM_ERRORS.quotaNumber)
 
 // 종목 한 줄은 orval이 만든 요청 스키마에서 이미지만 빼고, 정원 · 나이의 안내 문구와 값을 좁힌 모양 (이미지는 등록할 때 올려서 붙인다)
-const courseSchema = productZod.RegisterBody.shape.courses.element.omit({ images: true }).extend({
-  minAge: z.union([z.literal(NO_LIMIT_MIN_AGE), z.literal(ADULT_MIN_AGE)]),
-  crewQuota: quota,
-  individualQuota: quota,
-})
+export const courseRowSchema = productZod.RegisterBody.shape.courses.element
+  .omit({ images: true })
+  .extend({
+    minAge: z.union([z.literal(NO_LIMIT_MIN_AGE), z.literal(ADULT_MIN_AGE)]),
+    crewQuota: quota,
+    individualQuota: quota,
+  })
 
-export type RaceCourseInput = z.input<typeof courseSchema>
+export type RaceCourseInput = z.input<typeof courseRowSchema>
 
 /** 날짜 칸('yyyy-MM-dd') */
 const date = z
@@ -191,10 +194,12 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       crewOpen: z.boolean(),
       crewSaleStartAt: z.string(),
       crewSaleEndAt: z.string(),
+      // 비우면 상한 없음. 값이 있으면 서버처럼 크루 최소 인원 이상이어야 한다
+      crewMaxCount: z.string(),
       individualOpenAt: dateTime,
       applicationCloseAt: dateTime,
       refundDeadline: date,
-      courses: z.array(courseSchema).min(1, RACE_FORM_ERRORS.coursesRequired),
+      courses: z.array(courseRowSchema).min(1, RACE_FORM_ERRORS.coursesRequired),
       kitOptions: kitOptionsSchema,
     })
     .superRefine((values, ctx) => {
@@ -208,6 +213,10 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       const refund = parseRaceDateInput(values.refundDeadline)
       const crewStart = values.crewOpen ? parseDateTimeInput(values.crewSaleStartAt) : null
       checkScheduleOrder(values, raceAt, (path, message) => issue([path], message))
+      const max = values.crewMaxCount.trim()
+      if (values.crewOpen && max !== '' && !(/^\d+$/.test(max) && Number(max) >= CREW_MIN_COUNT)) {
+        issue(['crewMaxCount'], RACE_FORM_ERRORS.crewMaxCount)
+      }
       if (refund && raceDate && refund > raceDate) {
         issue(['refundDeadline'], RACE_FORM_ERRORS.refundBeforeRace)
       }
@@ -252,55 +261,90 @@ export const COURSE_TYPE_LABELS: Record<SellableCourseType, string> = {
   FULL: '풀',
 }
 
+export const COURSE_TYPE_OPTION_NAMES = Object.keys(COURSE_DISTANCE_KM) as SellableCourseType[]
+
+/** 종목 구분 선택지 글자. 거리를 함께 보여 준다 (예: 하프 (21.1km)) */
+export function courseTypeOptionLabel(type: SellableCourseType): string {
+  return `${COURSE_TYPE_LABELS[type]} (${COURSE_DISTANCE_KM[type]}km)`
+}
+
 /** 종목 추가 창의 입력값. 숫자 칸도 입력 그대로(글자) 받는다 */
 export type CourseDraft = {
   name: string
   courseType: SellableCourseType | ''
-  timeLimitMinutes: string
-  price: string
+  crewQuota: string
   individualQuota: string
+  price: string
+  timeLimitMinutes: string
+  kitIncluded: 'included' | 'none'
+  minAge: typeof NO_LIMIT_MIN_AGE | typeof ADULT_MIN_AGE
 }
 
 export const COURSE_DRAFT_DEFAULTS: CourseDraft = {
   name: '',
   courseType: '',
-  timeLimitMinutes: '',
-  price: '',
+  crewQuota: '',
   individualQuota: '',
+  price: '',
+  timeLimitMinutes: '',
+  kitIncluded: 'included',
+  minAge: NO_LIMIT_MIN_AGE,
 }
 
+/** 천 단위 쉼표는 보기용이라 숫자로 읽기 전에 지운다 */
 const numberText = (pattern: RegExp) =>
-  z.string().trim().regex(pattern, COURSE_FORM_ERRORS.number).transform(Number)
-const wholeNumber = numberText(/^\d+$/)
-
-export const courseDraftSchema = z.object({
-  name: z
+  z
     .string()
     .trim()
-    .min(1, COURSE_FORM_ERRORS.nameRequired)
-    .max(productZod.registerBodyCoursesItemNameMax, COURSE_FORM_ERRORS.nameMax),
-  courseType: z.enum(Object.keys(COURSE_DISTANCE_KM) as [SellableCourseType], {
-    error: COURSE_FORM_ERRORS.courseTypeRequired,
-  }),
-  timeLimitMinutes: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.timeLimitPositive)),
-  // 서버 RaceCourseSaveRequestDto가 @Positive라 0원은 막는다 (orval zod는 min(0)뿐)
-  price: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.pricePositive)),
-  individualQuota: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.quotaPositive)),
-})
+    .transform((value) => value.replaceAll(',', ''))
+    .pipe(z.string().regex(pattern, COURSE_FORM_ERRORS.number))
+    .transform(Number)
+const wholeNumber = numberText(/^\d+$/)
 
-export type CourseDraftInput = z.input<typeof courseDraftSchema>
-export type CourseDraftParsed = z.output<typeof courseDraftSchema>
+/**
+ * 종목 추가 창 규칙. 크루 선예매를 열지 않으면 크루 정원은 받지 않고 0으로 만든다.
+ * 정원 규칙은 서버 validateCourse와 같다: 크루 + 일반이 1명 이상.
+ */
+export function createCourseDraftSchema({ crewOpen }: { crewOpen: boolean }) {
+  return z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(1, COURSE_FORM_ERRORS.nameRequired)
+        .max(productZod.registerBodyCoursesItemNameMax, COURSE_FORM_ERRORS.nameMax),
+      courseType: z.enum(COURSE_TYPE_OPTION_NAMES as [SellableCourseType], {
+        error: COURSE_FORM_ERRORS.courseTypeRequired,
+      }),
+      // 크루 선예매를 열지 않으면 칸이 없어 비어 있으므로 값을 보지 않고 0으로 둔다
+      crewQuota: crewOpen ? wholeNumber : z.string().transform(() => 0),
+      individualQuota: wholeNumber,
+      timeLimitMinutes: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.timeLimitPositive)),
+      // 서버 RaceCourseSaveRequestDto가 @Positive라 0원은 막는다 (orval zod는 min(0)뿐)
+      price: wholeNumber.pipe(z.number().min(1, COURSE_FORM_ERRORS.pricePositive)),
+      kitIncluded: z.enum(['included', 'none']).transform((value) => value === 'included'),
+      minAge: z.union([z.literal(NO_LIMIT_MIN_AGE), z.literal(ADULT_MIN_AGE)]),
+    })
+    .superRefine((course, ctx) => {
+      if (course.crewQuota + course.individualQuota >= 1) return
+      ctx.addIssue({
+        code: 'custom',
+        path: ['individualQuota'],
+        message: crewOpen ? COURSE_FORM_ERRORS.quotaSum : COURSE_FORM_ERRORS.quotaPositive,
+      })
+    })
+}
 
-/** 검사를 통과한 종목 입력값에 고정값(거리 · 노면 · 키트)을 붙여 종목 한 줄로 만든다. 나이 · 크루 정원은 종목 표에서 고른다 */
+export type CourseDraftInput = z.input<ReturnType<typeof createCourseDraftSchema>>
+export type CourseDraftParsed = z.output<ReturnType<typeof createCourseDraftSchema>>
+
+/** 검사를 통과한 종목 입력값에 고정값(거리 · 노면 · 키트 금액)을 붙여 종목 한 줄로 만든다 */
 export function toCourseInputFromParsed(data: CourseDraftParsed): RaceCourseInput {
   return {
     ...data,
     distanceKm: COURSE_DISTANCE_KM[data.courseType],
-    minAge: NO_LIMIT_MIN_AGE,
     surface: 'ROAD',
-    kitIncluded: true,
     kitPrice: 0,
-    crewQuota: 0,
   }
 }
 
@@ -316,6 +360,7 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   crewOpen: false,
   crewSaleStartAt: '',
   crewSaleEndAt: '',
+  crewMaxCount: '',
   individualOpenAt: '',
   applicationCloseAt: '',
   refundDeadline: '',
@@ -344,6 +389,9 @@ export function toRaceSaveRequest(
     // 환불 기한은 서버도 날짜(LocalDate)로 받는다
     refundDeadline: parseRaceDateInput(values.refundDeadline) ?? values.refundDeadline,
     crewMinCount: CREW_MIN_COUNT,
+    // 크루 예매를 열고 칸을 채웠을 때만 보낸다. 비우면 상한 없음
+    crewMaxCount:
+      values.crewOpen && values.crewMaxCount.trim() ? Number(values.crewMaxCount) : undefined,
     images: raceImages,
     // 크루 예매를 열지 않으면 크루 몫 정원은 0으로 보낸다
     courses: values.courses.map((course, i) => ({

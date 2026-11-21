@@ -24,6 +24,8 @@ export type TextFieldProps = Omit<ComponentProps<'input'>, 'children'> & {
   compact?: boolean
   /** 입력 칸 앞에 놓는 아이콘(예: 검색 돋보기 `<Icon name="Search" />`). 칸 안쪽 왼쪽에 겹쳐 그린다. */
   leading?: ReactNode
+  /** 입력 칸 안쪽 오른쪽에 놓는 단위(예: 명 · 원 · 분). 글자는 오른쪽 정렬하고 화면 낭독기는 읽지 않는다 */
+  trailing?: ReactNode
 }
 
 // 한 줄 입력. 높이 52.
@@ -36,6 +38,7 @@ export function TextField({
   compact = false,
   hideErrorBorder = false,
   leading,
+  trailing,
   disabled,
   className,
   onChange,
@@ -57,6 +60,7 @@ export function TextField({
             hideErrorBorder &&
               'group-data-invalid:inset-ring-1 group-data-invalid:inset-ring-border-strong',
             leading && 'pl-11',
+            trailing && 'pr-12 text-right',
           )}
           onChange={(event) => {
             apply(event)
@@ -68,6 +72,14 @@ export function TextField({
           }}
           {...props}
         />
+        {trailing && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-body1-regular text-text-secondary"
+          >
+            {trailing}
+          </span>
+        )}
         {leading && (
           <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-text-primary [&_svg]:size-5">
             {leading}

@@ -12,7 +12,32 @@ COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle gradle
 RUN chmod +x gradlew
 
-# 모듈 소스를 복사한다. settings.gradle.kts에 등록된 모듈 폴더가 모두 있어야 Gradle이 설정 단계를 통과한다
+# Gradle(래퍼 배포본·의존성)을 이미지 층에 받아 둔다 (CRU-125)
+# 예전에는 RUN --mount=type=cache에 받았는데, 그 캐시는 GitHub Actions의 이미지 캐시로 내보내지지 않아
+# 소스가 하나만 바뀌어도 CI에서 매번 라이브러리를 처음부터 받았다. 층에 두면 build.gradle.kts가 그대로인 동안 다시 받지 않는다
+ENV GRADLE_USER_HOME=/gradle-home
+
+# 의존성 받기: 모듈의 build.gradle.kts만 먼저 복사한다. 소스가 바뀌어도 이 층은 캐시를 그대로 쓴다
+# settings.gradle.kts에 등록된 모듈 폴더가 모두 있어야 Gradle이 설정 단계를 통과한다
+COPY common/build.gradle.kts common/
+COPY jwt/build.gradle.kts jwt/
+COPY gateway/build.gradle.kts gateway/
+COPY member-service/build.gradle.kts member-service/
+COPY cash-service/build.gradle.kts cash-service/
+COPY payout-service/build.gradle.kts payout-service/
+COPY file-service/build.gradle.kts file-service/
+COPY order-service/build.gradle.kts order-service/
+COPY product-service/build.gradle.kts product-service/
+COPY queue-service/build.gradle.kts queue-service/
+COPY notification-service/build.gradle.kts notification-service/
+COPY inquiry-service/build.gradle.kts inquiry-service/
+COPY board-service/build.gradle.kts board-service/
+COPY ai-service/build.gradle.kts ai-service/
+COPY observability-dev/build.gradle.kts observability-dev/
+# dependencies 작업은 그 모듈(과 common·jwt)의 모든 의존성 목록을 풀면서 라이브러리를 내려받는다. 출력은 버린다
+RUN ./gradlew :${MODULE}:dependencies --no-daemon -q > /dev/null
+
+# 모듈 소스를 복사한다
 COPY common common
 COPY jwt jwt
 COPY gateway gateway
@@ -30,11 +55,9 @@ COPY ai-service ai-service
 # bootRun 전용(developmentOnly) 모듈. jar에는 빠지지만 Gradle 설정 단계를 통과하려면 폴더가 있어야 한다
 COPY observability-dev observability-dev
 
-# Gradle 캐시(~/.gradle)를 빌드 간에 유지해서, 의존성은 변경된 것만 새로 받는다
-# :<모듈>:bootJar 는 그 서비스와 의존하는 라이브러리 모듈(common, jwt)만 빌드한다
-# compose가 서비스 이미지를 동시에 빌드하면 Gradle끼리 캐시 잠금(journal-1.lock)을 기다리다 시간 초과로 실패하므로,
-# sharing=locked로 이 캐시를 한 번에 한 빌드만 쓰게 한다
-RUN --mount=type=cache,target=/root/.gradle,sharing=locked ./gradlew :${MODULE}:bootJar --no-daemon
+# :<모듈>:bootJar 는 그 서비스와 의존하는 라이브러리 모듈(common, jwt)만 빌드한다. 의존성은 위 층에 이미 있다
+# 앱마다 자기 층을 쓰므로 compose가 여러 이미지를 동시에 빌드해도 Gradle 캐시 잠금을 기다리지 않는다
+RUN ./gradlew :${MODULE}:bootJar --no-daemon
 
 # ── 2단계: 실행 (JRE 이미지에 jar만 복사) ──
 FROM eclipse-temurin:25-jre

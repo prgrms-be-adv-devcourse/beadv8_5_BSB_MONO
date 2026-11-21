@@ -1,22 +1,19 @@
 'use client'
 
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Controller, useForm } from 'react-hook-form'
-import { z } from 'zod'
+import { useState } from 'react'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { usePlaceHold } from '@/features/payout-hold'
-import { HOLD_REASON_ITEMS } from '@/entities/payout'
-import { useSearchParamsState } from '@/shared/lib'
-import { Button, Chip, digitsOnly, EmptyState, Select, TextField } from '@/shared/ui'
+import { formatMonthDay, HOLD_REASON_ITEMS, PAYOUT_STAGE } from '@/entities/payout'
+import type { payoutModel } from '@/shared/api'
+import { formatWon, useSearchParamsState } from '@/shared/lib'
+import { Button, Chip, EmptyState, KeyValue, Select } from '@/shared/ui'
 
-import { holdFormSchema } from '../model/hold-form'
+import { PayoutPickerDialog } from './PayoutPickerDialog'
 
 const TABS = ['지급 예정', '지급보류', '지급 완료'] as const
 type Tab = (typeof TABS)[number]
 const isTab = (value: string): value is Tab => TABS.some((tab) => tab === value)
-
-type HoldInput = z.input<typeof holdFormSchema>
 
 // 피그마 v3 · 정산 관리. 지급은 매월 20일 자동이라 관리자는 보기와 지급보류 걸기만 한다.
 // TODO(api): 관리자 정산 목록 API가 openapi에 없어 목록은 비워 둔다. 생기면 칩 건수와 목록을 연결한다.
@@ -43,57 +40,70 @@ export function AdminSettlementsPage() {
   )
 }
 
-// 목록에서 고를 수 없어 정산 내역 번호를 직접 넣는다
+// 보류는 정산 내역 한 건에 걸린다. 번호를 넣게 하지 않고 창에서 대회 이름으로 찾아 고른다
 function PlaceHoldCard() {
   const placeHold = usePlaceHold()
-  const {
-    register,
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<HoldInput, unknown, z.output<typeof holdFormSchema>>({
-    resolver: zodResolver(holdFormSchema),
-    defaultValues: { payoutId: '', reasonType: '대회_취소_처리' },
-  })
+  const [picked, setPicked] = useState<payoutModel.PayoutDto | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [reasonType, setReasonType] = useState<payoutModel.PayoutHoldReason>('대회_취소_처리')
 
-  const onSubmit = handleSubmit(({ payoutId, reasonType }) =>
-    placeHold.mutate({ payoutId, data: { reasonType } }),
-  )
+  const submit = () => {
+    if (!picked) return
+    placeHold.mutate(
+      { payoutId: picked.id, data: { reasonType } },
+      { onSuccess: () => setPicked(null) },
+    )
+  }
 
   return (
     <ConsoleCard title="새 보류 걸기">
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <TextField
-          label="정산 내역 번호"
-          helper="정산 ID(ST-…)로 찾는 기능은 아직 없어 번호를 직접 넣어요"
-          inputMode="numeric"
-          filter={digitsOnly}
-          filterMessage="숫자만 입력할 수 있어요"
-          error={errors.payoutId?.message}
-          {...register('payoutId')}
-        />
-        <Controller
-          control={control}
-          name="reasonType"
-          render={({ field }) => (
-            <Select
-              label="보류 사유"
-              helper="사유는 판매자 화면에도 보여요"
-              items={HOLD_REASON_ITEMS}
-              value={field.value}
-              onValueChange={(next) => next && field.onChange(next)}
-            />
-          )}
+      <div className="flex flex-col gap-4">
+        {picked ? (
+          <div role="group" aria-label="고른 정산" className="flex flex-col gap-2">
+            <KeyValue label="대회 이름" value={picked.raceName} />
+            <KeyValue label="정산 ID" value={picked.payoutCode} />
+            <KeyValue label="정산 단계" value={PAYOUT_STAGE[picked.payoutStage]} />
+            <KeyValue label="지급액" value={formatWon(picked.payoutAmount)} />
+            <KeyValue label="지급 예정일" value={formatMonthDay(picked.scheduledPayDate)} />
+            <Button
+              variant="secondary"
+              size="s"
+              className="self-start"
+              onClick={() => setPicking(true)}
+            >
+              다시 고르기
+            </Button>
+          </div>
+        ) : (
+          <Button variant="secondary" className="self-start" onClick={() => setPicking(true)}>
+            정산 고르기
+          </Button>
+        )}
+        <Select
+          label="보류 사유"
+          helper="사유는 판매자 화면에도 보여요"
+          items={HOLD_REASON_ITEMS}
+          value={reasonType}
+          onValueChange={(next) => next && setReasonType(next)}
         />
         <Button
-          type="submit"
           variant="danger"
-          disabled={placeHold.isPending}
+          disabled={!picked}
+          loading={placeHold.isPending}
           className="self-start"
+          onClick={submit}
         >
           보류 걸기
         </Button>
-      </form>
+      </div>
+      <PayoutPickerDialog
+        open={picking}
+        onOpenChange={setPicking}
+        onPick={(payout) => {
+          setPicked(payout)
+          setPicking(false)
+        }}
+      />
     </ConsoleCard>
   )
 }
