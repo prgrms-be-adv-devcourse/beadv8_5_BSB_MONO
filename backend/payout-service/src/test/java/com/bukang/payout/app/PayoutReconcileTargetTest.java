@@ -19,7 +19,6 @@ import org.springframework.test.context.transaction.AfterTransaction;
 import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.PayoutCreateFailure;
 import com.bukang.payout.domain.PayoutCreateFailureType;
-import com.bukang.payout.domain.SetEntryDiffer;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
@@ -103,8 +102,7 @@ class PayoutReconcileTargetTest {
 		entityManager.clear();
 		new PayoutReconcileUseCase(payoutRepository, racePort, noFirst, soldEntryPort,
 			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase,
-				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-				new SetEntryDiffer()),
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository)),
 			failureUseCase).run(today, now);
 	}
 
@@ -142,8 +140,7 @@ class PayoutReconcileTargetTest {
 			raceId -> orderEntries,
 			new PayoutReconcileStepUseCase(payoutRepository,
 				PayoutHoldUseCases.withoutNotification(payoutRepository, payoutHoldRepository, new BusinessDayCalendar()),
-				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository),
-				new SetEntryDiffer()),
+				new PayoutLedgerUseCase(payoutRepository, payoutItemRepository, payoutRecoveryRepository)),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository)).run(DAY2, NOW2);
 
 		assertThat(mismatches())

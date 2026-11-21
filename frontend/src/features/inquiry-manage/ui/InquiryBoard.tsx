@@ -165,7 +165,7 @@ export function InquiryBoard({
                     }}
                     className={cn(
                       'flex w-full flex-col items-start gap-1 rounded-lg p-3 text-left',
-                      inquiry.id === selectedId && 'inset-ring-2 inset-ring-text-primary',
+                      inquiry.id === selectedId && 'bg-bg-subtle',
                       FOCUS_RING,
                     )}
                   >

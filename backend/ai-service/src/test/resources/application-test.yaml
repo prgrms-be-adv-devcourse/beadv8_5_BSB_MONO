@@ -5,6 +5,10 @@ spring:
   ai:
     model:
       chat: ollama
+  kafka:
+    listener:
+      # 기록증 확인 요청 리스너는 테스트가 부르지 않으므로 자동 시작을 끈다 (브로커 없이 뜬다)
+      auto-startup: false
 
 logging:
   level:

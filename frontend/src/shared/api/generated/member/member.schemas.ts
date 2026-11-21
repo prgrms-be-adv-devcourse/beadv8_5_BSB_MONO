@@ -347,6 +347,64 @@ export interface KakaoInviteSendRequestDto {
   receiverUuids: string[];
 }
 
+/**
+ * 계좌 명의 (BUSINESS: 사업자 명의, 사업자 판매자만 / PERSONAL: 본인 명의)
+ */
+export type SellerPayoutAccountModifyRequestDtoAccountHolderType = typeof SellerPayoutAccountModifyRequestDtoAccountHolderType[keyof typeof SellerPayoutAccountModifyRequestDtoAccountHolderType];
+
+
+export const SellerPayoutAccountModifyRequestDtoAccountHolderType = {
+  BUSINESS: 'BUSINESS',
+  PERSONAL: 'PERSONAL',
+} as const;
+
+/**
+ * 정산 계좌 등록·수정 요청
+ */
+export interface SellerPayoutAccountModifyRequestDto {
+  /**
+     * 정산 계좌 은행 표준 코드 (숫자 3자리)
+     * @minLength 1
+     * @pattern ^\d{3}$
+     */
+  bankCode: string;
+  /**
+     * 정산 계좌번호 (하이픈 없이 숫자 6~16자리)
+     * @minLength 1
+     * @pattern ^\d{6,16}$
+     */
+  accountNumber: string;
+  /** 계좌 명의 (BUSINESS: 사업자 명의, 사업자 판매자만 / PERSONAL: 본인 명의) */
+  accountHolderType: SellerPayoutAccountModifyRequestDtoAccountHolderType;
+}
+
+/**
+ * 계좌 명의 구분
+ */
+export type MyPayoutAccountDtoAccountHolderType = typeof MyPayoutAccountDtoAccountHolderType[keyof typeof MyPayoutAccountDtoAccountHolderType];
+
+
+export const MyPayoutAccountDtoAccountHolderType = {
+  BUSINESS: 'BUSINESS',
+  PERSONAL: 'PERSONAL',
+} as const;
+
+/**
+ * 내 정산 계좌 (계좌번호는 끝 4자리만)
+ */
+export interface MyPayoutAccountDto {
+  /** 정산 계좌가 있으면 true. false면 정산 지급이 보류된다 */
+  registered: boolean;
+  /** 은행 표준 코드 */
+  bankCode?: string;
+  /** 은행이 돌려준 예금주 이름 */
+  accountHolderName?: string;
+  /** 계좌 명의 구분 */
+  accountHolderType?: MyPayoutAccountDtoAccountHolderType;
+  /** 계좌번호 끝 4자리 */
+  accountNumberLast4?: string;
+}
+
 export type MemberDtoSocialProvidersItem = typeof MemberDtoSocialProvidersItem[keyof typeof MemberDtoSocialProvidersItem];
 
 
@@ -720,6 +778,12 @@ export interface RsDataSellerDto {
   status?: number;
   message?: string;
   data?: SellerDto;
+}
+
+export interface RsDataMyPayoutAccountDto {
+  status?: number;
+  message?: string;
+  data?: MyPayoutAccountDto;
 }
 
 export interface RsDataListSellerDto {

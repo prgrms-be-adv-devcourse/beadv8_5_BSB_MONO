@@ -15,6 +15,7 @@ import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
+  Chip,
   DataTable,
   digitsOnly,
   ImageCropDialog,
@@ -32,6 +33,7 @@ import {
   createRaceFormSchema,
   earliestSaleOpenDate,
   MAX_INTRO_IMAGES,
+  NO_LIMIT_MIN_AGE,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
   type RaceCourseInput,
@@ -61,14 +63,14 @@ function dayOf(text: string): Date | undefined {
 }
 
 // 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
-function courseRow(course: RaceCourseInput, id: string, index: number) {
+function courseRow(course: RaceCourseInput, id: string, index: number, minAge: number) {
   return {
     id,
     index,
     course: course.name,
     price: `${formatNumber(course.price)}원`,
     capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: course.minAge >= ADULT_MIN_AGE ? '성인만' : '',
+    age: minAge >= ADULT_MIN_AGE ? '성인만' : '',
     kit: course.kitIncluded ? '포함' : '없음',
   }
 }
@@ -97,6 +99,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   const [courseOpen, setCourseOpen] = useState(false)
   const [searching, setSearching] = useState(false)
   const location = useWatch({ control, name: 'location' })
+  const minAge = useWatch({ control, name: 'minAge' })
   // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
   const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
   const schedule = useWatch({
@@ -211,9 +214,19 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       title="대회 등록"
       actions={
         <>
-          <Button variant="secondary" disabled>
-            미리보기
-          </Button>
+          {/* 꺼진 버튼은 마우스 이벤트를 받지 않아, 감싼 span의 :hover로 말풍선을 띄운다 */}
+          <span className="group relative inline-flex">
+            <Button variant="secondary" disabled aria-describedby="race-preview-reason">
+              미리보기
+            </Button>
+            <span
+              id="race-preview-reason"
+              role="tooltip"
+              className="pointer-events-none absolute top-full right-0 z-10 mt-2 hidden w-max rounded-md bg-bg-inverse px-3 py-2 text-caption-regular text-text-inverse shadow-md group-hover:block"
+            >
+              미리보기는 아직 준비 중이에요
+            </span>
+          </span>
           <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>
@@ -228,7 +241,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             description={registerErrorMessage(registerRace.error)}
           />
         )}
-        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 gap-6">
           <ConsoleCard title="기본 정보">
             <div className="flex flex-col gap-4">
               <TextField
@@ -352,17 +365,30 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                   })
                 }}
               />
-              <TextField
-                label="참가 가능 나이"
-                defaultValue="종목마다 성인만 받을지 정해요"
-                helper="대회 당일 만 나이 · 성인은 만 19세 이상"
-                readOnly
-              />
+              <div role="group" aria-labelledby="min-age-label" className="flex flex-col gap-2">
+                <span id="min-age-label" className="text-body2-medium">
+                  참가 가능 나이
+                </span>
+                <p className="text-caption-regular text-text-tertiary">
+                  만 14세는 연령 제한 없음 · 만 19세는 성인만
+                </p>
+                <div className="flex gap-2">
+                  {([NO_LIMIT_MIN_AGE, ADULT_MIN_AGE] as const).map((age) => (
+                    <Chip
+                      key={age}
+                      selected={minAge === age}
+                      onClick={() => setValue('minAge', age, { shouldDirty: true })}
+                    >
+                      {`만 ${age}세`}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
             </div>
           </ConsoleCard>
         </div>
 
-        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 gap-6">
           <ConsoleCard title="이미지">
             <div className="flex flex-col gap-4">
               <ImageUpload
@@ -422,6 +448,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             </ConsoleCard>
 
             <ConsoleCard
+              className="flex-1"
               title="키트"
               aside={
                 <Button
@@ -515,7 +542,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         >
           <DataTable
             label="종목 · 참가권"
-            rows={courseFields.fields.map((f, i) => courseRow(f, f.id, i))}
+            rows={courseFields.fields.map((f, i) => courseRow(f, f.id, i, minAge))}
             rowKey={(r) => r.id}
             columns={[
               { key: 'course', header: '종목', render: (r) => r.course },

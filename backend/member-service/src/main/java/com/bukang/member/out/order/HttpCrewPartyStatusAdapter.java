@@ -43,8 +43,8 @@ public class HttpCrewPartyStatusAdapter implements CrewPartyStatusPort {
 		}
 		Status data = response == null ? null : response.data();
 		if (data == null || data.canLeave() == null || data.canKick() == null) {
-			log.error("주문 서비스의 파티 상태 응답에 값이 없습니다. crewId={}, memberId={}, response={}",
-				crewId, memberId, response);
+			log.error("주문 서비스의 파티 상태 응답에 값이 없습니다. crewId={}, memberId={}",
+				crewId, memberId);
 			throw new CrewPartyCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		return new PartyStatus(data.canLeave(), data.canKick());

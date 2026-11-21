@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.roaringbitmap.RoaringBitmap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -30,14 +33,15 @@ import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutRecoveryReason;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
-import com.bukang.payout.domain.SetEntryDiffer;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
+import com.bukang.payout.out.PaidIds;
 import com.bukang.payout.out.PayoutCreateFailureRepository;
 import com.bukang.payout.out.PayoutHoldRepository;
 import com.bukang.payout.out.PayoutItemRepository;
 import com.bukang.payout.out.PayoutRecoveryRepository;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
+import com.bukang.payout.out.SoldCourses;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.out.SoldEntryStatus;
@@ -106,7 +110,7 @@ class PayoutReconcileUseCaseTest {
 		return new PayoutReconcileUseCase(payoutRepository,
 			new StubRacePort(raceId -> Optional.empty(), List.of(FIRST_RACE, FINAL_RACE), List.of()),
 			soldSummaryPort, soldEntryPort,
-			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, ledgerUseCase(), new SetEntryDiffer()),
+			new PayoutReconcileStepUseCase(payoutRepository, payoutHoldUseCase, ledgerUseCase()),
 			new PayoutCreateFailureUseCase(payoutCreateFailureRepository));
 	}
 
@@ -489,5 +493,57 @@ class PayoutReconcileUseCaseTest {
 				tuple(PayoutStage.최종_정산, null, 20L, YESTERDAY, PayoutCreateFailureType.알_수_없는_실패,
 					"IllegalStateException"));
 		assertThat(first.getStatus()).isEqualTo(PayoutStatus.지급보류);
+	}
+
+	// 주문이 결제 완료 ID를 ROARING 비트맵으로 보낸 것처럼 판매 내역을 코스 묶음으로 준다 (판매자 2, 대회 20)
+	private PayoutReconcileUseCase useCaseWithRoaring(Map<Long, long[]> idsByCourse, Map<Long, Long> priceByCourse) {
+		SoldCourses sold = new SoldCourses(idsByCourse.entrySet().stream()
+			.map(course -> {
+				long base = Arrays.stream(course.getValue()).min().orElseThrow();
+				RoaringBitmap bitmap = new RoaringBitmap();
+				Arrays.stream(course.getValue()).forEach(id -> bitmap.add((int)(id - base)));
+				return new SoldCourses.Course(new SoldCourses.Key(2, FINAL_RACE.raceId(), YESTERDAY, course.getKey(),
+					priceByCourse.get(course.getKey())), new PaidIds.RoaringIds(base, bitmap), List.<Long>of());
+			})
+			.toList());
+		return useCase(raceId -> List.of(), new SoldEntryPort() {
+			@Override
+			public List<SoldEntry> findSoldEntries(long raceId) {
+				throw new AssertionError("대사는 판매 내역을 목록으로 받지 않는다 (CRU-57)");
+			}
+
+			@Override
+			public SoldCourses findSoldCourses(long raceId) {
+				return raceId == FINAL_RACE.raceId() ? sold : new SoldCourses(List.of());
+			}
+		});
+	}
+
+	@Test
+	@DisplayName("CRU-57 비트맵으로 받아도 코스가 여럿이고 가격이 다른 대회의 빠짐 · 더 들어감 · 가격 다름을 찾는다")
+	void finalBitmapManyCoursesWithDifferentPrices() {
+		// 코스 a 1만 원: 101 ~ 103, 코스 b 2만 원: 201 ~ 202
+		Payout payout = saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000),
+			entry(201, COURSE_B, 20_000), entry(202, COURSE_B, 15_000), entry(301, COURSE_B, 20_000));
+
+		useCaseWithRoaring(Map.of(COURSE_A, new long[] {101, 102, 103}, COURSE_B, new long[] {201, 202}),
+			Map.of(COURSE_A, 10_000L, COURSE_B, 20_000L)).run(TODAY, NOW);
+
+		assertThat(mismatches()).extracting(PayoutCreateFailure::getRaceCourseId, PayoutCreateFailure::getNote)
+			.containsExactly(tuple(null,
+				"빠진 1장 추가 (코스 3: 1장), 더 들어감 1장 (코스 4: 1장), 가격 다름 1장 (코스 4: 1장)"));
+		assertThat(payout.getItems()).anyMatch(item -> Long.valueOf(103).equals(item.getOrderItemId()));
+		assertThat(payout.getStatus()).isEqualTo(PayoutStatus.지급보류);
+	}
+
+	@Test
+	@DisplayName("CRU-57 비트맵으로 받고 정산 판매 줄과 모두 같으면 기록하지 않는다 (코스마다 가격이 달라도)")
+	void finalBitmapAllMatch() {
+		saveFinal(2, entry(101, COURSE_A, 10_000), entry(102, COURSE_A, 10_000), entry(201, COURSE_B, 20_000));
+
+		useCaseWithRoaring(Map.of(COURSE_A, new long[] {101, 102}, COURSE_B, new long[] {201}),
+			Map.of(COURSE_A, 10_000L, COURSE_B, 20_000L)).run(TODAY, NOW);
+
+		assertThat(mismatches()).isEmpty();
 	}
 }

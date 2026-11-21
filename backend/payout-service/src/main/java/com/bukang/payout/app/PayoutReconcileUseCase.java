@@ -14,7 +14,7 @@ import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RacePort;
 import com.bukang.payout.out.RaceSchedule;
-import com.bukang.payout.out.SoldEntry;
+import com.bukang.payout.out.SoldCourses;
 import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
@@ -56,15 +56,16 @@ public class PayoutReconcileUseCase {
 				() -> payoutReconcileStepUseCase.reconcileFirst(race, summaries, today, now));
 		}
 		for (RaceSchedule race : targetRaces(PayoutStage.최종_정산, today, now)) {
-			List<SoldEntry> entries;
+			SoldCourses sold;
 			try {
-				entries = soldEntryPort.findSoldEntries(race.raceId());
+				// 코스 묶음 그대로 받는다. 대사도 참가권 목록으로 풀지 않는다 (CRU-57)
+				sold = soldEntryPort.findSoldCourses(race.raceId());
 			} catch (RuntimeException exception) {
 				failOrderLookup(PayoutStage.최종_정산, race.raceId(), race.raceDate(), today, exception);
 				continue;
 			}
 			recordMismatches(PayoutStage.최종_정산, race, race.raceDate(), today,
-				() -> payoutReconcileStepUseCase.reconcileFinal(race, entries, today, now));
+				() -> payoutReconcileStepUseCase.reconcileFinal(race, sold, today, now));
 		}
 	}
 

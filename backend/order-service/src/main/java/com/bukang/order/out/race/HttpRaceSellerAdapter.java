@@ -10,7 +10,6 @@ import org.springframework.web.client.RestClientException;
 
 import com.bukang.common.global.rsdata.RsData;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.out.InternalHttpClients;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.RequiredArgsConstructor;
@@ -47,8 +46,8 @@ public class HttpRaceSellerAdapter implements RaceSellerPort {
 			if (exception.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND) && isRaceNotFound(exception)) {
 				return Optional.empty();
 			}
-			log.error("상품 서비스가 대회 판매자 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceId={}, body={}",
-				exception.getStatusCode(), raceId, InternalHttpClients.abbreviate(exception.getResponseBodyAsString()));
+			log.error("상품 서비스가 대회 판매자 요청을 거절했습니다. 계약(경로)을 확인해야 합니다. status={}, raceId={}",
+				exception.getStatusCode(), raceId);
 			throw new ExternalServiceUnavailableException(HttpRaceCourseAdapter.UNAVAILABLE_MESSAGE);
 		} catch (RestClientException exception) {
 			log.warn("상품 서비스에 대회 판매자를 묻지 못했습니다. raceId={}, cause={}", raceId, exception.toString());
@@ -56,7 +55,7 @@ public class HttpRaceSellerAdapter implements RaceSellerPort {
 		}
 		SellerMemberBody body = response == null ? null : response.data();
 		if (body == null || body.sellerMemberId() == null) {
-			log.error("상품 서비스의 대회 판매자 응답에 값이 없습니다. raceId={}, response={}", raceId, response);
+			log.error("상품 서비스의 대회 판매자 응답에 값이 없습니다. raceId={}", raceId);
 			throw new ExternalServiceUnavailableException(HttpRaceCourseAdapter.UNAVAILABLE_MESSAGE);
 		}
 		return Optional.of(body.sellerMemberId());

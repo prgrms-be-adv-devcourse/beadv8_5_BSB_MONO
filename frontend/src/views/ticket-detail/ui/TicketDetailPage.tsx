@@ -8,13 +8,7 @@ import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
 import { needsRecordCert, RecordCertEntry } from '@/features/record-cert'
 import { daysUntil, formatRaceDate, formatRaceDateTime } from '@/entities/race'
-import {
-  maskPhone,
-  TICKET_STATUS,
-  ticketErrorMessage,
-  ticketNumber,
-  useCancelTicket,
-} from '@/entities/ticket'
+import { TICKET_STATUS, ticketErrorMessage, ticketNumber, useCancelTicket } from '@/entities/ticket'
 import { orderModel } from '@/shared/api'
 import { formatNumber, useNow } from '@/shared/lib'
 import { Alert, BibCard, buttonClassName, Dialog } from '@/shared/ui'
@@ -67,7 +61,13 @@ export function TicketDetailPage({
   const amount = `${formatNumber(ticket.amount)}원`
   const kitNote = course?.kitIncluded ? '키트도 함께 취소돼요.' : undefined
   const address = order.shippingAddress
-  const addressLine = [address?.address, address?.addressDetail].filter(Boolean).join(' ')
+  const addressLine = [
+    address?.zipcode && `(${address.zipcode})`,
+    address?.address,
+    address?.addressDetail,
+  ]
+    .filter(Boolean)
+    .join(' ')
   return (
     <>
       <AppHeader type="sub" title="참가권" backHref="/tickets" className="border-b-0" />
@@ -116,7 +116,7 @@ export function TicketDetailPage({
             {addressLine && <InfoRow label="키트 배송지">{addressLine}</InfoRow>}
             {participant?.emergencyContactPhone && (
               <InfoRow label="비상 연락처">
-                {[participant.emergencyContactName, maskPhone(participant.emergencyContactPhone)]
+                {[participant.emergencyContactName, participant.emergencyContactPhone]
                   .filter(Boolean)
                   .join(' · ')}
               </InfoRow>

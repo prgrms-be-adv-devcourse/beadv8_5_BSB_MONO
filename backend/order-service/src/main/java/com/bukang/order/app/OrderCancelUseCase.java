@@ -16,7 +16,6 @@ import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
-import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.ParticipationNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
@@ -180,7 +179,7 @@ public class OrderCancelUseCase {
 	private Order findOwnedOrder(Optional<Order> found, long memberId) {
 		Order order = found.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 		if (!order.isOwnedBy(memberId)) {
-			throw new OrderAccessDeniedException("본인의 주문만 취소할 수 있습니다.");
+			throw new OrderNotFoundException("존재하지 않는 주문입니다.");
 		}
 		return order;
 	}

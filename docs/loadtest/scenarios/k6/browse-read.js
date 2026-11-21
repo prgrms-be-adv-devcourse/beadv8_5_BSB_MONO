@@ -1,5 +1,5 @@
 // 둘러보기(read) 부하 — 대회 목록→상세→크루→파티 조회. 초안: 응답 data.* 키는 실측 전 실제 응답으로 확인.
-// 토큰은 ../../main_scenario/k6/login-prod.js로 먼저 만든다(.accounts.json, 30분 안에 실행).
+// 토큰은 ../../main-scenario/k6/login-prod.js로 먼저 만든다(.accounts.json, 30분 안에 실행).
 // 실행(이 폴더에서): k6 run -e STAGE=load -e RACE=10 -e RACE_COURSE=20 browse-read.js
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -11,7 +11,7 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|^https:\/\/crewrun\.duckdns\.
 	throw new Error(`허용되지 않은 주소라 멈춥니다: ${BASE_URL}`);
 }
 
-const accounts = new SharedArray('accounts', () => JSON.parse(open('../../main_scenario/k6/.accounts.json')));
+const accounts = new SharedArray('accounts', () => JSON.parse(open('../../main-scenario/k6/.accounts.json')));
 const RACE_ID = Number(__ENV.RACE || 10);
 const INCLUDE_SIMILAR = (__ENV.SIMILAR || 'on') !== 'off'; // 검색 서버 기여분 분리용
 

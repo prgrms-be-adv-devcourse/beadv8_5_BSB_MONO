@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
@@ -83,5 +83,52 @@ describe('SellerRaceEditPage', () => {
     await userEvent.type(quota, '700')
     await userEvent.click(await saveButton())
     expect(await screen.findByText('판매가 끝난 대회는 수정할 수 없습니다.')).toBeInTheDocument()
+  })
+  it('소개 이미지를 바꿔 저장하면 새로 올린 파일을 그 자리에 넣어 PUT 한다', async () => {
+    let body: productModel.RaceSaveRequestDto | undefined
+    server.use(
+      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
+        body = (await request.json()) as productModel.RaceSaveRequestDto
+        return HttpResponse.json({
+          status: 200,
+          message: '대회를 수정했습니다.',
+          data: { raceId: 1, saleStatus: 'ON_SALE', saleOpenDate: '2026-10-20', courseIds: [1] },
+        })
+      }),
+    )
+    URL.createObjectURL = vi.fn(() => 'blob:new')
+    URL.revokeObjectURL = vi.fn()
+    // jsdom은 이미지를 읽지 않으므로 가로 1080px 이상으로 바로 읽힌 것처럼 한다
+    vi.stubGlobal(
+      'Image',
+      class {
+        naturalWidth = 1200
+        naturalHeight = 800
+        onload: (() => void) | null = null
+        set src(_: string) {
+          queueMicrotask(() => this.onload?.())
+        }
+      },
+    )
+    renderPage()
+    const before = (await screen.findAllByRole('img', { name: /소개 이미지/ })).length
+    expect(await saveButton()).toBeDisabled()
+
+    await userEvent.upload(
+      screen.getByTestId('intro-image-input'),
+      new File(['x'], 'intro.png', { type: 'image/png' }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: '소개 이미지 1 바꾸기' }))
+    await userEvent.upload(
+      screen.getByTestId('intro-image-input'),
+      new File(['y'], 'swap.png', { type: 'image/png' }),
+    )
+    await userEvent.click(await saveButton())
+
+    expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
+    const detail = body?.courses[0].images.filter((i) => i.fileType === 'DETAIL') ?? []
+    expect(detail).toHaveLength(before + 1)
+    expect(detail.map((i) => i.sortNo)).toEqual(detail.map((_, i) => i))
+    vi.unstubAllGlobals()
   })
 })

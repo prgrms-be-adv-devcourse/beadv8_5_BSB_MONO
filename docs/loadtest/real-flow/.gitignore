@@ -1,0 +1,4 @@
+# seed.js가 만든 크루 목록 (환경마다 다르다)
+.crews*.json
+# 실행 결과 (요약·로그)
+results/

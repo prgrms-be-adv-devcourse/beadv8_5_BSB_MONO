@@ -228,7 +228,7 @@ describe('AdminStatsPage', () => {
     expect(screen.queryByRole('region', { name: '구매 단계' })).not.toBeInTheDocument()
   })
 
-  it('기록이 없으면 0명과 「계산할 수 없어요」, 빈 기간 안내를 보여 준다', async () => {
+  it('기록이 없으면 0명과 「앞 단계 0명」, 빈 기간 안내를 보여 준다', async () => {
     mockStats({
       buyer: () =>
         HttpResponse.json(
@@ -246,7 +246,7 @@ describe('AdminStatsPage', () => {
       await within(buyer).findByText('이 기간에는 구매 기록이 없어요. 기간을 넓혀 보세요.'),
     ).toBeInTheDocument()
     expect(within(buyer).getAllByText('0명')).toHaveLength(2)
-    expect(within(buyer).getByText('계산할 수 없어요')).toBeInTheDocument()
+    expect(within(buyer).getByText('앞 단계 0명')).toBeInTheDocument()
     expect(await within(block('판매자 단계')).findByText('입력 오류가 없어요')).toBeInTheDocument()
   })
 

@@ -739,18 +739,20 @@ class ApiV1OrderCancelTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 주문은 403, 없는 주문·주문에 없는 상품은 404다")
+	@DisplayName("다른 회원의 주문과 없는 주문은 같은 404, 주문에 없는 상품도 404다")
 	void cancelNotOwnerOrMissing() throws Exception {
 		Paid paid = paidOrder(MEMBER_ID);
 
-		cancel(OTHER_MEMBER_ID, paid.orderId(), paid.orderItemId())
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 주문만 취소할 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_FORBIDDEN"));
-		cancel(MEMBER_ID, 999999, paid.orderItemId())
+		String othersBody = cancel(OTHER_MEMBER_ID, paid.orderId(), paid.orderItemId())
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = cancel(MEMBER_ID, 999999, paid.orderItemId())
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 주문입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 		cancel(MEMBER_ID, paid.orderId(), 999999)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("주문에 없는 상품입니다."))

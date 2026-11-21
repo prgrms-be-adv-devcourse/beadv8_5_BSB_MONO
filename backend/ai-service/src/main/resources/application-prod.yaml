@@ -7,6 +7,10 @@ spring:
             host: ${REDIS_HOST}
             port: ${REDIS_PORT}
 
+  kafka:
+    bootstrap-servers:
+      - ${KAFKA_BOOTSTRAP_SERVERS}
+
 # 역할 확인은 실제 회원 서비스에 묻는다. compose.yml의 앱 컨테이너끼리는 컨테이너 이름으로 접속한다
 ai:
   clients:
@@ -19,6 +23,8 @@ ai:
       base-url: http://bukang-order-service:8084
     inquiry:
       base-url: http://bukang-inquiry-service:8088
+    file:
+      base-url: http://bukang-file-service:8083
 
 # 운영에서는 API 구조가 외부에 노출되지 않도록 Swagger 비활성화
 springdoc:

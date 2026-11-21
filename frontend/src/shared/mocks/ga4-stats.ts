@@ -10,7 +10,6 @@ const USERS: Record<string, [number, number]> = {
   queue_enter: [612, 540],
   queue_pass: [574, 498],
   apply_start: [521, 455],
-  add_to_cart: [388, 342],
   begin_checkout: [301, 276],
   purchase: [214, 188],
   seller_apply_start: [42, 35],

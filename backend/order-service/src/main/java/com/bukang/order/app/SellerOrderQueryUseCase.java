@@ -21,7 +21,6 @@ import com.bukang.order.domain.Party;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.domain.exception.OrderSearchPeriodException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
-import com.bukang.order.domain.exception.SellerAccessDeniedException;
 import com.bukang.order.dto.KitOptionChoiceDto;
 import com.bukang.order.dto.SellerOrderDetailDto;
 import com.bukang.order.dto.SellerOrderDto;
@@ -89,8 +88,9 @@ public class SellerOrderQueryUseCase {
 			.filter(found -> found.getStatus() != OrderStatus.EXPIRED)
 			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
 		OrderItem item = order.findItem(orderItemId);
+		// 남의 대회 주문은 없는 주문 상품과 같은 404다. 다른 판매자의 주문 상품 ID가 있는지 알리지 않는다 (CRU-92)
 		if (!item.isSoldBy(sellerId)) {
-			throw new SellerAccessDeniedException("본인 대회의 주문만 볼 수 있습니다.");
+			throw new OrderItemNotFoundException("주문에 없는 상품입니다.");
 		}
 		Participation participation = participationRepository.findById(item.getParticipationId())
 			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
@@ -113,11 +113,11 @@ public class SellerOrderQueryUseCase {
 		checkPeriod(from, to);
 		// 대회 소유는 조회 결과와 상관없이 먼저 본다. 결과가 빌 때 건너뛰면 남의 대회 파티 수(totalElements)와
 		// 파티 ID가 그 대회 것인지가 샌다. 신청한 파티가 하나도 없는 대회는 보여 줄 것이 없어 빈 목록이다
+		// 남의 대회도 파티가 없는 대회와 같은 빈 목록이다. 남의 대회에 파티가 있는지 알리지 않는다 (CRU-92)
 		Party anyParty = partyRepository.findFirstByRaceIdAndAppliedAtIsNotNull(raceId).orElse(null);
-		if (anyParty == null) {
+		if (anyParty == null || !isPartySeller(anyParty, sellerId)) {
 			return SellerPartyPageDto.from(Page.<SellerPartyDto>empty(PageRequest.of(page, size)));
 		}
-		checkPartySeller(anyParty, sellerId);
 		Page<Party> parties = partyRepository.findAppliedByRaceId(raceId, partyId, startOf(from), endOf(to),
 			PageRequest.of(page, size));
 		if (parties.isEmpty()) {
@@ -146,13 +146,10 @@ public class SellerOrderQueryUseCase {
 		return orderItemRepository.summarizeSellerSales(sellerId, startOf(from), endOf(to));
 	}
 
-	private void checkPartySeller(Party party, long sellerId) {
-		long courseSellerId = raceCoursePort.findCourse(party.getRaceCourseId())
+	private boolean isPartySeller(Party party, long sellerId) {
+		return raceCoursePort.findCourse(party.getRaceCourseId())
 			.orElseThrow(() -> new RaceCourseNotFoundException("존재하지 않는 종목입니다."))
-			.sellerId();
-		if (courseSellerId != sellerId) {
-			throw new SellerAccessDeniedException("본인 대회의 파티만 볼 수 있습니다.");
-		}
+			.sellerId() == sellerId;
 	}
 
 	static void checkPeriod(LocalDate from, LocalDate to) {

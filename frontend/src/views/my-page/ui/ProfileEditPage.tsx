@@ -7,12 +7,12 @@ import { useForm } from 'react-hook-form'
 
 import { AppHeader } from '@/widgets/app-header'
 import { useAuthStatus } from '@/features/auth'
+import { modifyErrorMessage, profileSchema, type ProfileValues } from '@/entities/member'
 import { memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { useGoBack } from '@/shared/lib'
 import { Avatar, BottomCta, Button, Dialog, TextField } from '@/shared/ui'
 
 import { toDotDate } from '../model/member-format'
-import { modifyErrorMessage, profileSchema, type ProfileValues } from '../model/profile-schema'
 
 // 피그마 M30-E 회원 정보 수정(1333:21303) · 닉네임이 겹칠 때(1333:21315) · 저장 중(1333:21327) · 저장하지 않고 나가기(1333:21339).
 // 고칠 수 있는 값은 닉네임 하나다. 이름 · 생년월일 · 휴대폰은 본인인증으로 확인한 값이라 글로만 보여 준다(v3 프로필 수정).

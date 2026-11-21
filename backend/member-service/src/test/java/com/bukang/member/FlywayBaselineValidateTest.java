@@ -3,6 +3,13 @@ package com.bukang.member;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+
 import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
@@ -56,6 +63,27 @@ class FlywayBaselineValidateTest {
 		} finally {
 			jdbc.update("delete from member_outbox_event");
 		}
+	}
+
+	@Test
+	@DisplayName("인덱스 없이 테이블 전체를 훑던 조건 컬럼에 인덱스가 있다 (가입 중복 검사, 재가입 해시 정리, 기록증 사진 정리)")
+	void filterColumnsHaveIndex() throws SQLException {
+		// 인덱스가 없으면 조회는 전체를 읽고, UPDATE는 훑은 행을 모두 잠근다. 컬럼이 인덱스의 첫 컬럼이어야 쓸 수 있다
+		assertThat(leadingIndexColumns("member_member")).contains("ci_hash", "withdrawn_at");
+		assertThat(leadingIndexColumns("member_record_cert")).contains("file_id");
+	}
+
+	private Set<String> leadingIndexColumns(String table) throws SQLException {
+		Set<String> columns = new HashSet<>();
+		try (Connection connection = dataSource.getConnection();
+			ResultSet indexes = connection.getMetaData().getIndexInfo(null, null, table, false, false)) {
+			while (indexes.next()) {
+				if (indexes.getShort("ORDINAL_POSITION") == 1) {
+					columns.add(indexes.getString("COLUMN_NAME").toLowerCase(Locale.ROOT));
+				}
+			}
+		}
+		return columns;
 	}
 
 	private static void insertOutbox(JdbcTemplate jdbc, String eventId, String messageId) {

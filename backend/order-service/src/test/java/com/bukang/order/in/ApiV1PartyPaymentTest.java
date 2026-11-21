@@ -181,7 +181,7 @@ class ApiV1PartyPaymentTest {
 			.andExpect(jsonPath("$.data.memberCount").value(2))
 			.andExpect(jsonPath("$.data.paidCount").value(2));
 		mockMvc.perform(MockMvcRequestBuilders.get(PARTY_URL + "/" + partyId).header("X-Member-Id", 3L))
-			.andExpect(status().isForbidden());
+			.andExpect(status().isNotFound());
 		// 빠진 사람은 내 파티 목록에 이 파티가 없고 크루 나가기도 막히지 않는다. 결제한 사람은 그대로 막힌다
 		mockMvc.perform(MockMvcRequestBuilders.get(PARTY_URL + "/me").header("X-Member-Id", 3L))
 			.andExpect(status().isOk())

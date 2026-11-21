@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.payout.domain.EntryDiff;
-import com.bukang.payout.domain.EntryDiffer;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutCreateDate;
 import com.bukang.payout.domain.PayoutCreateFailure;
@@ -35,9 +35,11 @@ import com.bukang.payout.domain.PayoutHoldReason;
 import com.bukang.payout.domain.PayoutStage;
 import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.TwoStagePayoutCalculator;
+import com.bukang.payout.out.OrderItemIds;
 import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SaleLine;
+import com.bukang.payout.out.SoldCourses;
 import com.bukang.payout.out.SoldEntry;
 import com.bukang.payout.out.SoldSummary;
 
@@ -57,11 +59,12 @@ import lombok.extern.slf4j.Slf4j;
 public class PayoutReconcileStepUseCase {
 	// 실패 기록표 비고 칸 길이 (payout_payout_create_failure.note varchar(255))
 	private static final int NOTE_MAX_LENGTH = 255;
+	// 어긋난 참가권 판매 줄을 읽을 때 in 목록 하나의 최대 길이
+	private static final int IN_CHUNK_SIZE = 1000;
 
 	private final PayoutRepository payoutRepository;
 	private final PayoutHoldUseCase payoutHoldUseCase;
 	private final PayoutLedgerUseCase payoutLedgerUseCase;
-	private final EntryDiffer entryDiffer;
 
 	/**
 	 * 1차: 판매자마다 판매 합(코스별 집계의 합)과 1차 정산 판매액 합을 비교한다 (AC-67-1 ~ 3)
@@ -107,38 +110,42 @@ public class PayoutReconcileStepUseCase {
 	 *   (되돌아보기가 다시 만든다, Q15). 대사는 정산을 만든 그 실행에서 비교하므로 지급 뒤 빠짐은 생기지 않는다
 	 * - 더 들어감: 그 참가권이 든 정산 내역을 보류한다 (AC-67-13)
 	 * - 가격 다름: 같은 참가권의 주문 판매 가격과 판매 줄 금액이 다르면 기록만 한다 (11/5 결정)
+	 *
+	 * 참가권 목록 · ID 맵을 만들지 않는다 (CRU-57). 판매 쪽은 받은 형식(IDS · BITSET · ROARING) 그대로 ID 모음으로 합치고,
+	 * 정산 쪽은 판매 줄 ID만 흘려 읽어 같은 형식에 담은 뒤 차이를 한 번에 구한다. 가격은 (코스, 금액) 집계로 보고,
+	 * 코스 · 가격 · 정산 내역 같은 자세한 값은 어긋난 참가권에 대해서만 읽는다
 	 */
 	@Transactional
-	public List<PayoutCreateFailure> reconcileFinal(RaceSchedule race, List<SoldEntry> entries, LocalDate today,
+	public List<PayoutCreateFailure> reconcileFinal(RaceSchedule race, SoldCourses sold, LocalDate today,
 		LocalDateTime now) {
-		Map<Long, List<SoldEntry>> soldBySeller = entries.stream().collect(groupingBy(SoldEntry::sellerId));
+		Map<Long, SoldCourses> soldBySeller = sold.bySeller();
 		Map<Long, List<Payout>> payoutsBySeller = livePayouts(race.raceId(), PayoutStage.최종_정산);
 
 		List<PayoutCreateFailure> mismatches = new ArrayList<>();
 		for (long sellerId : sellers(soldBySeller.keySet(), payoutsBySeller.keySet())) {
-			List<SoldEntry> sellerEntries = soldBySeller.getOrDefault(sellerId, List.of());
+			SoldCourses sellerSold = soldBySeller.getOrDefault(sellerId, new SoldCourses(List.of()));
 			List<Payout> payouts = payoutsBySeller.getOrDefault(sellerId, List.of());
 			// 취소 중 참가권이 있어 생성 배치가 최종 정산을 미룬 판매자 × 대회다. 정산 내역이 없는 게 정상이라 빠짐이 아니다 (BUK-52)
-			if (payouts.isEmpty() && sellerEntries.stream().anyMatch(SoldEntry::blocksFinalPayout)) {
+			if (payouts.isEmpty() && sellerSold.blockingCount() > 0) {
 				continue;
 			}
-			Map<Long, SoldEntry> soldById = sellerEntries.stream()
-				.collect(toMap(SoldEntry::orderItemId, Function.identity()));
-			// 같은 참가권의 판매 줄은 DB 유일 제약으로 하나뿐이다
-			// 줄을 엔티티(payout.getItems())로 읽지 않는다. 참가권 10만 장이면 줄 20만 개가 영속성 컨텍스트에 올라 힙이 넘친다 (BUK-252)
-			Map<Long, SaleLine> saleById = payouts.isEmpty() ? Map.of()
-				: payoutRepository.findSaleLines(payouts).stream()
-					.collect(toMap(SaleLine::orderItemId, Function.identity()));
-			Map<Long, Payout> payoutById = payouts.stream().collect(toMap(Payout::getId, Function.identity()));
-
-			EntryDiff diff = entryDiffer.diff(soldById.keySet(), saleById.keySet());
-			List<Long> priceDiffers = soldById.keySet().stream()
-				.filter(id -> saleById.containsKey(id) && saleById.get(id).amount() != soldById.get(id).price())
-				.sorted()
-				.toList();
+			OrderItemIds soldIds = sellerSold.orderItemIds();
+			OrderItemIds saleIds = soldIds.emptyLike();
+			if (!payouts.isEmpty()) {
+				try (Stream<Long> ids = payoutRepository.streamSaleLineIds(payouts)) {
+					ids.forEach(saleIds::add);
+				}
+			}
+			EntryDiff diff = soldIds.diff(saleIds);
+			List<Long> priceDiffers = payouts.isEmpty() ? List.of() : priceDiffers(payouts, sellerSold);
 			if (diff.isEmpty() && priceDiffers.isEmpty()) {
 				continue;
 			}
+
+			Map<Long, SoldEntry> soldById = sellerSold.entriesOf(
+				Stream.concat(diff.missing().stream(), priceDiffers.stream()).toList());
+			Map<Long, SaleLine> extraById = saleLines(payouts, diff.extra());
+			Map<Long, Payout> payoutById = payouts.stream().collect(toMap(Payout::getId, Function.identity()));
 
 			Payout target = payouts.stream().filter(payout -> payout.getStatus().isBeforePayment()).findFirst()
 				.orElse(null);
@@ -154,7 +161,7 @@ public class PayoutReconcileStepUseCase {
 				payoutLedgerUseCase.settleReceivable(target, now);
 			}
 			List<Payout> extraPayouts = diff.extra().stream()
-				.map(id -> payoutById.get(saleById.get(id).payoutId()))
+				.map(id -> payoutById.get(extraById.get(id).payoutId()))
 				.distinct()
 				.toList();
 			extraPayouts.forEach(payout -> payoutHoldUseCase.holdForReconcileMismatch(payout, now));
@@ -163,7 +170,7 @@ public class PayoutReconcileStepUseCase {
 				: added ? PayoutCreateFailureAction.자동_보정 : PayoutCreateFailureAction.기록만;
 
 			LongFunction<Long> soldCourse = id -> soldById.get(id).raceCourseId();
-			LongFunction<Long> saleCourse = id -> saleById.get(id).raceCourseId();
+			LongFunction<Long> saleCourse = id -> extraById.get(id).raceCourseId();
 			String note = String.join(", ", Stream.of(
 					part(added ? "빠진 %d장 추가" : "빠진 %d장", diff.missing(), soldCourse),
 					part("더 들어감 %d장", diff.extra(), saleCourse),
@@ -181,9 +188,43 @@ public class PayoutReconcileStepUseCase {
 				+ "가격 다름 orderItemId={}", sellerId, race.raceId(), diff.missing(), diff.extra(), priceDiffers);
 			mismatches.add(PayoutCreateFailure.reconcileMismatch(PayoutStage.최종_정산, sellerId, race.raceId(),
 				courses.size() == 1 ? courses.iterator().next() : null, race.raceDate(), truncate(note), action,
-				soldById.size(), saleById.size(), holdCode, today));
+				soldIds.size(), saleIds.size(), holdCode, today));
 		}
 		return mismatches;
+	}
+
+	/**
+	 * 판매 가격과 금액이 다른 판매 줄의 참가권 (판매에도 있는 참가권만, 작은 ID부터)
+	 * 판매 줄을 (코스, 금액)으로 묶어 세고, 그 코스의 판매 가격에 없는 금액 묶음만 줄을 읽어 참가권마다 다시 맞춘다
+	 * shortcut: 줄의 코스 칸 기준으로 묶으므로, 줄이 다른 코스에 들어가 있고 금액이 그 코스 가격과 같으면 잡지 못한다.
+	 *   코스가 어긋난 줄은 지금도 보지 않는 범위라 받아들인다. 코스 어긋남을 보게 되면 함께 바꾼다
+	 */
+	private List<Long> priceDiffers(List<Payout> payouts, SoldCourses sellerSold) {
+		Map<Long, Set<Long>> prices = sellerSold.pricesByCourse();
+		List<SaleLine> suspects = payoutRepository.summarizeSaleLines(payouts).stream()
+			.filter(group -> !prices.getOrDefault(group.raceCourseId(), Set.of()).contains(group.amount()))
+			.flatMap(group -> payoutRepository.findSaleLines(payouts, group.raceCourseId(), group.amount()).stream())
+			.toList();
+		if (suspects.isEmpty()) {
+			return List.of();
+		}
+		Map<Long, SoldEntry> soldById = sellerSold.entriesOf(suspects.stream().map(SaleLine::orderItemId).toList());
+		return suspects.stream()
+			.filter(line -> soldById.containsKey(line.orderItemId())
+				&& soldById.get(line.orderItemId()).price() != line.amount())
+			.map(SaleLine::orderItemId)
+			.sorted()
+			.toList();
+	}
+
+	// 더 들어간 참가권의 판매 줄만 읽는다. in 목록이 너무 길지 않게 나눠 묻는다
+	private Map<Long, SaleLine> saleLines(List<Payout> payouts, List<Long> orderItemIds) {
+		Map<Long, SaleLine> lines = new HashMap<>();
+		for (int from = 0; from < orderItemIds.size(); from += IN_CHUNK_SIZE) {
+			List<Long> chunk = orderItemIds.subList(from, Math.min(from + IN_CHUNK_SIZE, orderItemIds.size()));
+			payoutRepository.findSaleLines(payouts, chunk).forEach(line -> lines.put(line.orderItemId(), line));
+		}
+		return lines;
 	}
 
 	// 취소된 정산 내역은 비교하지 않는다. 지급보류 · 지급 완료는 비교한다 (5장 실패 시나리오)

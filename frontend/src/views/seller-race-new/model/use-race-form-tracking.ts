@@ -22,6 +22,7 @@ const SECTION_OF: Record<keyof RaceFormValues, string> = {
   individualOpenAt: '기본 정보',
   applicationCloseAt: '기본 정보',
   courses: '종목 · 참가권',
+  minAge: '판매 일정',
   refundDeadline: '취소 · 환불 정책',
   kitOptions: '키트 배송',
 }
@@ -35,7 +36,14 @@ export function errorSections(errors: FieldErrors<RaceFormValues>, imageError: b
     ),
   )
   if (imageError) sections.add(IMAGE_SECTION)
-  const order = ['기본 정보', IMAGE_SECTION, '종목 · 참가권', '취소 · 환불 정책', '키트 배송']
+  const order = [
+    '기본 정보',
+    '판매 일정',
+    IMAGE_SECTION,
+    '종목 · 참가권',
+    '취소 · 환불 정책',
+    '키트 배송',
+  ]
   return order.filter((name) => sections.has(name))
 }
 

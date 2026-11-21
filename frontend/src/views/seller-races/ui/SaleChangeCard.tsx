@@ -1,7 +1,8 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 
 import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
@@ -27,15 +28,22 @@ import {
 } from '@/shared/ui'
 
 import {
+  applyImageChange,
+  coverUrl,
+  hasImageChange,
+  initialImageChange,
+} from '../model/race-image-change'
+import {
   saleChangeSchema,
   toSaleChangeValues,
   toUpdateRequest,
   type SaleChangeValues,
 } from '../model/sale-change-form'
+import { RaceImagesCard } from './RaceImagesCard'
 
 const n = formatNumber
 
-// 피그마 V4 · 판매자 · 판매 중 변경: 정원 늘리기 표, 환불 기한
+// 피그마 V4 · 판매자 · 판매 중 변경: 정원 늘리기 표, 환불 기한, 이미지
 export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
   const edit = useQuery(raceForEditQueryOptions(row.id))
   if (edit.isPending) {
@@ -75,16 +83,19 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
   })
   const detail = edit.race.courses ?? []
   const watched = useWatch({ control, name: 'courses' })
+  const [images, setImages] = useState(() => initialImageChange(edit))
+  // 새 사진을 올린 뒤 대회 전체를 PUT 한다. 사진 업로드 실패도 같은 오류 문구로 보여 준다
+  const save = useMutation({
+    mutationFn: async (values: SaleChangeValues) =>
+      update.mutateAsync(await applyImageChange(toUpdateRequest(edit, values), images)),
+    onSuccess: () => toast({ message: '변경을 저장했어요', tone: 'success' }),
+  })
 
   return (
     <form
       noValidate
       className="flex flex-col gap-6"
-      onSubmit={handleSubmit((values) =>
-        update.mutate(toUpdateRequest(edit, values), {
-          onSuccess: () => toast({ message: '변경을 저장했어요', tone: 'success' }),
-        }),
-      )}
+      onSubmit={handleSubmit((values) => save.mutate(values))}
     >
       <Alert
         className={CONSOLE_BOX}
@@ -166,20 +177,30 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
           {...register('refundDeadline')}
         />
       </ConsoleCard>
+      <RaceImagesCard
+        cover={coverUrl(edit)}
+        value={images}
+        onChange={setImages}
+        disabled={!editable || save.isPending}
+      />
       {!editable && (
         <p className="text-body2-regular text-text-tertiary">
           판매가 끝났거나 취소된 대회는 바꿀 수 없어요.
         </p>
       )}
-      {update.isError && (
+      {save.isError && (
         <Alert
           tone="danger"
           title="변경을 저장하지 못했어요"
-          description={errorMessage(update.error)}
+          description={errorMessage(save.error)}
         />
       )}
       <div className="flex justify-end">
-        <Button type="submit" disabled={!editable || !isDirty} loading={update.isPending}>
+        <Button
+          type="submit"
+          disabled={!editable || (!isDirty && !hasImageChange(images))}
+          loading={save.isPending}
+        >
           저장하기
         </Button>
       </div>

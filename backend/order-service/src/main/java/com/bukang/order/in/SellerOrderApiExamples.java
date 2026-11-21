@@ -166,14 +166,6 @@ final class SellerOrderApiExamples {
 		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "승인된 판매자만 쓸 수 있습니다.", "data": null }
 		""";
 
-	static final String OTHER_SELLER_PARTY = """
-		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "본인 대회의 파티만 볼 수 있습니다.", "data": null }
-		""";
-
-	static final String OTHER_SELLER_ORDER = """
-		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "본인 대회의 주문만 볼 수 있습니다.", "data": null }
-		""";
-
 	static final String ORDER_ITEM_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_ITEM_NOT_FOUND", "message": "주문에 없는 상품입니다.", "data": null }
 		""";

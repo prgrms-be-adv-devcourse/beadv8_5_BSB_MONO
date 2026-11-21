@@ -184,6 +184,12 @@ public class PartyApplyUseCase {
 			.orElseThrow(() -> new PartyNotFoundException("존재하지 않는 파티입니다."));
 		// 파티장이 아니거나 이미 신청한 파티는 상품·회원을 부르기 전에 거절한다 (기간이 지난 뒤 다시 눌러도 「이미 신청함」)
 		if (target.leaderMemberId() != memberId) {
+			// 파티원이 아니면 파티장만(403) 대신 없는 파티(404)로 답해 남의 파티가 있는지 알리지 않는다 (CRU-91)
+			boolean member = partyMemberRepository.findByPartyIdAndMemberId(partyId, memberId)
+				.filter(PartyMember::isActive).isPresent();
+			if (!member) {
+				throw new PartyNotFoundException("존재하지 않는 파티입니다.");
+			}
 			throw PartyAccessDeniedException.leaderOnly();
 		}
 		if (target.status() != PartyStatus.RECRUITING) {

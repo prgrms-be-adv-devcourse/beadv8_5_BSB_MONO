@@ -39,7 +39,7 @@ public class BoardPostIndexKafkaListener {
 		try {
 			event = jsonConverter.fromJson(payload, BoardPostChangedEvent.class);
 		} catch (IllegalArgumentException broken) {
-			log.warn("읽을 수 없는 메시지라 버립니다. payload={}", payload, broken);
+			log.warn("읽을 수 없는 메시지라 버립니다. messageId={}", messageId, broken);
 			return;
 		}
 		boardPostIndexUseCase.apply(messageId, event.postId());

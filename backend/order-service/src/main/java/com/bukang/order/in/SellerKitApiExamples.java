@@ -208,10 +208,6 @@ final class SellerKitApiExamples {
 		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "승인된 판매자만 쓸 수 있습니다.", "data": null }
 		""";
 
-	static final String NOT_MY_RACE = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인 대회의 참가권만 배송 처리할 수 있습니다.", "data": null }
-		""";
-
 	static final String ITEM_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_ITEM_NOT_FOUND", "message": "주문에 없는 상품입니다.", "data": null }
 		""";
@@ -254,10 +250,6 @@ final class SellerKitApiExamples {
 
 	static final String KIT_OPTION_SALES_MISSING_RACE = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "필수 요청 값(raceId)이 없습니다.", "data": null }
-		""";
-
-	static final String KIT_OPTION_SALES_OTHER_SELLER = """
-		{ "status": 403, "code": "ORDER_SELLER_FORBIDDEN", "message": "본인 대회의 키트 옵션만 볼 수 있습니다.", "data": null }
 		""";
 
 	static final String KIT_OPTION_SALES_UNAVAILABLE = """

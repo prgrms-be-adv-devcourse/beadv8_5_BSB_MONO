@@ -45,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
  *    최종 정산 전에는 상계로 금액이 바뀌므로 만들지 않는다
  * 2. 판매자 알림: 입금 확인 전까지 매일 한 번, 은행별 입금 계좌와 금액을 알린다
  * 3. 관리자 알림: 상계 실패일을 1일째로 셀 때 30일째에 한 번 알린다
- * 알림 기능이 아직 없어 로그만 남긴다. 알림 기능이 생기면 여기서 보낸다
+ * 알림은 청구 트랜잭션을 커밋한 뒤 PayoutClaimNotifier가 보낸다 (판매자: 내 알림, 관리자: Slack, CRU-94)
  *
  * 관리자가 입금을 확인하면 청구 금액이 회사 계좌에 들어왔다고 보고 원장에 회수 입금을 남긴다.
  * cash 보관 지갑은 건드리지 않는다 (10/30 결정)
@@ -57,17 +57,12 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class PayoutClaimUseCase {
-	// 판매자가 돈을 보낼 은행별 입금 계좌 (목업). 청구마다 같은 계좌를 알린다
-	static final List<String> RECOVERY_ACCOUNTS = List.of(
-		"국민은행 000000-00-000000 크루런(목업)",
-		"신한은행 000-000-000000 크루런(목업)",
-		"우리은행 0000-000-000000 크루런(목업)");
-
 	private final PayoutRepository payoutRepository;
 	private final PayoutItemRepository payoutItemRepository;
 	private final PayoutRecoveryRepository payoutRecoveryRepository;
 	private final PayoutClaimRepository payoutClaimRepository;
 	private final ClaimVirtualAccountPort claimVirtualAccountPort;
+	private final PayoutClaimNotifier claimNotifier;
 	private final TransactionTemplate transactionTemplate;
 
 	/**
@@ -85,8 +80,15 @@ public class PayoutClaimUseCase {
 		for (PayoutClaim found : claims) {
 			Optional<ClaimVirtualAccount> account = issueVirtualAccount(found);
 			Notices notices = transactionTemplate.execute(status -> notify(found.getId(), account, today, now));
-			sellerNotices += notices.seller() ? 1 : 0;
-			adminNotices += notices.admin() ? 1 : 0;
+			// 커밋 뒤에 보낸다. 청구 행 잠금을 쥔 채 다른 서비스를 부르지 않고, 발송이 실패해도 청구 저장은 남는다
+			if (notices.seller()) {
+				claimNotifier.notifySeller(notices.claim(), notices.raceName());
+				sellerNotices++;
+			}
+			if (notices.admin()) {
+				claimNotifier.notifyAdmin(notices.claim());
+				adminNotices++;
+			}
 		}
 		log.info("청구 배치: 새 청구 {}건, 판매자 알림 {}건, 관리자 알림 {}건", created, sellerNotices, adminNotices);
 		return new ClaimRunResult(created, sellerNotices, adminNotices);
@@ -175,15 +177,15 @@ public class PayoutClaimUseCase {
 	private Notices notify(long claimId, Optional<ClaimVirtualAccount> account, LocalDate today, LocalDateTime now) {
 		PayoutClaim claim = payoutClaimRepository.findByIdForUpdate(claimId).orElseThrow();
 		if (claim.getStatus() != PayoutClaimStatus.청구_중) {
-			return new Notices(false, false);
+			return new Notices(false, false, claim, null);
 		}
 		if (claim.getVirtualAccountNumber() == null) {
 			account.ifPresent(issued -> claim.assignVirtualAccount(issued.bankName(), issued.accountNumber()));
 		}
 		boolean seller = claim.markSellerNotice(today);
 		if (seller) {
-			log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}, accounts={}",
-				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount(), accountsOf(claim));
+			log.info("[청구 알림] 판매자에게 정산금 반환을 요청합니다. sellerId={}, raceId={}, claimId={}, amount={}",
+				claim.getSellerId(), claim.getRaceId(), claim.getId(), claim.getAmount());
 		}
 		boolean admin = claim.markAdminNotice(today, now);
 		if (admin) {
@@ -191,18 +193,19 @@ public class PayoutClaimUseCase {
 				+ "sellerId={}, raceId={}, claimId={}, amount={}, startDate={}", claim.getSellerId(),
 				claim.getRaceId(), claim.getId(), claim.getAmount(), claim.getStartDate());
 		}
-		return new Notices(seller, admin);
+		return new Notices(seller, admin, claim, seller ? raceName(claim) : null);
 	}
 
-	// 판매자에게 알릴 입금 계좌: 청구 전용 가상계좌, 아직 발급 전이면 목업 계좌 (관리자가 입금을 확인한다)
-	static List<String> accountsOf(PayoutClaim claim) {
-		if (claim.getVirtualAccountNumber() == null) {
-			return RECOVERY_ACCOUNTS;
-		}
-		return List.of(claim.getVirtualBankName() + " " + claim.getVirtualAccountNumber());
+	// 알림 문구에 쓸 대회 이름: 그 대회의 최종 정산(없으면 1차 정산)에 적힌 이름
+	private String raceName(PayoutClaim claim) {
+		return payoutRepository.findLiveStage(claim.getSellerId(), claim.getRaceId(), PayoutStage.최종_정산)
+			.or(() -> payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(claim.getSellerId(),
+				claim.getRaceId(), PayoutStage.일차_정산))
+			.map(Payout::getRaceName)
+			.orElse(null);
 	}
 
-	private record Notices(boolean seller, boolean admin) {
+	private record Notices(boolean seller, boolean admin, PayoutClaim claim, String raceName) {
 	}
 
 	private void checkReceivableMatches(PayoutClaim claim) {
