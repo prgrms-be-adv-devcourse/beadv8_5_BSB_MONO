@@ -113,7 +113,7 @@ class OrderExceptionHandlerTest {
 		mockMvc.perform(get("/test/balance").header("X-Member-Id", "7"))
 			.andExpect(status().isConflict());
 
-		assertThat(output).contains("409 GET /test/balance code=");
+		assertThat(output).contains("409 GET /test/balance code=" + InsufficientBalanceException.CODE);
 	}
 
 	@Test
