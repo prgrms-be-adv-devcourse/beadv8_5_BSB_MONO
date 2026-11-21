@@ -37,7 +37,9 @@ import type {
   RefundEligibilityParams,
   RsData,
   RsDataListPayoutDto,
+  RsDataListPayoutTaxInvoiceDto,
   RsDataListSellerPayoutHoldDto,
+  RsDataListSellerRecoveryDto,
   RsDataPayoutAdminClaimsDto,
   RsDataPayoutAdminPayoutsDto,
   RsDataPayoutClaimDto,
@@ -969,9 +971,9 @@ export const getClaimsUrl = (params: ClaimsParams,) => {
  * 회수 요청일이 기간 안이고 청구가 만들어진 회수를 최근 것부터 한 건씩 돌려준다. 청구 전에 상계로 끝난 회수는 빼고, 같은 대회의 회수는 같은 청구 ID를 갖는다. 끝 날이 시작 날 + 1개월 전이어야 한다(최대 1개월).
  * @summary 회수 내역 조회
  */
-export const claims = async (params: ClaimsParams, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+export const claims = async (params: ClaimsParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListSellerRecoveryDto> => {
 
-  return customFetch<unknown>(getClaimsUrl(params),
+  return customFetch<RsDataListSellerRecoveryDto>(getClaimsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1047,6 +1049,108 @@ export function useClaims<TData = Awaited<ReturnType<typeof claims>>, TError = R
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getClaimsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTaxInvoicesUrl = () => {
+
+
+
+
+  return `/api/v1/payout/seller/tax-invoices`
+}
+
+/**
+ * 플랫폼 수수료 세금계산서를 최근 공급 월부터 돌려준다. 공급 월(지급 완료월)마다 한 장이고, 매달 1일에 지난달 치를 발행한다. 발행에 실패하면 다음 날 다시 발행한다. 공급받는자 정보는 발행 당시 값으로 고정된다. 비사업자 판매자는 세금계산서가 없어 빈 목록이다.
+ * @summary 수수료 세금계산서 목록 조회 (BUK-246)
+ */
+export const taxInvoices = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataListPayoutTaxInvoiceDto> => {
+
+  return customFetch<RsDataListPayoutTaxInvoiceDto>(getTaxInvoicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTaxInvoicesQueryKey = () => {
+    return [
+    `/api/v1/payout/seller/tax-invoices`
+    ] as const;
+    }
+
+
+export const getTaxInvoicesQueryOptions = <TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTaxInvoicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof taxInvoices>>> = ({ signal }) => taxInvoices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TaxInvoicesQueryResult = NonNullable<Awaited<ReturnType<typeof taxInvoices>>>
+export type TaxInvoicesQueryError = RsData
+
+
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof taxInvoices>>,
+          TError,
+          Awaited<ReturnType<typeof taxInvoices>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof taxInvoices>>,
+          TError,
+          Awaited<ReturnType<typeof taxInvoices>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 수수료 세금계산서 목록 조회 (BUK-246)
+ */
+
+export function useTaxInvoices<TData = Awaited<ReturnType<typeof taxInvoices>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof taxInvoices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTaxInvoicesQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

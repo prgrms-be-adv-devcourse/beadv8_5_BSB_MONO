@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { detailPeriods } from '@/entities/payout'
 import { payoutMock, server } from '@/shared/testing'
+import { ToastProvider } from '@/shared/ui'
 
 import { SellerSettlementsPage, type SettlementTab } from './SellerSettlementsPage'
 
@@ -13,7 +14,9 @@ function renderPage(initialTab?: SettlementTab) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <SellerSettlementsPage initialTab={initialTab} />
+      <ToastProvider>
+        <SellerSettlementsPage initialTab={initialTab} />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -237,5 +240,89 @@ describe('SellerSettlementsPage', () => {
 
     await user.click(screen.getByRole('tab', { name: '건별 정산' }))
     expect(await screen.findByText('이 기간에 건별 정산이 없어요')).toBeInTheDocument()
+  })
+
+  it('대회별 정산 줄의 대회 이름을 누르면 정산 상세로 간다', async () => {
+    renderPage()
+
+    const row = (await screen.findByText('ST-20260926-0002')).closest('tr')!
+    expect(within(row).getByRole('link', { name: '2026 한강 나이트런' })).toHaveAttribute(
+      'href',
+      '/seller/settlements/ST-20260926-0002',
+    )
+  })
+
+  it('회수: 청구마다 사유 · 금액 · 입금 기한 · 입금 계좌 · 상태를 응답 값으로 보여 준다', async () => {
+    let query = ''
+    server.use(
+      http.get('*/api/v1/payout/seller/claims', ({ request }) => {
+        query = new URL(request.url).search
+        return undefined
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '회수' }))
+    const row = (await screen.findByText('RC-20261113-0001')).closest('tr')!
+    expect(within(row).getByText('춘천 하프마라톤')).toBeInTheDocument()
+    expect(within(row).getByText('일정 변경')).toBeInTheDocument()
+    expect(within(row).getByText('60,000')).toBeInTheDocument()
+    expect(within(row).getByText('12/13 (일)')).toBeInTheDocument()
+    expect(within(row).getByText('국민은행')).toBeInTheDocument()
+    expect(within(row).getByText('입금 대기')).toBeInTheDocument()
+    expect(query).toMatch(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/)
+
+    const done = screen.getByText('RC-20260930-0002').closest('tr')!
+    expect(within(done).getByText('입금 완료')).toBeInTheDocument()
+
+    // 가상계좌를 아직 받지 않은 청구는 계좌 칸을 비워 둔다
+    const noAccount = screen.getByText('RC-20260812-0001').closest('tr')!
+    expect(within(noAccount).getByText('-')).toBeInTheDocument()
+  })
+
+  it('회수: 입금 계좌를 누르면 계좌번호를 복사하고 알려 준다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '회수' }))
+    await user.click(await screen.findByRole('button', { name: /904-2201-3344-12/ }))
+    expect(await navigator.clipboard.readText()).toBe('904-2201-3344-12')
+    expect(await screen.findByText('계좌번호를 복사했어요')).toBeInTheDocument()
+  })
+
+  it('세금계산서: 공급 월마다 금액 · 승인번호 · 발행 일시 · 상태를 보여 주고 상세로 간다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '세금계산서' }))
+    const issued = (await screen.findByRole('link', { name: '2026.10' })).closest('tr')!
+    expect(within(issued).getByText('277,200')).toBeInTheDocument()
+    expect(within(issued).getByText('252,000')).toBeInTheDocument()
+    expect(within(issued).getByText('25,200')).toBeInTheDocument()
+    expect(within(issued).getByText('20261101-41000000-01234567')).toBeInTheDocument()
+    expect(within(issued).getByText('11/1 (일) 06:10')).toBeInTheDocument()
+    expect(within(issued).getByText('발행 완료')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '2026.10' })).toHaveAttribute(
+      'href',
+      '/seller/settlements/tax-invoices/3',
+    )
+
+    const failed = screen.getByRole('link', { name: '2026.09' }).closest('tr')!
+    expect(within(failed).getByText('-')).toBeInTheDocument()
+    expect(within(failed).getByText('발행 실패')).toBeInTheDocument()
+  })
+
+  it('세금계산서는 기간 선택이 없으므로 빈 문구에 「이 기간에」를 쓰지 않는다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/tax-invoices', () =>
+        HttpResponse.json({ status: 200, message: '', data: [] }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '세금계산서' }))
+    expect(await screen.findByText('발행한 세금계산서가 없어요')).toBeInTheDocument()
   })
 })
