@@ -140,6 +140,19 @@ async function pickDates(label: string, days: number[]) {
   await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
 }
 
+async function addTenK() {
+  await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+  const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '10K')
+  await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+  await userEvent.click(await screen.findByRole('option', { name: '10K' }))
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '참가비 (원)' }), '45000')
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '일반 정원 (명)' }), '2000')
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '제한 시간 (분)' }), '90')
+  await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+}
+
 async function applyCover() {
   const zone = screen.queryByRole('button', { name: '대표 이미지' })
   await userEvent.click(zone ?? screen.getByRole('button', { name: '바꾸기' }))
@@ -236,6 +249,7 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     await pickDateTime('일반 판매 시작', 3, '10:00')
     await pickDateTime('접수 마감', 24, '23:59')
     await pickDates('환불 기한', [20])
+    await addTenK()
     await applyCover()
 
     const button = screen.getByRole('button', { name: '등록하기' })

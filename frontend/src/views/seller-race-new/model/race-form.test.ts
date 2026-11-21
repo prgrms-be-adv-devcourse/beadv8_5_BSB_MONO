@@ -15,6 +15,7 @@ import {
   toKitOptionsRequest,
   toRaceSaveRequest,
 } from './race-form'
+import { SAMPLE_COURSES } from './race-form.fixtures'
 
 // 크루 예매를 열지 않는 대회. 날짜·시각 칸은 'yyyy-MM-dd HH:mm'
 const base = {
@@ -28,6 +29,7 @@ const base = {
   individualOpenAt: '2026-10-23 10:00',
   applicationCloseAt: '2026-10-28 23:59',
   refundDeadline: '2026-10-28',
+  courses: SAMPLE_COURSES,
 }
 
 // 크루 예매를 여는 대회. 크루 마감 10/22 23:59 → 일반 판매는 10/23 00:00부터
@@ -405,8 +407,21 @@ describe('종목별 최소 나이 (서버는 종목마다 14 또는 19만 받는
   })
 
   it('기본은 모든 종목 만 14세이고, 14 · 19 말고는 검사에서 막는다', () => {
-    expect(RACE_FORM_DEFAULTS.courses.map((c) => c.minAge)).toEqual([14, 14])
+    expect(base.courses.map((c) => c.minAge)).toEqual([14, 14])
     expect(RACE_FORM_DEFAULTS).not.toHaveProperty('minAge')
     expect(issuesOf({ ...base, courses: [{ ...base.courses[0], minAge: 20 }] })).toHaveLength(1)
+  })
+})
+
+describe('새 대회 등록의 기본값', () => {
+  it('종목 · 키트 옵션은 빈 채로 시작한다 (판매자가 직접 추가한다)', () => {
+    expect(RACE_FORM_DEFAULTS.courses).toEqual([])
+    expect(RACE_FORM_DEFAULTS.kitOptions).toEqual([])
+  })
+
+  it('종목이 비어 있으면 종목을 추가하라고 하고, 키트 옵션이 비어 있는 것은 막지 않는다', () => {
+    const issues = issuesOf({ ...base, courses: [] })
+    expect(issues).toEqual([`courses: ${RACE_FORM_ERRORS.coursesRequired}`])
+    expect(issuesOf({ ...base, kitOptions: [] })).toEqual([])
   })
 })

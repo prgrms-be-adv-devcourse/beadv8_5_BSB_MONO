@@ -8,6 +8,7 @@ import { ApiError, type productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
 
 import { RACE_FORM_DEFAULTS, type RaceFormValues } from './race-form'
+import { SAMPLE_COURSES } from './race-form.fixtures'
 import { useRegisterRace } from './use-register-race'
 
 const values: RaceFormValues = {
@@ -21,6 +22,7 @@ const values: RaceFormValues = {
   individualOpenAt: '2026-10-20 10:00',
   applicationCloseAt: '2026-10-31 23:59',
   refundDeadline: '2026-10-31',
+  courses: SAMPLE_COURSES,
 }
 
 const image = (name: string) => new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' })
