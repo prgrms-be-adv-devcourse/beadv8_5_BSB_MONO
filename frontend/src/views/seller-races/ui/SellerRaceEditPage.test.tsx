@@ -207,38 +207,6 @@ describe('SellerRaceEditPage', () => {
     expect(detail.map((i) => i.sortNo)).toEqual(detail.map((_, i) => i))
     vi.unstubAllGlobals()
   })
-  it('크루 예매 기간이 있으면 판매 일정 카드를 열기로 열고 저장된 시각을 채운다', async () => {
-    useRace('SCHEDULED', CREW_AHEAD, 20)
-    renderPage()
-    expect(await screen.findByRole('button', { name: '열기' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(screen.getByLabelText('크루 예매 시작 시간')).toHaveValue('10:00')
-    expect(screen.getByLabelText('크루 예매 마감 시간')).toHaveValue('23:59')
-    expect(screen.getByLabelText('일반 판매 시작 시간')).toHaveValue('00:00')
-    expect(screen.getByLabelText('접수 마감 시간')).toHaveValue('18:00')
-    expect(screen.getByText('마감 뒤 남은 크루 자리는 일반 판매로 넘어가요')).toBeInTheDocument()
-  })
-
-  it('크루 예매 기간이 없으면 열지 않기로 열고 크루 예매 칸을 숨긴다', async () => {
-    useRace('SCHEDULED', { ...CREW_AHEAD, crewSaleStartAt: null, crewSaleEndAt: null })
-    renderPage()
-    expect(await screen.findByRole('button', { name: '열지 않기' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(screen.queryByLabelText('크루 예매 시작 시간')).not.toBeInTheDocument()
-  })
-
-  it('판매가 시작된 대회(판매 중 변경)에는 판매 일정 카드가 없다', async () => {
-    useRace('ON_SALE', { ...CREW_AHEAD, crewSaleStartAt: at(-2, '10:00:00') })
-    renderPage()
-    expect(await screen.findByLabelText('모집 정원 (10K)')).toBeInTheDocument()
-    expect(screen.queryByText('판매 일정')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '열지 않기' })).not.toBeInTheDocument()
-  })
-
   it('판매가 시작된 대회를 저장해도 저장된 일정을 그대로 보낸다', async () => {
     let body: productModel.RaceSaveRequestDto | undefined
     useRace('ON_SALE', { ...CREW_AHEAD, crewSaleStartAt: at(-2, '10:00:00') })
@@ -266,18 +234,19 @@ describe('SellerRaceEditPage', () => {
     })
   })
 
-  it('판매 예정 대회의 판매 일정 카드에 크루 최대 인원 칸이 있고, 열지 않기로 바꾸면 숨는다', async () => {
+  it('대회 수정 화면에는 일정 칸(판매 일정 카드, 환불 기한)이 없다. 일정은 일정 변경 화면에서 바꾼다', async () => {
     useRace('SCHEDULED', CREW_AHEAD, 20)
     renderPage()
-    expect(await screen.findByRole('textbox', { name: '크루 최대 인원' })).toBeInTheDocument()
-    expect(screen.getByText('비우면 인원 제한이 없어요')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    expect(await screen.findByLabelText('모집 정원 (10K)')).toBeInTheDocument()
+    expect(screen.queryByText('판매 일정')).not.toBeInTheDocument()
+    expect(screen.queryByText('환불 기한')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '열지 않기' })).not.toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: '크루 최대 인원' })).not.toBeInTheDocument()
   })
 
-  it('크루 선예매를 열지 않기로 바꿔 저장하면 크루 기간 없이 크루 정원 0으로 보낸다', async () => {
+  it('판매 예정 대회를 저장해도 일정과 크루 정원은 지금 값 그대로 보낸다', async () => {
     let body: productModel.RaceSaveRequestDto | undefined
-    useRace('SCHEDULED', CREW_AHEAD, 20)
+    useRace('SCHEDULED', { ...CREW_AHEAD, refundDeadline: at(25, '00:00:00').slice(0, 10) }, 20)
     server.use(
       http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
         body = (await request.json()) as productModel.RaceSaveRequestDto
@@ -289,12 +258,17 @@ describe('SellerRaceEditPage', () => {
       }),
     )
     renderPage()
-    await userEvent.click(await screen.findByRole('button', { name: '열지 않기' }))
+    const quota = await screen.findByLabelText('모집 정원 (10K)')
+    await userEvent.clear(quota)
+    await userEvent.type(quota, '700')
     await userEvent.click(await saveButton())
     expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
-    expect(body?.crewSaleStartAt).toBeUndefined()
-    expect(body?.crewSaleEndAt).toBeUndefined()
-    expect(body?.courses.every((c) => c.crewQuota === 0)).toBe(true)
-    expect(body?.individualOpenAt).toBe(CREW_AHEAD.individualOpenAt)
+    expect(body).toMatchObject({
+      crewSaleStartAt: CREW_AHEAD.crewSaleStartAt,
+      crewSaleEndAt: CREW_AHEAD.crewSaleEndAt,
+      individualOpenAt: CREW_AHEAD.individualOpenAt,
+      applicationCloseAt: CREW_AHEAD.applicationCloseAt,
+    })
+    expect(body?.courses[0]).toMatchObject({ individualQuota: 700, crewQuota: 20 })
   })
 })

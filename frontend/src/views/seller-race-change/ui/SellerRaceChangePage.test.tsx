@@ -6,14 +6,15 @@ import {
 } from '@tanstack/react-query'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { addDays, format } from 'date-fns'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 
+import { raceAfterCloseMessage } from '@/entities/race'
 import type { productModel } from '@/shared/api'
 import { server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
-import { RESCHEDULE_ERRORS } from '../model/reschedule-form'
 import { SellerRaceChangePage } from './SellerRaceChangePage'
 
 const replace = vi.fn()
@@ -34,6 +35,59 @@ async function pickDate(label: string, month: number, day: number) {
 async function confirmNotify() {
   const dialog = await screen.findByRole('alertdialog')
   await userEvent.click(within(dialog).getByRole('button', { name: '알리기' }))
+}
+
+const day = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd')
+const at = (days: number, time: string) => `${day(days)}T${time}`
+
+/** 일정을 정해 둔 1번 대회(판매 예정, 크루 예매 있음). 대회는 접수 마감 3주 뒤 같은 시각이다 */
+function useRace() {
+  const detail = {
+    raceId: 1,
+    title: '2026 용감한 쿠키RUN in 서울',
+    location: '서울숲 일대',
+    regionSido: '서울특별시',
+    regionSigungu: '성동구',
+    saleStatus: 'SCHEDULED',
+    raceDate: at(40, '08:00:00'),
+    crewSaleStartAt: at(5, '10:00:00'),
+    crewSaleEndAt: at(9, '23:59:59'),
+    crewMaxCount: 12,
+    individualOpenAt: at(10, '00:00:00'),
+    applicationCloseAt: at(19, '08:00:00'),
+    refundDeadline: day(25),
+    courses: [
+      {
+        raceCourseId: 1,
+        name: '10K',
+        courseType: 'KM_10',
+        distanceKm: 10,
+        price: 45000,
+        crewQuota: 20,
+        individualQuota: 600,
+      },
+    ],
+  }
+  server.use(
+    http.get('*/api/v1/product/races/mine', () =>
+      HttpResponse.json({
+        status: 200,
+        message: 'ok',
+        data: [{ raceId: 1, title: detail.title, saleStatus: 'SCHEDULED', courses: [] }],
+      }),
+    ),
+    http.get('*/api/v1/product/races/:raceId', () =>
+      HttpResponse.json({ status: 200, message: 'ok', data: detail }),
+    ),
+  )
+  return detail
+}
+
+/** 시간 칸(예: 「접수 마감 시간」)의 시각을 바꾼다 */
+async function typeTime(label: string, time: string) {
+  const input = screen.getByLabelText(`${label} 시간`)
+  await userEvent.clear(input)
+  await userEvent.type(input, time)
 }
 
 function renderPage(confirmOpen = false) {
@@ -86,7 +140,34 @@ describe('SellerRaceChangePage 알림 대상', () => {
 })
 
 describe('SellerRaceChangePage 일정 변경', () => {
-  it('새 대회일(날짜만)로 대회 전체를 PUT 하고, 시각은 지금 대회 시각을 그대로 둔다', async () => {
+  it('일정에 관한 모든 칸이 있다: 대회 일시, 장소, 크루 선예매, 크루 예매 시작·마감, 크루 최대 인원, 일반 판매 시작, 접수 마감, 환불 기한', async () => {
+    useRace()
+    renderPage()
+    expect(await screen.findByRole('group', { name: '대회 일시' })).toBeInTheDocument()
+    expect(screen.getByText('서울숲 일대')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '열기' })).toHaveAttribute('aria-pressed', 'true')
+    for (const label of [
+      '크루 예매 시작',
+      '크루 예매 마감',
+      '일반 판매 시작',
+      '접수 마감',
+      '환불 기한',
+    ]) {
+      expect(screen.getByRole('group', { name: new RegExp(label) })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('textbox', { name: '크루 최대 인원' })).toHaveValue('12')
+  })
+
+  it('정원·참가비·이름 같은 일정이 아닌 칸은 없다', async () => {
+    useRace()
+    renderPage()
+    await screen.findByRole('group', { name: '대회 일시' })
+    expect(screen.queryByLabelText('모집 정원 (10K)')).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: '대회 이름' })).not.toBeInTheDocument()
+  })
+
+  it('바꾼 일정만 바꾸고 나머지는 지금 값 그대로 대회 전체를 PUT 한다', async () => {
+    const detail = useRace()
     let body: productModel.RaceSaveRequestDto | undefined
     server.use(
       http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
@@ -99,30 +180,52 @@ describe('SellerRaceChangePage 일정 변경', () => {
       }),
     )
     renderPage()
-    await screen.findByRole('group', { name: '새 대회일' })
-    await pickDate('새 대회일', 11, 8)
+    await screen.findByRole('group', { name: '대회 일시' })
+    await typeTime('접수 마감', '09:00')
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
     await confirmNotify()
 
     expect(await screen.findByText('대회 일정을 바꿨어요')).toBeInTheDocument()
     expect(body).toMatchObject({
-      raceDate: '2026-11-08T08:00:00',
-      title: '2026 용감한 쿠키RUN in 서울',
+      applicationCloseAt: at(19, '09:00:00'),
+      raceDate: detail.raceDate,
+      crewSaleStartAt: detail.crewSaleStartAt,
+      crewSaleEndAt: detail.crewSaleEndAt,
+      individualOpenAt: detail.individualOpenAt,
+      refundDeadline: detail.refundDeadline,
+      crewMaxCount: 12,
+      title: detail.title,
     })
-    // 지금 연결된 이미지를 그대로 다시 보낸다. 대표 이미지는 대회 쪽에만 둔다 (CRU-6)
+    // 종목은 지금 값 그대로, 연결된 이미지도 그대로 다시 보낸다 (CRU-6)
+    expect(body?.courses[0]).toMatchObject({
+      courseId: 1,
+      price: 45000,
+      individualQuota: 600,
+      crewQuota: 20,
+    })
     expect(body?.images.map((i) => i.fileType)).toEqual(['THUMBNAIL'])
-    expect(body?.courses[0].images.length).toBeGreaterThan(0)
-    expect(body?.courses[0].images.map((i) => i.fileType)).not.toContain('THUMBNAIL')
   })
 
-  it('지금과 같은 날이면 보내지 않고 알려 준다', async () => {
+  it('대회 일시를 접수 마감 3주보다 앞으로 당기면 대회 일시 칸에 오류를 보이고 보내지 않는다', async () => {
+    useRace()
     renderPage()
-    await screen.findByRole('group', { name: '새 대회일' })
+    await screen.findByRole('group', { name: '대회 일시' })
+    // 접수 마감이 19일 뒤 08:00이면 대회는 40일 뒤 08:00부터. 07:59로 줄이면 1분 모자란다
+    await typeTime('대회 일시', '07:59')
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
-    expect(await screen.findByText(RESCHEDULE_ERRORS.sameDate)).toBeInTheDocument()
+    expect(await screen.findByText(raceAfterCloseMessage(`${day(40)} 08:00`))).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('바꾼 것이 없으면 일정 변경 알리기를 누를 수 없다', async () => {
+    useRace()
+    renderPage()
+    await screen.findByRole('group', { name: '대회 일시' })
+    expect(screen.getByRole('button', { name: '일정 변경 알리기' })).toBeDisabled()
   })
 
   it('서버가 막으면(400) 그 문구를 보여 준다', async () => {
+    useRace()
     server.use(
       http.put('*/api/v1/product/races/:raceId', () =>
         HttpResponse.json(
@@ -132,8 +235,8 @@ describe('SellerRaceChangePage 일정 변경', () => {
       ),
     )
     renderPage()
-    await screen.findByRole('group', { name: '새 대회일' })
-    await pickDate('새 대회일', 11, 2)
+    await screen.findByRole('group', { name: '대회 일시' })
+    await typeTime('접수 마감', '09:00')
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
     await confirmNotify()
     expect(
@@ -143,7 +246,8 @@ describe('SellerRaceChangePage 일정 변경', () => {
 })
 
 describe('SellerRaceChangePage 입력 유지', () => {
-  it('다른 창에 다녀오거나 네트워크가 다시 연결돼도 수정할 대회를 다시 받지 않아 쓰던 날짜가 남는다', async () => {
+  it('다른 창에 다녀오거나 네트워크가 다시 연결돼도 수정할 대회를 다시 받지 않아 쓰던 값이 남는다', async () => {
+    useRace()
     let fetched = 0
     server.events.on('request:start', ({ request }) => {
       if (request.method === 'GET' && /\/product\/races\/1$/.test(new URL(request.url).pathname)) {
@@ -151,8 +255,8 @@ describe('SellerRaceChangePage 입력 유지', () => {
       }
     })
     renderPage()
-    await screen.findByRole('group', { name: '새 대회일' })
-    await pickDate('새 대회일', 11, 8)
+    await screen.findByRole('group', { name: '대회 일시' })
+    await typeTime('접수 마감', '09:00')
 
     act(() => {
       focusManager.setFocused(false)
@@ -165,9 +269,7 @@ describe('SellerRaceChangePage 입력 유지', () => {
     server.events.removeAllListeners()
     focusManager.setFocused(undefined)
     expect(fetched).toBe(1)
-    expect(
-      within(screen.getByRole('group', { name: '새 대회일' })).getByText(/11\.? ?8|2026-11-08/),
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText('접수 마감 시간')).toHaveValue('09:00')
   })
 })
 
