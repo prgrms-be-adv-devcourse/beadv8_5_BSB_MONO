@@ -195,6 +195,41 @@ describe('키트 주문 상세 창', () => {
     expect(within(panel).queryByRole('button', { name: /바꾸기|수정하기/ })).not.toBeInTheDocument()
   })
 
+  it('보내기 전에 취소된 주문은 취소 구역과 안내만 보여 주고 입력칸·바꾸는 버튼이 없다', async () => {
+    server.use(
+      http.get('*/api/v1/order/seller/kits', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '키트 주문 목록을 조회했습니다.',
+          data: {
+            kits: [
+              {
+                orderItemId: 56,
+                orderNo: 'OD-20261001-0056',
+                orderItemStatus: 'CANCELED',
+                raceId: 1,
+                courseName: '10K',
+                kitDeliveryStatus: 'PREPARING',
+              },
+            ],
+            page: 0,
+            size: 100,
+            totalElements: 1,
+            totalPages: 1,
+          },
+        }),
+      ),
+    )
+    resetNavigationMock('status=PREPARING')
+    const user = userEvent.setup()
+    renderPage()
+    const panel = await openDetail(user, 'OD-20261001-0056')
+
+    expect(within(panel).getByText('취소된 주문이라 보내지 않아요')).toHaveClass('text-text-danger')
+    expect(within(panel).queryByRole('combobox', { name: '택배사' })).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /바꾸기|수정하기/ })).not.toBeInTheDocument()
+  })
+
   it('보낸 뒤 취소된 주문도 배송 중이면 배송 완료로 바꿀 수 있다 (서버 계약)', async () => {
     let delivered = ''
     server.use(

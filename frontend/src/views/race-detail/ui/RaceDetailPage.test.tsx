@@ -250,6 +250,8 @@ describe('RaceDetailPage 공유 · 일정', () => {
     )
 
     expect(await screen.findByText('링크를 복사했어요')).toBeInTheDocument()
+    // 시안 「링크 복사 완료」: 알림이 떠도 시트는 열려 있다
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-open')
     expect(writeText).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`/races/${RACE_DETAIL.id}$`)),
     )
