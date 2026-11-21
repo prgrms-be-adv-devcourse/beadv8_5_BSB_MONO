@@ -160,47 +160,74 @@ describe('파티 상세', () => {
     expect(await screen.findByText('파티를 불러오지 못했어요')).toBeInTheDocument()
   })
 
-  it('파티 나가기는 머리글 ⋮ 메뉴에서 열고, 확인하면 크루 홈으로 간다', async () => {
+  it('모집 중에는 본문 맨 아래에 파티 나가기 버튼이 보이고, 머리글 ⋮ 메뉴는 없다', async () => {
+    renderPage(<PartyDetailPage partyId={1} />)
+    const leave = await screen.findByRole('button', { name: '파티 나가기' })
+    expect(within(screen.getByRole('main')).getByRole('button', { name: '파티 나가기' })).toBe(
+      leave,
+    )
+    expect(leave).toHaveClass('text-text-danger')
+    expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument()
+    // 파티원 목록 다음에 온다
+    const list = screen.getByRole('list')
+    expect(list.compareDocumentPosition(leave) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('파티장이 나가기를 누르면 넘기고 나가는 확인 창이 열리고, 확인하면 크루 홈으로 간다', async () => {
     const user = userEvent.setup()
     renderPage(<PartyDetailPage partyId={1} />)
-    await user.click(await screen.findByRole('button', { name: '더보기' }))
-    await user.click(await screen.findByRole('menuitem', { name: '파티 나가기' }))
+    await user.click(await screen.findByRole('button', { name: '파티 나가기' }))
     expect(await screen.findByText('파티장을 넘기고 나갈까요?')).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: '넘기고 나가기' }))
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/7'))
   })
 
-  it('⋮ 메뉴는 닫혀 있고, 화면 아래에는 파티 나가기 버튼이 없다', async () => {
-    renderPage(<PartyDetailPage partyId={1} />)
-    const more = await screen.findByRole('button', { name: '더보기' })
-    expect(more).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('menuitem', { name: '파티 나가기' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '파티 나가기' })).not.toBeInTheDocument()
+  it('혼자 남은 파티장에게는 파티 끝내기 확인 창을 보여 준다', async () => {
+    const user = userEvent.setup()
+    renderPage(<PartyDetailPage partyId={5} />)
+    await user.click(await screen.findByRole('button', { name: '파티 나가기' }))
+    expect(await screen.findByText('나가면 파티가 끝나요')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '파티 끝내기' })).toBeInTheDocument()
   })
 
-  it('⋮ 메뉴 버튼은 main 밖의 머리글(banner) 안에 있다', async () => {
-    renderPage(<PartyDetailPage partyId={1} />)
-    const more = await screen.findByRole('button', { name: '더보기' })
-    expect(within(screen.getByRole('banner')).getByRole('button', { name: '더보기' })).toBe(more)
-    expect(within(screen.getByRole('main')).queryByRole('banner')).not.toBeInTheDocument()
-  })
-
-  it('⋮ 메뉴는 Esc로 닫히고 나가기 확인 창을 띄우지 않는다', async () => {
+  it('파티원에게는 나가기 확인 창을 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/order/parties/me/race-status', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '성공',
+          data: { role: 'MEMBER', partyId: 1, partyStatus: 'RECRUITING', myPaid: false },
+        }),
+      ),
+    )
     const user = userEvent.setup()
     renderPage(<PartyDetailPage partyId={1} />)
-    await user.click(await screen.findByRole('button', { name: '더보기' }))
-    expect(await screen.findByRole('menuitem', { name: '파티 나가기' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    await waitFor(() =>
-      expect(screen.queryByRole('menuitem', { name: '파티 나가기' })).not.toBeInTheDocument(),
-    )
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-    expect(replace).not.toHaveBeenCalled()
+    await user.click(await screen.findByRole('button', { name: '파티 나가기' }))
+    expect(await screen.findByText('파티에서 나갈까요?')).toBeInTheDocument()
   })
 
-  it('결제가 시작된 파티에는 ⋮ 메뉴가 없다(결제 중에는 나갈 수 없다)', async () => {
+  it('나가기 요청이 가는 중에 확인을 다시 눌러도 요청은 한 번만 보낸다', async () => {
+    const sent = vi.fn()
+    server.use(
+      http.post('*/api/v1/order/parties/:partyId/leave', async () => {
+        sent()
+        await new Promise((r) => setTimeout(r, 100))
+        return HttpResponse.json({ status: 200, message: '성공', data: {} })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage(<PartyDetailPage partyId={1} />)
+    await user.click(await screen.findByRole('button', { name: '파티 나가기' }))
+    const confirm = await screen.findByRole('button', { name: '넘기고 나가기' })
+    await user.dblClick(confirm)
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/crews/7'))
+    expect(sent).toHaveBeenCalledTimes(1)
+  })
+
+  it('결제가 시작된 파티에는 파티 나가기 버튼이 없다(결제 중에는 나갈 수 없다)', async () => {
     renderPage(<PartyDetailPage partyId={3} />)
     await screen.findByText('결제 완료 1 / 3명')
+    expect(screen.queryByRole('button', { name: '파티 나가기' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument()
   })
 })
