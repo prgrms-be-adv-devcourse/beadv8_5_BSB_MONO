@@ -117,6 +117,85 @@ describe('SellerRecordReviewPage', () => {
     expect(await within(dialog).findByText('잠시 후 다시 시도해 주세요.')).toBeInTheDocument()
   })
 
+  it('심사한 제출은 목록에서 빠지고 다음 제출이 열리며, 마지막이면 빈 화면이 된다', async () => {
+    const reviewed = new Set<number>()
+    const submission = (submissionId: number) => ({
+      submissionId,
+      orderItemId: 700 + submissionId,
+      raceCourseId: 1,
+      status: 'NEEDS_REVIEW',
+      reasons: [],
+      serverCheck: {
+        NET_TIME: 'MISMATCH',
+        NET_LABEL: 'MATCH',
+        RACE_DATE: 'MATCH',
+        COURSE: 'MATCH',
+      },
+      serverCheckMatched: false,
+      netTimeSeconds: 3000 + submissionId,
+      raceDate: '2025-10-26',
+      courseClass: 'TEN_K',
+      denyReason: null,
+      denyMemo: null,
+      submittedAt: '2026-11-18T09:00:00',
+      reviewedAt: null,
+    })
+    server.use(
+      http.get('*/api/v1/member/seller/races/:raceId/record-certs', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: [32, 31].filter((id) => !reviewed.has(id)).map(submission),
+        }),
+      ),
+      http.post('*/api/v1/member/seller/record-certs/:id/approve', ({ params }) => {
+        reviewed.add(Number(params.id))
+        return HttpResponse.json({ status: 200, message: 'ok', data: {} })
+      }),
+    )
+    renderPage()
+    await screen.findByText('M-8332')
+    await userEvent.click(screen.getByRole('button', { name: '승인하기' }))
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('list', { name: '심사 목록' })).getAllByRole('button'),
+      ).toHaveLength(1),
+    )
+    expect(screen.getByRole('button', { name: /제출 31/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByText('M-8331')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '승인하기' }))
+    expect(await screen.findByText('심사할 기록증이 없어요')).toBeInTheDocument()
+  })
+
+  it('이미 심사한 제출이라 막히면 목록을 다시 받는다', async () => {
+    let listCalls = 0
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'GET' && /\/races\/1\/record-certs/.test(request.url)) listCalls += 1
+    })
+    renderPage()
+    await screen.findByText('M-8334')
+    const before = listCalls
+    await userEvent.click(screen.getByRole('button', { name: '승인하기' }))
+    await waitFor(() => expect(listCalls).toBeGreaterThan(before))
+    server.events.removeAllListeners()
+  })
+
+  it('기록증을 불러오지 못하면 승인은 막고 승인 불가는 열어 둔다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/:id', () =>
+        HttpResponse.json(
+          { status: 503, message: '기록증 사진을 불러오지 못했습니다.', data: null },
+          { status: 503 },
+        ),
+      ),
+    )
+    renderPage()
+    expect(await screen.findByText('기록증 사진을 불러오지 못했습니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '승인하기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '승인 불가' })).toBeEnabled()
+  })
+
   it('심사할 제출이 없으면 빈 화면을 보여 준다', async () => {
     renderPage(2)
     expect(await screen.findByText('심사할 기록증이 없어요')).toBeInTheDocument()
