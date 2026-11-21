@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bukang.member.domain.TermsType;
 import com.bukang.member.dto.TestMemberDto;
@@ -32,6 +33,8 @@ public class TestMemberUseCase {
 	private final MemberFacade memberFacade;
 	private final MemberJoinUseCase memberJoinUseCase;
 
+	// 가입 이벤트 저장(outbox)이 진행 중인 트랜잭션을 요구한다
+	@Transactional
 	public List<TestMemberDto> create(long adminMemberId, int count) {
 		adminVerifyUseCase.verify(adminMemberId);
 		List<TestMemberDto> created = new ArrayList<>();
