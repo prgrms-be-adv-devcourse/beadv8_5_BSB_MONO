@@ -85,6 +85,11 @@ product:
     # 테스트용 당일 판매 (CRU-36). 켜면 판매 시작일이 오늘인 대회도 등록되고 처음부터 판매 중이다 (수정은 그대로 이틀 뒤부터)
     # 평소에는 꺼 둔다. 운영에서 부하 테스트할 때만 환경변수 PRODUCT_RACE_SAME_DAY_SALE_ENABLED=true로 켜고 다시 띄운다
     same-day-sale-enabled: ${PRODUCT_RACE_SAME_DAY_SALE_ENABLED:false}
+  # AI 추천 기준값 (config/RaceRecommendProperties, CRU-134). 뜻이 비슷한 정도가 이 값보다 낮은 대회는 권하지 않는다
+  # 운영(OpenAI) 데이터로 정한 값이다. dev(Ollama)는 점수 범위가 달라 결과가 적거나 많으면 환경변수로 바꾼다
+  recommend:
+    keyword-min-similarity: ${PRODUCT_RECOMMEND_KEYWORD_MIN_SIMILARITY:0.35}
+    similar-min-similarity: ${PRODUCT_RECOMMEND_SIMILAR_MIN_SIMILARITY:0.45}
   # 다른 서비스 내부 API 호출 (CRU-44, 관리자 확인). mode·base-url은 프로파일별 yaml에 적는다
   # test에는 mode를 적지 않는다. 테스트가 정한 가짜(StubMemberAdminPort)로 바꿔 쓴다
   clients:
