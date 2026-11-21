@@ -165,7 +165,7 @@ export function ImageUpload({
 
   return (
     <div className={cn('flex w-full flex-col gap-2', className)}>
-      <span id={labelId} className="text-body2-medium text-text-primary">
+      <span id={labelId} className="text-body1-medium text-text-primary">
         {label}
       </span>
       <div {...dropProps}>{body}</div>

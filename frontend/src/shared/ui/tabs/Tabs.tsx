@@ -57,7 +57,12 @@ export function Tab({ value, children, count, countTone, disabled }: TabProps) {
     >
       <span className="truncate whitespace-nowrap">{children}</span>
       {count !== undefined && (
-        <span className={cn('text-body1-medium', countTone === 'danger' && 'text-text-danger')}>
+        <span
+          className={cn(
+            'text-body1-medium group-data-active:font-bold',
+            countTone === 'danger' && 'text-text-danger',
+          )}
+        >
           {count}
         </span>
       )}
