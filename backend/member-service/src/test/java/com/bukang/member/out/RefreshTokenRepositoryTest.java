@@ -87,6 +87,15 @@ class RefreshTokenRepositoryTest {
 	}
 
 	@Test
+	@DisplayName("최종 만료가 더 이른 로그인이 들어와도 목록 TTL은 줄지 않는다")
+	void loginNeverShortensFamiliesTtl() {
+		repository.create(MEMBER_ID, new NewFamily("F2", "K1",
+			LOGIN_AT, LOGIN_AT.plus(Duration.ofDays(7)), LOGIN_AT.plus(Duration.ofDays(7))));
+
+		assertThat(redisTemplate.getExpire(FAMILIES_KEY)).isGreaterThan(Duration.ofDays(29).toSeconds());
+	}
+
+	@Test
 	@DisplayName("같은 회원이 다시 로그인해도 이전 로그인 기록은 그대로 남고, 두 로그인이 각자 회전한다")
 	void secondLoginKeepsFirstFamily() {
 		login("F2", "K1");

@@ -21,6 +21,10 @@ for _, id in ipairs(redis.call('SMEMBERS', KEYS[2])) do
 	end
 end
 redis.call('SADD', KEYS[2], ARGV[1])
--- 새 로그인의 최종 만료(로그인 + 30일)는 이전 로그인들보다 늦으므로, 목록은 가장 늦은 family까지 남는다
-redis.call('EXPIREAT', KEYS[2], ARGV[4])
+-- 목록은 가장 늦게 끝나는 family까지 남아야 하므로 TTL을 늘릴 때만 바꾼다 (최대 기간 설정을 줄여 배포해도 줄지 않는다)
+-- EXPIREAT ... GT는 TTL이 없는 새 목록을 무한으로 보아 만료를 걸지 않으므로 쓰지 않는다
+local ttl = redis.call('TTL', KEYS[2])
+if ttl < 0 or tonumber(ARGV[3]) + ttl < tonumber(ARGV[4]) then
+	redis.call('EXPIREAT', KEYS[2], ARGV[4])
+end
 return 1
