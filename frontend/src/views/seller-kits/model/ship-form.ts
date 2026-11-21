@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+import type { KitStatus } from '@/entities/seller-kit'
+
+// 탭 · 상세 창 머리에 쓰는 배송 상태 이름
+export const TAB_LABEL: Record<KitStatus, string> = {
+  PREPARING: '송장 입력 대기',
+  SHIPPING: '배송 중',
+  DELIVERED: '배송 완료',
+}
+
+export const CARRIERS = ['CJ대한통운', '롯데택배', '한진택배', '우체국택배'].map((c) => ({
+  value: c,
+  label: c,
+}))
+
 /** 줄마다 넣는 택배사 · 송장 번호. 키는 rowKey(주문 번호) */
 export const shipFormSchema = z.object({
   carrier: z.record(z.string(), z.string()),
