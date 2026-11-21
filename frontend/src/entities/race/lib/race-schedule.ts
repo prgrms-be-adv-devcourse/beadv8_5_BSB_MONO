@@ -1,4 +1,4 @@
-import { addDays, format, parseISO } from 'date-fns'
+import { addDays, addWeeks, format, parseISO } from 'date-fns'
 
 import { parseRaceDateInput } from './race-date'
 
@@ -13,6 +13,22 @@ export const SCHEDULE_ERRORS = {
   closeAfterOpen: '접수 마감은 일반 판매 시작보다 늦어야 해요.',
   closeBeforeRace: '접수 마감은 대회 시작 전까지 정할 수 있어요.',
 } as const
+
+/** 대회 일시는 접수 마감 일시로부터 이 주 수 뒤부터 (서버 Race.RACE_AFTER_CLOSE_WEEKS와 같다) */
+export const RACE_AFTER_CLOSE_WEEKS = 3
+
+/** 접수 마감('yyyy-MM-dd HH:mm')으로부터 3주 뒤. 대회 일시를 이 시각보다 앞으로는 정할 수 없다 */
+export function earliestRaceAt(closeAt: string): string {
+  return format(
+    addWeeks(parseISO(closeAt.replace(' ', 'T')), RACE_AFTER_CLOSE_WEEKS),
+    'yyyy-MM-dd HH:mm',
+  )
+}
+
+export function raceAfterCloseMessage(earliest: string): string {
+  const text = format(parseISO(earliest.replace(' ', 'T')), 'yyyy년 M월 d일 HH:mm')
+  return `대회 일시는 접수 마감 일시로부터 ${RACE_AFTER_CLOSE_WEEKS}주 뒤(${text})부터 정할 수 있어요.`
+}
 
 /** 판매 시작일(접수 시작)은 오늘로부터 이 날 수 뒤부터 (서버 Race.SALE_OPEN_MIN_DAYS와 같다) */
 export const SALE_OPEN_MIN_DAYS = 2
@@ -69,6 +85,8 @@ export function checkScheduleOrder(
   values: ScheduleInput,
   raceAt: string | null,
   issue: (path: string, message: string) => void,
+  // 수정 화면은 대회 일시가 없어 접수 마감 칸에 오류를 보이고, 접수 마감을 바꿀 때만 3주 간격을 본다
+  { racePath = 'raceDate', checkGap = true }: { racePath?: string; checkGap?: boolean } = {},
 ) {
   const openAt = parseDateTimeInput(values.individualOpenAt)
   const closeAt = parseDateTimeInput(values.applicationCloseAt)
@@ -89,5 +107,7 @@ export function checkScheduleOrder(
   }
   if (closeAt && raceAt && closeAt > raceAt) {
     issue('applicationCloseAt', SCHEDULE_ERRORS.closeBeforeRace)
+  } else if (checkGap && closeAt && raceAt && raceAt < earliestRaceAt(closeAt)) {
+    issue(racePath, raceAfterCloseMessage(earliestRaceAt(closeAt)))
   }
 }

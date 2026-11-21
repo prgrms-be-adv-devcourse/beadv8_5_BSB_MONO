@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { completePostcode, installPostcodeFake, postcodeFake, server } from '@/shared/testing'
 import { ToastProvider } from '@/shared/ui'
 
-import { COURSE_FORM_ERRORS, RACE_FORM_ERRORS, saleOpenTooEarlyMessage } from '../model/race-form'
+import {
+  COURSE_FORM_ERRORS,
+  RACE_FORM_ERRORS,
+  raceAfterCloseMessage,
+  saleOpenTooEarlyMessage,
+} from '../model/race-form'
 import { SellerRaceNewPage } from './SellerRaceNewPage'
 
 // 화면이 '오늘'을 불러올 때 읽으므로 가져오기 전에 날짜를 고정한다 (지난 날은 고를 수 없다)
@@ -263,20 +268,29 @@ describe('SellerRaceNewPage', () => {
   it('등록하기를 누르기 전에도 순서 오류를 칸 아래에 보여 주고, 대회 날짜를 바꾸면 다시 계산한다', async () => {
     renderPage()
     await typeRaceTime('08:00')
-    await pickDates('대회 날짜', [25])
-    await pickDateTime('일반 판매 시작', 20, '10:00')
-    await pickDateTime('접수 마감', 24, '23:59')
-    expect(screen.queryByText(RACE_FORM_ERRORS.closeBeforeRace)).not.toBeInTheDocument()
+    await pickDates('대회 날짜', [28])
+    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDateTime('접수 마감', 5, '23:59')
+    const tooEarly = raceAfterCloseMessage('2026-10-26 23:59')
+    expect(screen.queryByText(tooEarly)).not.toBeInTheDocument()
 
-    // 대회를 접수 마감(10/24 23:59) 날로 당기면 접수 마감 칸에 바로 오류가 생긴다
-    await pickDates('대회 날짜', [24])
-    expect(await screen.findByText(RACE_FORM_ERRORS.closeBeforeRace)).toBeInTheDocument()
+    // 대회를 접수 마감 3주 뒤(10/26 23:59)보다 앞인 10/26 08:00으로 당기면 대회 날짜 칸에 바로 오류가 생긴다
+    await pickDates('대회 날짜', [26])
+    expect(await screen.findByText(tooEarly)).toBeInTheDocument()
 
     // 다시 뒤로 미루면 오류가 사라진다
-    await pickDates('대회 날짜', [26])
-    await waitFor(() =>
-      expect(screen.queryByText(RACE_FORM_ERRORS.closeBeforeRace)).not.toBeInTheDocument(),
+    await pickDates('대회 날짜', [27])
+    await waitFor(() => expect(screen.queryByText(tooEarly)).not.toBeInTheDocument())
+  })
+
+  it('대회 날짜는 접수 마감 3주 뒤 날 전은 고를 수 없다', async () => {
+    renderPage()
+    await pickDateTime('접수 마감', 5, '23:59')
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '대회 날짜' })).getAllByRole('button')[0],
     )
+    expect(screen.getByRole('button', { name: /10월 25일/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /10월 26일/ })).toBeEnabled()
   })
 
   it('일반 판매 시작은 이틀 뒤 전 날을, 접수 마감은 대회 다음 날부터를 고를 수 없다', async () => {
@@ -621,9 +635,9 @@ describe('SellerRaceNewPage', () => {
       vi.setSystemTime(new Date(2026, 9, 1, 23, 50))
       renderPage()
       await typeRaceTime('08:00')
-      await pickDates('대회 날짜', [25])
+      await pickDates('대회 날짜', [28])
       await pickDateTime('일반 판매 시작', 3, '10:00')
-      await pickDateTime('접수 마감', 24, '23:59')
+      await pickDateTime('접수 마감', 5, '23:59')
       vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
 
       await userEvent.click(screen.getByRole('button', { name: '등록하기' }))

@@ -111,10 +111,10 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
   })
 
   it('환불 기한이 대회일보다 늦으면 막고, 같은 날은 통과한다', () => {
-    expect(issuesOf({ ...base, refundDeadline: '2026-10-30' })).toEqual([
+    expect(issuesOf({ ...base, refundDeadline: '2026-11-20' })).toEqual([
       `refundDeadline: ${RACE_FORM_ERRORS.refundBeforeRace}`,
     ])
-    expect(issuesOf({ ...base, refundDeadline: '2026-10-29' })).toEqual([])
+    expect(issuesOf({ ...base, refundDeadline: '2026-11-19' })).toEqual([])
   })
 
   it('오늘을 주면 판매 시작이 오늘로부터 이틀 뒤 이전일 때 막는다', () => {
@@ -171,7 +171,7 @@ describe('크루 예매 일정 (서버 RaceRequestValidator.validateSchedule과 
 describe('toRaceSaveRequest 시각', () => {
   it('고른 시각을 그대로 붙이고, 23:59는 초까지 59로 보내며, 환불 기한은 날짜만 보낸다', () => {
     const request = toRaceSaveRequest(base, [], [])
-    expect(request.raceDate).toBe('2026-10-29T08:00:00')
+    expect(request.raceDate).toBe('2026-11-19T08:00:00')
     expect(request.individualOpenAt).toBe('2026-10-23T10:00:00')
     expect(request.applicationCloseAt).toBe('2026-10-28T23:59:59')
     expect(request.refundDeadline).toBe('2026-10-28')

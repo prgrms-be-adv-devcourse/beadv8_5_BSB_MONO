@@ -24,9 +24,11 @@ export {
 export {
   checkScheduleOrder,
   crewCloseAt,
+  earliestRaceAt,
   earliestSaleOpenDate,
   fromLocalDateTime,
   parseDateTimeInput,
+  raceAfterCloseMessage,
   SALE_OPEN_MIN_DAYS,
   saleOpenTooEarlyMessage,
   SCHEDULE_ERRORS,

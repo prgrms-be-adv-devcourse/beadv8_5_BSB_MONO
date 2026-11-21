@@ -165,8 +165,14 @@ function checkSchedule(
   const { request } = edit
   const locks = scheduleLocks(edit, now)
   const raceText = fromLocalDateTime(request.raceDate)
-  checkScheduleOrder(values, parseDateTimeInput(raceText), (path, message) =>
-    issue([path], message),
+  checkScheduleOrder(
+    values,
+    parseDateTimeInput(raceText),
+    (path, message) => issue([path], message),
+    {
+      racePath: 'applicationCloseAt',
+      checkGap: values.applicationCloseAt !== fromLocalDateTime(request.applicationCloseAt),
+    },
   )
   if (values.crewOpen !== Boolean(request.crewSaleStartAt) && locks.crewOpen) {
     issue(['crewOpen'], SALE_CHANGE_ERRORS.crewOpenLocked)

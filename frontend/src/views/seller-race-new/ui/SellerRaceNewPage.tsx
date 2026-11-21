@@ -8,7 +8,7 @@ import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'rea
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
-import { parseRaceDateInput, RaceScheduleFields } from '@/entities/race'
+import { earliestRaceAt, parseRaceDateInput, RaceScheduleFields } from '@/entities/race'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
 import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
@@ -156,11 +156,14 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
     ],
   })
   const raceDay = dayOf(schedule[0])
+  // 대회 날짜는 접수 마감 3주 뒤 날부터 고를 수 있다 (같은 날은 시각까지 맞아야 해서 검사에서 본다)
+  const closeText = parseDateTimeInput(schedule[5])
+  const minRaceDay = closeText ? parseISO(earliestRaceAt(closeText).slice(0, 10)) : new Date(0)
   // 순서 오류는 서로 다른 칸을 비교해서 생긴다. 대회 날짜를 나중에 바꿔도 오류가 다시 계산되도록,
   // 일정 칸 중 하나가 바뀌면 다 쓴 칸을 모두 다시 검사한다(등록하기를 누르기 전에도 칸 아래에 보인다)
   const scheduleKey = schedule.join('|')
   useEffect(() => {
-    const [, , crewStart, crewEnd, open, close, refund] = scheduleKey.split('|')
+    const [raceDateText, , crewStart, crewEnd, open, close, refund] = scheduleKey.split('|')
     const dateTimes: [keyof RaceFormValues, string][] = [
       ['individualOpenAt', open],
       ['applicationCloseAt', close],
@@ -168,6 +171,8 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
     if (crewOpen) dateTimes.push(['crewSaleStartAt', crewStart], ['crewSaleEndAt', crewEnd])
     const ready = dateTimes.filter(([, text]) => parseDateTimeInput(text) !== null).map(([n]) => n)
     if (parseRaceDateInput(refund) !== null) ready.push('refundDeadline')
+    // 대회 일시는 접수 마감 3주 뒤부터라, 접수 마감이 바뀌면 대회 날짜 오류도 다시 본다
+    if (parseRaceDateInput(raceDateText) !== null) ready.push('raceDate')
     if (ready.length > 0) void trigger(ready)
   }, [scheduleKey, crewOpen, trigger])
 
@@ -364,7 +369,7 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                       label="대회 날짜"
                       required
                       error={errors.raceDate?.message}
-                      isDateDisabled={isPast}
+                      isDateDisabled={(date) => isPast(date) || isBefore(date, minRaceDay)}
                       startMonth={startOfToday()}
                       onValueChange={field.onChange}
                     />
