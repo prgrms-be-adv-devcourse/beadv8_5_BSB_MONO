@@ -537,6 +537,22 @@ class ApiV1RaceRegisterTest extends ProductIntegrationTest {
 		register(builder.refundDeadline(raceDate.toLocalDate()).build());
 	}
 
+	@Test
+	@DisplayName("환불 기준일이 접수 마감일과 같으면 400이고, 접수 마감일 다음 날이면 등록된다")
+	void rejectRefundDeadlineOnCloseDate() throws Exception {
+		// given
+		RaceBuilder builder = upcomingRace();
+		LocalDateTime applicationCloseAt = builder.now().plusDays(10);
+		LocalDate closeDate = applicationCloseAt.toLocalDate();
+		builder.applicationCloseAt(applicationCloseAt);
+
+		// when · then
+		assertRejected(builder.refundDeadline(closeDate).build(),
+			"환불 기준일은 접수 마감일 다음 날(%s)부터 정할 수 있습니다.".formatted(closeDate.plusDays(1).format(MESSAGE_DATE)));
+
+		register(builder.refundDeadline(closeDate.plusDays(1)).build());
+	}
+
 	// ---------- RaceRequestValidator: 종목 ----------
 
 	@ParameterizedTest(name = "최소 {0}세, 최대 {1} → 400")

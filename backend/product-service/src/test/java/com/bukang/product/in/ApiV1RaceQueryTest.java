@@ -65,7 +65,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	void findOnSaleRaceDetail() throws Exception {
 		RaceBuilder builder = race().crewCount(5, 20);
 		LocalDateTime now = builder.now();
-		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
+		LocalDate refundDeadline = now.plusDays(19).toLocalDate();
 		RaceSaveRequestDto request = builder
 			.raceDate(now.plusDays(40))
 			.individualOpenAt(now.minusHours(2))
@@ -378,7 +378,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		LocalDateTime crewSaleStartAt = now.minusDays(3);
 		// 크루 예매 마감일의 자정 뒤 06:00. 크루 예매 시작과 달라야 applicationOpenAt이 개인 예매 오픈인지 알 수 있다
 		LocalDateTime individualOpenAt = now.minusDays(1).toLocalDate().atTime(6, 0);
-		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
+		LocalDate refundDeadline = now.plusDays(19).toLocalDate();
 		RaceSaveRequestDto request = builder
 			.crewSale(crewSaleStartAt, now.minusDays(2))
 			.crewCount(5, 10)

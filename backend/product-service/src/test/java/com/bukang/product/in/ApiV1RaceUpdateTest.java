@@ -73,7 +73,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 
 		RaceSaveRequestDto request = scheduledRace()
 			.individualOpenAt(now.plusDays(3))
-			.refundDeadline(now.plusDays(5).toLocalDate())
+			.refundDeadline(now.plusDays(12).toLocalDate())
 			.course(sameCourse(registered.courseId())
 				.price(60_000)
 				.quota(0, 50)
@@ -106,7 +106,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getMaxAge()).isNull();
 		assertThat(course.isKitIncluded()).isTrue();
 		Race race = findRace(registered.raceId());
-		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(5).toLocalDate());
+		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(12).toLocalDate());
 		assertThat(race.getIndividualOpenAt()).isEqualTo(now.plusDays(3));
 		// 판매 시작일은 바뀐 개인 예매 오픈 날짜로 다시 채운다
 		assertThat(race.getSaleOpenDate()).isEqualTo(now.plusDays(3).toLocalDate());

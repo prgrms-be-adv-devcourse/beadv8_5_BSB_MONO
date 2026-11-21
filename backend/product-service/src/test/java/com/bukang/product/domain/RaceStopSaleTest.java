@@ -40,7 +40,7 @@ class RaceStopSaleTest {
 			.individualOpenAt(LocalDateTime.of(2026, 11, 10, 10, 0))
 			.applicationCloseAt(LocalDateTime.of(2026, 11, 20, 18, 0))
 			.raceDate(LocalDateTime.of(2026, 12, 13, 8, 0))
-			.refundDeadline(LocalDate.of(2026, 11, 20))
+			.refundDeadline(LocalDate.of(2026, 11, 21))
 			.build(), "registered-key", REGISTERED_AT, false);
 	}
 }

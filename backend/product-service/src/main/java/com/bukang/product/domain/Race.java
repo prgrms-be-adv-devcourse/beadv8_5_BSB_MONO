@@ -153,6 +153,7 @@ public class Race extends BaseIdAndTime {
 		apply(request);
 		checkSaleOpenDate(saleOpenDate, now, sameDaySaleEnabled ? 0 : SALE_OPEN_MIN_DAYS);
 		checkRaceDateAfterClose(raceDate, applicationCloseAt);
+		checkRefundDeadlineAfterClose(refundDeadline, applicationCloseAt);
 		// 판매 시작일이 이미 됐으면 판매 중, 아니면 판매 예정이다 (상태 배치 RaceSaleStatusScheduler와 같은 기준)
 		// 평소에는 판매 시작일이 이틀 뒤부터라 늘 판매 예정이고, 판매 시작일 0시에 상태 배치가 판매 중으로 바꾼다
 		// 당일 판매를 켜고 오늘 판매 시작으로 등록하면 배치를 기다리지 않고 판매 중으로 저장한다
@@ -186,6 +187,11 @@ public class Race extends BaseIdAndTime {
 		// 규칙 전(CRU-131)에 등록해 간격이 짧은 대회도 이 두 일정을 그대로 두면 다른 칸을 고칠 수 있다
 		if (!request.getRaceDate().equals(raceDate) || !request.getApplicationCloseAt().equals(applicationCloseAt)) {
 			checkRaceDateAfterClose(request.getRaceDate(), request.getApplicationCloseAt());
+		}
+		// 환불 기준일도 환불 기준일이나 접수 마감을 바꿀 때만 본다 (규칙 전에 등록한 대회를 위해, 위와 같은 이유)
+		if (!request.getRefundDeadline().equals(refundDeadline)
+			|| !request.getApplicationCloseAt().equals(applicationCloseAt)) {
+			checkRefundDeadlineAfterClose(request.getRefundDeadline(), request.getApplicationCloseAt());
 		}
 		// 판매 시작 뒤 대회 일시(앞당기기·늦추기 모두)나 장소가 바뀌면 일정·장소 변경 안내 일시를 기록한다
 		// 이날부터 7일 동안은 환불 기준일과 상관없이 전액 환불된다 (ERD schedule_changed_at, 환불 판정은 주문 쪽)
@@ -223,6 +229,18 @@ public class Race extends BaseIdAndTime {
 		if (raceDate.isBefore(earliest)) {
 			throw new InvalidRaceException("대회 일시는 접수 마감 일시로부터 %d주 뒤(%s)부터 정할 수 있습니다."
 				.formatted(RACE_AFTER_CLOSE_WEEKS, earliest.format(MESSAGE_DATE_TIME)));
+		}
+	}
+
+	// 환불 기준일은 접수 마감(개인 예매 마감) 날짜 다음 날부터 정할 수 있다 (CRU-131). 대회 날짜까지인지는 RaceRequestValidator가 본다
+	// 환불 기준일이 접수 마감보다 이르면, 그 뒤에 산 사람은 사자마자 환불받을 수 없다
+	//   예: 접수 마감 1/24 09:00 → 환불 기준일 1/25부터
+	// 키트는 환불 기준일이 지나야 보낼 수 있고 2주 안 발송은 권고라, 대회 날짜 쪽 한계는 따로 두지 않는다
+	private static void checkRefundDeadlineAfterClose(LocalDate refundDeadline, LocalDateTime applicationCloseAt) {
+		LocalDate earliest = applicationCloseAt.toLocalDate().plusDays(1);
+		if (refundDeadline.isBefore(earliest)) {
+			throw new InvalidRaceException("환불 기준일은 접수 마감일 다음 날(%s)부터 정할 수 있습니다."
+				.formatted(earliest.format(MESSAGE_DATE)));
 		}
 	}
 
