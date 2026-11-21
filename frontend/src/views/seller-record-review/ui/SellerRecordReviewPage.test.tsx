@@ -59,14 +59,15 @@ describe('SellerRecordReviewPage', () => {
     await within(await list()).findAllByRole('button')
     await screen.findByText('M-8334')
     await userEvent.click(screen.getByRole('button', { name: '승인하기' }))
+    // 토스트는 화면 낭독기용으로 문구를 한 번 더 그린다
     expect(
-      await screen.findByText('심사 필요 상태인 제출만 심사할 수 있습니다.'),
-    ).toBeInTheDocument()
+      (await screen.findAllByText('심사 필요 상태인 제출만 심사할 수 있습니다.')).length,
+    ).toBeGreaterThan(0)
 
     await userEvent.click(within(await list()).getAllByRole('button')[2])
     await screen.findByText('M-8332')
     await userEvent.click(screen.getByRole('button', { name: '승인하기' }))
-    expect(await screen.findByText('기록증을 승인했어요')).toBeInTheDocument()
+    expect((await screen.findAllByText('기록증을 승인했어요')).length).toBeGreaterThan(0)
     expect(approved.at(-1)).toContain('/record-certs/32/approve')
     server.events.removeAllListeners()
   })
@@ -95,8 +96,11 @@ describe('SellerRecordReviewPage', () => {
     )
     await userEvent.click(within(dialog).getByRole('button', { name: '승인 불가 보내기' }))
     await waitFor(() => expect(body).toEqual({ reason: 'BLURRY', memo: '다시 찍어 주세요' }))
-    expect(await screen.findByText('승인 불가를 보냈어요')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect((await screen.findAllByText('승인 불가를 보냈어요')).length).toBeGreaterThan(0)
+    // 토스트도 dialog 역할이라 창 이름으로 찾는다
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '승인 불가 사유' })).not.toBeInTheDocument(),
+    )
   })
 
   it('승인 불가가 실패하면 창을 닫지 않고 서버 문구를 보여 준다', async () => {
