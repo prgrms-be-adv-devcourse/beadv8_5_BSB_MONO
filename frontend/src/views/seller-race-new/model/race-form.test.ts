@@ -4,7 +4,8 @@ import {
   COURSE_DISTANCE_KM,
   COURSE_DRAFT_DEFAULTS,
   COURSE_FORM_ERRORS,
-  courseDraftSchema,
+  courseTypeOptionLabel,
+  createCourseDraftSchema,
   createRaceFormSchema,
   KIT_OPTION_ERRORS,
   RACE_FORM_DEFAULTS,
@@ -226,19 +227,24 @@ describe('종목 정원 칸 (서버 validateCourse와 같다)', () => {
   })
 })
 
-describe('courseDraftSchema 종목 추가 창', () => {
+describe('종목 추가 창 규칙 (createCourseDraftSchema)', () => {
   const draft = {
     ...COURSE_DRAFT_DEFAULTS,
     name: '하프',
     courseType: 'HALF' as const,
+    crewQuota: '600',
+    individualQuota: '900',
+    price: '55,000',
     timeLimitMinutes: '180',
-    price: '55000',
-    individualQuota: '500',
+    kitIncluded: 'included' as const,
+    minAge: 19 as const,
   }
+  const open = createCourseDraftSchema({ crewOpen: true })
+  const closed = createCourseDraftSchema({ crewOpen: false })
 
   // 칸별 첫 오류 문구
-  function errorsOf(input: Record<string, unknown>) {
-    const result = courseDraftSchema.safeParse(input)
+  function errorsOf(schema: typeof open, input: Record<string, unknown>) {
+    const result = schema.safeParse(input)
     if (result.success) throw new Error('오류가 나야 한다')
     const errors: Record<string, string> = {}
     for (const issue of result.error.issues) errors[String(issue.path[0])] ??= issue.message
@@ -247,10 +253,12 @@ describe('courseDraftSchema 종목 추가 창', () => {
 
   it('종목 구분이 거리를 정한다: 5K 5, 10K 10, 하프 21.1, 풀 42.2', () => {
     expect(COURSE_DISTANCE_KM).toEqual({ KM_5: 5, KM_10: 10, HALF: 21.1, FULL: 42.2 })
+    expect(courseTypeOptionLabel('HALF')).toBe('하프 (21.1km)')
+    expect(courseTypeOptionLabel('KM_5')).toBe('5K (5km)')
   })
 
   it('칸이 맞으면 종목 한 줄을 만들고, 거리는 종목 구분에서 정해 등록 요청에 넣는다', () => {
-    const result = courseDraftSchema.safeParse(draft)
+    const result = open.safeParse(draft)
     if (!result.success) throw new Error('종목이 만들어져야 한다')
     const course = toCourseInputFromParsed(result.data)
     expect(course).toMatchObject({
@@ -259,43 +267,77 @@ describe('courseDraftSchema 종목 추가 창', () => {
       distanceKm: 21.1,
       timeLimitMinutes: 180,
       price: 55000,
-      individualQuota: 500,
-      minAge: 14,
-      crewQuota: 0,
+      crewQuota: 600,
+      individualQuota: 900,
+      kitIncluded: true,
+      minAge: 19,
     })
     expect(course).not.toHaveProperty('maxAge')
 
     const request = toRaceSaveRequest(
-      { ...base, courses: [...base.courses, course] },
+      { ...base, crewOpen: true, courses: [...base.courses, course] },
       [],
       [[], [], []],
     )
     expect(request.courses.map((c) => c.name)).toEqual(['10K', '5K', '하프'])
     expect(request.courses.map((c) => c.distanceKm)).toEqual([10, 5, 21.1])
+    expect(request.courses[2]).toMatchObject({ crewQuota: 600, individualQuota: 900, minAge: 19 })
+  })
+
+  it('키트를 없음으로 고르면 키트 포함 여부를 false로 만든다', () => {
+    const result = open.safeParse({ ...draft, kitIncluded: 'none' })
+    if (!result.success) throw new Error('종목이 만들어져야 한다')
+    expect(toCourseInputFromParsed(result.data).kitIncluded).toBe(false)
+  })
+
+  it('참가비는 천 단위 쉼표를 지우고 숫자로 읽는다', () => {
+    const result = open.safeParse({ ...draft, price: '1,234,000' })
+    expect(result.success && result.data.price).toBe(1234000)
   })
 
   it('종목 구분은 울트라를 받지 않는다 (이미 저장된 울트라 대회는 서버가 그대로 둔다)', () => {
-    expect(errorsOf({ ...draft, courseType: 'ULTRA' })).toEqual({
+    expect(errorsOf(open, { ...draft, courseType: 'ULTRA' })).toEqual({
       courseType: COURSE_FORM_ERRORS.courseTypeRequired,
     })
   })
 
-  it('빈 칸 · 숫자가 아닌 값은 칸별 오류로 돌려준다', () => {
-    expect(errorsOf({ ...COURSE_DRAFT_DEFAULTS, price: '5만원' })).toMatchObject({
+  it('필수 칸이 비었거나 숫자가 아니면 칸별 오류를 돌려준다', () => {
+    expect(errorsOf(open, { ...COURSE_DRAFT_DEFAULTS, price: '5만원' })).toMatchObject({
       name: COURSE_FORM_ERRORS.nameRequired,
       courseType: COURSE_FORM_ERRORS.courseTypeRequired,
+      crewQuota: COURSE_FORM_ERRORS.number,
+      individualQuota: COURSE_FORM_ERRORS.number,
       price: COURSE_FORM_ERRORS.number,
+      timeLimitMinutes: COURSE_FORM_ERRORS.number,
     })
   })
 
-  it('참가비 · 정원 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
-    expect(errorsOf({ ...draft, price: '0', individualQuota: '0', timeLimitMinutes: '0' })).toEqual(
-      {
-        price: COURSE_FORM_ERRORS.pricePositive,
-        individualQuota: COURSE_FORM_ERRORS.quotaPositive,
-        timeLimitMinutes: COURSE_FORM_ERRORS.timeLimitPositive,
-      },
-    )
+  it('나이는 14 · 19만 받는다', () => {
+    expect(errorsOf(open, { ...draft, minAge: 20 })).toHaveProperty('minAge')
+  })
+
+  it('참가비 · 제한 시간이 0이면 막는다 (서버는 참가비 0원을 받지 않는다)', () => {
+    expect(errorsOf(open, { ...draft, price: '0', timeLimitMinutes: '0' })).toEqual({
+      price: COURSE_FORM_ERRORS.pricePositive,
+      timeLimitMinutes: COURSE_FORM_ERRORS.timeLimitPositive,
+    })
+  })
+
+  it('크루 예매를 열면 크루 정원 + 일반 정원이 1명 이상이어야 하고, 한쪽이 0이어도 된다', () => {
+    expect(errorsOf(open, { ...draft, crewQuota: '0', individualQuota: '0' })).toEqual({
+      individualQuota: COURSE_FORM_ERRORS.quotaSum,
+    })
+    expect(open.safeParse({ ...draft, crewQuota: '0', individualQuota: '5' }).success).toBe(true)
+    expect(open.safeParse({ ...draft, crewQuota: '5', individualQuota: '0' }).success).toBe(true)
+  })
+
+  it('크루 예매를 열지 않으면 크루 정원은 받지 않고 0으로 만들며, 일반 정원이 1명 이상이어야 한다', () => {
+    const result = closed.safeParse({ ...draft, crewQuota: '', individualQuota: '900' })
+    if (!result.success) throw new Error('종목이 만들어져야 한다')
+    expect(toCourseInputFromParsed(result.data).crewQuota).toBe(0)
+    expect(errorsOf(closed, { ...draft, crewQuota: '', individualQuota: '0' })).toEqual({
+      individualQuota: COURSE_FORM_ERRORS.quotaPositive,
+    })
   })
 })
 
