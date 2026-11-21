@@ -210,13 +210,14 @@ describe('RaceDetailPage 신청하기', () => {
 })
 
 describe('RaceDetailPage 공유 · 일정', () => {
-  it('공유 아이콘을 누르면 카카오톡 · 링크 복사 · 다른 앱 시트가 열린다', async () => {
+  it('공유 아이콘을 누르면 링크 복사 버튼만 있는 시트가 열린다', async () => {
     renderPage()
     await userEvent.setup().click(screen.getByRole('button', { name: '공유하기' }))
 
     const sheet = await screen.findByRole('dialog')
-    for (const name of ['카카오톡', '링크 복사', '다른 앱']) {
-      expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: '링크 복사' })).toBeInTheDocument()
+    for (const name of ['카카오톡', '다른 앱']) {
+      expect(within(sheet).queryByRole('button', { name })).not.toBeInTheDocument()
     }
   })
 
