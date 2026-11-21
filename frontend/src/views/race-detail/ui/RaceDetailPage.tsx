@@ -276,7 +276,6 @@ export function RaceDetailPage({
       <RaceShareSheet
         open={shareOpen}
         onOpenChange={setShareOpen}
-        title={race.title}
         url={`${typeof window === 'undefined' ? '' : window.location.origin}/races/${race.id}`}
       />
     </>
