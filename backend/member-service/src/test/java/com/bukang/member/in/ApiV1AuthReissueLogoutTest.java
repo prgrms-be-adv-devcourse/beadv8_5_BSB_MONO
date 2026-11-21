@@ -87,23 +87,24 @@ class ApiV1AuthReissueLogoutTest {
 	@MockitoBean
 	private RevokedAccessTokenRepository revokedAccessTokenRepository;
 
-	private final Map<Long, Saved> redis = new HashMap<>();
+	private final Map<FamilyRef, Saved> redis = new HashMap<>();
 	private long memberId;
 
 	@BeforeEach
 	void setUp() {
 		willAnswer(invocation -> {
 			NewFamily family = invocation.getArgument(1);
-			return redis.put(invocation.getArgument(0),
-				new Saved(family.familyId(), family.jti(), family.familyExpiresAt()));
+			return redis.put(new FamilyRef(invocation.getArgument(0), family.familyId()),
+				new Saved(family.jti(), family.familyExpiresAt()));
 		}).given(refreshTokenRepository).create(anyLong(), any(NewFamily.class));
-		willAnswer(invocation -> Optional.ofNullable(redis.get(invocation.<Long>getArgument(0)))
+		willAnswer(invocation -> Optional.ofNullable(
+			redis.get(new FamilyRef(invocation.getArgument(0), invocation.getArgument(1))))
 			.map(Saved::familyExpiresAt))
-			.given(refreshTokenRepository).findFamilyExpiresAt(anyLong());
+			.given(refreshTokenRepository).findFamilyExpiresAt(anyLong(), anyString());
 		willAnswer(invocation -> rotate(invocation.getArgument(0), invocation.getArgument(1)))
 			.given(refreshTokenRepository).rotate(anyLong(), any(Rotation.class));
-		willAnswer(invocation -> deleteIfFamily(invocation.getArgument(0), invocation.getArgument(1)))
-			.given(refreshTokenRepository).deleteIfFamily(anyLong(), anyString());
+		willAnswer(invocation -> deleteFamily(invocation.getArgument(0), invocation.getArgument(1)))
+			.given(refreshTokenRepository).deleteFamily(anyLong(), anyString());
 
 		memberId = memberFacade.join(MemberFixture.joinRequest()
 			.email(EMAIL).password(PASSWORD)
@@ -182,7 +183,7 @@ class ApiV1AuthReissueLogoutTest {
 		assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
 			.startsWith("refreshToken=;")
 			.contains("Path=/api/v1/auth", "Max-Age=0", "HttpOnly");
-		assertThat(redis).doesNotContainKey((long)memberId);
+		assertThat(redis).isEmpty();
 
 		reissue(refreshToken)
 			.andExpect(status().isUnauthorized())
@@ -190,16 +191,40 @@ class ApiV1AuthReissueLogoutTest {
 	}
 
 	@Test
-	@DisplayName("다른 기기에서 다시 로그인한 뒤 이전 기기가 로그아웃해도 새 로그인은 남는다")
-	void logoutWithOldFamilyKeepsNewLogin() throws Exception {
-		String oldDeviceToken = loginAndGetRefreshToken();
-		String newDeviceToken = loginAndGetRefreshToken();
+	@DisplayName("같은 회원이 두 번 로그인해도 두 Refresh Token 모두 재발급된다")
+	void bothDevicesCanReissue() throws Exception {
+		String phoneToken = loginAndGetRefreshToken();
+		String pcToken = loginAndGetRefreshToken();
 
-		mockMvc.perform(post("/api/v1/auth/logout").cookie(new Cookie("refreshToken", oldDeviceToken)))
+		reissue(phoneToken).andExpect(status().isOk());
+		reissue(pcToken).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("한 기기에서 재사용 탐지가 걸려도 다른 기기는 재발급된다")
+	void theftOnOneDeviceKeepsOtherDevice() throws Exception {
+		String phoneToken = loginAndGetRefreshToken();
+		String pcToken = loginAndGetRefreshToken();
+		String phoneRotated = reissue(phoneToken).andExpect(status().isOk())
+			.andReturn().getResponse().getCookie("refreshToken").getValue();
+
+		reissue(phoneToken).andExpect(status().isUnauthorized());
+
+		reissue(phoneRotated).andExpect(status().isUnauthorized());
+		reissue(pcToken).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("한 기기가 로그아웃해도 다른 기기는 재발급되고, 로그아웃한 기기의 토큰은 재발급되지 않는다")
+	void logoutOneDeviceKeepsOtherDevice() throws Exception {
+		String phoneToken = loginAndGetRefreshToken();
+		String pcToken = loginAndGetRefreshToken();
+
+		mockMvc.perform(post("/api/v1/auth/logout").cookie(new Cookie("refreshToken", phoneToken)))
 			.andExpect(status().isOk());
 
-		assertThat(redis).containsKey((long)memberId);
-		reissue(newDeviceToken).andExpect(status().isOk());
+		reissue(phoneToken).andExpect(status().isUnauthorized());
+		reissue(pcToken).andExpect(status().isOk());
 	}
 
 	@Test
@@ -229,32 +254,28 @@ class ApiV1AuthReissueLogoutTest {
 
 	// refresh-token-rotate.lua를 컨트롤러 흐름에 필요한 만큼만 흉내 낸다 (유예 없음)
 	private RotationResult rotate(long id, Rotation rotation) {
-		Saved saved = redis.get(id);
+		FamilyRef ref = new FamilyRef(id, rotation.familyId());
+		Saved saved = redis.get(ref);
 		if (saved == null) {
 			return RotationResult.of(RotationOutcome.MISSING);
 		}
-		if (!saved.familyId().equals(rotation.familyId())) {
-			return RotationResult.of(RotationOutcome.STALE);
-		}
 		if (saved.jti().equals(rotation.presentedJti())) {
-			redis.put(id, new Saved(saved.familyId(), rotation.newJti(), saved.familyExpiresAt()));
+			redis.put(ref, new Saved(rotation.newJti(), saved.familyExpiresAt()));
 			return RotationResult.of(RotationOutcome.ROTATED);
 		}
-		redis.remove(id);
+		redis.remove(ref);
 		return RotationResult.of(RotationOutcome.THEFT);
 	}
 
 	// refresh-token-delete-family.lua 흉내
-	private boolean deleteIfFamily(long id, String familyId) {
-		Saved saved = redis.get(id);
-		if (saved != null && saved.familyId().equals(familyId)) {
-			redis.remove(id);
-			return true;
-		}
-		return false;
+	private boolean deleteFamily(long id, String familyId) {
+		return redis.remove(new FamilyRef(id, familyId)) != null;
 	}
 
-	private record Saved(String familyId, String jti, Instant familyExpiresAt) {
+	private record FamilyRef(long memberId, String familyId) {
+	}
+
+	private record Saved(String jti, Instant familyExpiresAt) {
 	}
 
 	private String loginAndGetRefreshToken() throws Exception {
