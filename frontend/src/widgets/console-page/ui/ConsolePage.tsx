@@ -5,6 +5,8 @@ import { cn } from '@/shared/lib'
 export type ConsolePageProps = {
   title: string
   description?: string
+  /** 제목 오른쪽 옆 작은 글자(「자동 저장됨 · 10:42」) */
+  titleAside?: string
   /** 제목 위 알약 링크 자리(「대회 관리」 같은 상위 화면, 판매자 대회 상세 2070:60323) */
   backLink?: ReactNode
   /** 제목 위 상태 글자(「판매 중」) */
@@ -19,6 +21,7 @@ export type ConsolePageProps = {
 export function ConsolePage({
   title,
   description,
+  titleAside,
   backLink,
   status,
   actions,
@@ -39,7 +42,12 @@ export function ConsolePage({
                 {status}
               </p>
             )}
-            <h1 className="text-title2">{title}</h1>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-title2">{title}</h1>
+              {titleAside && (
+                <span className="text-caption-regular text-text-secondary">{titleAside}</span>
+              )}
+            </div>
             {description && (
               <p className="text-caption-regular text-text-secondary">{description}</p>
             )}

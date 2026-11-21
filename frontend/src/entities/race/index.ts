@@ -21,6 +21,33 @@ export {
   parseKstDateTime,
   parseRaceDateInput,
 } from './lib/race-date'
+export {
+  checkRefundAfterClose,
+  checkScheduleOrder,
+  crewCloseAt,
+  earliestRaceAt,
+  earliestRefundDay,
+  earliestSaleOpenDate,
+  fromLocalDateTime,
+  parseDateTimeInput,
+  raceAfterCloseMessage,
+  refundAfterCloseMessage,
+  SALE_OPEN_MIN_DAYS,
+  saleOpenTooEarlyMessage,
+  SCHEDULE_ERRORS,
+  TIME_INPUT,
+  toLocalDateTime,
+  type ScheduleInput,
+} from './lib/race-schedule'
+export {
+  SCHEDULE_CHANGE_ERRORS,
+  scheduleChangeSchema,
+  scheduleLocks,
+  toScheduleChangeValues,
+  toScheduleRequest,
+  type ScheduleChangeField,
+  type ScheduleChangeValues,
+} from './lib/schedule-change'
 export { raceJsonLd, serializeJsonLd } from './lib/race-json-ld'
 export { RACE_BANNERS, RACE_DETAIL, type RaceBanner } from './model/fixtures'
 export { applicationPhase, toClosingSoonCard, toRaceListItem } from './model/mappers'
@@ -54,4 +81,9 @@ export {
   type SellerRaceRow,
   type SellerSaleStatus,
 } from './model/seller-race'
+export {
+  RaceScheduleFields,
+  type RaceScheduleFieldsProps,
+  type ScheduleField,
+} from './ui/RaceScheduleFields'
 export { SaleRateBar } from './ui/SaleRateBar'

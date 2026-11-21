@@ -2,32 +2,50 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
+import { isAfter, isBefore, parse, parseISO, startOfToday } from 'date-fns'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Controller, useForm, useWatch } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 
 import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
+import { AddressSearch } from '@/features/address-search'
 import { useCancelRace, useUpdateRace } from '@/features/seller-race'
 import {
+  earliestRaceAt,
+  earliestRefundDay,
   formatRaceDate,
   formatRaceDateTime,
   isRaceEditable,
   myRacesQueryOptions,
+  parseDateTimeInput,
+  parseRaceDateInput,
   raceForEditQueryOptions,
+  RaceScheduleFields,
+  scheduleChangeSchema,
+  scheduleLocks,
+  toScheduleChangeValues,
+  toScheduleRequest,
   type RaceForEdit,
+  type ScheduleChangeField,
+  type ScheduleChangeValues,
 } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
-import { cn, formatNumber } from '@/shared/lib'
-import { Alert, Button, Dialog, FOCUS_RING, KeyValue, Textarea, useToast } from '@/shared/ui'
-
+import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
-  rescheduleNotice,
-  rescheduleSchema,
-  toRescheduledRaceDate,
-  type RescheduleValues,
-} from '../model/reschedule-form'
+  Alert,
+  Button,
+  Dialog,
+  digitsOnly,
+  FOCUS_RING,
+  KeyValue,
+  Textarea,
+  TextField,
+  useToast,
+} from '@/shared/ui'
+
+import { rescheduleNotice } from '../model/reschedule-form'
 
 type Mode = 'reschedule' | 'cancel'
 
@@ -53,7 +71,9 @@ export function SellerRaceChangePage({
       ),
   })
 
-  if (edit.isPending) {
+  // 지난 일정을 가르는 지금 시각은 마운트 뒤에 정한다
+  const now = useNow()
+  if (edit.isPending || !now) {
     return (
       <ConsolePage title="일정 변경 · 대회 취소">
         <ConsoleLoading />
@@ -76,6 +96,7 @@ export function SellerRaceChangePage({
       key={edit.dataUpdatedAt}
       raceId={raceId}
       edit={edit.data}
+      now={now}
       sold={sold.data ?? 0}
       confirmOpen={confirmOpen}
     />
@@ -85,11 +106,13 @@ export function SellerRaceChangePage({
 function ChangeContent({
   raceId,
   edit,
+  now,
   sold,
   confirmOpen,
 }: {
   raceId: number
   edit: RaceForEdit
+  now: Date
   sold: number
   confirmOpen: boolean
 }) {
@@ -99,26 +122,73 @@ function ChangeContent({
   const cancel = useCancelRace(raceId)
   const [mode, setMode] = useState<Mode>('reschedule')
   const [cancelOpen, setCancelOpen] = useState(confirmOpen)
-  // 일정 변경은 알림이 바로 나가고 되돌릴 수 없어 확인 창을 한 번 거친다
-  const [notifyDate, setNotifyDate] = useState<string | null>(null)
+  // 일정 변경은 알림이 바로 나가고 되돌릴 수 없어 확인 창을 한 번 거친다. 확인 창을 연 때의 값을 보낸다
+  const [pending, setPending] = useState<ScheduleChangeValues | null>(null)
+  const [searching, setSearching] = useState(false)
   const { race, request } = edit
   const editable = isRaceEditable(race.saleStatus)
   const title = race.title ?? ''
   const currentRaceDate = request.raceDate
+  const initial = toScheduleChangeValues(edit)
+  const locks = scheduleLocks(edit, now)
+  const textToDate = (text: string) =>
+    text ? parse(text, 'yyyy-MM-dd HH:mm', new Date()) : undefined
 
   const {
     control,
+    register,
     handleSubmit,
-    formState: { errors },
-  } = useForm<RescheduleValues>({
-    resolver: zodResolver(rescheduleSchema(currentRaceDate)),
-    mode: 'onTouched',
-    defaultValues: { raceDate: currentRaceDate.slice(0, 10) },
+    setValue,
+    getValues,
+    trigger,
+    clearErrors,
+    formState: { errors, isDirty },
+  } = useForm<ScheduleChangeValues>({
+    resolver: zodResolver(scheduleChangeSchema(edit, now)),
+    mode: 'onChange',
+    defaultValues: initial,
   })
-  const nextRaceDate = toRescheduledRaceDate(
-    useWatch({ control, name: 'raceDate' }) ?? '',
-    currentRaceDate,
-  )
+  const crewOpen = useWatch({ control, name: 'crewOpen' })
+  const location = useWatch({ control, name: 'location' })
+  const raceDateTime = useWatch({ control, name: 'raceDateTime' })
+  const applicationCloseAt = useWatch({ control, name: 'applicationCloseAt' })
+  const raceText = parseDateTimeInput(raceDateTime)
+  const closeText = parseDateTimeInput(applicationCloseAt)
+  const raceDay = raceText ? parseISO(raceText.slice(0, 10)) : undefined
+  // 대회 일시는 접수 마감 3주 뒤 날부터, 환불 기한은 접수 마감 다음 날부터 고를 수 있다
+  const minRaceDay = closeText ? parseISO(earliestRaceAt(closeText).slice(0, 10)) : new Date(0)
+  const minRefundDay = closeText ? parseISO(earliestRefundDay(closeText)) : new Date(0)
+  const nextRaceDay = raceText ? raceText.slice(0, 10) : null
+
+  // 일정 칸 하나가 바뀌면 순서 오류가 다른 칸에도 생기거나 풀리므로, 다 쓴 일정 칸을 모두 다시 검사한다
+  const checkedFields: ScheduleChangeField[] = [
+    'crewSaleStartAt',
+    'crewSaleEndAt',
+    'individualOpenAt',
+    'applicationCloseAt',
+  ]
+  function revalidate() {
+    const values = getValues()
+    const ready: (keyof ScheduleChangeValues)[] = checkedFields.filter(
+      (f) => (values.crewOpen || !f.startsWith('crew')) && parseDateTimeInput(values[f]) !== null,
+    )
+    if (parseDateTimeInput(values.raceDateTime)) ready.push('raceDateTime')
+    if (parseRaceDateInput(values.refundDeadline)) ready.push('refundDeadline')
+    void trigger(ready)
+  }
+  function changeField(name: keyof ScheduleChangeValues, value: string) {
+    setValue(name, value, { shouldDirty: true })
+    revalidate()
+  }
+  // 열지 않기로 닫으면 크루 예매 날짜와 크루 최대 인원을 비우고, 다시 열면 저장된 값으로 돌아간다
+  function changeCrewOpen(open: boolean) {
+    setValue('crewOpen', open, { shouldDirty: true })
+    setValue('crewSaleStartAt', open ? initial.crewSaleStartAt : '', { shouldDirty: true })
+    setValue('crewSaleEndAt', open ? initial.crewSaleEndAt : '', { shouldDirty: true })
+    setValue('crewMaxCount', open ? initial.crewMaxCount : '', { shouldDirty: true })
+    clearErrors(['crewSaleStartAt', 'crewSaleEndAt', 'crewMaxCount', 'crewOpen'])
+    revalidate()
+  }
   const error = update.error ?? cancel.error
 
   return (
@@ -127,7 +197,12 @@ function ChangeContent({
       description={`${title} · 대회 ${formatRaceDate(currentRaceDate)} · 참가자 ${n(sold)}명`}
       actions={
         mode === 'reschedule' ? (
-          <Button type="submit" form={FORM_ID} disabled={!editable} loading={update.isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            disabled={!editable || !isDirty}
+            loading={update.isPending}
+          >
             일정 변경 알리기
           </Button>
         ) : (
@@ -175,45 +250,136 @@ function ChangeContent({
 
       {mode === 'reschedule' && (
         <div className="flex flex-wrap items-start gap-6">
-          <ConsoleCard title="일정 변경" className="min-w-130 flex-1">
-            <form
-              id={FORM_ID}
-              noValidate
-              className="flex flex-col gap-4"
-              onSubmit={handleSubmit((values) => {
-                cancel.reset()
-                setNotifyDate(
-                  toRescheduledRaceDate(values.raceDate, currentRaceDate) ?? currentRaceDate,
-                )
-              })}
-            >
-              <KeyValue label="지금 대회일" value={formatRaceDateTime(currentRaceDate)} />
-              <Controller
-                control={control}
-                name="raceDate"
-                render={({ field }) => (
-                  <DateTimeField
-                    mode="single"
-                    withTime={false}
-                    label="새 대회일"
-                    disabled={!editable}
-                    defaultValue={new Date(currentRaceDate)}
-                    error={errors.raceDate?.message}
-                    onValueChange={field.onChange}
+          <form
+            id={FORM_ID}
+            noValidate
+            className="flex min-w-130 flex-1 flex-col gap-6"
+            onSubmit={handleSubmit((values) => {
+              cancel.reset()
+              setPending(values)
+            })}
+          >
+            <ConsoleCard title="일정 변경">
+              <KeyValue label="지금 대회 일시" value={formatRaceDateTime(currentRaceDate)} />
+              <DateTimeField
+                mode="single"
+                label="대회 일시"
+                required
+                disabled={!editable}
+                defaultValue={textToDate(initial.raceDateTime)}
+                isDateDisabled={(date) =>
+                  isBefore(date, startOfToday()) || isBefore(date, minRaceDay)
+                }
+                startMonth={startOfToday()}
+                error={errors.raceDateTime?.message}
+                onValueChange={(value) => changeField('raceDateTime', value)}
+              />
+              <div className="flex flex-col gap-2">
+                <span className="text-body1-medium">장소</span>
+                <div className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 truncate text-body1-regular">{location}</span>
+                  {editable && !searching && (
+                    <Button variant="secondary" size="s" onClick={() => setSearching(true)}>
+                      다시 검색
+                    </Button>
+                  )}
+                </div>
+                {searching && (
+                  <AddressSearch
+                    defaultOpen
+                    onSelect={({ address, sido, sigungu }) => {
+                      setValue('location', address, { shouldValidate: true, shouldDirty: true })
+                      setValue('regionSido', sido, { shouldDirty: true })
+                      setValue('regionSigungu', sigungu, { shouldDirty: true })
+                      setSearching(false)
+                    }}
+                    onUnavailable={() => setSearching(false)}
                   />
                 )}
+                {errors.location?.message && (
+                  <p className="text-caption-regular text-text-danger">{errors.location.message}</p>
+                )}
+              </div>
+            </ConsoleCard>
+
+            <ConsoleCard title="판매 일정">
+              <RaceScheduleFields
+                crewOpen={crewOpen}
+                onCrewOpenChange={changeCrewOpen}
+                crewOpenDisabled={!editable || locks.crewOpen}
+                onChange={changeField}
+                crewExtra={
+                  <TextField
+                    label="크루 최대 인원"
+                    helper="비우면 인원 제한이 없어요"
+                    inputMode="numeric"
+                    filter={digitsOnly}
+                    trailing="명"
+                    disabled={!editable}
+                    error={errors.crewMaxCount?.message}
+                    className="w-1/2 pr-2"
+                    {...register('crewMaxCount')}
+                  />
+                }
+                errors={{
+                  crewSaleStartAt: errors.crewSaleStartAt?.message,
+                  crewSaleEndAt: errors.crewSaleEndAt?.message,
+                  individualOpenAt: errors.individualOpenAt?.message,
+                  applicationCloseAt: errors.applicationCloseAt?.message,
+                }}
+                defaults={{
+                  crewSaleStartAt: textToDate(initial.crewSaleStartAt),
+                  crewSaleEndAt: textToDate(initial.crewSaleEndAt),
+                  individualOpenAt: textToDate(initial.individualOpenAt),
+                  applicationCloseAt: textToDate(initial.applicationCloseAt),
+                }}
+                disabled={{
+                  crewSaleStartAt: !editable || locks.crewSaleStartAt,
+                  crewSaleEndAt: !editable || locks.crewSaleEndAt,
+                  individualOpenAt: !editable || locks.individualOpenAt,
+                  applicationCloseAt: !editable || locks.applicationCloseAt,
+                }}
+                isDateDisabled={(name, date) =>
+                  isBefore(date, startOfToday()) ||
+                  ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
+                    raceDay !== undefined &&
+                    isAfter(date, raceDay))
+                }
               />
-              {/* TODO(api): 알림 발송 API가 생기면 이 문구를 보낸다. 지금은 미리보기만 */}
+              {errors.crewOpen?.message && (
+                <p className="text-caption-regular text-text-danger">{errors.crewOpen.message}</p>
+              )}
+              <DateTimeField
+                mode="single"
+                withTime={false}
+                label="환불 기한"
+                required
+                disabled={!editable}
+                defaultValue={textToDate(`${initial.refundDeadline} 00:00`)}
+                helper="이 날 23:59까지 취소하면 전액 환불돼요"
+                isDateDisabled={(date) =>
+                  isBefore(date, startOfToday()) ||
+                  isBefore(date, minRefundDay) ||
+                  (raceDay !== undefined && isAfter(date, raceDay))
+                }
+                startMonth={startOfToday()}
+                error={errors.refundDeadline?.message}
+                onValueChange={(value) => changeField('refundDeadline', value)}
+              />
+            </ConsoleCard>
+
+            {/* TODO(api): 알림 발송 API가 생기면 이 문구를 보낸다. 지금은 미리보기만 */}
+            <ConsoleCard title="알림 문구 미리보기">
               <Textarea
-                label="알림 문구 미리보기"
+                aria-label="알림 문구 미리보기"
                 showCounter
                 maxLength={200}
                 readOnly
                 helper={`${n(sold)}명에게 앱 알림과 문자로 보내요`}
-                value={rescheduleNotice(title, currentRaceDate, nextRaceDate)}
+                value={rescheduleNotice(title, currentRaceDate, nextRaceDay)}
               />
-            </form>
-          </ConsoleCard>
+            </ConsoleCard>
+          </form>
 
           <ConsoleCard title="바뀌는 것" className="w-100 shrink-0">
             <KeyValue label="전액 환불" value="알린 날부터 7일" />
@@ -247,20 +413,18 @@ function ChangeContent({
       )}
 
       <Dialog
-        open={notifyDate !== null}
-        onOpenChange={(open) => !open && setNotifyDate(null)}
+        open={pending !== null}
+        onOpenChange={(open) => !open && setPending(null)}
         title={`참가자 ${n(sold)}명에게 알림을 보낼까요?`}
         body="보낸 알림은 되돌릴 수 없어요."
         confirmLabel="알리기"
         confirming={update.isPending}
         onConfirm={() =>
-          update.mutate(
-            { ...request, raceDate: notifyDate ?? currentRaceDate },
-            {
-              onSuccess: () => toast({ message: '대회 일정을 바꿨어요', tone: 'success' }),
-              onSettled: () => setNotifyDate(null),
-            },
-          )
+          pending &&
+          update.mutate(toScheduleRequest(edit, pending), {
+            onSuccess: () => toast({ message: '대회 일정을 바꿨어요', tone: 'success' }),
+            onSettled: () => setPending(null),
+          })
         }
       />
 

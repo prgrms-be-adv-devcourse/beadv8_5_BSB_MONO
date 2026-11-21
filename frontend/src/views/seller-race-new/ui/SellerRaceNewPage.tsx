@@ -1,21 +1,25 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
+import { format, isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
-import { parseRaceDateInput } from '@/entities/race'
+import {
+  earliestRaceAt,
+  earliestRefundDay,
+  parseRaceDateInput,
+  RaceScheduleFields,
+} from '@/entities/race'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
 import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
-  Chip,
   DataTable,
   Dialog,
   digitsOnly,
@@ -163,11 +167,16 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
     ],
   })
   const raceDay = dayOf(schedule[0])
+  // 대회 날짜는 접수 마감 3주 뒤 날부터 고를 수 있다 (같은 날은 시각까지 맞아야 해서 검사에서 본다)
+  const closeText = parseDateTimeInput(schedule[5])
+  // 환불 기한은 접수 마감 다음 날부터 고를 수 있다
+  const minRefundDay = closeText ? parseISO(earliestRefundDay(closeText)) : new Date(0)
+  const minRaceDay = closeText ? parseISO(earliestRaceAt(closeText).slice(0, 10)) : new Date(0)
   // 순서 오류는 서로 다른 칸을 비교해서 생긴다. 대회 날짜를 나중에 바꿔도 오류가 다시 계산되도록,
   // 일정 칸 중 하나가 바뀌면 다 쓴 칸을 모두 다시 검사한다(등록하기를 누르기 전에도 칸 아래에 보인다)
   const scheduleKey = schedule.join('|')
   useEffect(() => {
-    const [, , crewStart, crewEnd, open, close, refund] = scheduleKey.split('|')
+    const [raceDateText, , crewStart, crewEnd, open, close, refund] = scheduleKey.split('|')
     const dateTimes: [keyof RaceFormValues, string][] = [
       ['individualOpenAt', open],
       ['applicationCloseAt', close],
@@ -175,6 +184,8 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
     if (crewOpen) dateTimes.push(['crewSaleStartAt', crewStart], ['crewSaleEndAt', crewEnd])
     const ready = dateTimes.filter(([, text]) => parseDateTimeInput(text) !== null).map(([n]) => n)
     if (parseRaceDateInput(refund) !== null) ready.push('refundDeadline')
+    // 대회 일시는 접수 마감 3주 뒤부터라, 접수 마감이 바뀌면 대회 날짜 오류도 다시 본다
+    if (parseRaceDateInput(raceDateText) !== null) ready.push('raceDate')
     if (ready.length > 0) void trigger(ready)
   }, [scheduleKey, crewOpen, trigger])
 
@@ -259,10 +270,19 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
   // 작성 중인 값을 이 판매자 몫으로 저장한다. 이어 쓰는 중이거나 바뀐 것이 있을 때만 쓰고,
   // 처음 상태로 되돌렸으면 저장해 둔 것을 지운다. 등록하는 동안과 뒤에는 쓰지 않는다
   const draftValues = useWatch({ control })
+  // 저장한 시각은 제목 옆에 「자동 저장됨 · 10:42」로 보여 준다 (피그마 대회 등록)
+  const [savedAt, setSavedAt] = useState<Date>()
   useEffect(() => {
     if (memberId === undefined || locked) return
-    if (isDirty || initialValues) saveRaceDraft(memberId, draftValues as RaceFormValues)
-    else clearRaceDraft(memberId)
+    if (isDirty || initialValues) {
+      saveRaceDraft(memberId, draftValues as RaceFormValues)
+      // 저장한 일을 화면에 알리는 것이 목적이라 effect 안의 setState가 맞다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedAt(new Date())
+    } else {
+      clearRaceDraft(memberId)
+      setSavedAt(undefined)
+    }
   }, [memberId, locked, isDirty, initialValues, draftValues])
 
   // 수정한 내용이 있으면 화면을 떠나기 전에 확인한다 (이미지는 올리기 전 파일이라 저장은 못 하지만 수정으로 센다)
@@ -316,6 +336,7 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
   return (
     <ConsolePage
       title="대회 등록"
+      titleAside={savedAt ? `자동 저장됨 · ${format(savedAt, 'HH:mm')}` : undefined}
       actions={
         <>
           {/* 꺼진 버튼은 마우스 이벤트를 받지 않아, 감싼 span의 :hover로 말풍선을 띄운다 */}
@@ -371,7 +392,7 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                       label="대회 날짜"
                       required
                       error={errors.raceDate?.message}
-                      isDateDisabled={isPast}
+                      isDateDisabled={(date) => isPast(date) || isBefore(date, minRaceDay)}
                       startMonth={startOfToday()}
                       onValueChange={field.onChange}
                     />
@@ -481,59 +502,17 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
           </ConsoleCard>
 
           <ConsoleCard title="판매 일정">
-            <div className="flex flex-col gap-4">
-              <div role="group" aria-labelledby="crew-open-label" className="flex flex-col gap-2">
-                <span id="crew-open-label" className="text-body2-medium">
-                  크루 선예매
-                </span>
-                <div className="flex gap-2">
-                  <Chip selected={crewOpen} onClick={openCrew}>
-                    열기
-                  </Chip>
-                  <Chip selected={!crewOpen} onClick={closeCrew}>
-                    열지 않기
-                  </Chip>
-                </div>
-              </div>
-              {/* 시각은 시안처럼 칸 옆에 직접 쓴다. 서버에는 그 시각 그대로 보낸다(23:59는 그날 끝) */}
-              {crewOpen && (
-                <div className="flex gap-4">
-                  <Controller
-                    control={control}
-                    name="crewSaleStartAt"
-                    render={({ field }) => (
-                      <DateTimeField
-                        mode="single"
-                        defaultValue={dateTimeOf(initial.crewSaleStartAt)}
-                        label="크루 예매 시작"
-                        required
-                        error={errors.crewSaleStartAt?.message}
-                        isDateDisabled={isBeforeSaleOpen}
-                        startMonth={startOfToday()}
-                        onValueChange={field.onChange}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name="crewSaleEndAt"
-                    render={({ field }) => (
-                      <DateTimeField
-                        mode="single"
-                        defaultValue={dateTimeOf(initial.crewSaleEndAt)}
-                        label="크루 예매 마감"
-                        required
-                        helper="마감 뒤 남은 크루 자리는 일반 판매로 넘어가요"
-                        error={errors.crewSaleEndAt?.message}
-                        isDateDisabled={isBeforeSaleOpen}
-                        startMonth={startOfToday()}
-                        onValueChange={field.onChange}
-                      />
-                    )}
-                  />
-                </div>
-              )}
-              {crewOpen && (
+            <RaceScheduleFields
+              crewOpen={crewOpen}
+              onCrewOpenChange={(open) => (open ? openCrew() : closeCrew())}
+              onChange={(name, value) => setValue(name, value, { shouldDirty: true })}
+              defaults={{
+                crewSaleStartAt: dateTimeOf(initial.crewSaleStartAt),
+                crewSaleEndAt: dateTimeOf(initial.crewSaleEndAt),
+                individualOpenAt: dateTimeOf(initial.individualOpenAt),
+                applicationCloseAt: dateTimeOf(initial.applicationCloseAt),
+              }}
+              crewExtra={
                 <TextField
                   label="크루 최대 인원"
                   helper="비우면 인원 제한이 없어요"
@@ -544,48 +523,20 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                   className="w-1/2 pr-2"
                   {...register('crewMaxCount')}
                 />
-              )}
-              <div className="flex gap-4">
-                <Controller
-                  control={control}
-                  name="individualOpenAt"
-                  render={({ field }) => (
-                    <DateTimeField
-                      mode="single"
-                      defaultValue={dateTimeOf(initial.individualOpenAt)}
-                      label="일반 판매 시작"
-                      required
-                      helper={crewOpen ? '크루 예매 마감 뒤로 고를 수 있어요' : undefined}
-                      error={errors.individualOpenAt?.message}
-                      isDateDisabled={(date) =>
-                        isBeforeSaleOpen(date) || (raceDay !== undefined && isAfter(date, raceDay))
-                      }
-                      startMonth={startOfToday()}
-                      onValueChange={field.onChange}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="applicationCloseAt"
-                  render={({ field }) => (
-                    <DateTimeField
-                      mode="single"
-                      defaultValue={dateTimeOf(initial.applicationCloseAt)}
-                      label="접수 마감"
-                      required
-                      helper="대회 시작 전까지 고를 수 있어요"
-                      error={errors.applicationCloseAt?.message}
-                      isDateDisabled={(date) =>
-                        isBeforeSaleOpen(date) || (raceDay !== undefined && isAfter(date, raceDay))
-                      }
-                      startMonth={startOfToday()}
-                      onValueChange={field.onChange}
-                    />
-                  )}
-                />
-              </div>
-            </div>
+              }
+              errors={{
+                crewSaleStartAt: errors.crewSaleStartAt?.message,
+                crewSaleEndAt: errors.crewSaleEndAt?.message,
+                individualOpenAt: errors.individualOpenAt?.message,
+                applicationCloseAt: errors.applicationCloseAt?.message,
+              }}
+              isDateDisabled={(name, date) =>
+                isBeforeSaleOpen(date) ||
+                ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
+                  raceDay !== undefined &&
+                  isAfter(date, raceDay))
+              }
+            />
           </ConsoleCard>
         </div>
 
@@ -644,7 +595,9 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                     helper="이 날 23:59까지 취소하면 전액 환불돼요"
                     error={errors.refundDeadline?.message}
                     isDateDisabled={(date) =>
-                      isPast(date) || (raceDay !== undefined && isAfter(date, raceDay))
+                      isPast(date) ||
+                      isBefore(date, minRefundDay) ||
+                      (raceDay !== undefined && isAfter(date, raceDay))
                     }
                     startMonth={startOfToday()}
                     onValueChange={field.onChange}

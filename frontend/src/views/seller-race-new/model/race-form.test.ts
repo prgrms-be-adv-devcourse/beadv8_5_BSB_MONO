@@ -10,7 +10,9 @@ import {
   KIT_OPTION_ERRORS,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
+  raceAfterCloseMessage,
   raceFormSchema,
+  refundAfterCloseMessage,
   saleOpenTooEarlyMessage,
   toCourseInputFromParsed,
   toKitOptionsRequest,
@@ -25,11 +27,11 @@ const base = {
   location: '서울숲 일대',
   regionSido: '서울특별시',
   regionSigungu: '성동구',
-  raceDate: '2026-10-29',
+  raceDate: '2026-11-19',
   raceTime: '08:00',
   individualOpenAt: '2026-10-23 10:00',
   applicationCloseAt: '2026-10-28 23:59',
-  refundDeadline: '2026-10-28',
+  refundDeadline: '2026-10-29',
   courses: SAMPLE_COURSES,
 }
 
@@ -92,16 +94,36 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
     expect(issuesOf({ ...base, applicationCloseAt: '2026-10-23 10:01' })).toEqual([])
   })
 
-  it('접수 마감이 대회 시작보다 늦으면 막고, 같은 시각은 통과한다', () => {
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-29 08:01' })).toEqual([
+  it('접수 마감이 대회 시작보다 늦으면 막는다', () => {
+    // 접수 마감이 11/19라 환불 기한(10/29)도 마감일 이전이 되어 함께 막힌다
+    expect(issuesOf({ ...base, applicationCloseAt: '2026-11-19 08:01' })).toEqual([
       `applicationCloseAt: ${RACE_FORM_ERRORS.closeBeforeRace}`,
+      `refundDeadline: ${refundAfterCloseMessage('2026-11-20')}`,
     ])
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-29 08:00' })).toEqual([])
+  })
+
+  it('대회 일시는 접수 마감 3주 뒤부터 고를 수 있다. 딱 3주 뒤는 통과한다', () => {
+    // 접수 마감 10/28 23:59 → 3주 뒤 11/18 23:59
+    expect(issuesOf({ ...base, raceDate: '2026-11-18', raceTime: '23:59' })).toEqual([])
+  })
+
+  it('접수 마감 3주 뒤보다 1분 모자라면 막는다', () => {
+    expect(issuesOf({ ...base, raceDate: '2026-11-18', raceTime: '23:58' })).toEqual([
+      `raceDate: ${raceAfterCloseMessage('2026-11-18 23:59')}`,
+    ])
   })
 
   it('환불 기한이 대회일보다 늦으면 막고, 같은 날은 통과한다', () => {
-    expect(issuesOf({ ...base, refundDeadline: '2026-10-30' })).toEqual([
+    expect(issuesOf({ ...base, refundDeadline: '2026-11-20' })).toEqual([
       `refundDeadline: ${RACE_FORM_ERRORS.refundBeforeRace}`,
+    ])
+    expect(issuesOf({ ...base, refundDeadline: '2026-11-19' })).toEqual([])
+  })
+
+  it('환불 기한은 접수 마감 다음 날부터 고를 수 있다. 마감일 당일은 막는다', () => {
+    // 접수 마감 10/28 23:59 → 환불 기한은 10/29부터
+    expect(issuesOf({ ...base, refundDeadline: '2026-10-28' })).toEqual([
+      `refundDeadline: ${refundAfterCloseMessage('2026-10-29')}`,
     ])
     expect(issuesOf({ ...base, refundDeadline: '2026-10-29' })).toEqual([])
   })
@@ -160,10 +182,10 @@ describe('크루 예매 일정 (서버 RaceRequestValidator.validateSchedule과 
 describe('toRaceSaveRequest 시각', () => {
   it('고른 시각을 그대로 붙이고, 23:59는 초까지 59로 보내며, 환불 기한은 날짜만 보낸다', () => {
     const request = toRaceSaveRequest(base, [], [])
-    expect(request.raceDate).toBe('2026-10-29T08:00:00')
+    expect(request.raceDate).toBe('2026-11-19T08:00:00')
     expect(request.individualOpenAt).toBe('2026-10-23T10:00:00')
     expect(request.applicationCloseAt).toBe('2026-10-28T23:59:59')
-    expect(request.refundDeadline).toBe('2026-10-28')
+    expect(request.refundDeadline).toBe('2026-10-29')
   })
 
   it('크루 예매를 열지 않으면 크루 예매 기간을 빼고 크루 정원을 0으로 보낸다', () => {
