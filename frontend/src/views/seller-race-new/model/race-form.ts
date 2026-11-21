@@ -340,36 +340,6 @@ export function toCourseInputFromParsed(data: CourseDraftParsed): RaceCourseInpu
   }
 }
 
-// 시안의 두 종목을 기본으로 두고, 판매자가 종목 추가 · 삭제로 바꾼다
-const DRAFT_COURSES: RaceCourseInput[] = [
-  {
-    name: '10K',
-    courseType: 'KM_10',
-    surface: 'ROAD',
-    distanceKm: COURSE_DISTANCE_KM.KM_10,
-    timeLimitMinutes: 90,
-    price: 45000,
-    kitIncluded: true,
-    kitPrice: 0,
-    minAge: NO_LIMIT_MIN_AGE,
-    crewQuota: 0,
-    individualQuota: 2000,
-  },
-  {
-    name: '5K',
-    courseType: 'KM_5',
-    surface: 'ROAD',
-    distanceKm: COURSE_DISTANCE_KM.KM_5,
-    timeLimitMinutes: 60,
-    price: 35000,
-    kitIncluded: true,
-    kitPrice: 0,
-    minAge: NO_LIMIT_MIN_AGE,
-    crewQuota: 0,
-    individualQuota: 1000,
-  },
-]
-
 export const RACE_FORM_DEFAULTS: RaceFormValues = {
   title: '',
   description: '',
@@ -385,9 +355,9 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   individualOpenAt: '',
   applicationCloseAt: '',
   refundDeadline: '',
-  courses: DRAFT_COURSES,
-  // 시안의 기념 티셔츠 사이즈. 준비 수량을 비우면 맞춤 제작이다
-  kitOptions: ['S', 'M', 'L', 'XL', 'XXL'].map((value) => ({ name: '티셔츠', value, stock: '' })),
+  // 종목 · 키트 옵션은 비워 두고 판매자가 직접 추가한다
+  courses: [],
+  kitOptions: [],
 }
 
 /** 'yyyy-MM-dd HH:mm' → 서버 LocalDateTime. 23:59는 그 날 끝(초까지 59)으로 본다 */

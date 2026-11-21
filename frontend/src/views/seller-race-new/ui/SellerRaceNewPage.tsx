@@ -30,6 +30,7 @@ import {
   type UploadImage,
 } from '@/shared/ui'
 
+import { kitItemOf } from '../model/kit-items'
 import {
   ADULT_MIN_AGE,
   createRaceFormSchema,
@@ -44,6 +45,7 @@ import {
 import { errorSections, useRaceFormTracking } from '../model/use-race-form-tracking'
 import { KitOptionsNotSavedError, useRegisterRace } from '../model/use-register-race'
 import { CourseAddDialog } from './CourseAddDialog'
+import { KitAddDialog } from './KitAddDialog'
 
 const FORM_ID = 'seller-race-new'
 
@@ -91,6 +93,8 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   const courseFields = useFieldArray({ control, name: 'courses' })
   const kitFields = useFieldArray({ control, name: 'kitOptions' })
   const [courseOpen, setCourseOpen] = useState(false)
+  const [kitOpen, setKitOpen] = useState(false)
+  const kitOptions = useWatch({ control, name: 'kitOptions' })
   const [searching, setSearching] = useState(false)
   const location = useWatch({ control, name: 'location' })
   const crewOpen = useWatch({ control, name: 'crewOpen' })
@@ -572,11 +576,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               className="flex-1"
               title="키트"
               aside={
-                <Button
-                  variant="secondary"
-                  size="s"
-                  onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
-                >
+                <Button variant="secondary" size="s" onClick={() => setKitOpen(true)}>
                   옵션 추가
                 </Button>
               }
@@ -743,6 +743,12 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         </ConsoleCard>
       </form>
 
+      <KitAddDialog
+        open={kitOpen}
+        onOpenChange={setKitOpen}
+        added={kitOptions.flatMap((option) => kitItemOf(option.name) ?? [])}
+        onAdd={(options) => kitFields.append(options)}
+      />
       <CourseAddDialog
         open={courseOpen}
         onOpenChange={setCourseOpen}
