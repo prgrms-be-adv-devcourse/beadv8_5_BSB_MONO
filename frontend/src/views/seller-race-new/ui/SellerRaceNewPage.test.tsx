@@ -22,7 +22,11 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('next/script', async () => ({ default: (await import('@/shared/testing')).FakeScript }))
 
-beforeEach(() => installPostcodeFake())
+beforeEach(() => {
+  installPostcodeFake()
+  // 작성 내용은 저장소에 남으므로 테스트마다 비운다
+  localStorage.clear()
+})
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

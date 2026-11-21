@@ -88,6 +88,7 @@ let revoked: string[] = []
 
 beforeEach(() => {
   installPostcodeFake()
+  localStorage.clear()
   push.mockClear()
   replace.mockClear()
   created = []
