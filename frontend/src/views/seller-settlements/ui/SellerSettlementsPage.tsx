@@ -170,6 +170,7 @@ function MonthlyPayouts({ today }: { today: Date }) {
     <QueryRows query={payouts} label="대회별 월 정산" emptyTitle="정산 내역이 없어요">
       {(rows) => (
         <DataTable
+          rowHeight="lg"
           label="대회별 월 정산"
           rows={rows}
           rowKey={(r) => String(r.id)}
@@ -267,6 +268,7 @@ function PayoutItemList({ period }: { period: DetailPeriod }) {
       {(rows) => (
         <>
           <DataTable
+            rowHeight="lg"
             label="건별 정산"
             rows={rows}
             rowKey={(r) => String(r.id)}
@@ -335,6 +337,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
       <QueryRows query={holds} label="지급보류 내역" emptyTitle="이 기간에 지급보류가 없어요">
         {(rows) => (
           <DataTable
+            rowHeight="lg"
             label="지급보류 내역"
             rows={rows}
             rowKey={(r) => String(r.id)}
