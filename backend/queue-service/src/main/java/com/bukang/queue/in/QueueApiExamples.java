@@ -44,6 +44,14 @@ final class QueueApiExamples {
 		}
 		""";
 
+	static final String RELEASE_SUCCESS = """
+		{
+			"status": 200,
+			"message": "입장을 해제했습니다.",
+			"data": null
+		}
+		""";
+
 	static final String INVALID_INPUT = """
 		{ "status": 400, "message": "대회 ID를 작성해주세요.", "data": null }
 		""";

@@ -36,6 +36,7 @@ public class QueueFacade {
 	private final QueuePromoteUseCase queuePromoteUseCase;
 	private final QueueAdmissionUseCase queueAdmissionUseCase;
 	private final QueueEntryUseCase queueEntryUseCase;
+	private final QueueReleaseUseCase queueReleaseUseCase;
 	private final TransactionTemplate transactionTemplate;
 	private final QueueInboxUseCase queueInboxUseCase;
 	private final QueueDltUseCase queueDltUseCase;
@@ -75,6 +76,16 @@ public class QueueFacade {
 	// 주문 서비스가 파티 [대회 참가] 때 내부 API로 부른다. Redis만 읽어 트랜잭션을 걸지 않는다
 	public QueueAdmissionDto getPartyAdmission(long leaderMemberId, long raceId, long raceCourseId) {
 		return queueAdmissionUseCase.getPartyAdmission(leaderMemberId, raceId, raceCourseId, LocalDateTime.now());
+	}
+
+	// 결제 화면을 벗어날 때 프론트가 부른다. Redis만 다뤄 트랜잭션을 걸지 않는다
+	public void releaseActive(long memberId, long raceId, long raceCourseId) {
+		queueReleaseUseCase.release(memberId, raceId, raceCourseId);
+	}
+
+	// 크루 [대회 참가] 화면을 벗어날 때 프론트가 부른다. Redis만 다뤄 트랜잭션을 걸지 않는다
+	public void releasePartyActive(long leaderMemberId, long raceId, long raceCourseId) {
+		queueReleaseUseCase.releaseParty(leaderMemberId, raceId, raceCourseId);
 	}
 
 	// 승격 스케줄러가 부른다. 트랜잭션을 걸지 않는다. Redis만 다루므로 DB 커넥션을 잡을 일이 없다

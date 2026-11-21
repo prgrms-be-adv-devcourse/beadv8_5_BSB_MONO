@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
  * 스케줄러가 승격할 대기열은 줄 종류별 목록(개인 queue:waiting, 파티 queue:party:waiting, Set)에 {raceId}:{raceCourseId}로 모은다.
  * 두 줄은 같은 Lua 스크립트를 키만 바꿔 쓰므로 등록·승격 규칙이 같다.
  * 확인하고 넣는 일은 src/main/resources/redis/의 Lua 스크립트가 Redis 안에서 한 번에 한다.
- * 순번 조회와 입장 확인은 읽기만 하므로 Lua 없이 명령을 하나씩 보낸다.
+ * 순번 조회와 입장 확인은 읽기만 하므로 Lua 없이 명령을 하나씩 보낸다. 입장 해제도 명령 하나(ZREM)라 Lua를 쓰지 않는다.
  * Redis에 연결하지 못하면 대기열 없이 통과시키지 않고 503으로 막는다. 승격(스케줄러)은 그 대기열만 건너뛰고,
  * 입장 확인(주문 서비스용)은 입장 중이 아니라고 답한다.
  */
@@ -148,6 +148,25 @@ public class QueueRedisRepository {
 			return Optional.empty();
 		}
 		return Optional.of(toLocalDateTime(activeUntil.longValue()));
+	}
+
+	/**
+	 * 회원을 대회·종목의 active에서 지운다. 지웠으면 true, active에 없었으면 false다.
+	 * 결제 화면(파티는 [대회 참가] 화면)을 벗어나면 프론트가 부른다. 지운 뒤 다시 등록하면 waiting 맨 뒤에 선다.
+	 * 명령 하나(ZREM)라 Lua 없이도 승격과 섞이지 않는다. waiting은 건드리지 않는다.
+	 * waiting과 active가 모두 비어도 스케줄러 목록에서는 바로 빼지 않는다. 다음 승격 주기에 승격 Lua가 뺀다.
+	 */
+	public boolean removeActive(QueueLine line, long raceId, long raceCourseId, long memberId) {
+		Long removed;
+		try {
+			removed = redisTemplate.opsForZSet()
+				.remove(activeKey(line, raceId, raceCourseId), String.valueOf(memberId));
+		} catch (DataAccessException exception) {
+			log.error("대기열 입장 해제를 Redis에서 처리하지 못했습니다. line={}, raceId={}, raceCourseId={}, memberId={}",
+				line, raceId, raceCourseId, memberId, exception);
+			throw new QueueUnavailableException();
+		}
+		return removed != null && removed > 0;
 	}
 
 	/**

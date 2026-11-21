@@ -2,6 +2,7 @@ package com.bukang.queue.in;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,7 +29,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "Queue", description = "대기열 등록, 순번 조회 API")
+@Tag(name = "Queue", description = "대기열 등록, 순번 조회, 입장 해제 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/queue")
@@ -124,6 +125,42 @@ public class ApiV1QueueController {
 		return ResponseEntity.ok()
 			.body(RsData.of(HttpStatus.OK, "대기열 상태를 조회했습니다.",
 				queueFacade.getStatus(memberId, raceId, raceCourseId)));
+	}
+
+	@DeleteMapping("/races/{raceId}/racecourses/{raceCourseId}/active")
+	@Operation(summary = "대기열 입장 해제",
+		description = "결제 화면을 벗어날 때(뒤로 가기, 페이지 이탈) 불러 회원의 입장(active)을 푼다. "
+			+ "해제한 뒤 다시 대기열에 등록하면 줄 맨 뒤에 선다. "
+			+ "입장 중이 아니어도(이미 해제함, 입장 시간이 끝남, 줄에서 기다리는 중) 200이라 여러 번 불러도 된다. "
+			+ "줄(waiting)에서 빼지는 않는다. 해제해도 다음 사람의 입장이 앞당겨지지는 않는다(승격은 주기마다 정해진 인원). "
+			+ "Access Token(Authorization 헤더)이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. "
+			+ "대기열(Redis)만 다루고 대회·종목이 있는지는 확인하지 않는다. "
+			+ "대기열(Redis)에 연결하지 못하면 503이다.")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "해제 성공 (입장 중이 아니었어도 같음)",
+			content = @Content(examples = @ExampleObject(value = QueueApiExamples.RELEASE_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "대회·종목 ID 또는 회원 ID 오류",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "ID 형식 오류", value = QueueApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "대회·종목 ID가 0 이하", value = QueueApiExamples.INVALID_RACE_ID),
+				@ExampleObject(name = "회원 ID가 0 이하", value = QueueApiExamples.INVALID_MEMBER_ID)
+			})),
+		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = QueueApiExamples.LOGIN_REQUIRED))),
+		@ApiResponse(responseCode = "503", description = "대기열(Redis) 연결 실패",
+			content = @Content(schema = @Schema(implementation = RsData.class),
+				examples = @ExampleObject(value = QueueApiExamples.QUEUE_UNAVAILABLE)))
+	})
+	public ResponseEntity<RsData<Void>> releaseActive(
+		@LoginMemberId long memberId,
+		@Parameter(description = "대회 ID", example = "1")
+		@PathVariable @Positive(message = "대회 ID는 0보다 커야 합니다.") long raceId,
+		@Parameter(description = "종목 ID", example = "1")
+		@PathVariable @Positive(message = "종목 ID는 0보다 커야 합니다.") long raceCourseId
+	) {
+		queueFacade.releaseActive(memberId, raceId, raceCourseId);
+		return ResponseEntity.ok(RsData.of(HttpStatus.OK, "입장을 해제했습니다.", null));
 	}
 
 	@GetMapping("/races/{raceId}/entry")
