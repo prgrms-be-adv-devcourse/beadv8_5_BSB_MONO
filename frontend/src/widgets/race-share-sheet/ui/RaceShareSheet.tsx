@@ -21,7 +21,7 @@ export function RaceShareSheet({ open, onOpenChange, url }: RaceShareSheetProps)
 
   return (
     <BottomSheet open={open} onOpenChange={onOpenChange} title="대회 공유하기">
-      <div className="flex justify-center px-2 py-4">
+      <div className="flex justify-center px-2 pt-1 pb-6">
         <button
           type="button"
           onClick={() => void copyLink()}

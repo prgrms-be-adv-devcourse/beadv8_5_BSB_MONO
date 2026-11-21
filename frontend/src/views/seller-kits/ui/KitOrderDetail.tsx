@@ -193,9 +193,10 @@ function DetailBody({
         </InfoGroup>
 
         {notShippedCanceled && (
-          <InfoGroup title="취소">
-            <p className="py-3 text-body1-medium text-text-danger">취소된 주문이라 보내지 않아요</p>
-          </InfoGroup>
+          <section className="flex flex-col gap-1">
+            <h3 className="text-body1-bold text-text-primary">취소</h3>
+            <p className="text-body1-medium text-text-danger">취소된 주문이라 보내지 않아요</p>
+          </section>
         )}
         {formMode ? (
           <section className={cn('flex flex-col', editing ? 'gap-1' : 'gap-4')}>
