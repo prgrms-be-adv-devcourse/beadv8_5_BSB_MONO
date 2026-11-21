@@ -79,6 +79,7 @@ const REGION_ROWS = [
 
 // 피그마 V4 · 카테고리: 거리 · 지역으로 고르면 그 조건으로 걸러진 대회 찾기 목록으로 돌아간다.
 // 종목을 고르면 그 종목을 「최근 본」으로 브라우저에 남긴다.
+// 종목 동그라미는 시안처럼 다섯 칸 균등 폭에 네 개를 왼쪽부터 놓는다.
 export function CategoryScreen({
   onPick,
   onBack,
@@ -112,15 +113,15 @@ export function CategoryScreen({
         </IconButton>
         <h1 className="text-body1-bold">카테고리</h1>
       </header>
-      <ul aria-label="거리" className="flex px-4 py-3">
+      <ul aria-label="거리" className="grid grid-cols-5 px-4 py-3">
         {DISTANCES.map((d) => (
-          <li key={d.label} className="flex w-28 justify-center">
+          <li key={d.label} className="flex justify-center">
             <button
               type="button"
               onClick={() => pick({ courseType: [d.courseType] }, d.recent)}
               className={cn('flex flex-col items-center gap-2 rounded-md', FOCUS_RING)}
             >
-              <span className="flex size-11 items-center justify-center rounded-full bg-bg-default text-body1-bold text-text-brand shadow-sm inset-ring inset-ring-border-default">
+              <span className="flex size-11 items-center justify-center rounded-full bg-bg-default text-body1-bold text-text-brand shadow-[0_2px_6px_0_rgba(23,26,28,0.04),0_1px_2px_0_rgba(23,26,28,0.06),0_0_0_1px_rgba(23,26,28,0.08)]">
                 {d.label}
               </span>
               <span className="text-caption-regular text-text-secondary">{d.sub}</span>
