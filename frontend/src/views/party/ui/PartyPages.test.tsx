@@ -956,7 +956,7 @@ describe('파티 · 키트 배송지', () => {
 
       await fillParticipant(user)
       expect(
-        screen.getByLabelText('키트 배송 주소').closest('[data-clarity-mask="true"]'),
+        screen.getByLabelText('상세 주소').closest('[data-clarity-mask="true"]'),
       ).not.toBeNull()
       await pickAddress(user)
       await user.click(screen.getByRole('button', { name: '파티 만들기' }))
