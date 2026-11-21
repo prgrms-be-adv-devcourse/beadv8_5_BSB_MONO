@@ -119,10 +119,7 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           # 빌드 층 캐시는 GHCR의 같은 이미지 저장소에 buildcache 태그로 둔다 (CRU-125)
           # GitHub Actions 캐시(저장소 전체 10GB)는 이미지 층(약 7.8GB)과 Gradle·pnpm 캐시가 함께 쓰다 넘쳐 오래된 것부터 지워졌다
-          # type=gha는 옮기는 동안 남은 캐시를 읽기만 한다. GHCR 캐시가 한 번씩 쌓이면 지운다
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/bukang-${{ matrix.name }}:buildcache
-            type=gha,scope=${{ matrix.name }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/bukang-${{ matrix.name }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/bukang-${{ matrix.name }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
 
   retag:
