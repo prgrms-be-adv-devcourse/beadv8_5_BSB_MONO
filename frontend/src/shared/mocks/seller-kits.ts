@@ -72,6 +72,22 @@ function createMockKits(): MockKit[] {
       kitShippedAt: '2026-10-10T10:00:00',
       kitDeliveredAt: '2026-10-12T15:00:00',
     },
+    {
+      // 보낸 뒤 취소된 참가권. 서버는 보낸 키트를 목록에 남기고 주문 상품 상태만 취소로 둔다
+      ...base,
+      orderItemStatus: 'CANCELED',
+      orderItemId: 64,
+      orderNo: 'OD-20261001-0064',
+      courseName: '하프',
+      participantName: '비오는날',
+      tshirtSize: 'L',
+      shippingAddress: address('대구 수성구 범어동 00'),
+      kitDeliveryStatus: 'DELIVERED',
+      kitCarrier: 'CJ대한통운',
+      kitTrackingNumber: '684900000064',
+      kitShippedAt: '2026-10-09T10:00:00',
+      kitDeliveredAt: '2026-10-11T15:00:00',
+    },
   ]
 }
 
@@ -102,6 +118,7 @@ function findKit(rawId: string | readonly string[] | undefined) {
  * 판매자 키트 배송 목. 서버 규칙을 흉내 내 발송하면 배송 중으로, 배송 완료를 누르면 배송 완료로 바뀌고 건수도 따라 바뀐다.
  * - 환불 기한 전 주문(125)은 발송하면 409 ORDER_KIT_NOT_SHIPPABLE
  * - 이미 보낸 키트를 다시 보내거나, 보내기 전에 배송 완료로 바꾸면 409 ORDER_KIT_NOT_SHIPPABLE
+ * - 송장 고치기는 배송 중일 때만 된다. 아니면 409 ORDER_KIT_NOT_SHIPPABLE
  * - 없는 주문 상품은 404 ORDER_ITEM_NOT_FOUND, 택배사 · 송장 번호가 비면 400 INVALID_REQUEST
  * 생성된 핸들러보다 앞에 둬서 먼저 걸리게 한다.
  */
@@ -197,6 +214,24 @@ export const sellerKitHandlers = [
       message: '키트를 발송 처리했습니다.',
       data: toItem(kit),
     })
+  }),
+  http.put('*/api/v1/order/seller/kits/:orderItemId/shipment', async ({ params, request }) => {
+    const kit = findKit(params.orderItemId)
+    if (!kit) return fail(404, 'ORDER_ITEM_NOT_FOUND', '주문에 없는 상품입니다.')
+    const body = (await request.json().catch(() => ({}))) as {
+      carrier?: string
+      trackingNumber?: string
+    }
+    if (!body.carrier?.trim()) return fail(400, 'INVALID_REQUEST', '택배사를 입력해주세요.')
+    if (!body.trackingNumber?.trim()) {
+      return fail(400, 'INVALID_REQUEST', '송장 번호를 입력해주세요.')
+    }
+    if (kit.kitDeliveryStatus !== 'SHIPPING') {
+      return fail(409, 'ORDER_KIT_NOT_SHIPPABLE', '배송 중인 키트만 송장을 고칠 수 있습니다.')
+    }
+    kit.kitCarrier = body.carrier
+    kit.kitTrackingNumber = body.trackingNumber
+    return HttpResponse.json({ status: 200, message: '송장 번호를 고쳤습니다.', data: toItem(kit) })
   }),
   http.post('*/api/v1/order/seller/kits/:orderItemId/delivery', ({ params }) => {
     const kit = findKit(params.orderItemId)
