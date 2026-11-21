@@ -38,7 +38,8 @@ public class SellerTools {
 		+ "sendableNowCount: 환불 기한이 지나 지금 송장을 입력할 수 있는 건수, "
 		+ "sendableAfterRefundDeadlineCount: 배송 준비 중이지만 환불 기한 전이라 기한이 지나면 보낼 수 있는 건수. "
 		+ "sendableNowCount가 0이어도 sendableAfterRefundDeadlineCount가 있으면 「지금 보낼 키트는 없고, 환불 기한이 지나면 N건을 보낼 수 있다」처럼 답한다. "
-		+ "listedCount·notListedCount: 화면 목록 카드용 값이라 답에 쓰지 않는다")
+		+ "listedCount·notListedCount: 화면 목록 카드용 값이라 답에 쓰지 않는다. "
+		+ "배송 중·배송 완료 건수는 이 도구로 알 수 없으므로 그런 질문에는 부르지 않는다")
 	public Object sellerKitsWaitingForTracking(ToolContext toolContext) {
 		AiToolTrace trace = AiToolTrace.of(toolContext);
 		trace.clearList();
@@ -60,7 +61,8 @@ public class SellerTools {
 	}
 
 	@Tool(description = "마지막 질문이 이번 달 판매액·판매 장수나 이번 달 취소·환불 현황을 물을 때만 부른다"
-		+ "(예: 「이번 달 얼마 팔았어?」, 「환불 요청 들어온 거 있어?」, 「이번 달 취소 몇 건이야?」). "
+		+ "(예: 「이번 달 얼마 팔았어?」, 「환불 요청 들어온 거 있어?」, 「이번 달 취소 몇 건이야?」, 「취소된 주문이 몇 건이야?」). "
+		+ "기간 없이 취소 건수를 물으면 이번 달 값이라고 밝히고 답한다. 지난달처럼 이번 달이 아닌 기간은 부르지 않는다. "
 		+ "참가자 수·신청자 명단이 아니므로 「참가자 몇 명이 신청했어?」에는 부르지 않는다. from~to: 이번 달 1일부터 오늘까지(한국 날짜). "
 		+ "soldCount: 결제일이 이 기간인 참가권 장수, soldAmount: 그 결제 금액 합(원). "
 		+ "취소된 참가권은 판매에서 빠지고, 환불을 처리 중인 참가권은 정산처럼 판매로 센다. 정산 예정액이나 입금액이 아니다. "
