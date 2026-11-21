@@ -33,9 +33,11 @@ export function ConsolePage({
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             {backLink && <div className="flex">{backLink}</div>}
-            {status && <p className="text-body1-medium text-text-primary">{status}</p>}
+            {status && <p className="text-caption-regular text-text-secondary">{status}</p>}
             <h1 className="text-title2">{title}</h1>
-            {description && <p className="text-body2-regular text-text-secondary">{description}</p>}
+            {description && (
+              <p className="text-caption-regular text-text-secondary">{description}</p>
+            )}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>

@@ -12,20 +12,20 @@ export type ChipProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const chip = cva(
-  `inline-flex h-11 shrink-0 items-center gap-1 rounded-full px-3 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`,
+  `inline-flex h-10 shrink-0 items-center gap-1 rounded-full px-4 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`,
   {
     variants: {
       selected: {
         true: 'bg-bg-inverse text-body1-bold text-text-inverse',
         false:
-          'bg-bg-surface text-body1-medium text-text-primary shadow-field enabled:hover:bg-bg-subtle disabled:inset-ring disabled:inset-ring-border-disabled',
+          'bg-bg-surface text-body1-medium text-text-primary inset-ring inset-ring-border-default enabled:hover:bg-bg-subtle disabled:inset-ring disabled:inset-ring-border-disabled',
       },
     },
   },
 )
 
 // 종목·사이즈처럼 선택지를 버튼으로 나열한다. 단일·복수 선택 모두 aria-pressed로 상태를 알린다.
-// v4 시안: 높이 44, 글자 16(선택하면 굵게). 누르는 영역이 그대로 44라 따로 넓히지 않는다.
+// v4 판매자 시안: 높이 40, 좌우 16, 글자 16(선택하면 굵게), 선택 안 한 칩은 1px 선.
 export function Chip({
   selected = false,
   count,
