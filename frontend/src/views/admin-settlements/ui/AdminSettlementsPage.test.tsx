@@ -251,6 +251,26 @@ describe('AdminSettlementsPage', () => {
       await waitFor(() => expect(urls.at(-1)?.searchParams.get('page')).toBe('1'))
     })
 
+    it('대회 이름을 검색하는 중에도 쪽을 넘길 수 있고, 불러온 쪽 안에서만 찾는다고 알린다', async () => {
+      const urls: URL[] = []
+      server.use(
+        http.get('*/api/v1/payout/admin/payouts', ({ request }) => {
+          urls.push(new URL(request.url))
+          return HttpResponse.json(listBody(LINES, { totalPages: 2 }))
+        }),
+      )
+      const user = userEvent.setup()
+      renderPage()
+      const dialog = await openPicker(user)
+      await within(dialog).findByText('한강 나이트런')
+
+      await user.type(within(dialog).getByRole('textbox', { name: '대회 이름' }), '없는대회')
+
+      expect(within(dialog).getByText('지금 쪽의 3건 안에서 찾았어요')).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: '2' }))
+      await waitFor(() => expect(urls.at(-1)?.searchParams.get('page')).toBe('1'))
+    })
+
     it('줄을 누르면 그 정산을 고르고 창을 닫고, 고른 정산의 내용을 글자로 보여 준다', async () => {
       useList()
       const user = userEvent.setup()

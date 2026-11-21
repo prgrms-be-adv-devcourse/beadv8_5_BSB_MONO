@@ -180,15 +180,22 @@ function PickerBody({ onPick }: Pick<Props, 'onPick'>) {
               },
             ]}
           />
-          {!byCode && !keyword && list.data && list.data.payouts.totalPages > 1 && (
-            <Pagination
-              className="self-center"
-              page={page + 1}
-              totalPages={list.data.payouts.totalPages}
-              onPageChange={(next) => setPage(next - 1)}
-            />
-          )}
         </>
+      )}
+      {/* 이름 검색은 불러온 한 쪽 안에서만 거르므로, 검색 중에도 쪽을 넘겨 다른 쪽을 볼 수 있게 한다 */}
+      {!byCode && list.data && list.data.payouts.totalPages > 1 && (
+        <div className="flex flex-col items-center gap-2">
+          {keyword && (
+            <p className="text-body2-regular text-text-tertiary">
+              지금 쪽의 {list.data.payouts.content.length}건 안에서 찾았어요
+            </p>
+          )}
+          <Pagination
+            page={page + 1}
+            totalPages={list.data.payouts.totalPages}
+            onPageChange={(next) => setPage(next - 1)}
+          />
+        </div>
       )}
     </div>
   )
