@@ -88,4 +88,35 @@ describe('정산 상세 (시안 2070:69311 · 2070:70381)', () => {
 
     expect(await screen.findByText('정산 내역을 찾을 수 없습니다.')).toBeInTheDocument()
   })
+
+  it('1차 정산은 지급액이 판매액에서 바로 나오지 않으므로 계산 기준을 알려 준다', async () => {
+    renderPage('ST-20261019-A118')
+
+    expect(
+      await screen.findByText('1차 정산금은 참가권 가격의 40%예요. 수수료는 최종 정산에서 빼요.'),
+    ).toBeInTheDocument()
+  })
+
+  it('정산 ID로 찾은 결과가 비어 있으면 찾을 수 없다고 알려 준다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/payouts', () =>
+        HttpResponse.json({ status: 200, message: 'ok', data: [] }),
+      ),
+    )
+    renderPage('ST-20261019-B204')
+
+    expect(await screen.findByText('정산 내역을 찾을 수 없어요')).toBeInTheDocument()
+  })
+
+  it('정산 계좌를 불러오지 못하면 받는 계좌를 「-」로 둔다', async () => {
+    server.use(
+      http.get('*/api/v1/member/sellers/me/payout-account', () =>
+        HttpResponse.json({ status: 503, message: '잠시 뒤', data: null }, { status: 503 }),
+      ),
+    )
+    renderPage('ST-20261019-B204')
+
+    const pay = await screen.findByRole('region', { name: '지급' })
+    expect(await within(pay).findByText('-')).toBeInTheDocument()
+  })
 })

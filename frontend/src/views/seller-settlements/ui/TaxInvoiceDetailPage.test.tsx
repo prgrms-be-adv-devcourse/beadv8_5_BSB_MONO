@@ -1,6 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
+
+import { server } from '@/shared/testing'
 
 import { TaxInvoiceDetailPage } from './TaxInvoiceDetailPage'
 
@@ -57,5 +60,19 @@ describe('세금계산서 상세 (시안 2070:70160 · 2070:70207)', () => {
     renderPage('999')
 
     expect(await screen.findByText('세금계산서를 찾을 수 없어요')).toBeInTheDocument()
+  })
+
+  it('목록을 불러오지 못하면 서버 문구를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/tax-invoices', () =>
+        HttpResponse.json(
+          { status: 503, message: '판매자 정보를 확인하지 못했습니다.', data: null },
+          { status: 503 },
+        ),
+      ),
+    )
+    renderPage('3')
+
+    expect(await screen.findByText('판매자 정보를 확인하지 못했습니다.')).toBeInTheDocument()
   })
 })

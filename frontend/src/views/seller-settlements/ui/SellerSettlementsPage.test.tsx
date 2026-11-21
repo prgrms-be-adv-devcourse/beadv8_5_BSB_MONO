@@ -325,4 +325,33 @@ describe('SellerSettlementsPage', () => {
     await user.click(screen.getByRole('tab', { name: '세금계산서' }))
     expect(await screen.findByText('발행한 세금계산서가 없어요')).toBeInTheDocument()
   })
+
+  it('회수: 빈 기간이면 「이 기간에」 문구를 쓴다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/claims', () =>
+        HttpResponse.json({ status: 200, message: '', data: [] }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '회수' }))
+    expect(await screen.findByText('이 기간에 회수 내역이 없어요')).toBeInTheDocument()
+  })
+
+  it('회수: 불러오지 못하면 서버 문구를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/payout/seller/claims', () =>
+        HttpResponse.json(
+          { status: 400, message: '조회 시작이 끝보다 늦습니다.', data: null },
+          { status: 400 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('tab', { name: '회수' }))
+    expect(await screen.findByText('조회 시작이 끝보다 늦습니다.')).toBeInTheDocument()
+  })
 })

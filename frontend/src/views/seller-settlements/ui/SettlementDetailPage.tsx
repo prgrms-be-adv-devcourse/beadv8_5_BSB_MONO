@@ -39,8 +39,10 @@ export function SettlementDetailPage({ payoutCode }: { payoutCode: string }) {
           title="정산 내역을 불러오지 못했어요"
           description={errorText(payouts.error)}
         />
-      ) : !payout ? (
+      ) : !payouts.data ? (
         <Skeleton className="h-80 w-full" />
+      ) : !payout ? (
+        <Alert tone="danger" title="정산 내역을 찾을 수 없어요" />
       ) : (
         <div className="flex gap-6">
           <Named label="지급액 계산" className="flex min-w-0 flex-1">
@@ -48,7 +50,7 @@ export function SettlementDetailPage({ payoutCode }: { payoutCode: string }) {
               <AmountRow label="판매액" value={`${formatNumber(payout.salesAmount)}원`} />
               <AmountRow label="환불액" value={formatDeduction(payout.refundAmount)} />
               {/* 수수료와 1차 정산금은 최종 정산에서만 뺀다 */}
-              {payout.payoutStage === '최종_정산' && (
+              {payout.payoutStage === '최종_정산' ? (
                 <>
                   <AmountRow label="수수료" value={formatDeduction(payout.feeAmount)} />
                   <AmountRow
@@ -56,6 +58,11 @@ export function SettlementDetailPage({ payoutCode }: { payoutCode: string }) {
                     value={formatDeduction(payout.advanceDeductionAmount)}
                   />
                 </>
+              ) : (
+                // 1차 지급액은 판매액 − 환불액이 아니라 장마다 가격 × 40%다(백엔드 PayoutStage). 계산은 하지 않고 기준만 알린다
+                <p className="text-caption-regular text-text-secondary">
+                  1차 정산금은 참가권 가격의 40%예요. 수수료는 최종 정산에서 빼요.
+                </p>
               )}
               <div className="mt-3 border-t border-border-default pt-1">
                 <div className="flex h-12 items-end justify-between">
