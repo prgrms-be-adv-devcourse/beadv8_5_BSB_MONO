@@ -37,19 +37,20 @@ import type {
   RsDataQueueAdmissionDto,
   RsDataSellerKitPageDto,
   RsDataSellerKitSummaryDto,
+  RsDataSellerOrderDetailDto,
   RsDataSellerOrderPageDto,
   RsDataSellerPartyPageDto,
   RsDataSellerSalesSummaryDto
 } from './order.schemas';
 
 
-export const getChangeTrackingResponseMock = (): RsDataOrderItemDto => ({"status":200,"message":"송장 번호를 고쳤습니다.","data":{"id":12,"participationId":30,"raceCourseId":1,"sellerId":7,"itemName":"10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","kitDeliveryStatus":"SHIPPING","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345679","kitShippedAt":"2026-12-11T10:00:00","kitDeliveredAt":null,"kitTracking":{"carrierId":"kr.cjlogistics","status":"NOT_TRACKED","statusLabel":"아직 조회되지 않음","statusText":null,"lastEventAt":null,"lastTrackedAt":null,"events":[]}}})
+export const getChangeTrackingResponseMock = (): RsDataOrderItemDto => ({"status":200,"message":"송장 번호를 고쳤습니다.","data":{"id":12,"participationId":30,"raceCourseId":1,"sellerId":7,"itemName":"10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","kitDeliveryStatus":"SHIPPING","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345679","kitShippedAt":"2026-12-11T10:00:00","kitDeliveredAt":null,"kitTracking":{"carrierId":"kr.cjlogistics","status":"NOT_TRACKED","statusLabel":"아직 조회되지 않음","statusText":null,"lastEventAt":null,"lastTrackedAt":null,"events":[]},"kitTrackingUrl":null}})
 
-export const getShipResponseMock = (): RsDataOrderItemDto => ({"status":200,"message":"키트를 발송 처리했습니다.","data":{"id":12,"participationId":30,"raceCourseId":1,"sellerId":7,"itemName":"10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","kitDeliveryStatus":"SHIPPING","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345678","kitShippedAt":"2026-12-11T10:00:00","kitDeliveredAt":null,"kitTracking":{"carrierId":"kr.cjlogistics","status":"NOT_TRACKED","statusLabel":"아직 조회되지 않음","statusText":null,"lastEventAt":null,"lastTrackedAt":null,"events":[]}}})
+export const getShipResponseMock = (): RsDataOrderItemDto => ({"status":200,"message":"키트를 발송 처리했습니다.","data":{"id":12,"participationId":30,"raceCourseId":1,"sellerId":7,"itemName":"10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","kitDeliveryStatus":"SHIPPING","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345678","kitShippedAt":"2026-12-11T10:00:00","kitDeliveredAt":null,"kitTracking":{"carrierId":"kr.cjlogistics","status":"NOT_TRACKED","statusLabel":"아직 조회되지 않음","statusText":null,"lastEventAt":null,"lastTrackedAt":null,"events":[]},"kitTrackingUrl":null}})
 
 export const getChangeParticipantResponseMock = (): RsDataParticipationDto => ({"status":200,"message":"참가자 정보를 수정했습니다.","data":{"id":1,"createDate":"2026-10-12T10:15:30","modifyDate":"2026-10-12T11:02:10","raceId":1,"raceCourseId":1,"memberId":1,"participationType":"INDIVIDUAL","partyId":null,"status":"PENDING","participant":{"name":"김러너","birth":"1994-06-25","gender":"MALE","phone":"010-1234-5678","emergencyContactName":"김가족","emergencyContactPhone":"010-9876-5432","tshirtSize":"XL","shippingAddress":{"recipientName":"김러너","recipientPhone":"010-1234-5678","zipcode":"04700","address":"서울 성동구 왕십리로 00","addressDetail":"101동 1001호"}},"thirdPartyConsent":true,"consentedAt":"2026-10-12T10:15:30","paymentDueAt":null,"kitOptions":[]}})
 
-export const getCompleteDeliveryResponseMock = (): RsDataOrderItemDto => ({"status":200,"message":"키트를 배송 완료로 바꿨습니다.","data":{"id":12,"participationId":30,"raceCourseId":1,"sellerId":7,"itemName":"10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","kitDeliveryStatus":"DELIVERED","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345678","kitShippedAt":"2026-12-11T10:00:00","kitDeliveredAt":"2026-12-13T15:00:00","kitTracking":{"carrierId":"kr.cjlogistics","status":"DELIVERED","statusLabel":"배달 완료","statusText":"배달완료","lastEventAt":"2026-12-13T14:50:00","lastTrackedAt":"2026-12-13T15:00:00","events":[{"time":"2026-12-12T09:10:00","status":"IN_TRANSIT","statusText":"간선상차","description":"옥천HUB에서 출발했습니다.","location":"옥천HUB"},{"time":"2026-12-13T14:50:00","status":"DELIVERED","statusText":"배달완료","description":"고객님의 상품이 배달 완료되었습니다.","location":"서울성동"}]}}})
+export const getCompleteDeliveryResponseMock = (): RsDataOrderItemDto => ({"status":200,"message":"키트를 배송 완료로 바꿨습니다.","data":{"id":12,"participationId":30,"raceCourseId":1,"sellerId":7,"itemName":"10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","kitDeliveryStatus":"DELIVERED","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345678","kitShippedAt":"2026-12-11T10:00:00","kitDeliveredAt":"2026-12-13T15:00:00","kitTracking":{"carrierId":"kr.cjlogistics","status":"DELIVERED","statusLabel":"배달 완료","statusText":"배달완료","lastEventAt":"2026-12-13T14:50:00","lastTrackedAt":"2026-12-13T15:00:00","events":[{"time":"2026-12-12T09:10:00","status":"IN_TRANSIT","statusText":"간선상차","description":"옥천HUB에서 출발했습니다.","location":"옥천HUB"},{"time":"2026-12-13T14:50:00","status":"DELIVERED","statusText":"배달완료","description":"고객님의 상품이 배달 완료되었습니다.","location":"서울성동"}]},"kitTrackingUrl":null}})
 
 export const getCreatePartyResponseMock = (): RsDataPartyCreatedDto => ({"status":201,"message":"파티를 만들었습니다.","data":{"party":{"id":1,"crewId":7,"raceId":100,"raceCourseId":2,"leaderMemberId":3,"status":"RECRUITING","paymentDueAt":null,"joinToken":"k3Jx9dQ2mV7pL0sA8fB1nC4eR6tY5uI2oP9wZ3xH7gK","joinTokenExpiresAt":"2026-11-06T10:15:30"},"participation":{"id":11,"createDate":"2026-11-05T10:15:30","modifyDate":"2026-11-05T10:15:30","raceId":100,"raceCourseId":2,"memberId":3,"participationType":"PARTY","partyId":1,"status":"PENDING","participant":{"name":"김러너","birth":"1994-06-25","gender":"MALE","phone":"010-1234-5678","emergencyContactName":"김가족","emergencyContactPhone":"010-9876-5432","tshirtSize":"L","shippingAddress":null},"thirdPartyConsent":true,"consentedAt":"2026-11-05T10:15:30","paymentDueAt":null}}})
 
@@ -101,7 +102,7 @@ export const getFindMyTicketsResponseMock = (): RsDataMyTicketPageDto => ({"stat
 
 export const getFindLatestParticipantResponseMock = (): RsDataParticipantInfoDto => ({"status":200,"message":"최근 참가자 정보를 조회했습니다.","data":{"name":"김러너","birth":"1994-06-25","gender":"MALE","phone":"010-1234-5678","emergencyContactName":"김가족","emergencyContactPhone":"010-9876-5432","tshirtSize":"L","shippingAddress":{"recipientName":"김러너","recipientPhone":"010-1234-5678","zipcode":"04700","address":"서울 성동구 왕십리로 00","addressDetail":"101동 1001호"}}})
 
-export const getFindById1ResponseMock = (): RsDataOrderDto => ({"status":200,"message":"주문을 조회했습니다.","data":{"id":1,"createDate":"2026-10-12T10:00:00","orderNo":"OD-20261012-0001","buyerId":1,"raceId":1,"status":"PAID","totalAmount":50000,"canceledAmount":0,"paymentDueAt":"2026-10-12T10:10:00","paidAt":"2026-10-12T10:04:12","shippingAddress":{"recipientName":"김러너","recipientPhone":"010-1234-5678","zipcode":"04700","address":"서울 성동구 왕십리로 00","addressDetail":"101동 1001호"},"items":[{"id":1,"participationId":1,"raceCourseId":1,"sellerId":1,"itemName":"2026 서울 하프 마라톤 10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID"}]}})
+export const getFindById1ResponseMock = (): RsDataOrderDto => ({"status":200,"message":"주문을 조회했습니다.","data":{"id":1,"createDate":"2026-10-12T10:00:00","orderNo":"OD-20261012-0001","buyerId":1,"raceId":1,"status":"PAID","totalAmount":50000,"canceledAmount":0,"paymentDueAt":"2026-10-12T10:10:00","paidAt":"2026-10-12T10:04:12","shippingAddress":{"recipientName":"김러너","recipientPhone":"010-1234-5678","zipcode":"04700","address":"서울 성동구 왕십리로 00","addressDetail":"101동 1001호"},"items":[{"id":1,"participationId":1,"raceCourseId":1,"sellerId":1,"itemName":"2026 서울 하프 마라톤 10K","unitPrice":50000,"quantity":1,"amount":50000,"status":"PAID","canceledAt":null,"kitDeliveryStatus":"SHIPPING","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345678","kitShippedAt":"2026-11-05T10:00:00","kitDeliveredAt":null,"kitReceivedAt":null,"kitTracking":{"carrierId":"kr.cjlogistics","status":"NOT_TRACKED","statusLabel":"아직 조회되지 않음","statusText":null,"lastEventAt":null,"lastTrackedAt":null,"events":[]},"kitTrackingUrl":"https://link.tracker.delivery/track?client_id=YOUR_CLIENT_ID&carrier_id=kr.cjlogistics&tracking_number=684912345678"}]}})
 
 export const getFindCartResponseMock = (): RsDataCartDto => ({"status":200,"message":"장바구니를 조회했습니다.","data":{"memberId":1,"items":[{"id":1,"createDate":"2026-10-12T10:15:30","raceCourseId":1,"participationId":5,"raceId":1,"participantName":"김러너"}]}})
 
@@ -110,6 +111,8 @@ export const getRemoveItemResponseMock = (): RsDataCartDto => ({"status":200,"me
 export const getSummarizeSellerSalesResponseMock = (): RsDataSellerSalesSummaryDto => ({"status":200,"message":"판매 합계를 조회했습니다.","data":{"soldCount":42,"soldAmount":2310000,"canceledCount":3,"refundedAmount":165000}})
 
 export const getFindSellerOrdersResponseMock = (): RsDataSellerOrderPageDto => ({"status":200,"message":"주문 목록을 조회했습니다.","data":{"orders":[{"orderItemId":12,"orderId":10,"orderNo":"OD-20261016-000C","orderedAt":"2026-10-16T10:15:00","paidAt":"2026-10-16T10:17:30","raceId":1,"raceCourseId":1,"courseName":"10K","status":"PAID","participantName":"김러너","tshirtSize":null,"kitOptions":[{"kitOptionId":12,"name":"T-shirt","value":"L"}],"partyId":3}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
+
+export const getFindSellerOrderResponseMock = (): RsDataSellerOrderDetailDto => ({"status":200,"message":"주문 상세를 조회했습니다.","data":{"orderItemId":12,"orderId":10,"orderNo":"OD-20261016-000C","orderedAt":"2026-10-16T10:15:00","paidAt":"2026-10-16T10:17:30","raceId":1,"raceCourseId":1,"courseName":"10K","status":"PAID","participantName":"김러너","tshirtSize":null,"kitOptions":[{"kitOptionId":12,"name":"T-shirt","value":"L"}],"partyId":null,"unitPrice":45000,"quantity":1,"amount":45000,"canceledAt":null,"canceledAmount":0,"cancelReason":null,"shippingAddress":{"recipientName":"김러너","recipientPhone":"010-1234-5678","zipcode":"04700","address":"서울 성동구 왕십리로 00","addressDetail":"101동 1001호"},"deliveryMemo":"문 앞에 놓아 주세요","kitDeliveryStatus":"SHIPPING","kitCarrier":"CJ대한통운","kitTrackingNumber":"684912345678","kitShippedAt":"2026-11-01T14:20:00","kitDeliveredAt":null,"kitReceivedAt":null,"kitTracking":{"carrierId":"kr.cjlogistics","status":"IN_TRANSIT","statusLabel":"이동 중","statusText":"간선상차","lastEventAt":"2026-11-02T09:05:00","lastTrackedAt":"2026-11-02T09:30:00","events":[{"time":"2026-11-02T09:05:00","status":"IN_TRANSIT","statusText":"간선상차","description":"서울 마포 터미널에 도착했습니다.","location":"서울 마포"}]}}})
 
 export const getFindSellerPartiesResponseMock = (): RsDataSellerPartyPageDto => ({"status":200,"message":"파티별 내역을 조회했습니다.","data":{"parties":[{"partyId":3,"crewId":2,"raceCourseId":1,"status":"PAYING","appliedCount":5,"paidCount":4,"unpaidCount":1,"paymentDueAt":"2026-10-28T18:00:00"}],"page":0,"size":20,"totalElements":1,"totalPages":1}})
 
@@ -602,6 +605,18 @@ export const getFindSellerOrdersMockHandler = (overrideResponse?: RsDataSellerOr
   }, options)
 }
 
+export const getFindSellerOrderMockHandler = (overrideResponse?: RsDataSellerOrderDetailDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataSellerOrderDetailDto> | RsDataSellerOrderDetailDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/order/seller/orders/:orderItemId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindSellerOrderResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getFindSellerPartiesMockHandler = (overrideResponse?: RsDataSellerPartyPageDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataSellerPartyPageDto> | RsDataSellerPartyPageDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/order/seller/parties', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -676,6 +691,7 @@ export const getBukangOrderAPIMock = () => [
   getRemoveItemMockHandler(),
   getSummarizeSellerSalesMockHandler(),
   getFindSellerOrdersMockHandler(),
+  getFindSellerOrderMockHandler(),
   getFindSellerPartiesMockHandler(),
   getExportRosterMockHandler(),
   getExportKitShipmentsMockHandler()
