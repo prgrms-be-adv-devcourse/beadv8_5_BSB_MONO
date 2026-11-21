@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { raceAfterCloseMessage, type RaceForEdit } from '@/entities/race'
+import { raceAfterCloseMessage, refundAfterCloseMessage, type RaceForEdit } from '@/entities/race'
 import type { productModel } from '@/shared/api'
 
 import {
@@ -43,7 +43,7 @@ function makeEdit(
     regionSido: '서울특별시',
     regionSigungu: '성동구',
     raceDate: '2027-01-15T08:00:00',
-    refundDeadline: '2026-12-10',
+    refundDeadline: '2027-01-05',
     crewMinCount: 5,
     images: [],
     ...schedule,
@@ -216,6 +216,42 @@ describe('대회 일시 3주 규칙 (서버 Race.checkRaceDateAfterClose와 같�
       applicationCloseAt: '2027-01-10T18:00:00',
     })
     expect(validate(short)).toEqual([])
+  })
+})
+
+describe('환불 기한 규칙 (서버 Race.checkRefundDeadlineAfterClose와 같다)', () => {
+  // 접수 마감 2026-12-20 18:00 → 환불 기한은 2026-12-21부터, 대회 2027-01-15까지
+  const edit = makeEdit('SCHEDULED', CREW_SCHEDULE)
+
+  it('환불 기한을 바꿔 접수 마감 당일이 되면 막고, 다음 날이면 통과한다', () => {
+    expect(validate(edit, { refundDeadline: '2026-12-20' })).toContainEqual({
+      path: 'refundDeadline',
+      message: refundAfterCloseMessage('2026-12-21'),
+    })
+    expect(validate(edit, { refundDeadline: '2026-12-21' })).toEqual([])
+  })
+
+  it('접수 마감을 늦춰 환불 기한이 마감일 이전이 되면 막는다', () => {
+    expect(validate(edit, { applicationCloseAt: '2026-12-25 08:00' })).toEqual([])
+    const late = makeEdit('SCHEDULED', CREW_SCHEDULE)
+    late.request.refundDeadline = '2026-12-24'
+    expect(validate(late, { applicationCloseAt: '2026-12-25 08:00' })).toContainEqual({
+      path: 'refundDeadline',
+      message: refundAfterCloseMessage('2026-12-26'),
+    })
+  })
+
+  it('환불 기한이 대회 날짜보다 늦으면 막는다', () => {
+    expect(validate(edit, { refundDeadline: '2027-01-16' })).toContainEqual({
+      path: 'refundDeadline',
+      message: SALE_CHANGE_ERRORS.refundBeforeRace,
+    })
+  })
+
+  it('환불 기한과 접수 마감을 바꾸지 않으면 검사하지 않는다', () => {
+    const old = makeEdit('SCHEDULED', CREW_SCHEDULE)
+    old.request.refundDeadline = '2026-12-10'
+    expect(validate(old)).toEqual([])
   })
 })
 

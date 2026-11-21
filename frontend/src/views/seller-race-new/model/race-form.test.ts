@@ -12,6 +12,7 @@ import {
   RACE_FORM_ERRORS,
   raceAfterCloseMessage,
   raceFormSchema,
+  refundAfterCloseMessage,
   saleOpenTooEarlyMessage,
   toCourseInputFromParsed,
   toKitOptionsRequest,
@@ -30,7 +31,7 @@ const base = {
   raceTime: '08:00',
   individualOpenAt: '2026-10-23 10:00',
   applicationCloseAt: '2026-10-28 23:59',
-  refundDeadline: '2026-10-28',
+  refundDeadline: '2026-10-29',
   courses: SAMPLE_COURSES,
 }
 
@@ -117,6 +118,14 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
     expect(issuesOf({ ...base, refundDeadline: '2026-11-19' })).toEqual([])
   })
 
+  it('환불 기한은 접수 마감 다음 날부터 고를 수 있다. 마감일 당일은 막는다', () => {
+    // 접수 마감 10/28 23:59 → 환불 기한은 10/29부터
+    expect(issuesOf({ ...base, refundDeadline: '2026-10-28' })).toEqual([
+      `refundDeadline: ${refundAfterCloseMessage('2026-10-29')}`,
+    ])
+    expect(issuesOf({ ...base, refundDeadline: '2026-10-29' })).toEqual([])
+  })
+
   it('오늘을 주면 판매 시작이 오늘로부터 이틀 뒤 이전일 때 막는다', () => {
     const today = new Date(2026, 9, 21)
     expect(issuesOf({ ...base, individualOpenAt: '2026-10-22 10:00' }, today)).toEqual([
@@ -174,7 +183,7 @@ describe('toRaceSaveRequest 시각', () => {
     expect(request.raceDate).toBe('2026-11-19T08:00:00')
     expect(request.individualOpenAt).toBe('2026-10-23T10:00:00')
     expect(request.applicationCloseAt).toBe('2026-10-28T23:59:59')
-    expect(request.refundDeadline).toBe('2026-10-28')
+    expect(request.refundDeadline).toBe('2026-10-29')
   })
 
   it('크루 예매를 열지 않으면 크루 예매 기간을 빼고 크루 정원을 0으로 보낸다', () => {
