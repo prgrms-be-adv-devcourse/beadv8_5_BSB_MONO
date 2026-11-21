@@ -156,7 +156,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
             {numberField('price', '참가비', '원')}
             {numberField('timeLimitMinutes', '제한 시간', '분')}
           </div>
-          <div className="grid grid-cols-2 items-start gap-3">
+          <div className="grid grid-cols-2 items-start gap-4">
             <Controller
               control={control}
               name="kitIncluded"
@@ -178,7 +178,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
                 control={control}
                 name="minAge"
                 render={({ field: { value, onChange } }) => (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {AGES.map((age) => (
                       <Chip key={age} selected={value === age} onClick={() => onChange(age)}>
                         {`만 ${age}세 이상`}

@@ -47,6 +47,7 @@ export function RaceScheduleFields({
       required
       helper={helper}
       error={errors[name]}
+      className="min-w-0 flex-1"
       defaultValue={defaults[name]}
       disabled={disabled[name]}
       isDateDisabled={(date) => isDateDisabled(name, date)}
@@ -55,9 +56,9 @@ export function RaceScheduleFields({
     />
   )
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
       <div role="group" aria-labelledby="crew-open-label" className="flex flex-col gap-2">
-        <span id="crew-open-label" className="text-body2-medium">
+        <span id="crew-open-label" className="text-body1-medium">
           크루 선예매
         </span>
         <div className="flex gap-2">

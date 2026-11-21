@@ -268,7 +268,7 @@ describe('SellerRaceNewPage 두 번 제출', () => {
 })
 
 describe('SellerRaceNewPage 자동 저장 표시', () => {
-  it('작성 내용을 저장하면 제목 아래에 「자동 저장됨 · 시각」을 보여 준다', async () => {
+  it('작성 내용을 저장하면 제목 옆에 「자동 저장됨 · 시각」을 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/member/members/me', () =>
         HttpResponse.json({ status: 200, message: '', data: { id: 7 } }),
