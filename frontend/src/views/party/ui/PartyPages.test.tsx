@@ -844,18 +844,48 @@ describe('파티 · 키트 배송지', () => {
   }
 
   describe('합류', () => {
-    it('키트가 든 종목이면 주소 검색 · 우편번호 · 주소 · 상세 주소를 받고, 화면 녹화에서 가린다', async () => {
+    it('키트가 든 종목이면 주소를 고르기 전에는 주소 검색 버튼과 상세 주소만 보이고, 화면 녹화에서 가린다', async () => {
       server.use(raceWith(kitCourse))
       renderPage(<PartyJoinPage token="ok" />)
 
-      const zipcode = await screen.findByLabelText('키트 배송 우편번호')
-      expect(zipcode).toHaveAttribute('readonly')
-      expect(screen.getByLabelText('키트 배송 주소')).toHaveAttribute('readonly')
-      expect(screen.getByRole('button', { name: '주소 검색' })).toBeInTheDocument()
-      const detail = screen.getByLabelText('상세 주소')
-      for (const field of [zipcode, detail, screen.getByLabelText('키트 배송 주소')]) {
+      const search = await screen.findByRole('button', { name: '주소 검색' })
+      expect(screen.queryByLabelText('키트 배송 우편번호')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('키트 배송 주소')).not.toBeInTheDocument()
+      for (const field of [search, screen.getByLabelText('상세 주소')]) {
         expect(field.closest('[data-clarity-mask="true"]')).not.toBeNull()
       }
+    })
+
+    it('주소를 고르면 입력칸 없이 「(우편번호) 주소」 글자로 보여 주고, 화면 녹화에서 가린다', async () => {
+      server.use(raceWith(kitCourse))
+      const user = userEvent.setup()
+      renderPage(<PartyJoinPage token="ok" />)
+
+      await user.click(await screen.findByRole('button', { name: '주소 검색' }))
+      completePostcode()
+
+      const text = await screen.findByText('(04768) 서울특별시 성동구 뚝섬로 273')
+      expect(text.closest('[data-clarity-mask="true"]')).not.toBeNull()
+      expect(screen.queryByLabelText('키트 배송 우편번호')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('키트 배송 주소')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '다시 검색' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '주소 검색' })).not.toBeInTheDocument()
+    })
+
+    it('주소를 다시 고르면 글자가 새 주소로 바뀌고 상세 주소가 비워진다', async () => {
+      server.use(raceWith(kitCourse))
+      const user = userEvent.setup()
+      renderPage(<PartyJoinPage token="ok" />)
+
+      await user.click(await screen.findByRole('button', { name: '주소 검색' }))
+      completePostcode()
+      await user.type(screen.getByLabelText('상세 주소'), '3층')
+      await user.click(screen.getByRole('button', { name: '다시 검색' }))
+      completePostcode({ zonecode: '06236', roadAddress: '서울특별시 강남구 테헤란로 123' })
+
+      expect(await screen.findByText('(06236) 서울특별시 강남구 테헤란로 123')).toBeInTheDocument()
+      expect(screen.queryByText('(04768) 서울특별시 성동구 뚝섬로 273')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('상세 주소')).toHaveValue('')
     })
 
     it('주소 검색을 못 쓰면 우편번호 칸이 숫자만 받고, 막힌 글자를 치면 이유를 보여 준다', async () => {
