@@ -94,7 +94,7 @@ export function RaceScheduleFields({
           '일반 판매 시작',
           crewOpen ? '크루 예매 마감 뒤로 고를 수 있어요' : undefined,
         )}
-        {field('applicationCloseAt', '접수 마감', '대회 시작 전까지 고를 수 있어요')}
+        {field('applicationCloseAt', '접수 마감', '대회 전날까지 고를 수 있어요')}
       </div>
     </div>
   )

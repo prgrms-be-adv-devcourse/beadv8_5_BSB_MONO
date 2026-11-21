@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
+import { format, isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
@@ -257,10 +257,19 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
   // 작성 중인 값을 이 판매자 몫으로 저장한다. 이어 쓰는 중이거나 바뀐 것이 있을 때만 쓰고,
   // 처음 상태로 되돌렸으면 저장해 둔 것을 지운다. 등록하는 동안과 뒤에는 쓰지 않는다
   const draftValues = useWatch({ control })
+  // 저장한 시각은 제목 아래에 「자동 저장됨 · 10:42」로 보여 준다 (피그마 대회 등록)
+  const [savedAt, setSavedAt] = useState<Date>()
   useEffect(() => {
     if (memberId === undefined || locked) return
-    if (isDirty || initialValues) saveRaceDraft(memberId, draftValues as RaceFormValues)
-    else clearRaceDraft(memberId)
+    if (isDirty || initialValues) {
+      saveRaceDraft(memberId, draftValues as RaceFormValues)
+      // 저장한 일을 화면에 알리는 것이 목적이라 effect 안의 setState가 맞다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedAt(new Date())
+    } else {
+      clearRaceDraft(memberId)
+      setSavedAt(undefined)
+    }
   }, [memberId, locked, isDirty, initialValues, draftValues])
 
   // 수정한 내용이 있으면 화면을 떠나기 전에 확인한다 (이미지는 올리기 전 파일이라 저장은 못 하지만 수정으로 센다)
@@ -314,6 +323,7 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
   return (
     <ConsolePage
       title="대회 등록"
+      description={savedAt ? `자동 저장됨 · ${format(savedAt, 'HH:mm')}` : undefined}
       actions={
         <>
           {/* 꺼진 버튼은 마우스 이벤트를 받지 않아, 감싼 span의 :hover로 말풍선을 띄운다 */}

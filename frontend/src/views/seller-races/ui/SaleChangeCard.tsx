@@ -143,7 +143,7 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
         title="구매자에게 유리할 때만 바꿀 수 있어요"
         description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기 · 환불 기한 늦추기만 돼요."
       />
-      <ConsoleCard title="판매 일정">
+      <ConsoleCard title="판매 일정" className="max-w-137">
         <RaceScheduleFields
           crewOpen={crewOpen}
           onCrewOpenChange={changeCrewOpen}

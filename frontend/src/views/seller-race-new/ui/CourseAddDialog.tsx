@@ -110,7 +110,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
       cancelLabel="닫기"
       onConfirm={() => void confirm()}
       body={
-        <div className="flex flex-col gap-4 pt-2">
+        <div className="flex flex-col gap-8 pt-2">
           <div className="flex gap-3">
             <TextField
               label={required('종목 이름')}
@@ -156,7 +156,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
             {numberField('price', '참가비', '원')}
             {numberField('timeLimitMinutes', '제한 시간', '분')}
           </div>
-          <div className="flex items-start gap-3">
+          <div className="grid grid-cols-2 items-start gap-3">
             <Controller
               control={control}
               name="kitIncluded"
@@ -166,16 +166,12 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
                   items={KIT_ITEMS}
                   value={value}
                   onValueChange={(next) => next && onChange(next)}
-                  className="flex-1"
+                  className="w-full"
                 />
               )}
             />
-            <div
-              role="group"
-              aria-labelledby="course-min-age"
-              className="flex flex-1 flex-col gap-2"
-            >
-              <span id="course-min-age" className="text-body2-medium">
+            <div role="group" aria-labelledby="course-min-age" className="flex flex-col gap-2">
+              <span id="course-min-age" className="text-body1-medium">
                 {required('최소 나이')}
               </span>
               <Controller
