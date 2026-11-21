@@ -1,11 +1,14 @@
 'use client'
 
 import { keepPreviousData } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 import { ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import {
   detailPeriods,
+  formatDayWithWeekday,
   formatMonthDay,
   formatWeekday,
   HOLD_REASON,
@@ -16,7 +19,7 @@ import {
   RECORD_TYPE,
   type DetailPeriod,
 } from '@/entities/payout'
-import { ApiError, payoutApi, payoutModel, unwrapData } from '@/shared/api'
+import { payoutApi, payoutModel, unwrapData } from '@/shared/api'
 import { cn, formatNumber, useNow, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
@@ -32,7 +35,11 @@ import {
   Tabs,
 } from '@/shared/ui'
 
-export type SettlementTab = 'monthly' | 'orders' | 'holds'
+import { ClaimList } from './ClaimList'
+import { errorText, QueryRows, StatusText } from './parts'
+import { TaxInvoiceList } from './TaxInvoiceList'
+
+export type SettlementTab = 'monthly' | 'orders' | 'holds' | 'claims' | 'taxInvoices'
 
 /** 건별 정산 한 페이지 크기 (백엔드 한도 1~100) */
 const ITEM_PAGE_SIZE = 20
@@ -40,18 +47,8 @@ const ITEM_PAGE_SIZE = 20
 // 구역: 흰 바탕 + 1px 선 상자
 const CARD = 'rounded-md border border-border-default shadow-sm'
 
-/** 「11/14 (토)」 */
-function dayWithWeekday(value: string) {
-  const day = value.slice(0, 10)
-  return `${formatMonthDay(day)} (${formatWeekday(day)})`
-}
-
 /** 해당 없는 금액 칸 */
 const DASH = '–'
-
-function errorText(error: unknown) {
-  return (error instanceof ApiError && error.serverMessage) || '잠시 뒤 다시 시도해 주세요.'
-}
 
 // 피그마 V2 · S04 정산(월별 정산) · S10 정산 내역 · 지급보류
 export function SellerSettlementsPage({ initialTab = 'monthly' }: { initialTab?: SettlementTab }) {
@@ -73,10 +70,15 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
   // 탭 · 기간은 URL(?tab=&period=)에 담는다. 건별 정산의 쪽(page)은 PayoutItemList가 같은 방식으로 쓴다
   const [url, setUrl] = useSearchParamsState(
     { tab: initialTab as string, period: periods[0].value, page: '0' },
-    { tab: ['monthly', 'orders', 'holds'], period: periods.map((p) => p.value) },
+    {
+      tab: ['monthly', 'orders', 'holds', 'claims', 'taxInvoices'],
+      period: periods.map((p) => p.value),
+    },
   )
   const tab = url.tab as SettlementTab
   const isHolds = tab === 'holds'
+  // 건별 정산 · 지급보류 · 회수는 1개월 기간을 골라 본다(백엔드 한도 1개월)
+  const hasPeriod = tab === 'orders' || isHolds || tab === 'claims'
   const period = periods.find((p) => p.value === url.period) ?? periods[0]
 
   const summary = payoutApi.useSummary({ query: { select: unwrapData } })
@@ -139,12 +141,14 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
             <Tab value="holds" count={summary.data?.heldCount}>
               지급보류
             </Tab>
+            <Tab value="claims">회수</Tab>
+            <Tab value="taxInvoices">세금계산서</Tab>
           </TabBar>
         </Tabs>
 
         {tab === 'monthly' && <MonthlyPayouts today={today} />}
 
-        {(tab === 'orders' || isHolds) && (
+        {hasPeriod && (
           <>
             {/* TODO(api): 정산 ID로 찾기 API가 아직 없다 */}
             <Select
@@ -154,9 +158,13 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
               onValueChange={(next) => next && setUrl({ period: next, page: '0' })}
               className="w-80"
             />
-            {isHolds ? <HoldList period={period} /> : <PayoutItemList period={period} />}
+            {isHolds && <HoldList period={period} />}
+            {tab === 'orders' && <PayoutItemList period={period} />}
+            {tab === 'claims' && <ClaimList period={period} />}
           </>
         )}
+
+        {tab === 'taxInvoices' && <TaxInvoiceList />}
       </section>
     </ConsolePage>
   )
@@ -165,6 +173,8 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
 function MonthlyPayouts({ today }: { today: Date }) {
   const [params] = useState(() => recentPayoutMonths(today))
   const payouts = payoutApi.usePayouts(params, { query: { select: unwrapData } })
+  const router = useRouter()
+  const detailHref = (row: payoutModel.PayoutDto) => `/seller/settlements/${row.payoutCode}`
 
   return (
     <QueryRows query={payouts} label="대회별 월 정산" emptyTitle="정산 내역이 없어요">
@@ -174,6 +184,8 @@ function MonthlyPayouts({ today }: { today: Date }) {
           label="대회별 월 정산"
           rows={rows}
           rowKey={(r) => String(r.id)}
+          // 줄 어디를 눌러도 정산 상세로 간다. 키보드는 대회 이름 링크로 간다
+          onRowClick={(r) => router.push(detailHref(r) as never)}
           columns={[
             {
               key: 'race',
@@ -181,7 +193,13 @@ function MonthlyPayouts({ today }: { today: Date }) {
               width: 'w-50',
               render: (r) => (
                 <span className="flex flex-col">
-                  <span className="truncate text-body1-medium">{r.raceName}</span>
+                  <Link
+                    href={detailHref(r) as never}
+                    className="truncate text-body1-medium"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {r.raceName}
+                  </Link>
                   <span className="truncate text-caption-regular text-text-tertiary">
                     {r.payoutCode}
                   </span>
@@ -235,7 +253,7 @@ function MonthlyPayouts({ today }: { today: Date }) {
               key: 'paidAt',
               header: '지급일',
               width: 'w-30',
-              render: (r) => dayWithWeekday(r.paidAt ?? r.scheduledPayDate),
+              render: (r) => formatDayWithWeekday(r.paidAt ?? r.scheduledPayDate),
             },
             {
               key: 'status',
@@ -276,7 +294,7 @@ function PayoutItemList({ period }: { period: DetailPeriod }) {
                 key: 'targetDate',
                 header: '정산 대상일',
                 width: 'w-27.5',
-                render: (r) => dayWithWeekday(r.targetDate),
+                render: (r) => formatDayWithWeekday(r.targetDate),
               },
               {
                 key: 'payoutCode',
@@ -360,7 +378,7 @@ function HoldList({ period }: { period: DetailPeriod }) {
                 key: 'heldAt',
                 header: '보류일',
                 width: 'w-33',
-                render: (r) => dayWithWeekday(r.heldAt),
+                render: (r) => formatDayWithWeekday(r.heldAt),
               },
               {
                 key: 'status',
@@ -384,48 +402,6 @@ function holdStatusText(hold: payoutModel.SellerPayoutHoldDto) {
   return hold.status === '해제' && hold.releasedAt
     ? `${label} · ${formatMonthDay(hold.releasedAt)}`
     : label
-}
-
-/** 불러오는 중 · 오류 · 빈 목록을 같은 모양으로 보여 주고, 행이 있으면 children을 그린다 */
-function QueryRows<Row>({
-  query,
-  label,
-  emptyTitle,
-  children,
-}: {
-  query: { data?: Row[]; isPending: boolean; isError: boolean; error: unknown }
-  label: string
-  emptyTitle: string
-  children: (rows: Row[]) => ReactNode
-}) {
-  if (query.isError) {
-    return (
-      <Alert
-        tone="danger"
-        title={`${label}을 불러오지 못했어요`}
-        description={errorText(query.error)}
-      />
-    )
-  }
-  if (query.isPending || !query.data) {
-    return <Skeleton className="h-40 w-full" />
-  }
-  if (query.data.length === 0) {
-    // 시안 2070:70056: 아이콘과 설명 없이 글 한 줄
-    return <p className="py-13 text-center text-body1-regular text-text-secondary">{emptyTitle}</p>
-  }
-  return children(query.data)
-}
-
-// 상태는 칩 대신 14 Medium 글자: 완료 초록, 실패·보류 빨강, 그 밖은 보조 글자색
-const TONE_TEXT: Record<string, string> = {
-  success: 'text-text-success',
-  danger: 'text-text-danger',
-  warning: 'text-text-danger',
-}
-
-function StatusText({ label, tone }: { label: string; tone: string }) {
-  return <span className={cn('text-body1-medium', TONE_TEXT[tone])}>{label}</span>
 }
 
 function PayoutStatusBadge({ status }: { status: string }) {

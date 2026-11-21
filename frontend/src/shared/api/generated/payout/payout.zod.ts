@@ -246,7 +246,50 @@ export const ClaimsQueryParams = zod.object({
   "to": zod.iso.date().describe('조회 끝 회수 요청일 (yyyy-MM-dd, 포함)')
 })
 
-export const ClaimsResponse = zod.unknown()
+export const ClaimsResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "id": zod.int(),
+  "claimCode": zod.string(),
+  "raceId": zod.int(),
+  "raceName": zod.string().nullish().describe('그 대회의 정산 내역이 없으면 null'),
+  "payoutCode": zod.string().nullish(),
+  "amount": zod.int(),
+  "reasonType": zod.enum(['대회_취소', '일정_변경']).describe('회수 사유 (대회_취소: 대회 취소, 일정_변경: 일정 변경 · 구매자 취소)'),
+  "status": zod.enum(['회수_요청', '회수_완료', '회수_취소']).describe('회수 상태 (회수_요청: 입금 기다리는 중, 회수_완료: 입금 확인, 회수_취소: 대회 취소로 되돌림)'),
+  "requestedAt": zod.iso.datetime({"offset":true}),
+  "completedAt": zod.iso.datetime({"offset":true}).nullish(),
+  "virtualBankName": zod.string().nullish().describe('청구 전용 가상계좌 은행. 발급 전이면 null'),
+  "virtualAccountNumber": zod.string().nullish().describe('청구 전용 가상계좌 번호. 발급 전이면 null'),
+  "dueDate": zod.iso.date().describe('입금 기한. 가상계좌 유효기간(90일)과 다르다')
+})).optional()
+})
+
+
+/**
+ * 플랫폼 수수료 세금계산서를 최근 공급 월부터 돌려준다. 공급 월(지급 완료월)마다 한 장이고, 매달 1일에 지난달 치를 발행한다. 발행에 실패하면 다음 날 다시 발행한다. 공급받는자 정보는 발행 당시 값으로 고정된다. 비사업자 판매자는 세금계산서가 없어 빈 목록이다.
+ * @summary 수수료 세금계산서 목록 조회 (BUK-246)
+ */
+export const TaxInvoicesResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "id": zod.int(),
+  "sellerId": zod.int(),
+  "supplyMonth": zod.string().describe('공급 월 (yyyy-MM)'),
+  "totalAmount": zod.int(),
+  "supplyAmount": zod.int(),
+  "taxAmount": zod.int(),
+  "status": zod.enum(['발행_완료', '발행_실패']).describe('세금계산서 상태 (발행_실패면 다음 배치가 다시 발행)'),
+  "approvalNumber": zod.string().nullish().describe('발행 실패면 null'),
+  "businessName": zod.string().nullish(),
+  "businessNumber": zod.string().nullish(),
+  "representativeName": zod.string().nullish(),
+  "issuedAt": zod.iso.datetime({"offset":true}).nullish(),
+  "failReason": zod.string().nullish().describe('마지막 실패 사유. 발행 완료면 null')
+})).optional()
+})
 
 
 /**

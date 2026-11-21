@@ -62,3 +62,20 @@ export const HOLD_REASON_ITEMS: { value: payoutModel.PayoutHoldReason; label: st
   { value: '대회_취소_처리', label: HOLD_REASON.대회_취소_처리 },
   { value: '정산_계좌_미등록', label: HOLD_REASON.정산_계좌_미등록 },
 ]
+
+/** 회수 상태: 판매자가 할 일(입금)로 읽히게 바꾼다 */
+export const RECOVERY_STATUS: Record<payoutModel.PayoutRecoveryStatus, Label> = {
+  회수_요청: { label: '입금 대기', tone: 'neutral' },
+  회수_완료: { label: '입금 완료', tone: 'success' },
+  회수_취소: { label: '회수 취소', tone: 'neutral' },
+}
+
+export const RECOVERY_REASON: Record<payoutModel.PayoutRecoveryReason, string> = {
+  대회_취소: '대회 취소',
+  일정_변경: '일정 변경',
+}
+
+export const TAX_INVOICE_STATUS: Record<payoutModel.PayoutTaxInvoiceStatus, Label> = {
+  발행_완료: { label: '발행 완료', tone: 'success' },
+  발행_실패: { label: '발행 실패', tone: 'danger' },
+}
