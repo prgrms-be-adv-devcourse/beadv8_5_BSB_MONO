@@ -247,9 +247,9 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     completePostcode()
     await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
-    await pickDates('대회 날짜', [25])
+    await pickDates('대회 날짜', [28])
     await pickDateTime('일반 판매 시작', 3, '10:00')
-    await pickDateTime('접수 마감', 24, '23:59')
+    await pickDateTime('접수 마감', 5, '23:59')
     await pickDates('환불 기한', [20])
     await addTenK()
     await applyCover()
@@ -264,6 +264,21 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     fireEvent.submit(document.getElementById('seller-race-new') as HTMLFormElement)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(registered).toBe(1)
+    // 폼을 끝까지 채우는 긴 시나리오라 CI에서 기본 5초를 넘길 수 있다
+  }, 20_000)
+})
+
+describe('SellerRaceNewPage 자동 저장 표시', () => {
+  it('작성 내용을 저장하면 제목 옆에 「자동 저장됨 · 시각」을 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/member/members/me', () =>
+        HttpResponse.json({ status: 200, message: '', data: { id: 7 } }),
+      ),
+    )
+    renderPage()
+    expect(screen.queryByText(/자동 저장됨/)).not.toBeInTheDocument()
+    await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
+    expect(await screen.findByText(/^자동 저장됨 · \d{2}:\d{2}$/)).toBeInTheDocument()
   })
 })
 
@@ -287,9 +302,9 @@ describe('SellerRaceNewPage 임시 저장 지우기', () => {
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     completePostcode()
     await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
-    await pickDates('대회 날짜', [25])
+    await pickDates('대회 날짜', [28])
     await pickDateTime('일반 판매 시작', 3, '10:00')
-    await pickDateTime('접수 마감', 24, '23:59')
+    await pickDateTime('접수 마감', 5, '23:59')
     await pickDates('환불 기한', [20])
     await addTenK()
     await applyCover()

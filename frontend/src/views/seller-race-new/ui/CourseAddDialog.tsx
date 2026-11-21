@@ -110,8 +110,8 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
       cancelLabel="닫기"
       onConfirm={() => void confirm()}
       body={
-        <div className="flex flex-col gap-4 pt-2">
-          <div className="flex gap-3">
+        <div className="flex flex-col gap-8 pt-2">
+          <div className="flex gap-4">
             <TextField
               label={required('종목 이름')}
               error={errors.name?.message}
@@ -134,7 +134,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
               )}
             />
           </div>
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             {crewOpen && numberField('crewQuota', '크루 정원', '명')}
             {numberField(
               'individualQuota',
@@ -148,15 +148,15 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
             {!crewOpen && <div className="flex-1" />}
           </div>
           {crewOpen && (
-            <p className="-mt-2 text-caption-regular text-text-tertiary">
+            <p className="-mt-6 text-caption-regular text-text-tertiary">
               크루 정원 + 일반 정원 = 크루런에 배정할 수량
             </p>
           )}
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             {numberField('price', '참가비', '원')}
             {numberField('timeLimitMinutes', '제한 시간', '분')}
           </div>
-          <div className="flex items-start gap-3">
+          <div className="grid grid-cols-2 items-start gap-4">
             <Controller
               control={control}
               name="kitIncluded"
@@ -166,23 +166,19 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
                   items={KIT_ITEMS}
                   value={value}
                   onValueChange={(next) => next && onChange(next)}
-                  className="flex-1"
+                  className="w-full"
                 />
               )}
             />
-            <div
-              role="group"
-              aria-labelledby="course-min-age"
-              className="flex flex-1 flex-col gap-2"
-            >
-              <span id="course-min-age" className="text-body2-medium">
+            <div role="group" aria-labelledby="course-min-age" className="flex flex-col gap-2">
+              <span id="course-min-age" className="text-body1-medium">
                 {required('최소 나이')}
               </span>
               <Controller
                 control={control}
                 name="minAge"
                 render={({ field: { value, onChange } }) => (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {AGES.map((age) => (
                       <Chip key={age} selected={value === age} onClick={() => onChange(age)}>
                         {`만 ${age}세 이상`}

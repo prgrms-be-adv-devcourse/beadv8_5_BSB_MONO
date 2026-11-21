@@ -85,9 +85,9 @@ export function KitAddDialog({ open, onOpenChange, added, onAdd }: KitAddDialogP
       cancelLabel="닫기"
       onConfirm={confirm}
       body={
-        <div className="flex flex-col gap-4 pt-2">
+        <div className="flex flex-col gap-6 pt-2">
           <div role="group" aria-labelledby="kit-item-label" className="flex flex-col gap-2">
-            <span id="kit-item-label" className="text-body2-medium">
+            <span id="kit-item-label" className="text-body1-medium text-text-primary">
               옵션 이름
               <RequiredMark />
             </span>
@@ -106,7 +106,7 @@ export function KitAddDialog({ open, onOpenChange, added, onAdd }: KitAddDialogP
           </div>
           {item && (
             <div role="group" aria-labelledby="kit-value-label" className="flex flex-col gap-2">
-              <span id="kit-value-label" className="text-body2-medium">
+              <span id="kit-value-label" className="text-body1-medium text-text-primary">
                 옵션 값
                 <RequiredMark />
               </span>

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { addDays, format } from 'date-fns'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -19,6 +20,62 @@ function renderPage() {
       </ToastProvider>
     </QueryClientProvider>,
   )
+}
+
+const at = (days: number, time: string) =>
+  `${format(addDays(new Date(), days), 'yyyy-MM-dd')}T${time}`
+
+/** 일정을 정해 둔 1번 대회. 목록(판매 상태)과 상세(일정·크루 정원)를 함께 바꾼다 */
+function useRace(
+  saleStatus: 'SCHEDULED' | 'ON_SALE',
+  schedule: Record<string, string | null>,
+  crewQuota = 0,
+) {
+  const detail = {
+    raceId: 1,
+    title: '2026 용감한 쿠키RUN in 서울',
+    raceDate: at(40, '08:00:00'),
+    refundDeadline: format(addDays(new Date(), 20), 'yyyy-MM-dd'),
+    courses: [
+      {
+        raceCourseId: 1,
+        name: '10K',
+        courseType: 'KM_10',
+        distanceKm: 10,
+        price: 45000,
+        individualQuota: 600,
+      },
+    ],
+  }
+  server.use(
+    http.get('*/api/v1/product/races/mine', () =>
+      HttpResponse.json({
+        status: 200,
+        message: 'ok',
+        data: [
+          { raceId: 1, title: detail.title, raceDate: detail.raceDate, saleStatus, courses: [] },
+        ],
+      }),
+    ),
+    http.get('*/api/v1/product/races/:raceId', () =>
+      HttpResponse.json({
+        status: 200,
+        message: 'ok',
+        data: {
+          ...detail,
+          saleStatus,
+          ...schedule,
+          courses: detail.courses.map((c) => ({ ...c, crewQuota })),
+        },
+      }),
+    ),
+  )
+}
+const CREW_AHEAD = {
+  crewSaleStartAt: at(5, '10:00:00'),
+  crewSaleEndAt: at(9, '23:59:59'),
+  individualOpenAt: at(10, '00:00:00'),
+  applicationCloseAt: at(30, '18:00:00'),
 }
 
 const saveButton = () => screen.findByRole('button', { name: '저장하기' })
@@ -149,5 +206,69 @@ describe('SellerRaceEditPage', () => {
     expect(detail).toHaveLength(before + 1)
     expect(detail.map((i) => i.sortNo)).toEqual(detail.map((_, i) => i))
     vi.unstubAllGlobals()
+  })
+  it('판매가 시작된 대회를 저장해도 저장된 일정을 그대로 보낸다', async () => {
+    let body: productModel.RaceSaveRequestDto | undefined
+    useRace('ON_SALE', { ...CREW_AHEAD, crewSaleStartAt: at(-2, '10:00:00') })
+    server.use(
+      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
+        body = (await request.json()) as productModel.RaceSaveRequestDto
+        return HttpResponse.json({
+          status: 200,
+          message: '대회를 수정했습니다.',
+          data: { raceId: 1, saleStatus: 'ON_SALE', saleOpenDate: '2026-12-01', courseIds: [1] },
+        })
+      }),
+    )
+    renderPage()
+    const quota = await screen.findByLabelText('모집 정원 (10K)')
+    await userEvent.clear(quota)
+    await userEvent.type(quota, '700')
+    await userEvent.click(await saveButton())
+    expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
+    expect(body).toMatchObject({
+      crewSaleStartAt: at(-2, '10:00:00'),
+      crewSaleEndAt: CREW_AHEAD.crewSaleEndAt,
+      individualOpenAt: CREW_AHEAD.individualOpenAt,
+      applicationCloseAt: CREW_AHEAD.applicationCloseAt,
+    })
+  })
+
+  it('대회 수정 화면에는 일정 칸(판매 일정 카드, 환불 기한)이 없다. 일정은 일정 변경 화면에서 바꾼다', async () => {
+    useRace('SCHEDULED', CREW_AHEAD, 20)
+    renderPage()
+    expect(await screen.findByLabelText('모집 정원 (10K)')).toBeInTheDocument()
+    expect(screen.queryByText('판매 일정')).not.toBeInTheDocument()
+    expect(screen.queryByText('환불 기한')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '열지 않기' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: '크루 최대 인원' })).not.toBeInTheDocument()
+  })
+
+  it('판매 예정 대회를 저장해도 일정과 크루 정원은 지금 값 그대로 보낸다', async () => {
+    let body: productModel.RaceSaveRequestDto | undefined
+    useRace('SCHEDULED', { ...CREW_AHEAD, refundDeadline: at(25, '00:00:00').slice(0, 10) }, 20)
+    server.use(
+      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
+        body = (await request.json()) as productModel.RaceSaveRequestDto
+        return HttpResponse.json({
+          status: 200,
+          message: '대회를 수정했습니다.',
+          data: { raceId: 1, saleStatus: 'SCHEDULED', saleOpenDate: '2026-12-01', courseIds: [1] },
+        })
+      }),
+    )
+    renderPage()
+    const quota = await screen.findByLabelText('모집 정원 (10K)')
+    await userEvent.clear(quota)
+    await userEvent.type(quota, '700')
+    await userEvent.click(await saveButton())
+    expect(await screen.findByText('변경을 저장했어요')).toBeInTheDocument()
+    expect(body).toMatchObject({
+      crewSaleStartAt: CREW_AHEAD.crewSaleStartAt,
+      crewSaleEndAt: CREW_AHEAD.crewSaleEndAt,
+      individualOpenAt: CREW_AHEAD.individualOpenAt,
+      applicationCloseAt: CREW_AHEAD.applicationCloseAt,
+    })
+    expect(body?.courses[0]).toMatchObject({ individualQuota: 700, crewQuota: 20 })
   })
 })

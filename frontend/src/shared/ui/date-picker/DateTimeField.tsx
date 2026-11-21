@@ -40,6 +40,8 @@ type CommonProps = {
   /** false면 시간 칸 없이 날짜만 고르고 'yyyy-MM-dd'로 알린다 (기본 true) */
   withTime?: boolean
   className?: string
+  /** 시간 칸 폭·안쪽 여백 (기본 w-28). 칸이 좁은 카드 안에서 날짜 글자가 잘리지 않게 줄일 때 쓴다 */
+  timeClassName?: string
   /** 날짜 열기 버튼. 폼이 오류 칸으로 포커스를 옮길 때 쓴다 */
   ref?: Ref<HTMLButtonElement>
 }
@@ -72,6 +74,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
     placeholder = '날짜 고르기',
     withTime = true,
     className,
+    timeClassName,
     ref,
   } = props
   const labelId = useId()
@@ -207,6 +210,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
         {withTime && (
           <>
             <TimeInput
+              className={timeClassName}
               value={startTime}
               onChange={(time) => {
                 setStartTime(time)
@@ -250,12 +254,14 @@ export function DateTimeField(props: DateTimeFieldProps) {
 
 // 시간 칸. 칠 때마다 콜론을 넣어 알리고, 칸을 떠날 때 한 자리 시를 두 자리로 채운다.
 function TimeInput({
+  className,
   value,
   onChange,
   onBlocked,
   disabled,
   'aria-label': ariaLabel,
 }: {
+  className?: string
   value: string
   onChange: (value: string) => void
   /** 숫자·콜론이 아닌 글자를 쳐서 막았는지 알린다 */
@@ -281,7 +287,7 @@ function TimeInput({
         const padded = padTime(value)
         if (padded !== value) onChange(padded)
       }}
-      className={cn(FIELD_BOX, FIELD_BOX_FOCUS, 'w-28 shrink-0')}
+      className={cn(FIELD_BOX, FIELD_BOX_FOCUS, 'w-28 shrink-0', className)}
     />
   )
 }
