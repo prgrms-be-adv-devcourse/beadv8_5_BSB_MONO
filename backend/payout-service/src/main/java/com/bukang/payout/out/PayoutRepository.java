@@ -70,6 +70,12 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	// 최종이 먼저 생겼으면 1차를 만들지 않는다
 	boolean existsBySellerIdAndRaceIdAndPayoutStage(long sellerId, long raceId, PayoutStage payoutStage);
 
+	// 정산 생성: 판매 값을 받기 전에 대회 단위로 먼저 본다 (CRU-117). 위 두 확인에서 판매자 조건만 뺀 것이다
+	// 상태는 보지 않으므로 대회 취소로 닫힌 정산도 '있음'이다 (위 두 확인과 같다)
+	boolean existsByRaceIdAndPayoutMonthAndPayoutStage(long raceId, String payoutMonth, PayoutStage payoutStage);
+
+	boolean existsByRaceIdAndPayoutStage(long raceId, PayoutStage payoutStage);
+
 	// 판매자 탈퇴 제한: 아직 받지 않은 정산(정산 예정 · 지급보류 · 지급 중)이 있는지 본다. 지급 완료 · 취소는 뺀다
 	boolean existsBySellerIdAndStatusIn(long sellerId, Collection<PayoutStatus> statuses);
 

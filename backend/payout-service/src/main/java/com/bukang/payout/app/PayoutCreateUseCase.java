@@ -106,6 +106,10 @@ public class PayoutCreateUseCase {
 			return counts;
 		}
 		for (RaceSchedule race : races) {
+			if (firstSettled(race.raceId())) {
+				counts.skip();
+				continue;
+			}
 			List<SoldSummary> summaries;
 			try {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
@@ -171,6 +175,40 @@ public class PayoutCreateUseCase {
 			PayoutStage.일차_정산));
 	}
 
+	// 판매 집계를 받기 전에 대회 단위로 먼저 본다. 이미 정산한 대회를 7일 동안 매일 받아서 버리지 않는다 (CRU-117)
+	// 조건은 createFirstIfAbsent의 두 확인에서 판매자만 뺀 것이다: 1차가 있거나(월은 보지 않음), 최종이 먼저 만들어졌으면 건너뛴다
+	// shortcut: 대회의 판매자가 1명이라는 전제(11/20 확정). 판매자가 여럿이 되면 대회 단위 확인이 일부 판매자의 정산을 빠뜨린다. 그때는 판매자 × 대회 확인으로 되돌린다
+	private boolean firstSettled(long raceId) {
+		if (settledBeforeFetch(() -> payoutRepository.existsByRaceIdAndPayoutStage(raceId, PayoutStage.일차_정산))) {
+			return true;
+		}
+		if (settledBeforeFetch(() -> payoutRepository.existsByRaceIdAndPayoutStage(raceId, PayoutStage.최종_정산))) {
+			log.warn("최종 정산이 이미 있어 1차 정산을 만들지 않습니다. raceId={}", raceId);
+			return true;
+		}
+		return false;
+	}
+
+	// 참가권 목록을 받기 전에 대회 단위로 먼저 본다 (CRU-117). 조건은 finalExists에서 판매자만 뺀 것이다 (정산 월까지 본다)
+	// 취소 중 참가권으로 미룬 대회는 정산 내역이 없어 '없음'이 나오므로 다음 실행이 다시 받는다 (BUK-52)
+	// shortcut: 대회의 판매자가 1명이라는 전제(11/20 확정). 판매자가 여럿이 되면 대회 단위 확인이 일부 판매자의 정산을 빠뜨린다. 그때는 판매자 × 대회 확인으로 되돌린다
+	private boolean finalSettled(RaceSchedule race) {
+		String payoutMonth = YearMonth.from(race.raceDate()).toString();
+		return settledBeforeFetch(() -> payoutRepository.existsByRaceIdAndPayoutMonthAndPayoutStage(race.raceId(),
+			payoutMonth, PayoutStage.최종_정산));
+	}
+
+	// 대회 단위 확인이 실패하면 '없음'으로 보고 판매 값을 받는다. 여기서는 실패 기록에 넣을 판매자를 모르고,
+	// 뒤의 판매자 × 대회 확인이 같은 실패를 '정산_조회_실패'로 남긴다. 예외를 밖으로 던지면 반복이 끊긴다
+	private static boolean settledBeforeFetch(BooleanSupplier existsQuery) {
+		try {
+			return existsQuery.getAsBoolean();
+		} catch (RuntimeException exception) {
+			log.warn("대회 단위로 정산 내역이 있는지 확인하지 못해 판매 값을 받아 판매자 × 대회로 다시 확인합니다.", exception);
+			return false;
+		}
+	}
+
 	private static List<CourseSale> toCourseSales(List<SoldSummary> courses) {
 		return courses.stream()
 			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.entryCount()))
@@ -192,6 +230,10 @@ public class PayoutCreateUseCase {
 			return counts;
 		}
 		for (RaceSchedule race : races) {
+			if (finalSettled(race)) {
+				counts.skip();
+				continue;
+			}
 			SoldCourses entries;
 			try {
 				// 참가권 목록으로 풀지 않고 코스 묶음 그대로 받는다. 정산 줄을 만들 때 한 장씩 꺼낸다

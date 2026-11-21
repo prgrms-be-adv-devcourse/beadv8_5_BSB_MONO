@@ -3,7 +3,10 @@ package com.bukang.payout.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 import java.time.LocalDate;
@@ -204,6 +207,9 @@ class PayoutCreateUseCaseTransactionTest {
 	// 그 메서드를 실제 인자로 한 번 불러, 이름과 인자가 모두 같은 호출 하나만 가로챈다. 반환값은 쓰지 않는다
 	private PayoutRepository racingRepository(Predicate<PayoutRepository> existsCheck, Answer<?> recheck) {
 		PayoutRepository racing = mock(PayoutRepository.class, delegatesTo(payoutRepository));
+		// 판매 값을 받기 전의 대회 단위 확인(CRU-117)도 다른 서버가 저장하기 전이라 '없음'으로 답한다
+		doReturn(false).when(racing).existsByRaceIdAndPayoutStage(anyLong(), any());
+		doReturn(false).when(racing).existsByRaceIdAndPayoutMonthAndPayoutStage(anyLong(), any(), any());
 		AtomicBoolean checked = new AtomicBoolean(false);
 		existsCheck.test(doAnswer(invocation -> checked.getAndSet(true) ? recheck.answer(invocation) : false)
 			.when(racing));
