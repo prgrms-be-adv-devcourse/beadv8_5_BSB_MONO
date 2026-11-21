@@ -22,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
@@ -210,6 +211,39 @@ class ApiV1PartyQueryTest {
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"));
 		preview(OTHER, "")
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("링크 미리 보기는 크루원 여부를 준다. 크루원이 아니거나 크루가 없어도 200에 false (CRU-114)")
+	void previewCrewMember() throws Exception {
+		String token = create(LEADER, COURSE);
+
+		preview(OTHER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.crewMember").value(true));
+
+		crewPort.notCrewMember(OTHER);
+		preview(OTHER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.crewMember").value(false));
+
+		crewPort.missingCrew(CREW_ID);
+		preview(LEADER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.crewMember").value(false));
+	}
+
+	@Test
+	@DisplayName("크루원인지 묻지 못하면 미리 보기도 503. 모르는 채로 true·false를 주지 않는다 (CRU-114)")
+	void previewCrewUnavailable() throws Exception {
+		String token = create(LEADER, COURSE);
+		crewPort.beforeNextLookup(() -> {
+			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+		});
+
+		preview(OTHER, token)
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value(ExternalServiceUnavailableException.CODE));
 	}
 
 	@Test

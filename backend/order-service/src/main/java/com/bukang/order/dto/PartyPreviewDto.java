@@ -21,6 +21,10 @@ public record PartyPreviewDto(
 		example = "러너A") String leaderNickname,
 	@Schema(description = "파티원 수 (파티장 포함)", example = "3") int memberCount,
 	@Schema(description = "참가 링크 만료 시각 (만든 뒤 24시간)") LocalDateTime joinTokenExpiresAt,
-	@Schema(description = "참가 링크가 아직 살아 있는지 (만료 시각 전)") boolean joinLinkAlive
+	@Schema(description = "참가 링크가 아직 살아 있는지 (만료 시각 전)") boolean joinLinkAlive,
+	@Schema(description = "링크를 연 회원이 이 파티 크루의 크루원인지 (크루장·운영진 포함). "
+		+ "크루원 여부만 본다. false면 합류할 수 없다(합류 API는 403 ORDER_CREW_MEMBER_REQUIRED, 크루가 없으면 404). "
+		+ "크루가 없어졌어도 false",
+		example = "true") boolean crewMember
 ) {
 }
