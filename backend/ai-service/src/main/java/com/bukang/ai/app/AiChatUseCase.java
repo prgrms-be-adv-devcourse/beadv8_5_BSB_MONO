@@ -46,6 +46,11 @@ public class AiChatUseCase {
 		- 건수·금액·날짜를 묻는 질문은 되묻지 말고 먼저 붙은 도구를 불러 답한다. 도구를 부르지 않고 숫자를 말하지 않는다.
 		- 「조회할게요」, 「확인하겠습니다」처럼 말만 하고 끝내지 않는다. 바로 도구를 부르고, 도구 결과로 답을 마친다.
 		- 붙은 도구 설명에 맞는 질문이 하나도 없을 때만, 권한 문제처럼 말하지 말고 「아직 크루런 AI로는 조회할 수 없어요. 해당 화면에서 확인해 주세요.」라고 답한다. 이 문장을 그대로 쓴다.
+		- 환불·취소·환급·충전·양도·키트 반품 같은 크루런 규칙(정책)을 물으면 정책 도구(crewrunPolicy)를 불러 그 rules에 있는 내용으로만 답한다.
+		- 포인트 적립·쿠폰·판매 수수료처럼 정책 도구 주제에 없는 규칙 질문은 정책 도구를 부르지 말고 위 「아직 크루런 AI로는
+		조회할 수 없어요」 문장으로 답한다. 비슷한 다른 정책으로 대신 답하지 않는다.
+		- 정책 도구의 rules는 지금 서비스가 따르는 확정 규칙이다. 「~돼요」, 「~할 수 없어요」처럼 단정해서 말한다.
+		「잠정」, 「확정 전」, 「~로 보여요」, 「자세한 건 확인해 주세요」, 「변경될 수 있어요」 같은 흐리는 말을 붙이지 않는다.
 		- 승인, 송장 입력, 정산 신청 같은 처리는 하지 않는다. 처리할 화면을 안내한다.
 		- 송장 입력 대기 키트를 물으면 지금 보낼 수 있는 건수와 환불 기한이 지나면 보낼 수 있는 건수를 함께 말한다. 앞의 것이 0이어도 0건이라고만 답하지 않는다.
 		- 지급보류 이유를 물으면 조회한 보류마다 대회 이름과 사유를 말한다.
@@ -73,14 +78,23 @@ public class AiChatUseCase {
 			+ "「김러너 판매자의 지급보류 이유」에는 도구 없이 거절한다. "
 			+ "판매액은 도구로 조회한 숫자만 말한다. 결제일 기준 조회 기간과 함께 말하고, 정산 예정액과 섞지 않는다. "
 			+ "이번 달 취소·환불 건수와 환불액은 판매액 도구 결과로 답하고, 취소된 주문 하나하나는 '주문 · 참가자' 화면에서 확인하라고 안내한다. "
+			+ "환불 정책·대회 취소 요청 절차·1차 정산 뒤 회수 같은 규칙 질문은 정책 도구로, "
+			+ "이번 달 취소·환불 건수와 금액은 판매액 도구로 답한다. "
+			+ "기간 없이 「취소된 주문이 몇 건이야?」라고 물어도 판매액 도구를 불러 이번 달 값이라고 밝히고 답한다. "
+			+ "청구(돌려줄 돈)가 있는지·얼마인지, 세금계산서, 배송 중·배송 완료 키트 건수는 조회할 수 없다. "
+			+ "정책 도구나 다른 도구로 대신 답하지 말고 「아직 크루런 AI로는 조회할 수 없어요」 문장으로 답한다. "
 			+ "참가자 수·신청자 명단은 조회할 수 없다. 판매 장수로 대신 답하지 말고 "
 			+ "「아직 크루런 AI로는 조회할 수 없어요. '주문 · 참가자' 화면에서 확인해 주세요.」라고 답한다. 이 문장을 그대로 쓴다.",
 		AiScreen.ADMIN, "답변 대기 문의(문의 대기 현황)와 승인 대기 판매자 질문은 해당 도구를 불러 그 값으로만 답한다. "
-			+ "예치금 환급 요청, 지급보류 중인 정산 합계는 아직 조회할 수 없다. "
+			+ "환급·환불·대회 취소 승인 같은 규칙 질문은 정책 도구로 답한다. "
+			+ "본인인증 검토, 이상 충전 검토, 정산 생성 실패, 대회 취소 요청, 신규 가입자 수는 조회할 수 없다. "
+			+ "문의·판매자 승인·정책 도구로 대신 답하지 말고 도구 없이 「아직 크루런 AI로는 조회할 수 없어요」 문장으로 답한다. "
+			+ "예치금 환급 요청 건수·금액, 지급보류 중인 정산 합계는 아직 조회할 수 없다. "
 			+ "숫자를 말하지 말고 「아직 크루런 AI로는 조회할 수 없어요. '정산 · 환급 처리' 화면에서 확인해 주세요.」라고 답한다. "
 			+ "이 문장을 그대로 쓴다.");
 
 	static final String RETRY_NOTE = "\n\n숫자는 반드시 도구로 조회한 값만 쓴다. 지금 맞는 도구를 불러라.";
+	static final String NO_TOOL = "아직 크루런 AI로는 조회할 수 없어요";
 	static final String NOT_QUERIED = "지금은 조회하지 못했어요. 잠시 뒤 다시 물어봐 주세요.";
 	private static final Pattern DIGIT = Pattern.compile("\\d");
 	private static final Pattern DIGIT_TOKEN = Pattern.compile("[A-Za-z0-9]*\\d[A-Za-z0-9]*");
@@ -91,6 +105,7 @@ public class AiChatUseCase {
 	private final MemberRolePort memberRolePort;
 	private final SellerTools sellerTools;
 	private final AdminTools adminTools;
+	private final PolicyTools policyTools;
 
 	public AiChatDto chat(long memberId, AiScreen screen, String message) {
 		checkRole(memberId, screen);
@@ -109,6 +124,11 @@ public class AiChatUseCase {
 				answer = NOT_QUERIED;
 			}
 		}
+		// 정책 도구를 불렀어도 맞는 규칙이 없어 「조회할 수 없어요」로 답했으면 정책 출처를 붙이지 않는다
+		// 정책을 안내하고 다른 부분만 조회할 수 없다고 한 답은 정책 결론으로 시작하므로 출처를 남긴다
+		if (answer.strip().startsWith(NO_TOOL)) {
+			trace.dropPolicies();
+		}
 		return new AiChatDto(answer, trace.sources(), trace.list());
 	}
 
@@ -117,13 +137,13 @@ public class AiChatUseCase {
 		Generation result;
 		try {
 			// 지시문과 질문은 문자열이 아니라 메시지로 넘긴다. 문자열로 넘기면 템플릿으로 읽혀 질문 속 중괄호가 변수로 풀린다
-			// 도구는 화면 종류에 맞는 묶음만 붙인다. 판매자 화면에서는 관리자 도구가 모델에 아예 보이지 않는다
+			// 도구는 화면 종류에 맞는 묶음만 붙인다. 판매자 화면에서는 관리자 도구가 모델에 아예 보이지 않는다. 정책 도구는 두 화면 모두
 			ChatResponse response = chatClient.prompt()
 				.messages(
 					new SystemMessage(SYSTEM_PROMPT.formatted(screen.getLabel(), SCREEN_NOTE.get(screen)) + extraNote),
 					new UserMessage(message))
 				.advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
-				.tools(toolsOf(screen))
+				.tools(toolsOf(screen), policyTools)
 				.toolContext(Map.of(AiToolTrace.KEY, trace))
 				.call()
 				.chatResponse();
@@ -156,6 +176,8 @@ public class AiChatUseCase {
 	}
 
 	// 질문에 있던 아이디·이메일 속 숫자 조각(seller2 등)은 빼고 본다. 거절 답이 그 이름을 되풀이하는 것은 지어낸 숫자가 아니다
+	// shortcut: 정책 도구만 불러도 출처가 있어 통과한다. 「판매액이랑 환불 정책」에 정책 도구만 부르고 판매액을 지어내면 못 잡는다,
+	// 정책 답의 숫자는 모델이 바꿔 써서(30만 원 → 300,000원) 정책 규칙과 맞춰 볼 수 없다. 그런 답이 보이면 숫자 도구 출처만 보게 바꾼다
 	static boolean madeUp(String answer, String message, AiToolTrace trace) {
 		if (!trace.sources().isEmpty()) {
 			return false;

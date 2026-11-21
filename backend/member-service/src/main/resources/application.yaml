@@ -147,6 +147,10 @@ member:
     demo-login:
       enabled: ${DEMO_LOGIN_ENABLED:false}
       email: ${DEMO_LOGIN_EMAIL:admin@crewrun.com}
+    # QA용 테스트 회원 만들기 (TestMemberProperties). 켜져 있는 동안은 관리자가 본인인증 없이 회원을 만든다. 기본은 꺼짐이다
+    # 비밀번호가 알려진 값이라 실제 사용자가 있는 서버에서는 켜지 않는다. 운영은 k8s/overlays/aws/app-config.yaml의 TEST_MEMBER_ENABLED로 켠다
+    test-member:
+      enabled: ${TEST_MEMBER_ENABLED:false}
     # 비밀번호 재설정 (PasswordResetProperties, BUK-40). 숫자는 정책 회의 전 초안 값이다
     password-reset:
       # 메일 링크 앞부분. 운영은 크루런 공개 주소를 넣는다. 요청 Host 헤더로 만들지 않는다

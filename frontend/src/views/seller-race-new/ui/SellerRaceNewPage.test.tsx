@@ -35,7 +35,7 @@ function renderPage() {
   )
 }
 
-/** 달력 칸에서 날짜(들)를 고르고 선택 완료를 누른다 (shared/ui date-time-field.test와 같은 방식) */
+/** 달력 칸에서 날짜를 고르고 선택 완료를 누른다 (shared/ui date-time-field.test와 같은 방식) */
 async function pickDates(label: string, days: number[]) {
   const group = screen.getByRole('group', { name: label })
   await userEvent.click(within(group).getAllByRole('button')[0])
@@ -44,6 +44,51 @@ async function pickDates(label: string, days: number[]) {
   }
   await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
 }
+
+/** 날짜와 시각을 함께 받는 칸: 날짜를 고르고 옆 시간 칸에 시각을 친다 */
+async function pickDateTime(label: string, day: number, time: string) {
+  await pickDates(label, [day])
+  const group = screen.getByRole('group', { name: label })
+  await userEvent.type(within(group).getByRole('textbox', { name: `${label} 시간` }), time)
+}
+
+const typeRaceTime = (time: string) =>
+  userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), time)
+
+/** 종목 추가 창으로 종목 한 줄을 더한다 (화면은 빈 종목 표로 시작한다) */
+async function addCourse(name: string, price: string, quota: string) {
+  await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+  const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), name)
+  await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+  await userEvent.click(await screen.findByRole('option', { name }))
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '참가비 (원)' }), price)
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '일반 정원 (명)' }), quota)
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '제한 시간 (분)' }), '90')
+  await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+}
+const addTenK = () => addCourse('10K', '45000', '2000')
+const addFiveK = () => addCourse('5K', '35000', '1000')
+
+/** 키트 추가 창을 연다 */
+async function openKitDialog() {
+  await userEvent.click(screen.getByRole('button', { name: '옵션 추가' }))
+  return screen.findByRole('alertdialog', { name: '키트 추가' })
+}
+const closeKitDialog = async (dialog: HTMLElement) => {
+  await userEvent.click(within(dialog).getByRole('button', { name: '닫기' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+}
+const kitTable = () => screen.getByRole('table', { name: '키트 옵션' })
+const kitNames = () =>
+  within(kitTable())
+    .queryAllByRole('textbox', { name: /^옵션 이름/ })
+    .map((input) => (input as HTMLInputElement).value)
+const kitValues = () =>
+  within(kitTable())
+    .queryAllByRole('textbox', { name: /^옵션 값/ })
+    .map((input) => (input as HTMLInputElement).value)
 
 describe('SellerRaceNewPage', () => {
   it('빈 칸과 대표 이미지가 없으면 등록 요청을 보내지 않고 오류를 보여 준다', async () => {
@@ -60,7 +105,10 @@ describe('SellerRaceNewPage', () => {
     expect(await screen.findByText(RACE_FORM_ERRORS.titleRequired)).toBeInTheDocument()
     expect(screen.getByText(RACE_FORM_ERRORS.locationRequired)).toBeInTheDocument()
     expect(screen.getByText(RACE_FORM_ERRORS.coverRequired)).toBeInTheDocument()
-    expect(screen.getAllByText(RACE_FORM_ERRORS.dateRequired)).toHaveLength(3)
+    expect(screen.getByText(RACE_FORM_ERRORS.timeRequired)).toBeInTheDocument()
+    // 대회 날짜 · 환불 기한은 날짜만, 일반 판매 시작 · 접수 마감은 날짜와 시각
+    expect(screen.getAllByText(RACE_FORM_ERRORS.dateRequired)).toHaveLength(2)
+    expect(screen.getAllByText(RACE_FORM_ERRORS.dateTimeRequired)).toHaveLength(2)
     expect(requested).toBe(false)
   })
 
@@ -70,18 +118,120 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByRole('button', { name: '미리보기' })).toBeDisabled()
   })
 
-  it('날짜 칸에는 시간 입력이 없다', () => {
+  it('필수 항목에는 필수 표시가 붙고, 시안에 없는 설명 문장은 없다', () => {
     renderPage()
-    expect(screen.queryByRole('textbox', { name: /시간/ })).not.toBeInTheDocument()
+    expect(screen.getAllByText('필수').length).toBeGreaterThanOrEqual(8)
+    expect(screen.queryByText(/키트는 배송으로만/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/판매가 시작되면 옵션을/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/만 14세는 연령 제한 없음/)).not.toBeInTheDocument()
+  })
+
+  it('판매 일정은 크루 선예매 칩과 일반 판매 시작 · 접수 마감을 보여 주고, 접수 기간 한 칸과 나이 칩은 없다', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: '열기' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: '열지 않기' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('group', { name: '일반 판매 시작' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '접수 마감' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '접수 기간' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '만 19세' })).not.toBeInTheDocument()
+  })
+
+  it('크루 선예매를 열면 크루 예매 날짜 칸과 크루 정원 열이 보이고, 열지 않으면 숨는다', async () => {
+    renderPage()
+    await addTenK()
+    expect(screen.queryByRole('group', { name: '크루 예매 시작' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: '크루 정원' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    expect(screen.getByRole('group', { name: '크루 예매 시작' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '크루 예매 마감' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: '크루 정원' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '10K 크루 정원' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    expect(screen.queryByRole('group', { name: '크루 예매 시작' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: '10K 크루 정원' })).not.toBeInTheDocument()
+  })
+
+  it('크루 선예매를 열었다 닫으면 쓴 크루 정원이 0으로 돌아간다', async () => {
+    renderPage()
+    await addTenK()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    const crew = screen.getByRole('textbox', { name: '10K 크루 정원' })
+    await userEvent.clear(crew)
+    await userEvent.type(crew, '300')
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    expect(screen.getByRole('textbox', { name: '10K 크루 정원' })).toHaveValue('0')
+  })
+
+  it('크루 예매를 열고 비운 채 등록하면 크루 예매 날짜를 입력하라고 한다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findAllByText(RACE_FORM_ERRORS.dateTimeRequired)).toHaveLength(4)
+  })
+
+  it('종목 표는 종목 · 거리 · 참가비 · 정원 · 최소 나이 · 키트 열로 그린다', async () => {
+    renderPage()
+    await addTenK()
+    const table = screen.getByRole('table', { name: '종목 · 참가권' })
+    for (const header of ['종목', '거리', '참가비', '일반 정원', '총 정원', '최소 나이', '키트']) {
+      expect(within(table).getByRole('columnheader', { name: header })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('cell', { name: '10km' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '45,000원' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '2,000명' })).toBeInTheDocument()
+  })
+
+  it('종목 표 안에서 크루 정원 · 일반 정원을 바로 입력하면 총 정원이 합계로 바뀐다', async () => {
+    renderPage()
+    await addTenK()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    const crew = screen.getByRole('textbox', { name: '10K 크루 정원' })
+    await userEvent.clear(crew)
+    await userEvent.type(crew, '600')
+    const individual = screen.getByRole('textbox', { name: '10K 일반 정원' })
+    await userEvent.clear(individual)
+    await userEvent.type(individual, '900')
+    expect(await screen.findByRole('cell', { name: '1,500명' })).toBeInTheDocument()
+  })
+
+  it('정원을 모두 0으로 두고 등록하면 정원을 1명 이상 입력하라고 한다', async () => {
+    renderPage()
+    await addTenK()
+    const individual = screen.getByRole('textbox', { name: '10K 일반 정원' })
+    await userEvent.clear(individual)
+    await userEvent.type(individual, '0')
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findByText(COURSE_FORM_ERRORS.quotaSum)).toBeInTheDocument()
+  })
+
+  it('종목마다 최소 나이를 고르고 기본은 만 14세 이상이다', async () => {
+    renderPage()
+    await addTenK()
+    await addFiveK()
+    const first = screen.getByRole('combobox', { name: '10K 최소 나이' })
+    const second = screen.getByRole('combobox', { name: '5K 최소 나이' })
+    expect(first).toHaveTextContent('만 14세 이상')
+    await userEvent.click(first)
+    await userEvent.click(await screen.findByRole('option', { name: '만 19세 이상' }))
+    expect(first).toHaveTextContent('만 19세 이상')
+    expect(second).toHaveTextContent('만 14세 이상')
   })
 
   it('등록하기를 누르기 전에도 순서 오류를 칸 아래에 보여 주고, 대회 날짜를 바꾸면 다시 계산한다', async () => {
     renderPage()
+    await typeRaceTime('08:00')
     await pickDates('대회 날짜', [25])
-    await pickDates('접수 기간', [20, 24])
+    await pickDateTime('일반 판매 시작', 20, '10:00')
+    await pickDateTime('접수 마감', 24, '23:59')
     expect(screen.queryByText(RACE_FORM_ERRORS.closeBeforeRace)).not.toBeInTheDocument()
 
-    // 대회를 접수 마감(10/24) 날로 당기면 접수 칸에 바로 오류가 생긴다 (마감은 대회 전날까지)
+    // 대회를 접수 마감(10/24 23:59) 날로 당기면 접수 마감 칸에 바로 오류가 생긴다
     await pickDates('대회 날짜', [24])
     expect(await screen.findByText(RACE_FORM_ERRORS.closeBeforeRace)).toBeInTheDocument()
 
@@ -92,16 +242,22 @@ describe('SellerRaceNewPage', () => {
     )
   })
 
-  it('접수 기간 달력에서 이틀 뒤 전 날과 대회 당일 · 뒤 날은 고를 수 없다', async () => {
+  it('일반 판매 시작은 이틀 뒤 전 날을, 접수 마감은 대회 다음 날부터를 고를 수 없다', async () => {
     renderPage()
     await pickDates('대회 날짜', [25])
-    const group = screen.getByRole('group', { name: '접수 기간' })
-    await userEvent.click(within(group).getAllByRole('button')[0])
     // 오늘은 10/1(테스트 고정), 이틀 뒤는 10/3
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '일반 판매 시작' })).getAllByRole('button')[0],
+    )
     expect(screen.getByRole('button', { name: /10월 2일/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /10월 3일/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /10월 24일/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /10월 25일/ })).toBeDisabled()
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '접수 마감' })).getAllByRole('button')[0],
+    )
+    expect(screen.getByRole('button', { name: /10월 25일/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /10월 26일/ })).toBeDisabled()
   })
 
   it('만들지 않기로 한 공개 범위 칸은 없다', () => {
@@ -110,32 +266,94 @@ describe('SellerRaceNewPage', () => {
     expect(screen.queryByRole('radio', { name: '링크로만 공개' })).not.toBeInTheDocument()
   })
 
-  it('종목 표는 등록할 종목 값으로 그린다', () => {
+  it('종목 · 키트 옵션은 빈 채로 시작하고, 제출하면 종목을 추가하라고 한다', async () => {
     renderPage()
-    expect(screen.getByRole('cell', { name: '45,000원' })).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '2,000명' })).toBeInTheDocument()
+    expect(screen.queryAllByRole('button', { name: /종목 삭제$/ })).toHaveLength(0)
+    expect(kitNames()).toEqual([])
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    expect(await screen.findByText(RACE_FORM_ERRORS.coursesRequired)).toBeInTheDocument()
   })
 
-  it('키트 옵션은 옵션 추가로 줄을 늘려 직접 쓰고, 삭제로 지운다', async () => {
-    renderPage()
-    const table = screen.getByRole('table', { name: '키트 옵션' })
-    const rowCount = () => within(table).getAllByRole('textbox', { name: /^옵션 이름/ }).length
-    const before = rowCount()
+  describe('키트 추가 창', () => {
+    it('옵션 추가를 누르면 티셔츠 · 메달 · 양말 · 텀블러 칩이 뜨고, 칩을 누르기 전에는 아무것도 추가하지 않는다', async () => {
+      renderPage()
+      const dialog = await openKitDialog()
+      for (const name of ['티셔츠', '메달', '양말', '텀블러']) {
+        expect(within(dialog).getByRole('button', { name })).toHaveAttribute(
+          'aria-pressed',
+          'false',
+        )
+      }
+      await closeKitDialog(dialog)
+      expect(kitNames()).toEqual([])
+    })
 
-    await userEvent.click(screen.getByRole('button', { name: '옵션 추가' }))
-    expect(rowCount()).toBe(before + 1)
-    const name = within(table).getByRole('textbox', { name: `옵션 이름 ${before + 1}` })
-    await userEvent.type(name, '양말')
-    expect(name).toHaveValue('양말')
+    it('티셔츠를 누르면 S · M · L · XL · XXL 다섯 줄이 들어가고, 줄마다 수정 · 삭제할 수 있다', async () => {
+      renderPage()
+      const dialog = await openKitDialog()
+      await userEvent.click(within(dialog).getByRole('button', { name: '티셔츠' }))
+      await closeKitDialog(dialog)
+      expect(kitNames()).toEqual(Array(5).fill('티셔츠'))
+      expect(kitValues()).toEqual(['S', 'M', 'L', 'XL', 'XXL'])
 
-    await userEvent.click(
-      within(table).getByRole('button', { name: `키트 옵션 ${before + 1} 삭제` }),
-    )
-    expect(rowCount()).toBe(before)
+      const first = within(kitTable()).getByRole('textbox', { name: '옵션 값 1' })
+      await userEvent.clear(first)
+      await userEvent.type(first, 'XS')
+      expect(first).toHaveValue('XS')
+      await userEvent.click(within(kitTable()).getByRole('button', { name: '키트 옵션 5 삭제' }))
+      expect(kitValues()).toEqual(['XS', 'M', 'L', 'XL'])
+    })
+
+    it('메달은 각인 체크 여부에 따라 값이 정해져 한 줄 들어간다', async () => {
+      renderPage()
+      let dialog = await openKitDialog()
+      await userEvent.click(within(dialog).getByRole('checkbox', { name: '각인' }))
+      await userEvent.click(within(dialog).getByRole('button', { name: '메달' }))
+      await closeKitDialog(dialog)
+      expect(kitNames()).toEqual(['메달'])
+      expect(kitValues()).toEqual(['각인'])
+
+      await userEvent.click(within(kitTable()).getByRole('button', { name: '키트 옵션 1 삭제' }))
+      dialog = await openKitDialog()
+      await userEvent.click(within(dialog).getByRole('button', { name: '메달' }))
+      await closeKitDialog(dialog)
+      expect(kitValues()).toEqual(['각인 없음'])
+    })
+
+    it('양말 · 텀블러는 옵션 입력 없이 「키트에 포함됨」으로만 들어간다', async () => {
+      renderPage()
+      const dialog = await openKitDialog()
+      await userEvent.click(within(dialog).getByRole('button', { name: '양말' }))
+      await userEvent.click(within(dialog).getByRole('button', { name: '텀블러' }))
+      expect(within(dialog).getAllByText('키트에 포함됨')).toHaveLength(2)
+      expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
+      await closeKitDialog(dialog)
+      expect(kitNames()).toEqual(['양말', '텀블러'])
+      expect(kitValues()).toEqual(['포함', '포함'])
+    })
+
+    it('이미 들어간 품목의 칩은 선택된 채 눌리지 않아 같은 품목이 두 번 들어가지 않고, 줄을 모두 지우면 다시 고를 수 있다', async () => {
+      renderPage()
+      let dialog = await openKitDialog()
+      const sock = within(dialog).getByRole('button', { name: '양말' })
+      await userEvent.click(sock)
+      expect(sock).toHaveAttribute('aria-pressed', 'true')
+      expect(sock).toBeDisabled()
+      await userEvent.click(sock)
+      await closeKitDialog(dialog)
+      expect(kitNames()).toEqual(['양말'])
+
+      await userEvent.click(within(kitTable()).getByRole('button', { name: '키트 옵션 1 삭제' }))
+      dialog = await openKitDialog()
+      expect(within(dialog).getByRole('button', { name: '양말' })).toBeEnabled()
+    })
   })
 
   it('키트 준비 수량 칸에 숫자가 아닌 글자를 치면 값은 그대로이고 안내가 보인다', async () => {
     renderPage()
+    const dialog = await openKitDialog()
+    await userEvent.click(within(dialog).getByRole('button', { name: '티셔츠' }))
+    await closeKitDialog(dialog)
     const input = screen.getByLabelText('준비 수량 1')
     await userEvent.type(input, 'a')
     expect(input).toHaveValue('')
@@ -156,18 +374,30 @@ describe('SellerRaceNewPage', () => {
     await userEvent.click(await screen.findByRole('option', { name: '하프' }))
     const fill = async (label: string, text: string) =>
       userEvent.type(within(dialog).getByRole('textbox', { name: label }), text)
-    await fill('거리 (km)', '21.1')
     await fill('참가비 (원)', '55000')
-    await fill('모집 정원 (명)', '500')
+    await fill('일반 정원 (명)', '500')
     await fill('제한 시간 (분)', '180')
     await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(screen.getByRole('cell', { name: '하프' })).toBeInTheDocument()
+    // 거리는 종목 구분(하프)에서 정해진다
+    expect(screen.getByRole('cell', { name: '21.1km' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '55,000원' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '하프 종목 삭제' }))
     expect(screen.queryByRole('cell', { name: '하프' })).not.toBeInTheDocument()
+  })
+
+  it('종목 추가 창에는 거리 칸이 없고 종목 구분에 울트라가 없다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+    const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+    expect(within(dialog).queryByRole('textbox', { name: /거리/ })).not.toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent)
+    expect(options).toEqual(['5K', '10K', '하프', '풀'])
   })
 
   it('종목 추가 창의 오류는 추가를 누를 때만 바뀐다', async () => {
@@ -205,32 +435,6 @@ describe('SellerRaceNewPage', () => {
     expect(within(dialog).queryByRole('textbox', { name: /나이/ })).not.toBeInTheDocument()
   })
 
-  it('참가 가능 나이는 만 14세 · 만 19세 칩 중 하나이고 기본은 만 14세다', async () => {
-    renderPage()
-    const age14 = screen.getByRole('button', { name: '만 14세' })
-    const age19 = screen.getByRole('button', { name: '만 19세' })
-    expect(age14).toHaveAttribute('aria-pressed', 'true')
-    expect(age19).toHaveAttribute('aria-pressed', 'false')
-    await userEvent.click(age19)
-    expect(age14).toHaveAttribute('aria-pressed', 'false')
-    expect(age19).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('만 19세를 고르면 모든 종목이 성인만으로 보인다', async () => {
-    renderPage()
-    expect(screen.queryAllByRole('cell', { name: '성인만' })).toHaveLength(0)
-    await userEvent.click(screen.getByRole('button', { name: '만 19세' }))
-    expect(screen.getAllByRole('cell', { name: '성인만' })).toHaveLength(2)
-  })
-
-  it('종목을 모두 지우고 등록하기를 누르면 종목을 추가하라고 한다', async () => {
-    renderPage()
-    await userEvent.click(screen.getByRole('button', { name: '10K 종목 삭제' }))
-    await userEvent.click(screen.getByRole('button', { name: '5K 종목 삭제' }))
-    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
-    expect(await screen.findByText(RACE_FORM_ERRORS.coursesRequired)).toBeInTheDocument()
-  })
-
   describe('화면을 연 채 자정을 넘기면', () => {
     afterEach(() => vi.setSystemTime(new Date(2026, 9, 1)))
 
@@ -245,24 +449,26 @@ describe('SellerRaceNewPage', () => {
       expect(screen.getByRole('button', { name: /10월 2일/ })).toBeEnabled()
     })
 
-    it('접수 시작 하한도 새 날짜로 계산한다', async () => {
+    it('판매 시작 하한도 새 날짜로 계산한다', async () => {
       vi.setSystemTime(new Date(2026, 9, 1, 23, 50))
       renderPage()
       await pickDates('대회 날짜', [25])
       vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
 
       // 10/2가 되면 이틀 뒤는 10/4라 10/3은 고를 수 없다
-      const group = screen.getByRole('group', { name: '접수 기간' })
+      const group = screen.getByRole('group', { name: '일반 판매 시작' })
       await userEvent.click(within(group).getAllByRole('button')[0])
       expect(screen.getByRole('button', { name: /10월 3일/ })).toBeDisabled()
       expect(screen.getByRole('button', { name: /10월 4일/ })).toBeEnabled()
     })
 
-    it('자정 전에 고른 접수 시작일도 등록할 때 새 날짜로 다시 검사한다', async () => {
+    it('자정 전에 고른 판매 시작일도 등록할 때 새 날짜로 다시 검사한다', async () => {
       vi.setSystemTime(new Date(2026, 9, 1, 23, 50))
       renderPage()
+      await typeRaceTime('08:00')
       await pickDates('대회 날짜', [25])
-      await pickDates('접수 기간', [3, 24])
+      await pickDateTime('일반 판매 시작', 3, '10:00')
+      await pickDateTime('접수 마감', 24, '23:59')
       vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
 
       await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
@@ -342,7 +548,7 @@ describe('SellerRaceNewPage · 장소 주소 검색', () => {
     )
   })
 
-  it.each(['거리 (km)', '참가비 (원)', '모집 정원 (명)', '제한 시간 (분)'])(
+  it.each(['참가비 (원)', '일반 정원 (명)', '제한 시간 (분)'])(
     '종목 추가 창의 %s 칸에 숫자 아닌 글자를 치면 값은 그대로이고 안내가 보인다',
     async (label) => {
       renderPage()

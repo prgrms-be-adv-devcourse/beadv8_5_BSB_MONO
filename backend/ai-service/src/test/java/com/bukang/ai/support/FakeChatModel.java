@@ -24,6 +24,7 @@ public class FakeChatModel implements ChatModel {
 	private volatile RuntimeException failure;
 	private volatile boolean blankAnswer;
 	private volatile String toolToCall;
+	private volatile String toolArguments = "{}";
 	private volatile boolean toolForever;
 	private volatile String fixedAnswer;
 	private final List<String> answersInOrder = new CopyOnWriteArrayList<>();
@@ -39,7 +40,7 @@ public class FakeChatModel implements ChatModel {
 		if (toolToCall != null && (toolForever || !toolAnswered)) {
 			return new ChatResponse(List.of(new Generation(AssistantMessage.builder().content("")
 				.toolCalls(List.of(
-					new AssistantMessage.ToolCall("call-" + prompts.size(), "function", toolToCall, "{}")))
+					new AssistantMessage.ToolCall("call-" + prompts.size(), "function", toolToCall, toolArguments)))
 				.build())));
 		}
 		String text = !answersInOrder.isEmpty() ? answersInOrder.removeFirst()
@@ -87,6 +88,12 @@ public class FakeChatModel implements ChatModel {
 		this.toolToCall = toolName;
 	}
 
+	// 다음 질문에서 이 도구를 이 인자(JSON)로 한 번 부른다 (정책 도구의 주제)
+	public void callTool(String toolName, String arguments) {
+		this.toolToCall = toolName;
+		this.toolArguments = arguments;
+	}
+
 	// 도구 결과를 받아도 계속 같은 도구를 부른다 (호출 한도 확인용)
 	public void callToolForever(String toolName) {
 		this.toolToCall = toolName;
@@ -118,6 +125,7 @@ public class FakeChatModel implements ChatModel {
 
 	public void reset() {
 		toolToCall = null;
+		toolArguments = "{}";
 		toolForever = false;
 		prompts.clear();
 		failure = null;

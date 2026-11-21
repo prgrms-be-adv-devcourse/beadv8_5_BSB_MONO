@@ -27,6 +27,19 @@ final class AiApiExamples {
 			}
 		}
 		""";
+	static final String CHAT_SUCCESS_POLICY = """
+		{
+			"status": 200,
+			"message": "답변했습니다.",
+			"data": {
+				"answer": "키트는 단순 변심으로 반품·교환할 수 없어요.\n- 불량·오배송: 판매자가 확인한 뒤 교환이나 환불을 안내해요.",
+				"sources": [
+					{ "screen": "정책 5장 3-1 키트 반품", "asOf": "2026-11-20T14:03:00", "buttonLabel": null, "path": null }
+				],
+				"list": null
+			}
+		}
+		""";
 	static final String CHAT_SUCCESS_NO_TOOL = """
 		{
 			"status": 200,

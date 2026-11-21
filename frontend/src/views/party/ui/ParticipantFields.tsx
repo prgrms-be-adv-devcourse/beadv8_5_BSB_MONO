@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Controller, type UseFormReturn } from 'react-hook-form'
+import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 
 import { AddressSearch, type AddressSearchResult } from '@/features/address-search'
 import { BirthDateField } from '@/entities/member'
@@ -39,6 +39,8 @@ export function ParticipantFields({
     setFocus,
     formState: { errors },
   } = form
+  const [zipcode, address] = useWatch({ control, name: ['zipcode', 'address'] })
+  const addressError = errors.address?.message ?? errors.zipcode?.message
   // 주소 검색을 불러오지 못했을 때만 우편번호 · 주소를 직접 입력하게 연다
   const [manualAddress, setManualAddress] = useState(false)
   const pickAddress = ({ zipcode, address }: AddressSearchResult) => {
@@ -157,22 +159,35 @@ export function ParticipantFields({
           <h3 className="text-body1-bold">키트 배송지</h3>
           {/* 배송지는 Clarity 화면 녹화에서 가린다. 받는 사람은 참가자 본인으로 보낸다 */}
           <div className="flex flex-col gap-4" data-clarity-mask="true">
-            <TextField
-              label="키트 배송 우편번호"
-              inputMode="numeric"
-              filter={digitsOnly}
-              filterMessage="숫자만 입력할 수 있어요"
-              readOnly={!manualAddress}
-              error={errors.zipcode?.message}
-              {...register('zipcode')}
+            {manualAddress && (
+              <>
+                <TextField
+                  label="키트 배송 우편번호"
+                  inputMode="numeric"
+                  filter={digitsOnly}
+                  filterMessage="숫자만 입력할 수 있어요"
+                  error={errors.zipcode?.message}
+                  {...register('zipcode')}
+                />
+                <TextField
+                  label="키트 배송 주소"
+                  error={errors.address?.message}
+                  {...register('address')}
+                />
+              </>
+            )}
+            <AddressSearch
+              onSelect={pickAddress}
+              onUnavailable={() => setManualAddress(true)}
+              summary={address ? `(${zipcode}) ${address}` : undefined}
+              label={address ? '다시 검색' : '주소 검색'}
+              variant={address ? 'text' : 'secondary'}
             />
-            <TextField
-              label="키트 배송 주소"
-              readOnly={!manualAddress}
-              error={errors.address?.message}
-              {...register('address')}
-            />
-            <AddressSearch onSelect={pickAddress} onUnavailable={() => setManualAddress(true)} />
+            {!manualAddress && addressError && (
+              <p role="alert" className="text-caption-regular text-text-danger">
+                {addressError}
+              </p>
+            )}
             <TextField
               label="상세 주소"
               error={errors.addressDetail?.message}

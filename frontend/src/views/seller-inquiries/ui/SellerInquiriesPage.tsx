@@ -12,6 +12,7 @@ export function SellerInquiriesPage({ initialId }: { initialId?: number }) {
   return (
     <ConsolePage
       title="문의"
+      className="flex-1"
       actions={
         <Link href="/seller/inquiries/new" className={buttonClassName({ variant: 'secondary' })}>
           크루런에 문의하기

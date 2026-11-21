@@ -14,8 +14,11 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,6 +36,7 @@ import com.bukang.notification.out.NotificationRepository;
  * 알림 요청을 받아 저장하고(같은 메시지는 하나), 내 알림만 조회·읽음 처리하는지 확인한다.
  * 표는 Flyway SQL로 만들어(ddl-auto: validate) 운영과 같은 유니크 제약으로 중복을 거른다
  */
+@ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -156,11 +160,13 @@ class ApiV1NotificationTest {
 	}
 
 	@Test
-	@DisplayName("알림 ID가 숫자가 아니면 400")
-	void invalidId() throws Exception {
+	@DisplayName("알림 ID가 숫자가 아니면 400을 응답하고 메서드·경로를 info로 남긴다")
+	void invalidId(CapturedOutput output) throws Exception {
 		mockMvc.perform(post(URL + "/abc/read").header(MemberIdHeader.NAME, ME))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.message").value("요청 값의 형식이 올바르지 않습니다."));
+
+		assertThat(output).contains("400 POST " + URL + "/abc/read");
 	}
 
 	@Test

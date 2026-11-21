@@ -364,3 +364,29 @@ describe('판매자가 보낸 문의', () => {
     expect(screen.queryByRole('button', { name: '보낸 문의' })).not.toBeInTheDocument()
   })
 })
+
+describe('문의가 없을 때', () => {
+  it('마스코트와 문구를 함께, 문의 목록 칸 밖 가운데에 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/inquiry/seller/inquiries', () =>
+        ok({
+          inquiries: [],
+          page: 0,
+          size: 20,
+          totalElements: 0,
+          totalPages: 0,
+          waitingCount: 0,
+          answeredCount: 0,
+        }),
+      ),
+    )
+    const { container } = renderBoard('seller')
+
+    const text = await screen.findByText('답변을 기다리는 문의가 없어요')
+    const mascot = container.querySelector('img[src*="mascot-default"]')
+
+    expect(mascot).toBeInTheDocument()
+    expect(text.closest('div')?.parentElement).toContainElement(mascot as HTMLElement)
+    expect(screen.queryByRole('region', { name: '문의 목록' })).not.toBeInTheDocument()
+  })
+})

@@ -1,6 +1,6 @@
 'use client'
 
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -11,7 +11,8 @@ import { BottomNav } from '@/widgets/bottom-nav'
 import { useAuthStatus } from '@/features/auth'
 import { canInvite, CREW_ROLE_LABEL } from '@/entities/crew'
 import { useCrewActiveParties, type PartySummary } from '@/entities/party'
-import { ApiError, memberApi, productApi, unwrapData, type memberModel } from '@/shared/api'
+import { raceQueryOptions } from '@/entities/race'
+import { ApiError, memberApi, unwrapData, type memberModel } from '@/shared/api'
 import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   Avatar,
@@ -163,7 +164,7 @@ const PARTY_STATUS_LABEL: Record<PartySummary['status'], string> = {
 
 // v3 시안 · 크루 홈 진행 중인 파티: 모집 상태 글자, 대회 이름, 파티장 · 인원. 내 파티는 카드 전체가 파티 상세로 이어지고, 아닌 파티는 「내가 없는 파티」로만 보여 준다.
 function PartyCard({ party }: { party: PartySummary }) {
-  const race = productApi.useFindRace(party.raceId, { query: { select: unwrapData } })
+  const race = useQuery(raceQueryOptions(party.raceId))
   const max = race.data?.crewMaxCount
   const body = (
     <>
@@ -210,8 +211,9 @@ function LeaveCrew({
   const showToast = useToast()
   const leave = memberApi.useLeaveCrew()
   const [step, setStep] = useState<'confirm' | 'leader' | 'party' | null>(null)
-  const joinedRace = productApi.useFindRace(joinedParty?.raceId ?? 0, {
-    query: { enabled: joinedParty !== undefined, select: unwrapData },
+  const joinedRace = useQuery({
+    ...raceQueryOptions(joinedParty?.raceId ?? 0),
+    enabled: joinedParty !== undefined,
   })
 
   const confirmLeave = () =>
