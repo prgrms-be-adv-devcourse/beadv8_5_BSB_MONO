@@ -513,7 +513,10 @@ describe('AdminSettlementsPage', () => {
 
       await user.click(screen.getByRole('button', { name: '보류 걸기' }))
 
-      expect(await screen.findByText('이미 지급 완료된 정산 내역입니다.')).toBeInTheDocument()
+      // 오류 토스트는 화면 낭독용 사본까지 두 번 그려진다
+      expect(
+        (await screen.findAllByText('이미 지급 완료된 정산 내역입니다.')).length,
+      ).toBeGreaterThan(0)
       expect(screen.getByRole('group', { name: '고른 정산' })).toHaveTextContent('한강 나이트런')
     })
   })
