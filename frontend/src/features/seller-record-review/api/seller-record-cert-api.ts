@@ -60,8 +60,9 @@ function useReview<T>(action: 'approve' | 'deny', toBody: (input: T) => object |
         ),
       )
     },
-    // 심사 결과는 목록 · 상세 · 대시보드 건수 모두에 보이므로 판매자 기록증 키를 통째로 새로 받는다
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: RECORD_CERTS_KEY }),
+    // 심사 결과는 목록 · 상세 · 대회 상세 바로 가기 건수에 보이므로 판매자 기록증 키를 통째로 새로 받는다.
+    // 실패해도 받는다: 다른 탭에서 이미 심사해 409가 나면 목록에서 그 제출을 빼야 한다
+    onSettled: () => queryClient.invalidateQueries({ queryKey: RECORD_CERTS_KEY }),
   })
 }
 

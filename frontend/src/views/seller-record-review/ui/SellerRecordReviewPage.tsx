@@ -172,6 +172,8 @@ function SubmissionDetail({ submission: s }: { submission: SellerRecordCertSubmi
           </Button>
           <Button
             loading={approve.isPending}
+            // 사진 · 배번을 보기 전에는 승인하지 못하게 막는다. 승인 불가는 사진 없이도 정할 수 있다
+            disabled={detail.isPending || detail.isError}
             onClick={() =>
               approve.mutate(
                 { submissionId: s.submissionId, input: undefined },
