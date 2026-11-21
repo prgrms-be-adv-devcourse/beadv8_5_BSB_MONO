@@ -65,7 +65,7 @@ describe('SELLER_SALE_STATUS_TEXT', () => {
   it('판매 중만 16 굵게 검정이다', () => {
     expect(SELLER_SALE_STATUS_TEXT.ON_SALE).toMatch(/text-body1-medium/)
     expect(SELLER_SALE_STATUS_TEXT.ON_SALE).toMatch(/text-text-primary/)
-    expect(SELLER_SALE_STATUS_TEXT.SCHEDULED).toBe('text-text-secondary')
+    expect(SELLER_SALE_STATUS_TEXT.SCHEDULED).toBe('text-text-primary')
     expect(SELLER_SALE_STATUS_TEXT.STOPPED).not.toMatch(/body1/)
   })
 })

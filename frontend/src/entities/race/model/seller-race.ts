@@ -22,7 +22,7 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
 
 /** 상태는 칩 대신 글자로 쓴다. 판매 중만 16 Medium 검정, 취소됨은 빨강, 그 밖은 보조 글자색 */
 export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
-  SCHEDULED: 'text-text-secondary',
+  SCHEDULED: 'text-text-primary',
   ON_SALE: 'text-body1-medium text-text-primary',
   STOPPED: 'text-text-secondary',
   CLOSED: 'text-text-secondary',

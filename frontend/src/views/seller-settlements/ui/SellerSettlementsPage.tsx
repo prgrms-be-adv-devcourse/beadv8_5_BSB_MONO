@@ -268,7 +268,6 @@ function PayoutItemList({ period }: { period: DetailPeriod }) {
       {(rows) => (
         <>
           <DataTable
-            rowHeight="lg"
             label="건별 정산"
             rows={rows}
             rowKey={(r) => String(r.id)}
@@ -337,7 +336,6 @@ function HoldList({ period }: { period: DetailPeriod }) {
       <QueryRows query={holds} label="지급보류 내역" emptyTitle="이 기간에 지급보류가 없어요">
         {(rows) => (
           <DataTable
-            rowHeight="lg"
             label="지급보류 내역"
             rows={rows}
             rowKey={(r) => String(r.id)}

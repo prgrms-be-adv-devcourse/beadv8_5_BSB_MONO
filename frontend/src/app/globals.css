@@ -47,7 +47,8 @@
 @layer base {
   .console-type,
   /* 확인 창은 포털이라 판매자 레이아웃 밖에 그려진다. 판매자 화면이 열려 있으면 root에서도 같은 값을 쓴다. */
-  :root:has(.console-type) {
+  :root:has(.console-type),
+  :root:has(.console-sidebar) {
     --text-number-s: 32px;
     --text-number-s--line-height: 36px;
     --text-title3: 20px;
