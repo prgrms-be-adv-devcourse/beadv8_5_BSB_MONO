@@ -19,6 +19,8 @@ const draftSchema = z.object({
   crewOpen: z.boolean(),
   crewSaleStartAt: text,
   crewSaleEndAt: text,
+  // 이 칸이 생기기 전에 저장한 내용도 불러온다
+  crewMaxCount: text.default(''),
   individualOpenAt: text,
   applicationCloseAt: text,
   refundDeadline: text,

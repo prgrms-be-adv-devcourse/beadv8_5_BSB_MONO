@@ -20,6 +20,7 @@ export const RACE_FORM_ERRORS = {
   timeRequired: '출발 시각을 입력해 주세요.',
   // 일반 판매 시작 · 접수 마감 · 크루 예매 시작·마감: 날짜와 시각을 함께 받는다
   dateTimeRequired: '날짜와 시각을 입력해 주세요.',
+  crewMaxCount: `크루 최대 인원은 ${productZod.registerBodyCrewMinCountMin}명 이상의 숫자로 입력해 주세요.`,
   crewEndAfterStart: '크루 예매 마감은 시작보다 늦어야 해요.',
   individualAfterCrew: '일반 판매는 크루 예매 마감 다음 날 0시부터 시작할 수 있어요.',
   closeAfterOpen: '접수 마감은 일반 판매 시작보다 늦어야 해요.',
@@ -211,6 +212,8 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       crewOpen: z.boolean(),
       crewSaleStartAt: z.string(),
       crewSaleEndAt: z.string(),
+      // 비우면 상한 없음. 값이 있으면 서버처럼 크루 최소 인원 이상이어야 한다
+      crewMaxCount: z.string(),
       individualOpenAt: dateTime,
       applicationCloseAt: dateTime,
       refundDeadline: date,
@@ -239,6 +242,10 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
         if (crewEnd && openAt && openAt < crewCloseAt(crewEnd)) {
           issue(['individualOpenAt'], RACE_FORM_ERRORS.individualAfterCrew)
         }
+      }
+      const max = values.crewMaxCount.trim()
+      if (values.crewOpen && max !== '' && !(/^\d+$/.test(max) && Number(max) >= CREW_MIN_COUNT)) {
+        issue(['crewMaxCount'], RACE_FORM_ERRORS.crewMaxCount)
       }
       if (openAt && closeAt && closeAt <= openAt) {
         issue(['applicationCloseAt'], RACE_FORM_ERRORS.closeAfterOpen)
@@ -389,6 +396,7 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   crewOpen: false,
   crewSaleStartAt: '',
   crewSaleEndAt: '',
+  crewMaxCount: '',
   individualOpenAt: '',
   applicationCloseAt: '',
   refundDeadline: '',
@@ -423,6 +431,9 @@ export function toRaceSaveRequest(
     // 환불 기한은 서버도 날짜(LocalDate)로 받는다
     refundDeadline: parseRaceDateInput(values.refundDeadline) ?? values.refundDeadline,
     crewMinCount: CREW_MIN_COUNT,
+    // 크루 예매를 열고 칸을 채웠을 때만 보낸다. 비우면 상한 없음
+    crewMaxCount:
+      values.crewOpen && values.crewMaxCount.trim() ? Number(values.crewMaxCount) : undefined,
     images: raceImages,
     // 크루 예매를 열지 않으면 크루 몫 정원은 0으로 보낸다
     courses: values.courses.map((course, i) => ({

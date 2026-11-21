@@ -180,7 +180,8 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
     setValue('crewOpen', false, { shouldDirty: true })
     setValue('crewSaleStartAt', '')
     setValue('crewSaleEndAt', '')
-    clearErrors(['crewSaleStartAt', 'crewSaleEndAt'])
+    setValue('crewMaxCount', '')
+    clearErrors(['crewSaleStartAt', 'crewSaleEndAt', 'crewMaxCount'])
     courseFields.fields.forEach((_, i) => setValue(`courses.${i}.crewQuota`, 0))
   }
   const [cover, setCover] = useState<ImageUploadValue[]>([])
@@ -525,6 +526,18 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                     )}
                   />
                 </div>
+              )}
+              {crewOpen && (
+                <TextField
+                  label="크루 최대 인원"
+                  helper="비우면 인원 제한이 없어요"
+                  inputMode="numeric"
+                  filter={digitsOnly}
+                  trailing="명"
+                  error={errors.crewMaxCount?.message}
+                  className="w-1/2 pr-2"
+                  {...register('crewMaxCount')}
+                />
               )}
               <div className="flex gap-4">
                 <Controller
