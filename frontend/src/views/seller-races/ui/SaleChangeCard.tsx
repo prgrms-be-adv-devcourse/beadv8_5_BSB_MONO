@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { isAfter, isBefore, parse, parseISO, startOfToday } from 'date-fns'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 
@@ -11,15 +10,12 @@ import { useUpdateRace } from '@/features/seller-race'
 import {
   isRaceEditable,
   isSaleStarted,
-  parseDateTimeInput,
   raceForEditQueryOptions,
-  RaceScheduleFields,
   type RaceForEdit,
-  type ScheduleField,
   type SellerRaceRow,
 } from '@/entities/race'
 import { ApiError } from '@/shared/api'
-import { formatNumber, useNow } from '@/shared/lib'
+import { formatNumber } from '@/shared/lib'
 import {
   Alert,
   Button,
@@ -39,7 +35,6 @@ import {
 } from '../model/race-image-change'
 import {
   saleChangeSchema,
-  scheduleLocks,
   toSaleChangeValues,
   toUpdateRequest,
   type SaleChangeValues,
@@ -48,12 +43,10 @@ import { RaceImagesCard } from './RaceImagesCard'
 
 const n = formatNumber
 
-// 피그마 V4 · 판매자 · 판매 중 변경: 정원 늘리기 표, 환불 기한, 이미지
+// 피그마 V4 · 판매자 · 대회 수정 / 판매 중 변경: 일정이 아닌 칸(정원 늘리기 표, 이미지). 일정은 일정 변경 화면이 맡는다
 export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
   const edit = useQuery(raceForEditQueryOptions(row.id))
-  // 지난 일정을 가르는 지금 시각은 마운트 뒤에 정한다
-  const now = useNow()
-  if (edit.isPending || !now) {
+  if (edit.isPending) {
     return (
       <div role="status" aria-label="불러오는 중" className="flex flex-col gap-3">
         <Skeleton shape="rect" className="h-24 rounded-md" />
@@ -70,10 +63,10 @@ export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
       />
     )
   }
-  return <SaleChangeForm key={edit.dataUpdatedAt} edit={edit.data} row={row} now={now} />
+  return <SaleChangeForm key={edit.dataUpdatedAt} edit={edit.data} row={row} />
 }
 
-function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRaceRow; now: Date }) {
+function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }) {
   const toast = useToast()
   const update = useUpdateRace(row.id)
   const editable = isRaceEditable(row.saleStatus)
@@ -82,49 +75,14 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
     register,
     handleSubmit,
     control,
-    setValue,
-    getValues,
-    trigger,
-    clearErrors,
     formState: { errors, isDirty },
   } = useForm<SaleChangeValues>({
-    resolver: zodResolver(saleChangeSchema(edit, now)),
+    resolver: zodResolver(saleChangeSchema(edit)),
     mode: 'onChange',
     defaultValues: toSaleChangeValues(edit),
   })
   const detail = edit.race.courses ?? []
   const watched = useWatch({ control, name: 'courses' })
-  const crewOpen = useWatch({ control, name: 'crewOpen' })
-  const initial = toSaleChangeValues(edit)
-  const locks = scheduleLocks(edit, now)
-  const raceDay = parseISO(edit.request.raceDate.slice(0, 10))
-  const scheduleFields = [
-    'crewSaleStartAt',
-    'crewSaleEndAt',
-    'individualOpenAt',
-    'applicationCloseAt',
-  ] as const
-  const textToDate = (text: string) =>
-    text ? parse(text, 'yyyy-MM-dd HH:mm', new Date()) : undefined
-
-  // 일정 칸 하나가 바뀌면 순서 오류가 다른 칸에도 생기거나 풀리므로, 다 쓴 일정 칸을 모두 다시 검사한다
-  function changeSchedule(name: ScheduleField, value: string) {
-    setValue(name, value, { shouldDirty: true })
-    const values = getValues()
-    void trigger(
-      scheduleFields.filter(
-        (f) => (values.crewOpen || !f.startsWith('crew')) && parseDateTimeInput(values[f]) !== null,
-      ),
-    )
-  }
-  // 열지 않기로 닫으면 크루 예매 날짜를 비우고, 다시 열면 저장된 날짜로 돌아간다 (칸은 닫으면 사라져 다시 열 때 저장된 값으로 채워진다)
-  function changeCrewOpen(open: boolean) {
-    setValue('crewOpen', open, { shouldDirty: true })
-    setValue('crewSaleStartAt', open ? initial.crewSaleStartAt : '', { shouldDirty: true })
-    setValue('crewSaleEndAt', open ? initial.crewSaleEndAt : '', { shouldDirty: true })
-    setValue('crewMaxCount', open ? initial.crewMaxCount : '', { shouldDirty: true })
-    clearErrors(['crewSaleStartAt', 'crewSaleEndAt', 'crewMaxCount'])
-  }
   const [images, setImages] = useState(() => initialImageChange(edit))
   // 새 사진을 올린 뒤 대회 전체를 PUT 한다. 사진 업로드 실패도 같은 오류 문구로 보여 준다
   const save = useMutation({
@@ -142,54 +100,8 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
       <Alert
         className={CONSOLE_BOX}
         title="구매자에게 유리할 때만 바꿀 수 있어요"
-        description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기 · 환불 기한 늦추기만 돼요."
+        description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기만 돼요."
       />
-      {/* 피그마 판매 중 변경 시안에는 판매 일정 카드가 없다. 판매 예정 대회(대회 수정)만 일정을 바꾼다 */}
-      {!started && (
-        <ConsoleCard title="판매 일정" className="max-w-137">
-          <RaceScheduleFields
-            crewOpen={crewOpen}
-            onCrewOpenChange={changeCrewOpen}
-            crewOpenDisabled={!editable || locks.crewOpen}
-            onChange={changeSchedule}
-            crewExtra={
-              <TextField
-                label="크루 최대 인원"
-                helper="비우면 인원 제한이 없어요"
-                inputMode="numeric"
-                filter={digitsOnly}
-                trailing="명"
-                error={errors.crewMaxCount?.message}
-                className="w-1/2 pr-2"
-                {...register('crewMaxCount')}
-              />
-            }
-            errors={{
-              crewSaleStartAt: errors.crewSaleStartAt?.message,
-              crewSaleEndAt: errors.crewSaleEndAt?.message,
-              individualOpenAt: errors.individualOpenAt?.message,
-              applicationCloseAt: errors.applicationCloseAt?.message,
-            }}
-            defaults={{
-              crewSaleStartAt: textToDate(initial.crewSaleStartAt),
-              crewSaleEndAt: textToDate(initial.crewSaleEndAt),
-              individualOpenAt: textToDate(initial.individualOpenAt),
-              applicationCloseAt: textToDate(initial.applicationCloseAt),
-            }}
-            disabled={{
-              crewSaleStartAt: !editable || locks.crewSaleStartAt,
-              crewSaleEndAt: !editable || locks.crewSaleEndAt,
-              individualOpenAt: !editable || locks.individualOpenAt,
-              applicationCloseAt: !editable || locks.applicationCloseAt,
-            }}
-            isDateDisabled={(name, date) =>
-              isBefore(date, startOfToday()) ||
-              ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
-                isAfter(date, raceDay))
-            }
-          />
-        </ConsoleCard>
-      )}
       <ConsoleCard title="정원 늘리기">
         <table aria-label="정원 늘리기" className="w-full table-fixed border-collapse">
           <thead>
@@ -210,7 +122,7 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
             {edit.request.courses.map((course, i) => {
               const info = detail[i]
               const quota = watched?.[i]?.individualQuota ?? ''
-              const crew = crewOpen ? (course.crewQuota ?? 0) : 0
+              const crew = course.crewQuota ?? 0
               const total = crew + (/^\d+$/.test(quota) ? Number(quota) : 0)
               return (
                 <tr key={course.courseId ?? i}>
@@ -231,7 +143,7 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
                       />
                     )}
                   </TableCell>
-                  <TableCell align="right">{n(crewOpen ? (course.crewQuota ?? 0) : 0)}명</TableCell>
+                  <TableCell align="right">{n(course.crewQuota ?? 0)}명</TableCell>
                   <TableCell align="right" className="overflow-visible">
                     <TextField
                       compact
@@ -256,15 +168,6 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
         {started && (
           <p className="text-caption-regular text-text-tertiary">참가비는 바꿀 수 없어요</p>
         )}
-      </ConsoleCard>
-      <ConsoleCard title="환불 기한" className="max-w-140">
-        <TextField
-          label="환불 기한"
-          disabled={!editable}
-          helper={started ? '판매가 시작돼 늦추기만 할 수 있어요' : '이 날짜(23:59)까지 전액 환불'}
-          error={errors.refundDeadline?.message}
-          {...register('refundDeadline')}
-        />
       </ConsoleCard>
       <RaceImagesCard
         cover={coverUrl(edit)}

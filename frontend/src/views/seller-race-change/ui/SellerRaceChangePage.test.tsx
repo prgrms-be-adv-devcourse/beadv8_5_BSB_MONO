@@ -23,14 +23,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/seller/races/1/change',
 }))
 
-/** 달력 칸에서 날짜를 고르고 선택 완료를 누른다 */
-async function pickDate(label: string, month: number, day: number) {
-  const group = screen.getByRole('group', { name: label })
-  await userEvent.click(within(group).getAllByRole('button')[0])
-  await userEvent.click(screen.getByRole('button', { name: new RegExp(`${month}월 ${day}일`) }))
-  await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
-}
-
 /** 알림 확인 창에서 알리기를 누른다 */
 async function confirmNotify() {
   const dialog = await screen.findByRole('alertdialog')
@@ -181,13 +173,13 @@ describe('SellerRaceChangePage 일정 변경', () => {
     )
     renderPage()
     await screen.findByRole('group', { name: '대회 일시' })
-    await typeTime('접수 마감', '09:00')
+    await typeTime('접수 마감', '07:00')
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
     await confirmNotify()
 
     expect(await screen.findByText('대회 일정을 바꿨어요')).toBeInTheDocument()
     expect(body).toMatchObject({
-      applicationCloseAt: at(19, '09:00:00'),
+      applicationCloseAt: at(19, '07:00:00'),
       raceDate: detail.raceDate,
       crewSaleStartAt: detail.crewSaleStartAt,
       crewSaleEndAt: detail.crewSaleEndAt,
@@ -236,7 +228,7 @@ describe('SellerRaceChangePage 일정 변경', () => {
     )
     renderPage()
     await screen.findByRole('group', { name: '대회 일시' })
-    await typeTime('접수 마감', '09:00')
+    await typeTime('접수 마감', '07:00')
     await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
     await confirmNotify()
     expect(
@@ -256,7 +248,7 @@ describe('SellerRaceChangePage 입력 유지', () => {
     })
     renderPage()
     await screen.findByRole('group', { name: '대회 일시' })
-    await typeTime('접수 마감', '09:00')
+    await typeTime('접수 마감', '07:00')
 
     act(() => {
       focusManager.setFocused(false)
@@ -269,7 +261,7 @@ describe('SellerRaceChangePage 입력 유지', () => {
     server.events.removeAllListeners()
     focusManager.setFocused(undefined)
     expect(fetched).toBe(1)
-    expect(screen.getByLabelText('접수 마감 시간')).toHaveValue('09:00')
+    expect(screen.getByLabelText('접수 마감 시간')).toHaveValue('07:00')
   })
 })
 
