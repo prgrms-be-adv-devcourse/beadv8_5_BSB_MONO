@@ -46,6 +46,13 @@ describe('SellerRaceDetailPage', () => {
     )
   })
 
+  it('바로 가기에 이 대회의 기록증 심사 필요 건수를 보여 준다', async () => {
+    renderPage()
+    const link = await screen.findByRole('link', { name: /^기록증 심사/ })
+    expect(link).toHaveAttribute('href', '/seller/races/1/record-certs')
+    expect(await within(link).findByText('심사 필요 4건')).toBeInTheDocument()
+  })
+
   it('남은 자리는 정원 - 판매 - 결제 대기로 센다 (요약과 종목별 판매 모두)', async () => {
     server.use(
       http.get('*/api/v1/product/races/mine', () =>
