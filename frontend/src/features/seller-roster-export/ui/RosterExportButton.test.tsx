@@ -139,9 +139,11 @@ describe('RosterExportButton', () => {
     await userEvent.type(screen.getByLabelText(/내려받는 사유/), '배번 인쇄')
     await userEvent.click(screen.getByRole('button', { name: '엑셀로 내려받기' }))
 
-    expect(await screen.findByText('명단을 받지 못했어요')).toBeInTheDocument()
+    // 공용 토스트는 화면 낭독기 알림에도 같은 글을 한 번 더 쓴다
+    expect((await screen.findAllByText('명단을 받지 못했어요')).length).toBeGreaterThan(0)
     await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await userEvent.click(screen.getByRole('button', { name: '다시 받기' }))
+    // 오류 토스트는 Base UI가 낭독 영역으로 읽게 하고 본체는 aria-hidden으로 둔다
+    await userEvent.click(screen.getByRole('button', { name: '다시 받기', hidden: true }))
 
     await vi.waitFor(() => expect(clicked).toHaveLength(1))
     expect(bodies).toEqual([

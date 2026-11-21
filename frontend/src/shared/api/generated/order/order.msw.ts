@@ -60,7 +60,7 @@ export const getRegeneratePartyJoinLinkResponseMock = (): RsDataPartyDto => ({"s
 
 export const getApplyPartyResponseMock = (): RsDataPartyDto => ({"status":200,"message":"파티를 신청했습니다. 파티원에게 결제 알림을 보냈습니다.","data":{"id":1,"crewId":7,"raceId":100,"raceCourseId":2,"leaderMemberId":3,"status":"PAYING","paymentDueAt":"2026-11-07T10:15:30","joinToken":"k3Jx9dQ2mV7pL0sA8fB1nC4eR6tY5uI2oP9wZ3xH7gK","joinTokenExpiresAt":"2026-11-06T10:15:30"}})
 
-export const getPreviewPartyResponseMock = (): RsDataPartyPreviewDto => ({"status":200,"message":"참가 링크의 파티를 조회했습니다.","data":{"id":1,"crewId":7,"raceId":100,"raceCourseId":2,"status":"RECRUITING","leaderNickname":"러너A","memberCount":2,"joinTokenExpiresAt":"2026-11-06T10:15:30","joinLinkAlive":true}})
+export const getPreviewPartyResponseMock = (): RsDataPartyPreviewDto => ({"status":200,"message":"참가 링크의 파티를 조회했습니다.","data":{"id":1,"crewId":7,"raceId":100,"raceCourseId":2,"status":"RECRUITING","leaderNickname":"러너A","memberCount":2,"joinTokenExpiresAt":"2026-11-06T10:15:30","joinLinkAlive":true,"crewMember":true}})
 
 export const getJoinPartyResponseMock = (): RsDataParticipationDto => ({"status":201,"message":"파티에 합류했습니다.","data":{"id":12,"createDate":"2026-11-05T11:00:00","modifyDate":"2026-11-05T11:00:00","raceId":100,"raceCourseId":2,"memberId":5,"participationType":"PARTY","partyId":1,"status":"PENDING","participant":{"name":"이러너","birth":"1996-03-14","gender":"FEMALE","phone":"010-2345-6789","emergencyContactName":"이가족","emergencyContactPhone":"010-8765-4321","tshirtSize":"M","shippingAddress":null},"thirdPartyConsent":true,"consentedAt":"2026-11-05T11:00:00","paymentDueAt":null,"kitOptions":[]}})
 
