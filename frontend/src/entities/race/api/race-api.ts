@@ -68,6 +68,20 @@ export function raceListQueryOptions(filters: RaceSearchFilters) {
   })
 }
 
+/** 카테고리 화면에서 지역마다 보여 주는 대회 (대회일 빠른 순 2개) */
+export function regionRacesQueryOptions(regionSido: string) {
+  const params: productModel.SearchParams = {
+    regionSido,
+    sort: RaceSort.RACE_DATE,
+    page: 0,
+    size: 2,
+  }
+  return queryOptions({
+    queryKey: productApi.getSearchQueryKey(params),
+    queryFn: () => fetchRacePage(params),
+  })
+}
+
 /** 검색창 연관검색어 (대회명 · '대회명 종목명' 각각 5개까지) */
 export function raceSuggestionsQueryOptions(keyword: string) {
   const trimmed = keyword.trim()
