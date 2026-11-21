@@ -44,6 +44,8 @@ export type SaleChangeValues = {
   crewOpen: boolean
   crewSaleStartAt: string
   crewSaleEndAt: string
+  /** 비우면 인원 제한이 없다 */
+  crewMaxCount: string
   individualOpenAt: string
   applicationCloseAt: string
   courses: { individualQuota: string; price: string }[]
@@ -58,6 +60,7 @@ export function toSaleChangeValues({ request }: RaceForEdit): SaleChangeValues {
     crewOpen: Boolean(request.crewSaleStartAt),
     crewSaleStartAt: fromLocalDateTime(request.crewSaleStartAt),
     crewSaleEndAt: fromLocalDateTime(request.crewSaleEndAt),
+    crewMaxCount: request.crewMaxCount ? String(request.crewMaxCount) : '',
     individualOpenAt: fromLocalDateTime(request.individualOpenAt),
     applicationCloseAt: fromLocalDateTime(request.applicationCloseAt),
     courses: request.courses.map((c) => ({
@@ -99,6 +102,7 @@ export function saleChangeSchema(edit: RaceForEdit, now: Date) {
       crewOpen: z.boolean(),
       crewSaleStartAt: z.string(),
       crewSaleEndAt: z.string(),
+      crewMaxCount: z.string(),
       individualOpenAt: z
         .string()
         .refine((v) => parseDateTimeInput(v) !== null, SALE_CHANGE_ERRORS.dateTimeRequired),
@@ -111,6 +115,16 @@ export function saleChangeSchema(edit: RaceForEdit, now: Date) {
         .refine((value) => parseRaceDateInput(value) !== null, SALE_CHANGE_ERRORS.dateFormat),
     })
     .superRefine((values, ctx) => {
+      // 서버 RaceRequestValidator: 크루 최대 인원은 크루 최소 인원 이상이다. 비우면 제한이 없다
+      const min = request.crewMinCount ?? 4
+      const max = values.crewMaxCount.trim()
+      if (values.crewOpen && max !== '' && !(/^\d+$/.test(max) && Number(max) >= min)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['crewMaxCount'],
+          message: `크루 최대 인원은 ${min}명 이상의 숫자로 입력해 주세요.`,
+        })
+      }
       checkSchedule(edit, values, now, (path, message) =>
         ctx.addIssue({ code: 'custom', path, message }),
       )
@@ -228,6 +242,8 @@ export function toUpdateRequest(
       ? scheduleValue(request, values, 'crewSaleStartAt')
       : undefined,
     crewSaleEndAt: values.crewOpen ? scheduleValue(request, values, 'crewSaleEndAt') : undefined,
+    crewMaxCount:
+      values.crewOpen && values.crewMaxCount.trim() ? Number(values.crewMaxCount) : undefined,
     individualOpenAt: scheduleValue(request, values, 'individualOpenAt'),
     applicationCloseAt: scheduleValue(request, values, 'applicationCloseAt'),
     courses: request.courses.map((course, i) => ({

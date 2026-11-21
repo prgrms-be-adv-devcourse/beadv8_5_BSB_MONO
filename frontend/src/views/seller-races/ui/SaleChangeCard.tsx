@@ -122,7 +122,8 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
     setValue('crewOpen', open, { shouldDirty: true })
     setValue('crewSaleStartAt', open ? initial.crewSaleStartAt : '', { shouldDirty: true })
     setValue('crewSaleEndAt', open ? initial.crewSaleEndAt : '', { shouldDirty: true })
-    clearErrors(['crewSaleStartAt', 'crewSaleEndAt'])
+    setValue('crewMaxCount', open ? initial.crewMaxCount : '', { shouldDirty: true })
+    clearErrors(['crewSaleStartAt', 'crewSaleEndAt', 'crewMaxCount'])
   }
   const [images, setImages] = useState(() => initialImageChange(edit))
   // 새 사진을 올린 뒤 대회 전체를 PUT 한다. 사진 업로드 실패도 같은 오류 문구로 보여 준다
@@ -151,6 +152,18 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
             onCrewOpenChange={changeCrewOpen}
             crewOpenDisabled={!editable || locks.crewOpen}
             onChange={changeSchedule}
+            crewExtra={
+              <TextField
+                label="크루 최대 인원"
+                helper="비우면 인원 제한이 없어요"
+                inputMode="numeric"
+                filter={digitsOnly}
+                trailing="명"
+                error={errors.crewMaxCount?.message}
+                className="w-1/2 pr-2"
+                {...register('crewMaxCount')}
+              />
+            }
             errors={{
               crewSaleStartAt: errors.crewSaleStartAt?.message,
               crewSaleEndAt: errors.crewSaleEndAt?.message,
