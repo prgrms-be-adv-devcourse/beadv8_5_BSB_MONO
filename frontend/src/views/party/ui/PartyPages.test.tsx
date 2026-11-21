@@ -581,6 +581,7 @@ describe('파티 합류', () => {
             memberCount: 10,
             joinTokenExpiresAt: '2099-01-01T00:00:00',
             joinLinkAlive: true,
+            crewMember: true,
           },
         }),
       ),
@@ -596,6 +597,68 @@ describe('파티 합류', () => {
     await fillAndSubmit(user)
     expect(await screen.findByText('이 대회에 개인 신청이 있어요')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '개인 신청 취소하기' })).toBeInTheDocument()
+  })
+
+  // CRU-119: 크루원이 아닌 사람이 입력을 다 한 뒤에야 막히지 않게, 링크를 연 순간 안내한다
+  describe('크루원 여부', () => {
+    function previewWith(extra: Record<string, unknown>) {
+      server.use(
+        http.post('*/api/v1/order/parties/preview', () =>
+          HttpResponse.json({
+            status: 200,
+            message: '성공',
+            data: {
+              id: 1,
+              crewId: 7,
+              raceId: 100,
+              raceCourseId: 2,
+              status: 'RECRUITING',
+              leaderNickname: '달리는곰',
+              memberCount: 3,
+              joinTokenExpiresAt: '2099-01-01T00:00:00',
+              joinLinkAlive: true,
+              ...extra,
+            },
+          }),
+        ),
+      )
+    }
+
+    it('크루원이 아니면 입력칸과 합류하기 없이 크루원 안내를 바로 보여 준다', async () => {
+      previewWith({ crewMember: false })
+      renderPage(<PartyJoinPage token="ok" />)
+      expect(await screen.findByText('크루원만 합류할 수 있어요')).toBeInTheDocument()
+      expect(screen.queryByLabelText('참가자 이름')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '합류하기' })).not.toBeInTheDocument()
+    })
+
+    it('크루원이면 입력 화면을 보여 준다', async () => {
+      previewWith({ crewMember: true })
+      renderPage(<PartyJoinPage token="ok" />)
+      expect(await screen.findByLabelText('참가자 이름')).toBeInTheDocument()
+      expect(screen.queryByText('크루원만 합류할 수 있어요')).not.toBeInTheDocument()
+    })
+
+    it('응답에 크루원 여부가 없으면 지금처럼 입력 화면을 보여 준다', async () => {
+      previewWith({})
+      renderPage(<PartyJoinPage token="ok" />)
+      expect(await screen.findByLabelText('참가자 이름')).toBeInTheDocument()
+      expect(screen.queryByText('크루원만 합류할 수 있어요')).not.toBeInTheDocument()
+    })
+
+    it('크루원이 아니고 링크도 끝났으면 크루원 안내를 먼저 보여 준다', async () => {
+      previewWith({ crewMember: false, joinLinkAlive: false })
+      renderPage(<PartyJoinPage token="ok" />)
+      expect(await screen.findByText('크루원만 합류할 수 있어요')).toBeInTheDocument()
+      expect(screen.queryByText('링크 기간이 끝났어요')).not.toBeInTheDocument()
+    })
+
+    it('링크를 연 뒤 크루를 나갔다면 합류 요청의 403으로 같은 안내를 보여 준다', async () => {
+      const user = userEvent.setup()
+      renderPage(<PartyJoinPage token="notmember" />)
+      await fillAndSubmit(user)
+      expect(await screen.findByText('크루원만 합류할 수 있어요')).toBeInTheDocument()
+    })
   })
 })
 

@@ -88,6 +88,7 @@ export function PartyJoinPage({ token }: { token: string }) {
   const failure: PartyFailure | undefined =
     blocked ??
     (preview.error ? partyFailureOf(preview.error) : undefined) ??
+    (data && data.crewMember === false ? 'NOT_CREW_MEMBER' : undefined) ??
     (data && !data.joinLinkAlive ? 'LINK_EXPIRED' : undefined) ??
     (data && data.status !== 'RECRUITING' ? 'NOT_RECRUITING' : undefined)
 
