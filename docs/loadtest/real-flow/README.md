@@ -75,6 +75,8 @@ ENV="-e LOADTEST_PASSWORD=<비밀번호> -e BASE_URL=http://host.docker.internal
 bash seed/identities.sh 1 190 | docker exec -i bukang-redis redis-cli      # 계정 수는 seed가 알려 준다 (STAGES=100이면 190)
 MSYS_NO_PATHCONV=1 eval $K6 run $ENV -e JOIN=1 -e CHARGE=1 seed/seed.js     # → .crews.json
 docker exec -i bukang-db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" bukang-db' < seed/backdate-crews.sql
+# 결제 중 충전 흐름도 보려면: 계정 5개 중 1개를 0원으로 (운영 SQL의 DB 이름만 바꿔 돌린다. 로컬 결제사는 원래 가짜다)
+sed 's/crewrun_cash\./`bukang-db`./g; s/crewrun_member\./`bukang-db`./g' seed/charge-prod.sql | docker exec -i bukang-db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" bukang-db'
 
 # 2. 실행 (PREP: 준비 단계에 줄 시간, 로컬은 60초면 된다)
 MSYS_NO_PATHCONV=1 eval $K6 run $ENV -e PREP=60 -e SUMMARY_FILE=results/local-100.json rush.js
@@ -93,16 +95,48 @@ bash check.sh 15,16
    판매자: 운영에는 `seller1@crewrun.com`이 없다. 테스트 계정 `realflow0`을 가입시키고(`identities.sh 0 0`, 토큰 `realflow-0`)
    `crewrun_product.product_seller`에 승인 상태로 넣은 뒤 `-e SELLER_EMAIL=realflow0@crewrun.test`로 돌린다 (상품 쪽 판매자 표만이라 정산 대상이 되기 전에 정리한다)
    SQL에 한글(크루 이름)이 있으면 `SET NAMES utf8mb4;`를 먼저 넣는다. 없으면 0행이 바뀐다
-4. `rush.js`를 `BASE_URL`·`API_URL` 없이(기본 운영 주소) 돌린다. `PREP`은 계정 수에 맞춰 넉넉히(2,310개면 600초로 준비 150초)
+   `charge-prod.sql`은 계정 번호가 5의 배수인 계정을 0원으로 둔다. 이 사람들은 결제에서 모자람을 받고 충전한 뒤 다시 결제한다(아래 「결제 중 충전」)
+4. **cash 결제사를 가짜로 바꾼다** (충전 흐름을 잴 때만). 운영 충전은 실제 Toss를 불러 k6의 가짜 결제 키를 거절하기 때문이다.
+   메인 EC2에서 돌린다. cash Pod가 다시 뜨며 1분쯤 충전·결제가 멈춘다
+
+   ```bash
+   kubectl -n crewrun set env deploy/bukang-cash-service CASH_CLIENTS_PG_MODE=fake CASH_CLIENTS_PG_FAKECONFIRMDELAY=500ms
+   kubectl -n crewrun rollout status deploy/bukang-cash-service
+   kubectl -n crewrun logs deploy/bukang-cash-service | grep FakePaymentClient   # 「가짜 응답(FakePaymentClient)을 씁니다」가 보여야 한다
+   ```
+
+   켜 둔 동안에는 **누구의 충전이든 돈 없이 승인된다.** 측정하는 동안만 켠다
+5. `rush.js`를 `BASE_URL`·`API_URL` 없이(기본 운영 주소) 돌린다. `PREP`은 계정 수에 맞춰 넉넉히(2,310개면 600초로 준비 150초)
    k6 지표를 운영 Prometheus로 보내려면 `-o experimental-prometheus-rw --tag testid=<이름>`과 `K6_PROMETHEUS_RW_*`(사용자 `crewrun`, 비밀번호는 Secret `monitoring-remote-write`)를 붙인다. Grafana 「크루런 · 부하 테스트」에서 testid로 본다
-5. 정합성: `DB=prod bash check.sh <대회 ID>`가 출력하는 SQL을 보조 서버 MySQL에서 돌린다
-6. **스위치를 `"false"`로 되돌려 배포한다** (시연 전에 반드시)
+6. 정합성: `DB=prod bash check.sh <대회 ID>`가 출력하는 SQL을 보조 서버 MySQL에서 돌린다
+7. **cash 결제사를 실제 Toss로 되돌린다.** `deploy.sh`의 `kubectl apply`는 직접 넣은 환경 변수를 지우지 않아, 다음 배포가 와도 가짜로 남는다
+
+   ```bash
+   kubectl -n crewrun set env deploy/bukang-cash-service CASH_CLIENTS_PG_MODE- CASH_CLIENTS_PG_FAKECONFIRMDELAY-
+   kubectl -n crewrun rollout status deploy/bukang-cash-service
+   kubectl -n crewrun logs deploy/bukang-cash-service | grep FakePaymentClient   # 아무것도 안 나와야 한다
+   ```
+
+   그 동안 만든 충전은 Toss에 기록이 없다. 테스트 계정 예치금은 환급하지 말고 DB에서 정리한다
+8. **nginx 스위치를 `"false"`로 되돌려 배포한다** (시연 전에 반드시)
 
 X 실행은 N·M 결과를 본 뒤 `-e STAGES=600x1,600x2,600x3`처럼 쌍당 인원을 정해 돌린다. 계정이 쌍 수만큼 더 필요하다.
 
+## 결제 중 충전 (CRU-110)
+
+화면(`CheckoutPage`)과 같은 순서다. 결제 API가 409 `ORDER_INSUFFICIENT_BALANCE`와 모자란 금액을 주면
+
+1. 토스 결제창에서 카드를 고르는 시간(`TOSS_WINDOW`, 기본 30초)만큼 기다린다. 결제창은 k6가 열 수 없다
+2. 토스가 돌려보낸 `/me/deposit/charge/return` 화면을 새로 연다 → 문서를 새로 열어 Access Token이 없으니 재발급
+3. `POST /cash/charges/confirm` (금액 = 모자란 금액, 1만 원보다 적으면 1만 원). 멱등키는 `charge-rf-{주문 ID}-{시각}`이라 정합성 확인에서 주문과 잇는다
+4. `/checkout?orderId=…&charged=1`로 바꿔 들어가 주문·잔액·대회·참가 신청을 다시 보고, 같은 주문으로 바로 결제한다
+
+충전은 결제 한 번에 한 번만 한다. 충전하고도 모자라면 `flow_broken{where=payment}`, 충전 확정이 안 되면 `charge_failed`와 `flow_broken{where=charge}`로 센다.
+결제 기한(대기열 입장 시간)은 늘지 않는다. 충전에 걸린 시간만큼 기한 안에서 줄어든다.
+
 ## 결과 보기
 
-- 끝나면 화면에 사람 단위 숫자가 나온다: `booking_completed`(결제 완료), `booking_sold_out`(매진), `pay_busy_first`(첫 결제 503), `pay_retry_success`(다시 시도해 결제), `booking_failed_final`(결제 못 함), `party_applied`, `party_seat_short`, `flow_broken`(예상 못 한 응답)
+- 끝나면 화면에 사람 단위 숫자가 나온다: `booking_completed`(결제 완료), `booking_sold_out`(매진), `pay_busy_first`(첫 결제 503), `pay_retry_success`(다시 시도해 결제), `booking_failed_final`(결제 못 함), `party_applied`, `party_seat_short`, `flow_broken`(예상 못 한 응답), `charge_needed`(충전하러 감), `charge_completed`(충전됨), `charge_failed`(충전 실패)
 - 요청마다 `kind`(page·read·queue·write·auth), `name`(주소), `scenario`(역할), `stage`(구간) 태그가 붙는다. `SUMMARY_FILE`의 JSON과 Grafana(k6 Prometheus 출력)에서 나눠 본다
 - X는 `booking_completed`의 초당 증가(30초 창 최대)다
 - 결과 HTML: `report/`의 스크립트를 Docker Node로 돌린다 (이 PC에 node가 없어도 된다)

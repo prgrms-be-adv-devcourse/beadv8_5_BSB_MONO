@@ -4,7 +4,9 @@ import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import {
 	EMAIL_DOMAIN,
+	MAX_CHARGE,
 	MAX_PAY_ATTEMPTS,
+	MIN_CHARGE,
 	PASSWORD,
 	POLL_SECONDS,
 	THINK,
@@ -21,6 +23,9 @@ export const payAttempts = new Trend('pay_attempts'); // 한 사람이 결제를
 export const partyApplied = new Counter('party_applied'); // 파티 신청 성공 (크루 자리 확보)
 export const partySeatShort = new Counter('party_seat_short'); // 크루 자리가 모자라 신청 거절
 export const flowBroken = new Counter('flow_broken'); // 예상하지 못한 응답으로 흐름이 끊김
+export const chargeNeeded = new Counter('charge_needed'); // 결제에서 예치금이 모자라(409) 충전하러 감
+export const chargeCompleted = new Counter('charge_completed'); // 충전 확정까지 됨
+export const chargeFailed = new Counter('charge_failed'); // 충전 확정이 안 됨 (결제도 못 함)
 
 const SEC = 1000;
 
@@ -100,10 +105,17 @@ export function browseOnly(s, race) {
 // ── 결제 (2·4번 공통). 8-3: 503이면 실패 화면 → 「다시 결제하기」 → 다시 누름, 최대 5번 ──
 function pay(s, { orderId, participationId, raceId, raceCourseId, metricTags }) {
 	const admission = `/order/queue/admission?raceId=${raceId}&raceCourseId=${raceCourseId}`;
+	let charged = false;
 	for (let attempt = 1; attempt <= MAX_PAY_ATTEMPTS; attempt++) {
-		const res = s.api('POST', `/order/orders/${orderId}/payment`, {
-			name: 'POST /order/orders/{orderId}/payment', kind: 'write', expected: [200, 202, 503],
-		});
+		let res = payOnce(s, orderId);
+		if (!charged && code(res) === 'ORDER_INSUFFICIENT_BALANCE') {
+			// 예치금이 모자람: 주문과 자리는 그대로 남는다. 충전하고 돌아오면 같은 주문으로 다시 결제한다 (한 번만)
+			charged = true;
+			if (!chargeDuringCheckout(s, { orderId, participationId, raceId, shortage: data(res, 'data.shortage'), metricTags })) {
+				return false;
+			}
+			res = payOnce(s, orderId);
+		}
 		let paid = res.status === 200 && data(res, 'data.status') === 'PAID';
 		if (res.status === 202) {
 			// 결제 확인 중: 화면이 주문을 3초마다 다시 본다. 결제 대기로 돌아오면 거절된 것
@@ -150,6 +162,46 @@ function pay(s, { orderId, participationId, raceId, raceCourseId, metricTags }) 
 	payAttempts.add(MAX_PAY_ATTEMPTS, metricTags);
 	bookingFailedFinal.add(1, metricTags);
 	return false;
+}
+
+function payOnce(s, orderId) {
+	return s.api('POST', `/order/orders/${orderId}/payment`, {
+		name: 'POST /order/orders/{orderId}/payment', kind: 'write', expected: [200, 202, 409, 503],
+	});
+}
+
+// 결제 중 충전 (frontend CheckoutPage → requestCharge → 토스 결제창 → DepositChargeReturnPage → /checkout?charged=1)
+// 토스 결제창은 k6가 열 수 없어 그 시간만큼 기다린다. 운영은 이 동안 cash 결제사를 가짜로 바꿔 둔다 (README)
+function chargeDuringCheckout(s, { orderId, participationId, raceId, shortage, metricTags }) {
+	chargeNeeded.add(1, metricTags);
+	const amount = Math.min(Math.max(shortage || 0, MIN_CHARGE), MAX_CHARGE);
+	sleep(THINK.tossWindow);
+
+	// 토스가 돌아온 화면 주소로 브라우저를 보낸다: 문서를 새로 열어 Access Token이 없으니 재발급부터 한다
+	const chargeOrderId = `charge-rf-${orderId}-${Date.now()}`;
+	const paymentKey = `rf-pk-${chargeOrderId}`;
+	s.page(
+		`/me/deposit/charge/return?result=success&paymentType=NORMAL&paymentKey=${paymentKey}&orderId=${chargeOrderId}&amount=${amount}`,
+		'PAGE /me/deposit/charge/return', { first: true },
+	);
+	s.reissue();
+	const confirmed = s.api('POST', '/cash/charges/confirm', {
+		name: 'POST /cash/charges/confirm', kind: 'write', body: { paymentKey, orderId: chargeOrderId, amount },
+	});
+	if (confirmed.status !== 200) {
+		chargeFailed.add(1, metricTags);
+		broken(metricTags, 'charge', confirmed);
+		return false;
+	}
+	chargeCompleted.add(1, metricTags);
+
+	// 충전됨 → 결제 화면(charged=1)으로 바꿔 들어가 주문·잔액을 다시 보고 바로 결제한다
+	s.page(`/checkout?orderId=${orderId}&charged=1`, 'PAGE /checkout');
+	s.api('GET', `/order/orders/${orderId}`, { name: 'GET /order/orders/{orderId}' });
+	s.api('GET', '/cash/wallets/balance', { name: 'GET /cash/wallets/balance' });
+	s.api('GET', `/product/races/${raceId}`, { name: 'GET /product/races/{raceId}' });
+	s.api('GET', `/order/participations/${participationId}`, { name: 'GET /order/participations/{id}' });
+	return true;
 }
 
 // 대기열 줄서기와 입장 확인 (개인). 409(이미 입장)면 순서 조회 없이 입장 확인으로 간다

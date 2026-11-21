@@ -80,6 +80,9 @@ export const options = {
 		pay_retry_success: ['count>=0'],
 		booking_failed_final: ['count==0'],
 		flow_broken: ['count==0'],
+		charge_needed: ['count>=0'],
+		charge_completed: ['count>=0'],
+		charge_failed: ['count==0'],
 	},
 	summaryTrendStats: ['avg', 'p(50)', 'p(95)', 'p(99)', 'max'],
 };
@@ -381,6 +384,7 @@ export function handleSummary(summary) {
 		`첫 결제 503 pay_busy_first: ${count('pay_busy_first')}  다시 시도해 결제 pay_retry_success: ${count('pay_retry_success')}`,
 		`결제 못 함 booking_failed_final: ${count('booking_failed_final')}`,
 		`파티 신청 성공 party_applied: ${count('party_applied')}  크루 자리 부족 party_seat_short: ${count('party_seat_short')}`,
+		`충전하러 감 charge_needed: ${count('charge_needed')}  충전됨 charge_completed: ${count('charge_completed')}  충전 실패 charge_failed: ${count('charge_failed')}`,
 		`흐름 끊김 flow_broken: ${count('flow_broken')}`,
 		'',
 	].join('\n');
