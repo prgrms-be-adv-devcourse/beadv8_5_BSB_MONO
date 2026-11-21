@@ -1,7 +1,17 @@
-import { addDays, format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { z } from 'zod'
 
-import { parseRaceDateInput } from '@/entities/race'
+import {
+  checkScheduleOrder,
+  earliestSaleOpenDate,
+  parseDateTimeInput,
+  parseRaceDateInput,
+  SALE_OPEN_MIN_DAYS,
+  saleOpenTooEarlyMessage,
+  SCHEDULE_ERRORS,
+  TIME_INPUT,
+  toLocalDateTime,
+} from '@/entities/race'
 import { productModel } from '@/shared/api'
 import { productZod } from '@/shared/api-zod'
 
@@ -18,28 +28,13 @@ export const RACE_FORM_ERRORS = {
   sigunguMax: `시·군·구는 ${productZod.registerBodyRegionSigunguMax}자 이하로 입력해 주세요.`,
   dateRequired: '날짜를 골라 주세요.',
   timeRequired: '출발 시각을 입력해 주세요.',
-  // 일반 판매 시작 · 접수 마감 · 크루 예매 시작·마감: 날짜와 시각을 함께 받는다
-  dateTimeRequired: '날짜와 시각을 입력해 주세요.',
-  crewEndAfterStart: '크루 예매 마감은 시작보다 늦어야 해요.',
-  individualAfterCrew: '일반 판매는 크루 예매 마감 다음 날 0시부터 시작할 수 있어요.',
-  closeAfterOpen: '접수 마감은 일반 판매 시작보다 늦어야 해요.',
-  closeBeforeRace: '접수 마감은 대회 시작 전까지 정할 수 있어요.',
+  ...SCHEDULE_ERRORS,
   refundBeforeRace: '환불 기한은 대회 날짜보다 늦을 수 없어요.',
   coursesRequired: '종목을 1개 이상 추가해 주세요.',
   coverRequired: '대표 이미지를 올려 주세요.',
 } as const
 
-/** 판매 시작일(접수 시작)은 오늘로부터 이 날 수 뒤부터 (서버 Race.SALE_OPEN_MIN_DAYS와 같다) */
-export const SALE_OPEN_MIN_DAYS = 2
-
-/** 접수 시작으로 고를 수 있는 가장 이른 날 */
-export function earliestSaleOpenDate(today: Date): Date {
-  return addDays(today, SALE_OPEN_MIN_DAYS)
-}
-
-export function saleOpenTooEarlyMessage(earliest: Date): string {
-  return `접수 시작은 오늘로부터 이틀 뒤(${format(earliest, 'M/d')})부터 정할 수 있어요.`
-}
+export { earliestSaleOpenDate, SALE_OPEN_MIN_DAYS, saleOpenTooEarlyMessage }
 
 /** 소개 이미지 최대 장수 (파일 서비스 DETAIL 용도의 개수 제한) */
 export const MAX_INTRO_IMAGES = 5
@@ -85,24 +80,11 @@ const date = z
   .string()
   .refine((value) => parseRaceDateInput(value) !== null, RACE_FORM_ERRORS.dateRequired)
 
-const TIME_INPUT = /^([01]\d|2[0-3]):[0-5]\d$/
-
-/** 날짜 · 시각 칸('yyyy-MM-dd HH:mm'). 날짜나 시각이 비었거나 틀리면 null */
-export function parseDateTimeInput(text: string): string | null {
-  const match = /^(\S+) (\S+)$/.exec(text.trim())
-  const day = match && parseRaceDateInput(match[1])
-  return day && TIME_INPUT.test(match[2]) ? `${day} ${match[2]}` : null
-}
+export { parseDateTimeInput }
 
 const dateTime = z
   .string()
   .refine((value) => parseDateTimeInput(value) !== null, RACE_FORM_ERRORS.dateTimeRequired)
-
-/** 크루 몫이 일반 몫으로 넘어가는 시각. 크루 예매 마감이 00:00이면 그 시각, 아니면 다음 날 00:00 (서버 Race.crewCloseAt) */
-function crewCloseAt(crewEnd: string): string {
-  if (crewEnd.endsWith(' 00:00')) return crewEnd
-  return `${format(addDays(parseISO(crewEnd.slice(0, 10)), 1), 'yyyy-MM-dd')} 00:00`
-}
 
 export const KIT_OPTION_ERRORS = {
   nameRequired: '옵션 이름을 입력해 주세요.',
@@ -223,27 +205,9 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       const raceAt =
         raceDate && TIME_INPUT.test(values.raceTime) ? `${raceDate} ${values.raceTime}` : null
       const openAt = parseDateTimeInput(values.individualOpenAt)
-      const closeAt = parseDateTimeInput(values.applicationCloseAt)
       const refund = parseRaceDateInput(values.refundDeadline)
       const crewStart = values.crewOpen ? parseDateTimeInput(values.crewSaleStartAt) : null
-      const crewEnd = values.crewOpen ? parseDateTimeInput(values.crewSaleEndAt) : null
-
-      if (values.crewOpen) {
-        if (!crewStart) issue(['crewSaleStartAt'], RACE_FORM_ERRORS.dateTimeRequired)
-        if (!crewEnd) issue(['crewSaleEndAt'], RACE_FORM_ERRORS.dateTimeRequired)
-        if (crewStart && crewEnd && crewStart >= crewEnd) {
-          issue(['crewSaleEndAt'], RACE_FORM_ERRORS.crewEndAfterStart)
-        }
-        if (crewEnd && openAt && openAt < crewCloseAt(crewEnd)) {
-          issue(['individualOpenAt'], RACE_FORM_ERRORS.individualAfterCrew)
-        }
-      }
-      if (openAt && closeAt && closeAt <= openAt) {
-        issue(['applicationCloseAt'], RACE_FORM_ERRORS.closeAfterOpen)
-      }
-      if (closeAt && raceAt && closeAt > raceAt) {
-        issue(['applicationCloseAt'], RACE_FORM_ERRORS.closeBeforeRace)
-      }
+      checkScheduleOrder(values, raceAt, (path, message) => issue([path], message))
       if (refund && raceDate && refund > raceDate) {
         issue(['refundDeadline'], RACE_FORM_ERRORS.refundBeforeRace)
       }
@@ -358,12 +322,6 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   // 종목 · 키트 옵션은 비워 두고 판매자가 직접 추가한다
   courses: [],
   kitOptions: [],
-}
-
-/** 'yyyy-MM-dd HH:mm' → 서버 LocalDateTime. 23:59는 그 날 끝(초까지 59)으로 본다 */
-function toLocalDateTime(text: string): string {
-  const [day, clock] = text.trim().split(' ')
-  return `${parseRaceDateInput(day) ?? day}T${clock}:${clock === '23:59' ? '59' : '00'}`
 }
 
 /** 검사를 마친 입력과 대회 이미지(대표 이미지) · 종목별 이미지로 대회 등록 요청을 만든다. courseImages는 courses와 같은 순서다. */

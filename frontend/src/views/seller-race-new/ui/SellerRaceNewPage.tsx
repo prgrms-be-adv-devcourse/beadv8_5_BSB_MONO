@@ -8,14 +8,13 @@ import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'rea
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
-import { parseRaceDateInput } from '@/entities/race'
+import { parseRaceDateInput, RaceScheduleFields } from '@/entities/race'
 import { ApiError } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
 import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
-  Chip,
   DataTable,
   digitsOnly,
   ImageCropDialog,
@@ -417,95 +416,23 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           </ConsoleCard>
 
           <ConsoleCard title="판매 일정">
-            <div className="flex flex-col gap-4">
-              <div role="group" aria-labelledby="crew-open-label" className="flex flex-col gap-2">
-                <span id="crew-open-label" className="text-body2-medium">
-                  크루 선예매
-                </span>
-                <div className="flex gap-2">
-                  <Chip selected={crewOpen} onClick={openCrew}>
-                    열기
-                  </Chip>
-                  <Chip selected={!crewOpen} onClick={closeCrew}>
-                    열지 않기
-                  </Chip>
-                </div>
-              </div>
-              {/* 시각은 시안처럼 칸 옆에 직접 쓴다. 서버에는 그 시각 그대로 보낸다(23:59는 그날 끝) */}
-              {crewOpen && (
-                <div className="flex gap-4">
-                  <Controller
-                    control={control}
-                    name="crewSaleStartAt"
-                    render={({ field }) => (
-                      <DateTimeField
-                        mode="single"
-                        label="크루 예매 시작"
-                        required
-                        error={errors.crewSaleStartAt?.message}
-                        isDateDisabled={isBeforeSaleOpen}
-                        startMonth={startOfToday()}
-                        onValueChange={field.onChange}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name="crewSaleEndAt"
-                    render={({ field }) => (
-                      <DateTimeField
-                        mode="single"
-                        label="크루 예매 마감"
-                        required
-                        helper="마감 뒤 남은 크루 자리는 일반 판매로 넘어가요"
-                        error={errors.crewSaleEndAt?.message}
-                        isDateDisabled={isBeforeSaleOpen}
-                        startMonth={startOfToday()}
-                        onValueChange={field.onChange}
-                      />
-                    )}
-                  />
-                </div>
-              )}
-              <div className="flex gap-4">
-                <Controller
-                  control={control}
-                  name="individualOpenAt"
-                  render={({ field }) => (
-                    <DateTimeField
-                      mode="single"
-                      label="일반 판매 시작"
-                      required
-                      helper={crewOpen ? '크루 예매 마감 뒤로 고를 수 있어요' : undefined}
-                      error={errors.individualOpenAt?.message}
-                      isDateDisabled={(date) =>
-                        isBeforeSaleOpen(date) || (raceDay !== undefined && isAfter(date, raceDay))
-                      }
-                      startMonth={startOfToday()}
-                      onValueChange={field.onChange}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="applicationCloseAt"
-                  render={({ field }) => (
-                    <DateTimeField
-                      mode="single"
-                      label="접수 마감"
-                      required
-                      helper="대회 시작 전까지 고를 수 있어요"
-                      error={errors.applicationCloseAt?.message}
-                      isDateDisabled={(date) =>
-                        isBeforeSaleOpen(date) || (raceDay !== undefined && isAfter(date, raceDay))
-                      }
-                      startMonth={startOfToday()}
-                      onValueChange={field.onChange}
-                    />
-                  )}
-                />
-              </div>
-            </div>
+            <RaceScheduleFields
+              crewOpen={crewOpen}
+              onCrewOpenChange={(open) => (open ? openCrew() : closeCrew())}
+              onChange={(name, value) => setValue(name, value, { shouldDirty: true })}
+              errors={{
+                crewSaleStartAt: errors.crewSaleStartAt?.message,
+                crewSaleEndAt: errors.crewSaleEndAt?.message,
+                individualOpenAt: errors.individualOpenAt?.message,
+                applicationCloseAt: errors.applicationCloseAt?.message,
+              }}
+              isDateDisabled={(name, date) =>
+                isBeforeSaleOpen(date) ||
+                ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
+                  raceDay !== undefined &&
+                  isAfter(date, raceDay))
+              }
+            />
           </ConsoleCard>
         </div>
 
