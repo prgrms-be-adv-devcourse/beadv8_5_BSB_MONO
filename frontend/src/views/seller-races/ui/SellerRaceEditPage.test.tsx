@@ -96,6 +96,25 @@ describe('SellerRaceEditPage', () => {
         })
       }),
     )
+    // 저장 뒤 보낸 이미지가 연결된 것처럼 답한다 (화면은 연결을 확인하고 나서 끝낸다)
+    server.use(
+      http.get('*/api/v1/file/files', ({ request }) => {
+        // 저장 전에는 기본 응답을 쓴다
+        if (!body) return undefined
+        const url = new URL(request.url)
+        const refId = Number(url.searchParams.get('refId'))
+        const sent =
+          url.searchParams.get('refType') === 'Race'
+            ? body?.images
+            : body?.courses.find((c) => c.courseId === refId)?.images
+        const data = (sent ?? []).map((i) => ({
+          id: i.fileId,
+          fileType: i.fileType,
+          status: 'ACTIVE',
+        }))
+        return HttpResponse.json({ status: 200, message: 'ok', data })
+      }),
+    )
     URL.createObjectURL = vi.fn(() => 'blob:new')
     URL.revokeObjectURL = vi.fn()
     // jsdom은 이미지를 읽지 않으므로 가로 1080px 이상으로 바로 읽힌 것처럼 한다
