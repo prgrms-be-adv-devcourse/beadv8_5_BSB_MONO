@@ -47,7 +47,8 @@ export function SellerRecordReviewPage({ raceId }: { raceId: number }) {
           description={serverText(list.error)}
         />
       ) : !selected ? (
-        <ConsoleCard className="py-24">
+        // 시안 높이 276을 지킨다. 「기록증 규칙 보기」 버튼(40 + 간격 16)은 규칙 화면이 없어 빼고 아래 여백으로 남긴다
+        <ConsoleCard className="pt-24 pb-38">
           <EmptyState icon={null} title="심사할 기록증이 없어요" className="p-0" />
         </ConsoleCard>
       ) : (
