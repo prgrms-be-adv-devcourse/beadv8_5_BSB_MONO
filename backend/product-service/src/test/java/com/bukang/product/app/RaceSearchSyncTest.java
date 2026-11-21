@@ -140,7 +140,7 @@ class RaceSearchSyncTest extends ProductIntegrationTest {
 	// 판매 예정 대회 (판매 시작일은 오늘로부터 이틀 뒤부터 등록할 수 있다). 판매 예정이어야 종목·참가비를 고칠 수 있다
 	private RaceBuilder scheduledRace() {
 		return race()
-			.raceDate(now.plusDays(15))
+			.raceDate(now.plusDays(31))
 			.individualOpenAt(now.plusDays(3))
 			.applicationCloseAt(now.plusDays(10));
 	}

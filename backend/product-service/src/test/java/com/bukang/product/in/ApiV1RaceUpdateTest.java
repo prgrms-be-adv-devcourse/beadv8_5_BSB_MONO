@@ -73,7 +73,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 
 		RaceSaveRequestDto request = scheduledRace()
 			.individualOpenAt(now.plusDays(3))
-			.refundDeadline(now.plusDays(5).toLocalDate())
+			.refundDeadline(now.plusDays(12).toLocalDate())
 			.course(sameCourse(registered.courseId())
 				.price(60_000)
 				.quota(0, 50)
@@ -106,7 +106,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		assertThat(course.getMaxAge()).isNull();
 		assertThat(course.isKitIncluded()).isTrue();
 		Race race = findRace(registered.raceId());
-		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(5).toLocalDate());
+		assertThat(race.getRefundDeadline()).isEqualTo(now.plusDays(12).toLocalDate());
 		assertThat(race.getIndividualOpenAt()).isEqualTo(now.plusDays(3));
 		// 판매 시작일은 바뀐 개인 예매 오픈 날짜로 다시 채운다
 		assertThat(race.getSaleOpenDate()).isEqualTo(now.plusDays(3).toLocalDate());
@@ -114,19 +114,19 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매 예정 대회의 대회 일시를 15일 뒤에서 16일 뒤로 늦추고 장소를 바꿔도 일정·장소 변경 일시는 남기지 않는다")
+	@DisplayName("판매 예정 대회의 대회 일시를 35일 뒤에서 36일 뒤로 늦추고 장소를 바꿔도 일정·장소 변경 일시는 남기지 않는다")
 	void noScheduleChangeRecordBeforeSaleOpen() throws Exception {
 		RegisteredRace registered = register(scheduledRace().build());
 
 		update(registered.raceId(), scheduledRace()
-			.raceDate(now.plusDays(16))
+			.raceDate(now.plusDays(36))
 			.location("뚝섬 한강공원")
 			.course(sameCourse(registered.courseId()))
 			.build())
 			.andExpect(status().isOk());
 
 		Race race = findRace(registered.raceId());
-		assertThat(race.getRaceDate()).isEqualTo(now.plusDays(16));
+		assertThat(race.getRaceDate()).isEqualTo(now.plusDays(36));
 		assertThat(race.getLocation()).isEqualTo("뚝섬 한강공원");
 		assertThat(race.getScheduleChangedAt()).isNull();
 	}
@@ -276,18 +276,18 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매 중 대회의 환불 기준일을 대회 날짜(15일 뒤)에서 14일 뒤로 앞당기면 409이다")
+	@DisplayName("판매 중 대회의 환불 기준일을 대회 날짜(35일 뒤)에서 34일 뒤로 앞당기면 409이다")
 	void rejectRefundDeadlineAdvanceAfterSaleStarted() throws Exception {
 		RegisteredRace registered = registerOnSale(sameRace().build());
 
 		update(registered.raceId(), sameRace()
-			.refundDeadline(now.plusDays(14).toLocalDate())
+			.refundDeadline(now.plusDays(34).toLocalDate())
 			.course(sameCourse(registered.courseId()))
 			.build())
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("판매가 시작된 대회는 환불 기준일을 앞당길 수 없습니다."));
 
-		assertThat(findRace(registered.raceId()).getRefundDeadline()).isEqualTo(now.plusDays(15).toLocalDate());
+		assertThat(findRace(registered.raceId()).getRefundDeadline()).isEqualTo(now.plusDays(35).toLocalDate());
 	}
 
 	@Test
@@ -527,15 +527,15 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("판매 중 대회의 환불 기준일을 대회 5일 전에서 2일 전으로 늦추는 것은 된다")
 	void allowRefundDeadlineDelayAfterSaleStarted() throws Exception {
-		RegisteredRace registered = registerOnSale(sameRace().refundDeadline(now.plusDays(10).toLocalDate()).build());
+		RegisteredRace registered = registerOnSale(sameRace().refundDeadline(now.plusDays(30).toLocalDate()).build());
 
 		update(registered.raceId(), sameRace()
-			.refundDeadline(now.plusDays(13).toLocalDate())
+			.refundDeadline(now.plusDays(33).toLocalDate())
 			.course(sameCourse(registered.courseId()))
 			.build())
 			.andExpect(status().isOk());
 
-		assertThat(findRace(registered.raceId()).getRefundDeadline()).isEqualTo(now.plusDays(13).toLocalDate());
+		assertThat(findRace(registered.raceId()).getRefundDeadline()).isEqualTo(now.plusDays(33).toLocalDate());
 	}
 
 	@Test
@@ -637,7 +637,7 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 	// ---------- 판매 시작 뒤 일정·장소 변경 기록 ----------
 
 	@Test
-	@DisplayName("판매 중 대회의 대회 일시를 15일 뒤에서 16일 뒤로 늦추면 수정한 시각을 일정·장소 변경 일시로 남긴다")
+	@DisplayName("판매 중 대회의 대회 일시를 35일 뒤에서 36일 뒤로 늦추면 수정한 시각을 일정·장소 변경 일시로 남긴다")
 	void recordScheduleChangeWhenRaceDateDelayed() throws Exception {
 		RegisteredRace registered = registerOnSale(sameRace().build());
 		assertThat(findRace(registered.raceId()).getScheduleChangedAt()).isNull();
@@ -645,33 +645,33 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		// DB 시각 정밀도(마이크로초)와 상관없게 앞뒤로 1초 여유를 둔다
 		LocalDateTime before = LocalDateTime.now().minusSeconds(1);
 		update(registered.raceId(), sameRace()
-			.raceDate(now.plusDays(16))
-			.refundDeadline(now.plusDays(15).toLocalDate())
+			.raceDate(now.plusDays(36))
+			.refundDeadline(now.plusDays(35).toLocalDate())
 			.course(sameCourse(registered.courseId()))
 			.build())
 			.andExpect(status().isOk());
 		LocalDateTime after = LocalDateTime.now().plusSeconds(1);
 
 		Race race = findRace(registered.raceId());
-		assertThat(race.getRaceDate()).isEqualTo(now.plusDays(16));
+		assertThat(race.getRaceDate()).isEqualTo(now.plusDays(36));
 		assertThat(race.getScheduleChangedAt()).isBetween(before, after);
 	}
 
 	@Test
-	@DisplayName("판매 중 대회의 대회 일시를 15일 뒤에서 14일 뒤로 앞당겨도(환불 기준일 10일 뒤) 일정·장소 변경 일시를 남긴다")
+	@DisplayName("판매 중 대회의 대회 일시를 35일 뒤에서 34일 뒤로 앞당겨도(환불 기준일 30일 뒤) 일정·장소 변경 일시를 남긴다")
 	void recordScheduleChangeWhenRaceDateAdvanced() throws Exception {
-		LocalDate refundDeadline = now.plusDays(10).toLocalDate();
+		LocalDate refundDeadline = now.plusDays(30).toLocalDate();
 		RegisteredRace registered = registerOnSale(sameRace().refundDeadline(refundDeadline).build());
 
 		update(registered.raceId(), sameRace()
-			.raceDate(now.plusDays(14))
+			.raceDate(now.plusDays(34))
 			.refundDeadline(refundDeadline)
 			.course(sameCourse(registered.courseId()))
 			.build())
 			.andExpect(status().isOk());
 
 		Race race = findRace(registered.raceId());
-		assertThat(race.getRaceDate()).isEqualTo(now.plusDays(14));
+		assertThat(race.getRaceDate()).isEqualTo(now.plusDays(34));
 		assertThat(race.getScheduleChangedAt()).isNotNull();
 	}
 
@@ -937,11 +937,11 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		return getAs("/internal/v1/product/courses/" + courseId + "/record-cert-rule", null);
 	}
 
-	// 기본 요청과 같은 일정 (대회 15일 뒤, 개인 예매 한 시간 전 오픈, 접수 마감 10일 뒤, 환불 기준일 = 대회 날짜)
+	// 기본 요청과 같은 일정 (대회 35일 뒤, 개인 예매 한 시간 전 오픈, 접수 마감 10일 뒤, 환불 기준일 = 대회 날짜)
 	// 판매 시작일이 오늘이므로 registerOnSale()로 판매 중 대회를 만든다
 	private RaceBuilder sameRace() {
 		return race()
-			.raceDate(now.plusDays(15))
+			.raceDate(now.plusDays(35))
 			.individualOpenAt(now.minusHours(1))
 			.applicationCloseAt(now.plusDays(10));
 	}
@@ -952,12 +952,12 @@ class ApiV1RaceUpdateTest extends ProductIntegrationTest {
 		return sameRace().individualOpenAt(now.plusDays(2));
 	}
 
-	// 대회일이 이틀 지난 대회의 일정 (개인 예매 오픈 5일 전, 접수 마감 3일 전). registerOnSale()로 만들면 판매 중이다
+	// 대회일이 이틀 지난 대회의 일정 (개인 예매 오픈 25일 전, 접수 마감 23일 전). registerOnSale()로 만들면 판매 중이다
 	private RaceBuilder finishedRace() {
 		return race()
 			.raceDate(now.minusDays(2))
-			.individualOpenAt(now.minusDays(5))
-			.applicationCloseAt(now.minusDays(3));
+			.individualOpenAt(now.minusDays(25))
+			.applicationCloseAt(now.minusDays(23));
 	}
 
 	// 이미 끝난 크루 예매(3일 전 시작, 2일 전 마감)를 더한다. 개인 예매 오픈(한 시간 전)은 크루 예매 마감일의 자정 이후다

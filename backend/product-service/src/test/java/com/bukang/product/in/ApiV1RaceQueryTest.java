@@ -65,9 +65,9 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	void findOnSaleRaceDetail() throws Exception {
 		RaceBuilder builder = race().crewCount(5, 20);
 		LocalDateTime now = builder.now();
-		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
+		LocalDate refundDeadline = now.plusDays(19).toLocalDate();
 		RaceSaveRequestDto request = builder
-			.raceDate(now.plusDays(20))
+			.raceDate(now.plusDays(40))
 			.individualOpenAt(now.minusHours(2))
 			.applicationCloseAt(now.plusDays(18))
 			.refundDeadline(refundDeadline)
@@ -132,7 +132,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.courses[1].individualRemaining").value(50));
 
 		String body = bodyOf(result);
-		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(20));
+		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(40));
 		// 크루 예매가 없으면 개인 예매 오픈 날짜가 판매 시작일이다
 		assertThat(LocalDate.parse(JsonPath.<String>read(body, "$.data.saleOpenDate")))
 			.isEqualTo(now.minusHours(2).toLocalDate());
@@ -273,7 +273,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		RaceBuilder builder = race().title("세 번째 대회");
 		LocalDateTime now = builder.now();
 		RegisteredRace third = register(builder
-			.raceDate(now.plusDays(20))
+			.raceDate(now.plusDays(40))
 			.individualOpenAt(now.plusDays(2))
 			.applicationCloseAt(now.plusDays(18))
 			.course(course().name("하프").type(CourseType.HALF).distanceKm("21.1").price(60_000).quota(0, 70))
@@ -301,7 +301,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data[0].courses[0].sold").value(0));
 
 		String body = bodyOf(result);
-		assertThat(dateTimeAt(body, "$.data[0].raceDate")).isEqualTo(now.plusDays(20));
+		assertThat(dateTimeAt(body, "$.data[0].raceDate")).isEqualTo(now.plusDays(40));
 		// 크루 예매가 없으면 개인 예매 오픈 날짜가 판매 시작일이다
 		assertThat(LocalDate.parse(JsonPath.<String>read(body, "$.data[0].saleOpenDate")))
 			.isEqualTo(now.plusDays(2).toLocalDate());
@@ -378,12 +378,12 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 		LocalDateTime crewSaleStartAt = now.minusDays(3);
 		// 크루 예매 마감일의 자정 뒤 06:00. 크루 예매 시작과 달라야 applicationOpenAt이 개인 예매 오픈인지 알 수 있다
 		LocalDateTime individualOpenAt = now.minusDays(1).toLocalDate().atTime(6, 0);
-		LocalDate refundDeadline = now.plusDays(15).toLocalDate();
+		LocalDate refundDeadline = now.plusDays(19).toLocalDate();
 		RaceSaveRequestDto request = builder
 			.crewSale(crewSaleStartAt, now.minusDays(2))
 			.crewCount(5, 10)
 			.individualOpenAt(individualOpenAt)
-			.raceDate(now.plusDays(20))
+			.raceDate(now.plusDays(40))
 			.applicationCloseAt(now.plusDays(18))
 			.refundDeadline(refundDeadline)
 			.course(course().name("하프").type(CourseType.HALF).distanceKm("21.1").price(60_000)
@@ -427,7 +427,7 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 			"kitIncluded", "crewSaleStartAt", "crewSaleEndAt", "crewMinCount", "crewMaxCount");
 		assertThat(dateTimeAt(body, "$.data.crewSaleStartAt")).isEqualTo(crewSaleStartAt);
 		assertThat(dateTimeAt(body, "$.data.crewSaleEndAt")).isEqualTo(now.minusDays(2));
-		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(20));
+		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(40));
 		assertThat(dateTimeAt(body, "$.data.applicationOpenAt"))
 			.isEqualTo(individualOpenAt)
 			.isNotEqualTo(crewSaleStartAt);
@@ -435,25 +435,25 @@ class ApiV1RaceQueryTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매 중 대회의 대회 일시를 15일 뒤에서 16일 뒤로 미루면 종목 정보·상세의 일정 변경 일시(scheduleChangedAt)가 "
+	@DisplayName("판매 중 대회의 대회 일시를 35일 뒤에서 36일 뒤로 미루면 종목 정보·상세의 일정 변경 일시(scheduleChangedAt)가 "
 		+ "수정한 시각으로 채워진다")
 	void findCourseInfoAfterRaceDateChanged() throws Exception {
 		RaceBuilder builder = race();
 		LocalDateTime now = builder.now();
-		RegisteredRace registered = registerOnSale(builder.raceDate(now.plusDays(15)).build());
+		RegisteredRace registered = registerOnSale(builder.raceDate(now.plusDays(35)).build());
 
 		LocalDateTime before = LocalDateTime.now();
 		// 같은 요청에서 대회 일시만 바꾼다 (환불 기준일은 대회 날짜를 따라 늦춰진다)
 		putJson(RACES + registered.raceId(), SELLER_MEMBER_ID,
-			builder.raceDate(now.plusDays(16)).course(course().courseId(registered.courseId())).build())
+			builder.raceDate(now.plusDays(36)).course(course().courseId(registered.courseId())).build())
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("대회를 수정했습니다."));
 		LocalDateTime after = LocalDateTime.now();
 
 		String body = bodyOf(getAs(COURSES + registered.courseId(), null)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.refundDeadline").value(now.plusDays(16).toLocalDate().toString())));
-		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(16));
+			.andExpect(jsonPath("$.data.refundDeadline").value(now.plusDays(36).toLocalDate().toString())));
+		assertThat(dateTimeAt(body, "$.data.raceDate")).isEqualTo(now.plusDays(36));
 		assertThat(dateTimeAt(body, "$.data.scheduleChangedAt"))
 			.isBetween(before.minusMinutes(1), after.plusMinutes(1));
 		getAs(RACES + registered.raceId(), null)

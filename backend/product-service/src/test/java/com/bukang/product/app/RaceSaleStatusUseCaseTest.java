@@ -87,7 +87,7 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 	@Test
 	@DisplayName("판매 중 대회는 대회 당일 23:59:59에도 판매 중이고, 다음 날 0시에 판매 종료되며 수정 일시도 그 시각이 된다")
 	void closeOnSaleRaceFromNextDay() throws Exception {
-		LocalDate raceDay = LocalDate.now().plusDays(15);
+		LocalDate raceDay = LocalDate.now().plusDays(35);
 		RegisteredRace registered = registerOnSale(race().raceDate(raceDay.atTime(9, 0)).build());
 		assertThat(saleStatusOf(registered.raceId())).isEqualTo(ON_SALE);
 
@@ -106,10 +106,10 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("판매 시작일(3일 뒤)과 대회일(15일 뒤)이 모두 지난 판매 예정 대회는 판매 중을 거치지 않고 판매 종료된다")
+	@DisplayName("판매 시작일(3일 뒤)과 대회일(35일 뒤)이 모두 지난 판매 예정 대회는 판매 중을 거치지 않고 판매 종료된다")
 	void closeScheduledRaceWithoutOpening() throws Exception {
 		LocalDateTime base = LocalDateTime.now().withNano(0);
-		LocalDate raceDay = base.toLocalDate().plusDays(15);
+		LocalDate raceDay = base.toLocalDate().plusDays(35);
 		RegisteredRace registered = register(race()
 			.individualOpenAt(base.plusDays(3))
 			.raceDate(raceDay.atTime(9, 0))
@@ -127,7 +127,7 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("대회일(15일 뒤)이 지난 30일 뒤에는 판매 중지 대회는 판매 종료로 바뀌고(자동 취소하지 않음), 대회 취소 대회는 그대로다")
+	@DisplayName("대회일(31일 뒤)이 지난 40일 뒤에는 판매 중지 대회는 판매 종료로 바뀌고(자동 취소하지 않음), 대회 취소 대회는 그대로다")
 	void closeStoppedAndKeepCanceledRaces() throws Exception {
 		RegisteredRace stopped = registerOnSale(race().title("판매 중지 대회").build());
 		postAs("/api/v1/product/races/" + stopped.raceId() + "/stop", SELLER_MEMBER_ID)
@@ -137,7 +137,7 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.message").value("대회를 취소했습니다."));
 
-		List<RaceChangedEvent> changes = refresh(LocalDate.now().plusDays(30).atStartOfDay());
+		List<RaceChangedEvent> changes = refresh(LocalDate.now().plusDays(40).atStartOfDay());
 
 		assertThat(changes).extracting(RaceChangedEvent::raceId).containsExactly(stopped.raceId());
 		assertThat(saleStatusOf(stopped.raceId())).isEqualTo(CLOSED);
@@ -155,13 +155,14 @@ class RaceSaleStatusUseCaseTest extends ProductIntegrationTest {
 			.build());
 		RegisteredRace closing = registerOnSale(race().title("모레 열리는 대회")
 			.raceDate(today.plusDays(2).atTime(9, 0))
-			.applicationCloseAt(today.plusDays(1).atTime(18, 0))
+			.individualOpenAt(today.minusDays(20).atTime(9, 0))
+			.applicationCloseAt(today.minusDays(19).atTime(9, 0))
 			.build());
-		RegisteredRace untouched = registerOnSale(race().title("보름 뒤 열리는 대회").build());
+		RegisteredRace untouched = registerOnSale(race().title("한 달 뒤 열리는 대회").build());
 		assertThat(saleStatusOf(closing.raceId())).isEqualTo(ON_SALE);
 		assertThat(saleStatusOf(untouched.raceId())).isEqualTo(ON_SALE);
 
-		// 판매 시작(3일 뒤)과 모레 대회일은 지났고, 보름 뒤 대회일은 남은 시각
+		// 판매 시작(3일 뒤)과 모레 대회일은 지났고, 한 달 뒤 대회일은 남은 시각
 		List<RaceChangedEvent> changes = refresh(today.plusDays(4).atStartOfDay());
 
 		assertThat(changes)

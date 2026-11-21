@@ -50,7 +50,8 @@ public final class RaceRequests {
 		private String location = "서울숲 일대";
 		private String regionSido = "서울특별시";
 		private String regionSigungu = "성동구";
-		private LocalDateTime raceDate = now.plusDays(15);
+		// 대회 일시는 접수 마감 일시로부터 3주 뒤부터라(CRU-131) 기본 접수 마감(10일 뒤)의 3주 뒤로 둔다
+		private LocalDateTime raceDate = now.plusDays(31);
 		private LocalDateTime crewSaleStartAt;
 		private LocalDateTime crewSaleEndAt;
 		// 기본은 한 시간 전에 열려 자리를 확보할 수 있다. 판매 시작일은 오늘로부터 이틀 뒤부터만 등록할 수 있어
