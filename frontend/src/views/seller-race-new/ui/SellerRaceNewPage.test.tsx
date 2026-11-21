@@ -120,6 +120,17 @@ describe('SellerRaceNewPage', () => {
     expect(screen.queryByRole('textbox', { name: '10K 크루 정원' })).not.toBeInTheDocument()
   })
 
+  it('크루 선예매를 열었다 닫으면 쓴 크루 정원이 0으로 돌아간다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    const crew = screen.getByRole('textbox', { name: '10K 크루 정원' })
+    await userEvent.clear(crew)
+    await userEvent.type(crew, '300')
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    expect(screen.getByRole('textbox', { name: '10K 크루 정원' })).toHaveValue('0')
+  })
+
   it('크루 예매를 열고 비운 채 등록하면 크루 예매 날짜를 입력하라고 한다', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '열기' }))
