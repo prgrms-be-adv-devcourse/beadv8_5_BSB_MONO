@@ -48,7 +48,7 @@ export function RaceScheduleFields({
       helper={helper}
       error={errors[name]}
       className="min-w-0 flex-1"
-      timeClassName="w-16 px-2"
+      timeClassName="w-14 px-1"
       defaultValue={defaults[name]}
       disabled={disabled[name]}
       isDateDisabled={(date) => isDateDisabled(name, date)}
