@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { RaceForEdit } from '@/entities/race'
+import { raceAfterCloseMessage, type RaceForEdit } from '@/entities/race'
 import type { productModel } from '@/shared/api'
 
 import {
@@ -42,7 +42,7 @@ function makeEdit(
     location: '서울숲',
     regionSido: '서울특별시',
     regionSigungu: '성동구',
-    raceDate: '2026-12-21T08:00:00',
+    raceDate: '2027-01-15T08:00:00',
     refundDeadline: '2026-12-10',
     crewMinCount: 5,
     images: [],
@@ -186,7 +186,7 @@ describe('일정 순서 (등록 화면과 같은 규칙)', () => {
       path: 'applicationCloseAt',
       message: SALE_CHANGE_ERRORS.closeAfterOpen,
     })
-    expect(validate(edit, { applicationCloseAt: '2026-12-21 09:00' })).toContainEqual({
+    expect(validate(edit, { applicationCloseAt: '2027-01-16 09:00' })).toContainEqual({
       path: 'applicationCloseAt',
       message: SALE_CHANGE_ERRORS.closeBeforeRace,
     })
@@ -195,6 +195,27 @@ describe('일정 순서 (등록 화면과 같은 규칙)', () => {
   it('열지 않기면 크루 예매 칸은 검사하지 않는다', () => {
     const plain = makeEdit('SCHEDULED', PLAIN_SCHEDULE)
     expect(validate(plain, { crewSaleStartAt: '', crewSaleEndAt: 'x' })).toEqual([])
+  })
+})
+
+describe('대회 일시 3주 규칙 (서버 Race.checkRaceDateAfterClose와 같다)', () => {
+  // 대회 2027-01-15 08:00 → 접수 마감은 2026-12-25 08:00까지 정할 수 있다
+  const edit = makeEdit('SCHEDULED', CREW_SCHEDULE)
+
+  it('접수 마감을 바꿔 딱 3주 앞이 되면 통과하고, 1분 모자라면 막는다', () => {
+    expect(validate(edit, { applicationCloseAt: '2026-12-25 08:00' })).toEqual([])
+    expect(validate(edit, { applicationCloseAt: '2026-12-25 08:01' })).toContainEqual({
+      path: 'applicationCloseAt',
+      message: raceAfterCloseMessage('2027-01-15 08:01'),
+    })
+  })
+
+  it('접수 마감을 바꾸지 않으면 간격이 짧아도 검사하지 않는다', () => {
+    const short = makeEdit('SCHEDULED', {
+      ...CREW_SCHEDULE,
+      applicationCloseAt: '2027-01-10T18:00:00',
+    })
+    expect(validate(short)).toEqual([])
   })
 })
 

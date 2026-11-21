@@ -6,6 +6,7 @@ import {
   earliestSaleOpenDate,
   parseDateTimeInput,
   parseRaceDateInput,
+  raceAfterCloseMessage,
   SALE_OPEN_MIN_DAYS,
   saleOpenTooEarlyMessage,
   SCHEDULE_ERRORS,
@@ -35,7 +36,7 @@ export const RACE_FORM_ERRORS = {
   coverRequired: '대표 이미지를 올려 주세요.',
 } as const
 
-export { earliestSaleOpenDate, SALE_OPEN_MIN_DAYS, saleOpenTooEarlyMessage }
+export { earliestSaleOpenDate, raceAfterCloseMessage, SALE_OPEN_MIN_DAYS, saleOpenTooEarlyMessage }
 
 /** 소개 이미지 최대 장수 (파일 서비스 DETAIL 용도의 개수 제한) */
 export const MAX_INTRO_IMAGES = 5

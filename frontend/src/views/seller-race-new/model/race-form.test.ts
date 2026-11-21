@@ -10,6 +10,7 @@ import {
   KIT_OPTION_ERRORS,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
+  raceAfterCloseMessage,
   raceFormSchema,
   saleOpenTooEarlyMessage,
   toCourseInputFromParsed,
@@ -25,7 +26,7 @@ const base = {
   location: '서울숲 일대',
   regionSido: '서울특별시',
   regionSigungu: '성동구',
-  raceDate: '2026-10-29',
+  raceDate: '2026-11-19',
   raceTime: '08:00',
   individualOpenAt: '2026-10-23 10:00',
   applicationCloseAt: '2026-10-28 23:59',
@@ -92,11 +93,21 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
     expect(issuesOf({ ...base, applicationCloseAt: '2026-10-23 10:01' })).toEqual([])
   })
 
-  it('접수 마감이 대회 시작보다 늦으면 막고, 같은 시각은 통과한다', () => {
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-29 08:01' })).toEqual([
+  it('접수 마감이 대회 시작보다 늦으면 막는다', () => {
+    expect(issuesOf({ ...base, applicationCloseAt: '2026-11-19 08:01' })).toEqual([
       `applicationCloseAt: ${RACE_FORM_ERRORS.closeBeforeRace}`,
     ])
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-29 08:00' })).toEqual([])
+  })
+
+  it('대회 일시는 접수 마감 3주 뒤부터 고를 수 있다. 딱 3주 뒤는 통과한다', () => {
+    // 접수 마감 10/28 23:59 → 3주 뒤 11/18 23:59
+    expect(issuesOf({ ...base, raceDate: '2026-11-18', raceTime: '23:59' })).toEqual([])
+  })
+
+  it('접수 마감 3주 뒤보다 1분 모자라면 막는다', () => {
+    expect(issuesOf({ ...base, raceDate: '2026-11-18', raceTime: '23:58' })).toEqual([
+      `raceDate: ${raceAfterCloseMessage('2026-11-18 23:59')}`,
+    ])
   })
 
   it('환불 기한이 대회일보다 늦으면 막고, 같은 날은 통과한다', () => {
