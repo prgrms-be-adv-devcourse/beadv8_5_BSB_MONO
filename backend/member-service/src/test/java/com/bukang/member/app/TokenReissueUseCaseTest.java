@@ -58,7 +58,8 @@ class TokenReissueUseCaseTest {
 		repository = mock(RefreshTokenRepository.class);
 		useCase = new TokenReissueUseCase(jwtProvider, JWT_PROPERTIES, REFRESH_PROPERTIES, repository, clock);
 		presentedToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(13)));
-		given(repository.findFamilyExpiresAt(MEMBER_ID, FAMILY_ID)).willReturn(Optional.of(LOGIN_AT.plus(Duration.ofDays(30))));
+		given(repository.findFamilyExpiresAt(MEMBER_ID, FAMILY_ID))
+			.willReturn(Optional.of(LOGIN_AT.plus(Duration.ofDays(30))));
 	}
 
 	@Test
