@@ -69,7 +69,8 @@ final class PartyQueryApiExamples {
 				"leaderNickname": "러너A",
 				"memberCount": 2,
 				"joinTokenExpiresAt": "2026-11-06T10:15:30",
-				"joinLinkAlive": true
+				"joinLinkAlive": true,
+				"crewMember": true
 			}
 		}
 		""";

@@ -87,17 +87,22 @@ public class PartyQueryFacade {
 		return summaries(parties, memberId);
 	}
 
-	// 링크를 연 순간 보여 줄 파티. 로그인한 누구나 본다(크루원 확인은 합류 때, 시안 09). 토큰이 없거나 옛 토큰이면 404
-	public PartyPreviewDto preview(String joinToken, LocalDateTime now) {
+	// 링크를 연 순간 보여 줄 파티. 로그인한 누구나 본다. 토큰이 없거나 옛 토큰이면 404
+	// 크루원인지도 알려 줘 프론트가 입력 전에 「크루원만 합류할 수 있어요」를 보여 준다 (CRU-114). 합류 때 다시 확인한다
+	// 크루원인지 묻지 못하면 503이다. 모르는 채로 false를 주면 진짜 크루원이 막힌 화면을 본다 (합류도 어차피 503)
+	public PartyPreviewDto preview(String joinToken, long memberId, LocalDateTime now) {
 		Party party = partyRepository.findByJoinToken(joinToken)
 			.orElseThrow(() -> new PartyNotFoundException("참가 링크를 찾을 수 없습니다. 파티장에게 새 링크를 받아주세요."));
+		// 크루가 없어져도 미리 보기는 보여 주고 false로 둔다. 추천값(미확정)
+		boolean crewMember = crewPort.findMembership(party.getCrewId(), memberId)
+			.map(CrewMembership::crewMember).orElse(false);
 		int memberCount = partyMemberRepository.findByPartyIdInAndLeftAtIsNullOrderByJoinedAtAscIdAsc(
 			List.of(party.getId())).size();
 		String leaderNickname = nickname(findNicknames(List.of(party.getLeaderMemberId())),
 			party.getLeaderMemberId());
 		return new PartyPreviewDto(party.getId(), party.getCrewId(), party.getRaceId(), party.getRaceCourseId(),
 			party.getStatus(), leaderNickname, memberCount, party.getJoinTokenExpiresAt(),
-			now.isBefore(party.getJoinTokenExpiresAt()));
+			now.isBefore(party.getJoinTokenExpiresAt()), crewMember);
 	}
 
 	// 그 크루의 크루원만 본다. 크루가 없거나 크루원이 아니면 같은 404다. 크루가 있는지 알리지 않는다 (CRU-92)
