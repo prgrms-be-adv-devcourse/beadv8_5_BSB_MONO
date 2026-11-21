@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib'
 
 import { FIELD_BOX, FIELD_BOX_FOCUS, FIELD_HELPER, FIELD_LABEL } from '../field/field-styles'
 import { NUMERIC_NOTICE } from '../field/input-filter'
+import { RequiredMark } from '../field/RequiredMark'
 import { Icon } from '../icon/icons'
 import {
   dateText,
@@ -27,6 +28,8 @@ type CommonProps = {
   /** 있으면 오류 상태가 되고 helper 자리에 이 문구를 보여 준다. */
   error?: ReactNode
   disabled?: boolean
+  /** true면 라벨 옆에 「필수」 표시를 붙인다 */
+  required?: boolean
   placeholder?: string
   /** 고를 수 없는 날(지난 날 등) */
   isDateDisabled?: (date: Date) => boolean
@@ -65,6 +68,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
     helper,
     error,
     disabled,
+    required,
     placeholder = '날짜를 골라 주세요',
     withTime = true,
     className,
@@ -132,6 +136,7 @@ export function DateTimeField(props: DateTimeFieldProps) {
       {label && (
         <span id={labelId} className={FIELD_LABEL}>
           {label}
+          {required && <RequiredMark />}
         </span>
       )}
       <div className="flex items-center gap-2">

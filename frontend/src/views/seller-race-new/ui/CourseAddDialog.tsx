@@ -13,17 +13,19 @@ import {
   type CourseDraftInput,
   type CourseDraftParsed,
   type RaceCourseInput,
+  type SellableCourseType,
 } from '../model/race-form'
-
-const decimalOnly = (value: string) => value.replace(/[^\d.]/g, '')
 
 // 종목 구분은 고르기 전까지 값이 없다
 const DEFAULTS = { ...COURSE_DRAFT_DEFAULTS, courseType: undefined }
 
-const COURSE_TYPE_ITEMS = Object.entries(COURSE_TYPE_LABELS).map(([value, label]) => ({
-  value: value as RaceCourseInput['courseType'],
-  label,
-}))
+// 거리는 종목 구분이 정하고, 울트라는 새로 등록하지 않는다
+const COURSE_TYPE_ITEMS = (Object.keys(COURSE_TYPE_LABELS) as SellableCourseType[]).map(
+  (value) => ({
+    value,
+    label: COURSE_TYPE_LABELS[value],
+  }),
+)
 
 export type CourseAddDialogProps = {
   open: boolean
@@ -62,12 +64,8 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
     <TextField
       label={label}
       error={errors[key]?.message}
-      inputMode={key === 'name' ? undefined : key === 'distanceKm' ? 'decimal' : 'numeric'}
-      {...(key === 'name'
-        ? {}
-        : key === 'distanceKm'
-          ? { filter: decimalOnly, filterMessage: '숫자와 소수점만 입력할 수 있어요' }
-          : { filter: digitsOnly })}
+      inputMode={key === 'name' ? undefined : 'numeric'}
+      {...(key === 'name' ? {} : { filter: digitsOnly })}
       className="flex-1"
       {...register(key)}
     />
@@ -101,12 +99,12 @@ export function CourseAddDialog({ open, onOpenChange, onAdd }: CourseAddDialogPr
             />
           </div>
           <div className="flex gap-3">
-            {field('distanceKm', '거리 (km)')}
             {field('timeLimitMinutes', '제한 시간 (분)')}
+            {field('price', '참가비 (원)')}
           </div>
           <div className="flex gap-3">
-            {field('price', '참가비 (원)')}
-            {field('individualQuota', '모집 정원 (명)')}
+            {field('individualQuota', '일반 정원 (명)')}
+            <div className="flex-1" />
           </div>
         </div>
       }
