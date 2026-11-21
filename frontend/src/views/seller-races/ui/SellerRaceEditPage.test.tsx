@@ -266,6 +266,15 @@ describe('SellerRaceEditPage', () => {
     })
   })
 
+  it('판매 예정 대회의 판매 일정 카드에 크루 최대 인원 칸이 있고, 열지 않기로 바꾸면 숨는다', async () => {
+    useRace('SCHEDULED', CREW_AHEAD, 20)
+    renderPage()
+    expect(await screen.findByRole('textbox', { name: '크루 최대 인원' })).toBeInTheDocument()
+    expect(screen.getByText('비우면 인원 제한이 없어요')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    expect(screen.queryByRole('textbox', { name: '크루 최대 인원' })).not.toBeInTheDocument()
+  })
+
   it('크루 선예매를 열지 않기로 바꿔 저장하면 크루 기간 없이 크루 정원 0으로 보낸다', async () => {
     let body: productModel.RaceSaveRequestDto | undefined
     useRace('SCHEDULED', CREW_AHEAD, 20)

@@ -143,37 +143,40 @@ function SaleChangeForm({ edit, row, now }: { edit: RaceForEdit; row: SellerRace
         title="구매자에게 유리할 때만 바꿀 수 있어요"
         description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기 · 환불 기한 늦추기만 돼요."
       />
-      <ConsoleCard title="판매 일정" className="max-w-137">
-        <RaceScheduleFields
-          crewOpen={crewOpen}
-          onCrewOpenChange={changeCrewOpen}
-          crewOpenDisabled={!editable || locks.crewOpen}
-          onChange={changeSchedule}
-          errors={{
-            crewSaleStartAt: errors.crewSaleStartAt?.message,
-            crewSaleEndAt: errors.crewSaleEndAt?.message,
-            individualOpenAt: errors.individualOpenAt?.message,
-            applicationCloseAt: errors.applicationCloseAt?.message,
-          }}
-          defaults={{
-            crewSaleStartAt: textToDate(initial.crewSaleStartAt),
-            crewSaleEndAt: textToDate(initial.crewSaleEndAt),
-            individualOpenAt: textToDate(initial.individualOpenAt),
-            applicationCloseAt: textToDate(initial.applicationCloseAt),
-          }}
-          disabled={{
-            crewSaleStartAt: !editable || locks.crewSaleStartAt,
-            crewSaleEndAt: !editable || locks.crewSaleEndAt,
-            individualOpenAt: !editable || locks.individualOpenAt,
-            applicationCloseAt: !editable || locks.applicationCloseAt,
-          }}
-          isDateDisabled={(name, date) =>
-            isBefore(date, startOfToday()) ||
-            ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
-              isAfter(date, raceDay))
-          }
-        />
-      </ConsoleCard>
+      {/* 피그마 판매 중 변경 시안에는 판매 일정 카드가 없다. 판매 예정 대회(대회 수정)만 일정을 바꾼다 */}
+      {!started && (
+        <ConsoleCard title="판매 일정" className="max-w-137">
+          <RaceScheduleFields
+            crewOpen={crewOpen}
+            onCrewOpenChange={changeCrewOpen}
+            crewOpenDisabled={!editable || locks.crewOpen}
+            onChange={changeSchedule}
+            errors={{
+              crewSaleStartAt: errors.crewSaleStartAt?.message,
+              crewSaleEndAt: errors.crewSaleEndAt?.message,
+              individualOpenAt: errors.individualOpenAt?.message,
+              applicationCloseAt: errors.applicationCloseAt?.message,
+            }}
+            defaults={{
+              crewSaleStartAt: textToDate(initial.crewSaleStartAt),
+              crewSaleEndAt: textToDate(initial.crewSaleEndAt),
+              individualOpenAt: textToDate(initial.individualOpenAt),
+              applicationCloseAt: textToDate(initial.applicationCloseAt),
+            }}
+            disabled={{
+              crewSaleStartAt: !editable || locks.crewSaleStartAt,
+              crewSaleEndAt: !editable || locks.crewSaleEndAt,
+              individualOpenAt: !editable || locks.individualOpenAt,
+              applicationCloseAt: !editable || locks.applicationCloseAt,
+            }}
+            isDateDisabled={(name, date) =>
+              isBefore(date, startOfToday()) ||
+              ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
+                isAfter(date, raceDay))
+            }
+          />
+        </ConsoleCard>
+      )}
       <ConsoleCard title="정원 늘리기">
         <table aria-label="정원 늘리기" className="w-full table-fixed border-collapse">
           <thead>

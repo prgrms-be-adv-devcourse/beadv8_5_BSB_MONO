@@ -255,6 +255,39 @@ describe('환불 기한 규칙 (서버 Race.checkRefundDeadlineAfterClose와 같
   })
 })
 
+describe('크루 최대 인원', () => {
+  const edit = makeEdit('SCHEDULED', CREW_SCHEDULE)
+
+  it('저장된 크루 최대 인원으로 칸을 채우고, 없으면 비운다', () => {
+    expect(toSaleChangeValues(edit).crewMaxCount).toBe('')
+    const limited = makeEdit('SCHEDULED', CREW_SCHEDULE)
+    limited.request.crewMaxCount = 12
+    expect(toSaleChangeValues(limited).crewMaxCount).toBe('12')
+  })
+
+  it('비우면 제한이 없고, 숫자가 아니거나 크루 최소 인원(5)보다 작으면 막는다', () => {
+    expect(validate(edit, { crewMaxCount: '' })).toEqual([])
+    expect(validate(edit, { crewMaxCount: '5' })).toEqual([])
+    const message = '크루 최대 인원은 5명 이상의 숫자로 입력해 주세요.'
+    expect(validate(edit, { crewMaxCount: '4' })).toContainEqual({ path: 'crewMaxCount', message })
+    expect(validate(edit, { crewMaxCount: 'a' })).toContainEqual({ path: 'crewMaxCount', message })
+  })
+
+  it('크루 선예매를 열었을 때만 요청에 넣고, 비우면 보내지 않는다', () => {
+    const base = toSaleChangeValues(edit)
+    expect(toUpdateRequest(edit, { ...base, crewMaxCount: '12' }).crewMaxCount).toBe(12)
+    expect(toUpdateRequest(edit, { ...base, crewMaxCount: '' }).crewMaxCount).toBeUndefined()
+    const closed = {
+      ...base,
+      crewOpen: false,
+      crewSaleStartAt: '',
+      crewSaleEndAt: '',
+      crewMaxCount: '12',
+    }
+    expect(toUpdateRequest(edit, closed).crewMaxCount).toBeUndefined()
+  })
+})
+
 describe('크루 선예매를 열지 않을 때', () => {
   it('크루 정원이 있는 종목은 일반 정원이 1명 이상이어야 한다', () => {
     const edit = makeEdit('SCHEDULED', CREW_SCHEDULE, 20)
