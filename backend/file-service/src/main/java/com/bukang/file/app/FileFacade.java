@@ -199,7 +199,7 @@ public class FileFacade {
 		try {
 			failedKeys = fileStorage.deleteAll(List.of(key));
 		} catch (RuntimeException exception) {
-			log.warn("S3 객체 삭제 요청이 실패했습니다. key={}, cause={}", key, exception.toString());
+			log.warn("S3 객체 삭제 요청이 실패했습니다. key={}", key, exception);
 			throw new FileDeleteFailedException();
 		}
 		if (!failedKeys.isEmpty()) {
