@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactElement } from 'react'
@@ -582,5 +582,28 @@ describe('SellerApplicationPage 잠근 신청 내용', () => {
       'href',
       '/seller-apply',
     )
+  })
+})
+
+// 피그마 판매자 신청 · 판매자 이용약관 창(2070:72277)
+describe('SellerApplyPage 판매자 이용약관 창', () => {
+  it('보기를 누르면 약관 창이 열리고 확인했어요로 닫힌다', async () => {
+    const user = userEvent.setup()
+    renderWithClient(<SellerApplyPage />)
+    await user.click(screen.getByRole('checkbox', { name: /판매자 이용약관/ }))
+    await user.click(screen.getByRole('button', { name: '보기' }))
+    const dialog = await screen.findByRole('dialog', { name: '판매자 이용약관' })
+    for (const article of [
+      '제1조 목적',
+      '제2조 판매자의 의무',
+      '제3조 정산과 지급',
+      '제4조 대회 취소',
+    ]) {
+      expect(within(dialog).getByText(article)).toBeInTheDocument()
+    }
+    await user.click(within(dialog).getByRole('button', { name: '확인했어요' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    // 창을 열고 닫아도 동의 체크는 그대로 남는다
+    expect(screen.getByRole('checkbox', { name: /판매자 이용약관/ })).toBeChecked()
   })
 })

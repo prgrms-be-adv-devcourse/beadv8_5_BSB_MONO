@@ -3,21 +3,22 @@
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 
-import { CONSOLE_BOX, ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
+import { RosterExportButton } from '@/features/seller-roster-export'
 import { formatRaceDate, myRacesQueryOptions, raceQueryOptions, SaleRateBar } from '@/entities/race'
 import { ApiError, type productModel } from '@/shared/api'
 import { formatNumber, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Button,
   buttonClassName,
   EmptyState,
   Select,
   Skeleton,
   StatStrip,
   StatTile,
-  TextField,
 } from '@/shared/ui'
+
+import { SalesRoster } from './SalesRoster'
 
 function errorText(error: unknown) {
   return (error instanceof ApiError && error.serverMessage) || '잠시 뒤 다시 시도해 주세요.'
@@ -32,12 +33,14 @@ function seatsOf(race: productModel.SellerRaceDto) {
   return { sold, quota, reserved, remaining: Math.max(quota - sold - reserved, 0) }
 }
 
-// 피그마 V2 · S03 판매 현황 (주문 · 참가자)
+// 피그마 V4 · 판매자 · 판매 현황 (2070:66595)
 // 대회 정보와 자리 수는 내 대회 목록(GET /api/v1/product/races/mine), 환불 기한은 대회 상세로 채운다.
+// 참가자 · 파티별 명단은 판매자 주문 API, 명단 파일은 명단 내려받기 API로 받는다.
 export function SellerSalesPage() {
   const races = useQuery(myRacesQueryOptions())
-  // 고른 대회는 주소(?race=)에 담는다. 대회 상세의 바로 가기가 번호를 넘긴다
-  const [url, setUrl] = useSearchParamsState({ race: '' })
+  // 고른 대회는 주소(?race=)에 담는다. 대회 상세의 바로 가기가 번호를 넘긴다.
+  // 명단의 탭 · 쪽도 주소에 있어서, 대회를 바꾸면 첫 쪽으로 돌린다
+  const [url, setUrl] = useSearchParamsState({ race: '', tab: 'participants', page: '1' })
   const picked = url.race
   const list = races.data ?? []
   // 고르기 전에는 판매 중인 대회를 먼저, 없으면 가장 최근 대회
@@ -72,7 +75,7 @@ export function SellerSalesPage() {
             icon={null}
             title="등록한 대회가 없어요"
             action={
-              <Link href="/seller/races/new?from=sales" className={buttonClassName({ size: 's' })}>
+              <Link href="/seller/races/new?from=sales" className={buttonClassName()}>
                 대회 등록하기
               </Link>
             }
@@ -83,20 +86,13 @@ export function SellerSalesPage() {
   }
 
   return (
-    <ConsolePage
-      title="판매 현황"
-      actions={
-        <a href="#download" className={buttonClassName({ variant: 'secondary' })}>
-          명단 내려받기
-        </a>
-      }
-    >
+    <ConsolePage title="판매 현황" actions={<RosterExportButton key={race.raceId} race={race} />}>
       <Select
         aria-label="대회"
         className="w-100"
         items={list.map((r) => ({ value: String(r.raceId), label: r.title ?? '' }))}
         value={String(race.raceId)}
-        onValueChange={(value) => setUrl({ race: value ?? '' })}
+        onValueChange={(value) => setUrl({ race: value ?? '', page: '1' })}
       />
       <SalesBody race={race} raceId={race.raceId} />
     </ConsolePage>
@@ -126,22 +122,25 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
           />
           <StatTile
             layout="cell"
+            size="s"
             label="결제 대기"
             value={formatNumber(seats.reserved)}
             unit="명"
           />
           <StatTile
             layout="cell"
+            size="s"
             label="남은 자리"
             value={formatNumber(seats.remaining)}
             unit="자리"
           />
           <StatTile
             layout="cell"
+            size="s"
             label="환불 기한"
             value={
               detail.isPending ? (
-                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-8 w-24" />
               ) : refundDeadline ? (
                 formatRaceDate(refundDeadline)
               ) : (
@@ -156,10 +155,10 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
         <table aria-label="종목별 판매" className="w-full table-fixed text-body1-regular">
           <thead>
             <tr className="border-b border-border-default text-caption-medium text-text-secondary">
-              <th className="h-10 w-40 px-3 text-left font-medium">종목</th>
-              <th className="h-10 px-3 text-left font-medium">판매 / 정원</th>
-              <th className="h-10 w-40 px-3 text-right font-medium">결제 대기</th>
-              <th className="h-10 w-40 px-3 text-right font-medium">남은 자리</th>
+              <th className="h-11 w-40 px-3 text-left font-medium">종목</th>
+              <th className="h-11 px-3 text-left font-medium">판매 / 정원</th>
+              <th className="h-11 w-35 px-3 text-right font-medium">결제 대기</th>
+              <th className="h-11 w-35 px-3 text-right font-medium">남은 자리</th>
             </tr>
           </thead>
           <tbody>
@@ -189,41 +188,7 @@ function SalesBody({ race, raceId }: { race: productModel.SellerRaceDto; raceId:
         </table>
       </ConsoleCard>
 
-      {/* TODO(api): 판매자용 대회별 참가자(주문) 목록 API가 없다. 생기면 시안의 참가자·파티별 표로 바꾼다 */}
-      <ConsoleCard className={CARD} title={`참가자 ${formatNumber(seats.sold)}명`}>
-        <EmptyState title="참가자 목록은 준비 중이에요" />
-      </ConsoleCard>
-
-      <div id="download">
-        {/* TODO(api): 명단 파일 API가 생기면 사유를 남기고 엑셀 파일을 받는다 */}
-        <ConsoleCard className={CARD} title="명단 내려받기">
-          <Alert
-            className={CONSOLE_BOX}
-            title="엑셀 내려받기는 준비 중이에요"
-            description="명단 파일 기능이 열리면 사유를 남기고 내려받을 수 있어요."
-          />
-          <div className="flex items-end gap-4">
-            <Select
-              label="범위"
-              items={[
-                {
-                  value: 'confirmed',
-                  label: `참가 확정자 전체 (${formatNumber(seats.sold)}명)`,
-                },
-                ...(race.courses ?? []).map((c) => ({
-                  value: String(c.raceCourseId),
-                  label: `${c.name ?? ''} 참가 확정자 (${formatNumber(c.sold ?? 0)}명)`,
-                })),
-              ]}
-              defaultValue="confirmed"
-              disabled
-              className="flex-1"
-            />
-            <TextField label="내려받는 사유" disabled className="flex-1" />
-            <Button disabled>엑셀로 내려받기</Button>
-          </div>
-        </ConsoleCard>
-      </div>
+      <SalesRoster key={raceId} raceId={raceId} />
     </>
   )
 }

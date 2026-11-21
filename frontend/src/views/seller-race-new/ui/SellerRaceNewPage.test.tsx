@@ -730,3 +730,35 @@ describe('SellerRaceNewPage · 장소 주소 검색', () => {
     },
   )
 })
+
+// 피그마 판매자 공통 · 권한 없음(심사 중인 판매자, 2070:59948)
+describe('SellerRaceNewPage 심사 중인 판매자', () => {
+  it('신청을 심사하는 중이면 등록 폼 대신 안내와 신청 결과 링크를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/member/sellers/me', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '성공',
+          data: {
+            id: 1,
+            memberId: 1,
+            sellerType: 'BUSINESS',
+            businessName: '크루런 스포츠',
+            businessNumber: '123-45-67890',
+            representativeName: '김러너',
+            status: 'PENDING',
+            requestedAt: '2026-10-05T21:25:35',
+          },
+        }),
+      ),
+    )
+    renderPage()
+    expect(await screen.findByText('승인된 판매자만 대회를 등록할 수 있어요')).toBeInTheDocument()
+    expect(screen.getByText('판매자 신청을 심사하고 있어요')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '신청 결과 보기' })).toHaveAttribute(
+      'href',
+      '/seller-apply/result',
+    )
+    expect(screen.queryByRole('textbox', { name: '출발 시각' })).not.toBeInTheDocument()
+  })
+})

@@ -60,7 +60,8 @@ export const ChangeTrackingResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).optional().describe('주문 상품')
 })
 
@@ -118,7 +119,8 @@ export const ShipResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).optional().describe('주문 상품')
 })
 
@@ -263,7 +265,8 @@ export const CompleteDeliveryResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).optional().describe('주문 상품')
 })
 
@@ -509,7 +512,8 @@ export const PreviewPartyResponse = zod.object({
   "leaderNickname": zod.string().describe('파티장 닉네임. 회원 서비스에 없으면 「탈퇴한 회원」'),
   "memberCount": zod.int().describe('파티원 수 (파티장 포함)'),
   "joinTokenExpiresAt": zod.iso.datetime({"offset":true}).describe('참가 링크 만료 시각'),
-  "joinLinkAlive": zod.boolean().describe('참가 링크가 아직 살아 있는지 (만료 시각 전)')
+  "joinLinkAlive": zod.boolean().describe('참가 링크가 아직 살아 있는지 (만료 시각 전)'),
+  "crewMember": zod.boolean().describe('링크를 연 회원이 이 파티 크루의 크루원인지. 크루원 여부만 본다. false면 합류할 수 없다(합류 API 403 ORDER_CREW_MEMBER_REQUIRED, 크루가 없으면 404). 크루가 없어졌어도 false')
 }).optional().describe('참가 링크로 본 파티 (합류 확인 화면). 명단·참가자 정보·토큰은 없음')
 })
 
@@ -877,7 +881,8 @@ export const CreateResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).describe('주문 상품')).optional()
 }).optional().describe('주문 상세')
 })
@@ -954,7 +959,8 @@ export const PayResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).describe('주문 상품')).optional()
 }).optional().describe('주문 상세')
 })
@@ -1021,7 +1027,8 @@ export const CancelItemResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).describe('주문 상품')).optional()
 }).optional().describe('주문 상세')
 })
@@ -1135,7 +1142,8 @@ export const CheckoutResponse = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).describe('주문 상품')).optional()
 }).describe('주문 상세'),zod.null()]).optional()
 }).describe('장바구니 결제 항목별 결과')).optional()
@@ -1691,7 +1699,8 @@ export const FindById1Response = zod.object({
   "description": zod.string().nullish(),
   "location": zod.string().nullish()
 }).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
-}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
 }).describe('주문 상품')).optional()
 }).optional().describe('주문 상세')
 })
@@ -1805,6 +1814,7 @@ export const FindSellerOrdersQueryParams = zod.object({
   "partyId": zod.int().optional().describe('파티 ID로 찾기 (있으면 주문일은 보지 않음)'),
   "from": zod.iso.date().optional().describe('조회 시작일 (주문일, 생략 가능)'),
   "to": zod.iso.date().optional().describe('조회 종료일 (이날 주문까지 포함, 생략 가능)'),
+  "keyword": zod.string().optional().describe('참가자 이름 또는 주문번호로 찾기 (한 칸, 부분 일치, 생략 가능)'),
   "page": zod.int().min(findSellerOrdersQueryPageMin).default(findSellerOrdersQueryPageDefault).describe('페이지 번호 (0부터)'),
   "size": zod.int().min(1).max(findSellerOrdersQuerySizeMax).default(findSellerOrdersQuerySizeDefault).describe('페이지 크기 (1~100)')
 })
@@ -1837,6 +1847,75 @@ export const FindSellerOrdersResponse = zod.object({
   "totalElements": zod.int().optional(),
   "totalPages": zod.int().optional()
 }).optional().describe('판매자 주문 목록 한 페이지')
+})
+
+
+/**
+ * 판매자 대회의 주문 상품(참가권 1장) 하나를 주문 상세 창에 필요한 칸까지 돌려준다. 참가권 단가·결제 금액, 취소 시각·환불 금액·취소 이유, 키트 배송지·배송 요청사항·택배사·송장·이동 기록을 담는다. 보내기 전에 취소된 키트 주문도 열린다(kitDeliveryStatus는 목록과 같이 PREPARING, status가 CANCELED). 키트가 없거나 결제 전이면 배송 칸은 모두 null이다. 배송지·연락처는 키트 배송 목록과 같은 범위다. 대회 이름·대회일·환불 마감은 상품 대회 상세 API로 붙인다. 기한이 지나 만료된 주문은 404다.
+ * @summary 내 대회 주문 상세
+ */
+export const FindSellerOrderParams = zod.object({
+  "orderItemId": zod.int().describe('주문 상품 ID')
+})
+
+export const FindSellerOrderResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.object({
+  "orderItemId": zod.int().optional(),
+  "orderId": zod.int().optional(),
+  "orderNo": zod.string().optional(),
+  "orderedAt": zod.iso.datetime({"offset":true}).optional(),
+  "paidAt": zod.iso.datetime({"offset":true}).nullish().describe('결제 전이면 null'),
+  "raceId": zod.int().optional(),
+  "raceCourseId": zod.int().optional(),
+  "courseName": zod.string().optional(),
+  "status": zod.enum(['ORDERED', 'PAID', 'CANCELING', 'CANCELED']).optional(),
+  "participantName": zod.string().optional(),
+  "tshirtSize": zod.string().nullish().describe('옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다'),
+  "kitOptions": zod.array(zod.object({
+  "kitOptionId": zod.int(),
+  "name": zod.string(),
+  "value": zod.string()
+}).describe('참가 신청이 고른 키트 옵션 하나')).optional().describe('결제 때 고른 키트 옵션. 없으면 빈 목록'),
+  "partyId": zod.int().nullish().describe('파티로 신청했으면 파티 ID, 개인 신청이면 null'),
+  "unitPrice": zod.int().optional().describe('주문 당시 참가권 단가'),
+  "quantity": zod.int().optional(),
+  "amount": zod.int().optional().describe('결제 금액'),
+  "canceledAt": zod.iso.datetime({"offset":true}).nullish().describe('취소를 마친 시각. 취소가 아니면 null'),
+  "canceledAmount": zod.int().optional().describe('환불한 금액. 취소가 아니면 0'),
+  "cancelReason": zod.union([zod.literal('SCHEDULE_CHANGED'),zod.literal('BUYER_CANCELED'),zod.literal('RACE_CANCELED'),zod.literal(null)]).nullish().describe('취소 이유 (일정 변경 뒤 환불 / 구매자 취소 / 대회 취소). 취소가 아니면 null'),
+  "shippingAddress": zod.union([zod.object({
+  "recipientName": zod.string().optional(),
+  "recipientPhone": zod.string().optional(),
+  "zipcode": zod.string().optional(),
+  "address": zod.string().optional(),
+  "addressDetail": zod.string().nullish()
+}).describe('키트 배송지 응답'),zod.null()]).optional().describe('키트 배송지. 키트가 없으면 null. 취소된 주문(보내기 전 취소, 취소 중)은 배송지가 null (보낸 뒤 취소된 참가권은 보임)'),
+  "deliveryMemo": zod.string().nullish().describe('배송 요청사항. 배송지와 같이 취소된 주문은 null'),
+  "kitDeliveryStatus": zod.union([zod.literal('PREPARING'),zod.literal('SHIPPING'),zod.literal('DELIVERED'),zod.literal(null)]).nullish().describe('보내기 전에 취소된 키트도 PREPARING. 키트가 없으면 null'),
+  "kitCarrier": zod.string().nullish(),
+  "kitTrackingNumber": zod.string().nullish(),
+  "kitShippedAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitDeliveredAt": zod.iso.datetime({"offset":true}).nullish(),
+  "kitReceivedAt": zod.iso.datetime({"offset":true}).nullish().describe('구매자가 수령을 확인한 시각'),
+  "kitTracking": zod.union([zod.object({
+  "carrierId": zod.string().optional().describe('택배사 ID (Delivery Tracker)'),
+  "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional().describe('배송 상태. NOT_TRACKED는 아직 조회되지 않음'),
+  "statusLabel": zod.string().optional().describe('배송 상태 이름'),
+  "statusText": zod.string().nullish().describe('택배사가 붙인 상태 이름'),
+  "lastEventAt": zod.iso.datetime({"offset":true}).nullish().describe('마지막 상태의 시각'),
+  "lastTrackedAt": zod.iso.datetime({"offset":true}).nullish().describe('마지막으로 조회한 시각. 아직 조회하지 않았으면 null'),
+  "events": zod.array(zod.object({
+  "time": zod.iso.datetime({"offset":true}).nullish(),
+  "status": zod.enum(['NOT_TRACKED', 'INFORMATION_RECEIVED', 'AT_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ATTEMPT_FAIL', 'DELIVERED', 'AVAILABLE_FOR_PICKUP', 'EXCEPTION', 'UNKNOWN']).optional(),
+  "statusText": zod.string().nullish().describe('택배사가 붙인 상태 이름'),
+  "description": zod.string().nullish(),
+  "location": zod.string().nullish()
+}).describe('이동 기록 한 줄')).optional().describe('이동 기록 (오래된 것부터)')
+}).describe('키트 배송 조회 (Delivery Tracker에서 받아 저장한 값). 자동 조회하지 않는 배송이면 null'),zod.null()]).optional().describe('키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null'),
+  "kitTrackingUrl": zod.string().nullish().describe('「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-40). 구매자 주문 상세와 같은 규칙. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null')
+}).optional().describe('판매자 주문 상세 창 (주문 상품 = 참가권 1장). 키트가 없거나 결제 전이면 배송 칸이 모두 null')
 })
 
 

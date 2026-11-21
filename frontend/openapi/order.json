@@ -1944,7 +1944,8 @@
                     "leaderNickname": "러너A",
                     "memberCount": 2,
                     "joinTokenExpiresAt": "2026-11-06T10:15:30",
-                    "joinLinkAlive": true
+                    "joinLinkAlive": true,
+                    "crewMember": true
                   }
                 }
               }
@@ -7726,6 +7727,16 @@
               "format": "date"
             },
             "example": "2026-10-31"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "참가자 이름 또는 주문번호로 찾기 (한 칸, 부분 일치, 생략 가능)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "박파티"
           },
           {
             "name": "page",

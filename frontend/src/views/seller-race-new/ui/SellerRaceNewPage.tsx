@@ -53,6 +53,7 @@ import { errorSections, useRaceFormTracking } from '../model/use-race-form-track
 import { KitOptionsNotSavedError, useRegisterRace } from '../model/use-register-race'
 import { CourseAddDialog } from './CourseAddDialog'
 import { KitAddDialog } from './KitAddDialog'
+import { SellerPendingNotice } from './SellerPendingNotice'
 
 const FORM_ID = 'seller-race-new'
 
@@ -97,6 +98,8 @@ function dateTimeOf(text: string): Date | undefined {
 // 대회 수정 화면은 이 컴포넌트를 쓰지 않는다 (수정은 서버 값이 원본이라 임시 저장과 섞지 않는다)
 export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceFormEntry }) {
   const me = memberApi.useFindMe({ query: { select: unwrapData } })
+  // 사용자 활동 추적(use-race-form-tracking)과 같은 조회 설정을 써 캐시를 나눠 쓴다
+  const seller = memberApi.useFindMine({ query: { select: unwrapData, retry: false } })
   const memberId = me.data?.id
   // 판매자가 누구인지 안 순간 저장된 작성 내용을 한 번 읽는다. 칸에 값을 넣어 다시 그리려고 폼을 새로 만든다(날짜 칸은 처음 값만 읽는다)
   const [loadedFor, setLoadedFor] = useState<number>()
@@ -105,6 +108,9 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
     setLoadedFor(memberId)
     setRestored(loadRaceDraft(memberId) ?? undefined)
   }
+  // 심사 중이면 등록해도 서버가 막으므로 폼 대신 안내를 보여 준다. 그 밖의 경우는 서버가 거절 이유를 알려 준다
+  // shortcut: 판매자 정보를 받는 동안은 폼을 그려서, 심사 중인 판매자에게 폼이 잠깐 보이고 등록 시작이 한 번 집계된다. 기존 테스트가 폼을 바로 찾으므로 그대로 둔다
+  if (seller.data?.status === 'PENDING') return <SellerPendingNotice />
   return (
     <SellerRaceForm
       key={restored ? 'restored' : 'new'}

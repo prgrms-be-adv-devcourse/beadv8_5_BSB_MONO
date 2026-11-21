@@ -19,9 +19,9 @@ export function saveCsv(text: string, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** 서버가 붙이는 이름과 같은 꼴: kit-shipments-<대회 ID 또는 all>-<날짜>.csv */
-export function kitExportFileName(raceId: number | undefined, now: Date) {
+/** 서버가 붙이는 이름과 같은 꼴: <이름>-<대회 ID 또는 all>-<날짜>.csv */
+export function csvFileName(prefix: string, raceId: number | undefined, now: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
   const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-  return `kit-shipments-${raceId ?? 'all'}-${day}.csv`
+  return `${prefix}-${raceId ?? 'all'}-${day}.csv`
 }

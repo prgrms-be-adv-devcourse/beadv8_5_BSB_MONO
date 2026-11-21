@@ -8,6 +8,7 @@ import { useState, type ReactNode } from 'react'
 import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page'
 import { RaceSaleActionButton } from '@/features/race-sale-status'
 import { useToggleSale } from '@/features/seller-race'
+import { raceRecordCertsQueryOptions } from '@/features/seller-record-review'
 import {
   formatDDay,
   formatRaceDate,
@@ -47,6 +48,7 @@ const KEY = '[&>span:first-child]:w-30'
 export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
   const races = useQuery(myRacesQueryOptions())
   const detail = useQuery(raceForEditQueryOptions(raceId))
+  const reviews = useQuery(raceRecordCertsQueryOptions(raceId, 'NEEDS_REVIEW'))
   const race = races.data?.find((r) => r.raceId === raceId)
   const row = race && toSellerRaceRow(race)
   const [stopOpen, setStopOpen] = useState(false)
@@ -163,6 +165,11 @@ export function SellerRaceDetailPage({ raceId }: { raceId: number }) {
                   hint={`참가자 ${n(row.sold)}명`}
                 />
                 <ShortcutRow href={`/seller/kits?race=${raceId}` as Route} label="키트 배송" />
+                <ShortcutRow
+                  href={`/seller/races/${raceId}/record-certs` as Route}
+                  label="기록증 심사"
+                  hint={reviews.data && `심사 필요 ${n(reviews.data.length)}건`}
+                />
                 <ShortcutRow href="/seller/settlements" label="정산" />
               </nav>
             </ConsoleCard>

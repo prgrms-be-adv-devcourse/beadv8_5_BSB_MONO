@@ -82,7 +82,9 @@ function DetailBody({
   const change = useChangeKitTracking()
   // 송장 입력 대기 · 송장 고치기에서만 입력 칸을 연다.
   // 취소는 머리 표시에만 쓴다. 서버는 보낸 뒤 취소된 주문도 송장 고치기 · 배송 완료를 받는다
-  const formMode = status === 'PREPARING' || editing
+  // 보내기 전에 취소된 주문은 보낼 일이 없어서 입력칸·바꾸는 버튼을 빼고 취소 구역만 보여 준다
+  const notShippedCanceled = canceled && !kit.kitShippedAt
+  const formMode = (status === 'PREPARING' || editing) && !notShippedCanceled
   const form = useForm<DetailFormValues>({
     resolver: zodResolver(detailFormSchema),
     defaultValues: { carrier: '', trackingNumber: '' },
@@ -148,7 +150,7 @@ function DetailBody({
         저장하기
       </Button>
     </>
-  ) : status === 'PREPARING' ? (
+  ) : notShippedCanceled ? null : status === 'PREPARING' ? (
     <Button size="l" className="flex-1" loading={ship.isPending} onClick={submit}>
       배송 중으로 바꾸기
     </Button>
@@ -190,6 +192,12 @@ function DetailBody({
           </InfoRow>
         </InfoGroup>
 
+        {notShippedCanceled && (
+          <section className="flex flex-col gap-1">
+            <h3 className="text-body1-bold text-text-primary">취소</h3>
+            <p className="text-body1-medium text-text-danger">취소된 주문이라 보내지 않아요</p>
+          </section>
+        )}
         {formMode ? (
           <section className={cn('flex flex-col', editing ? 'gap-1' : 'gap-4')}>
             <h3 className="text-body1-bold text-text-primary">배송</h3>

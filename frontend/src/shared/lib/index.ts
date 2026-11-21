@@ -13,6 +13,7 @@ export { trackingClarityId } from './analytics/clarity'
 export { ClarityTag } from './analytics/clarity-tag'
 export { copyText } from './clipboard/copy-text'
 export { cn } from './cn/cn'
+export { csvFileName, saveCsv } from './file/save-csv'
 export {
   addRecentSearch,
   clearRecentSearches,

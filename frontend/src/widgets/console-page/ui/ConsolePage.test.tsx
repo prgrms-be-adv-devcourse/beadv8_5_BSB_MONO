@@ -16,4 +16,14 @@ describe('ConsolePage', () => {
     expect(link.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(status.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+
+  // 시안: 상태 글자와 제목 사이 8 (제목 묶음 gap 4 + 상태 아래 4)
+  it('상태 글자 아래에 4를 더 둬 제목과 8 떨어뜨린다', () => {
+    render(
+      <ConsolePage title="춘천 하프" status="판매 예정">
+        <p>본문</p>
+      </ConsolePage>,
+    )
+    expect(screen.getByText('판매 예정').closest('p')?.className).toMatch(/\bmb-1\b/)
+  })
 })

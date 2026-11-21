@@ -29,6 +29,8 @@ export type DataTableProps<Row> = {
   rowArrow?: boolean
   /** true면 표 바깥에 1px 테두리 + 그림자 + 둥글기 12(카드 밖에 놓는 관리자 표). 카드 안 표는 끈다 */
   framed?: boolean
+  /** 내용줄 높이. 기본 md(56), 판매자 정산처럼 넓은 표는 lg(64) */
+  rowHeight?: 'md' | 'lg'
   className?: string
 }
 
@@ -42,6 +44,7 @@ export function DataTable<Row>({
   onRowClick,
   rowArrow = false,
   framed = false,
+  rowHeight = 'md',
   className,
 }: DataTableProps<Row>) {
   return (
@@ -88,7 +91,10 @@ export function DataTable<Row>({
                   <TableCell
                     key={column.key}
                     align={column.align}
-                    className={cn(selected && 'bg-bg-brand-subtle hover:bg-bg-brand-subtle')}
+                    className={cn(
+                      rowHeight === 'lg' && 'h-16',
+                      selected && 'bg-bg-brand-subtle hover:bg-bg-brand-subtle',
+                    )}
                   >
                     {column.render(row)}
                   </TableCell>
@@ -96,7 +102,10 @@ export function DataTable<Row>({
                 {rowArrow && (
                   <TableCell
                     align="right"
-                    className={cn(selected && 'bg-bg-brand-subtle hover:bg-bg-brand-subtle')}
+                    className={cn(
+                      rowHeight === 'lg' && 'h-16',
+                      selected && 'bg-bg-brand-subtle hover:bg-bg-brand-subtle',
+                    )}
                   >
                     <Icon
                       name="ChevronRight"

@@ -40,6 +40,7 @@ import {
   sellerApplyFormSchema,
   type SellerApplyFormValues,
 } from '../model/seller-apply-form'
+import { SellerTermsDialog } from './SellerTermsDialog'
 
 // 데스크톱 폼 화면의 본문: 위 48 · 아래 64, 가운데 고정 폭 칸
 const digitsAndHyphen = (value: string) => value.replace(/[^\d-]/g, '')
@@ -245,12 +246,7 @@ export function SellerApplyPage() {
                 />
               )}
             />
-            <Link
-              href="/terms/service"
-              className={buttonClassName({ variant: 'secondary', size: 's' })}
-            >
-              보기
-            </Link>
+            <SellerTermsDialog />
           </div>
         </ConsoleCard>
 

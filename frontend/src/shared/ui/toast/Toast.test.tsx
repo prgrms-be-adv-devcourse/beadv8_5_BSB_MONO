@@ -26,6 +26,8 @@ describe('ToastProvider', () => {
     expect(viewport).not.toBeNull()
     expect(classes).toMatch(/tablet:top-6/)
     expect(classes).toMatch(/tablet:left-1\/2/)
+    // 판매자·관리자 화면은 사이드바를 뺀 본문 가운데로 옮긴다(globals.css가 --toast-shift를 정한다)
+    expect(classes).toMatch(/--toast-shift/)
     expect(classes).not.toMatch(/tablet:right-6|tablet:bottom-6/)
   })
 })
