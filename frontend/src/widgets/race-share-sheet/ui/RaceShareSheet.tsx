@@ -15,7 +15,6 @@ export function RaceShareSheet({ open, onOpenChange, url }: RaceShareSheetProps)
   const toast = useToast()
 
   async function copyLink() {
-    onOpenChange(false)
     if (await copyText(url)) toast({ message: '링크를 복사했어요', tone: 'success' })
     else toast({ message: '복사하지 못했어요. 잠시 뒤 다시 시도해 주세요.', tone: 'error' })
   }
@@ -28,10 +27,10 @@ export function RaceShareSheet({ open, onOpenChange, url }: RaceShareSheetProps)
           onClick={() => void copyLink()}
           className={cn('flex flex-col items-center gap-2 rounded-md', FOCUS_RING)}
         >
-          <span className="flex size-13 items-center justify-center rounded-full bg-bg-surface shadow-sm">
-            <Icon name="Copy" className="size-5" />
+          <span className="flex size-13 items-center justify-center rounded-full border border-border-default bg-bg-surface">
+            <Icon name="Copy" className="size-5.5" />
           </span>
-          <span className="text-caption-medium">링크 복사</span>
+          <span className="text-caption-regular text-text-secondary">링크 복사</span>
         </button>
       </div>
     </BottomSheet>
