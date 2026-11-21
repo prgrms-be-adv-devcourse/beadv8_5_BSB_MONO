@@ -503,6 +503,11 @@ export interface OrderItemDto {
   kitReceivedAt?: string | null;
   /** 키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null */
   kitTracking?: KitTrackingDto | null;
+  /**
+     * 구매자 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-38). 구매자 주문 상세·수령 확인 응답에서만 채운다. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null
+     * @nullable
+     */
+  kitTrackingUrl?: string | null;
 }
 
 export type OrderDtoStatus = typeof OrderDtoStatus[keyof typeof OrderDtoStatus];
@@ -892,6 +897,8 @@ export interface PartyPreviewDto {
   joinTokenExpiresAt: string;
   /** 참가 링크가 아직 살아 있는지 (만료 시각 전) */
   joinLinkAlive: boolean;
+  /** 링크를 연 회원이 이 파티 크루의 크루원인지. 크루원 여부만 본다. false면 합류할 수 없다(합류 API 403 ORDER_CREW_MEMBER_REQUIRED, 크루가 없으면 404). 크루가 없어졌어도 false */
+  crewMember: boolean;
 }
 
 /**
@@ -1373,6 +1380,123 @@ export interface SellerSalesSummaryDto {
   refundedAmount: number;
 }
 
+export type SellerOrderDetailDtoStatus = typeof SellerOrderDetailDtoStatus[keyof typeof SellerOrderDetailDtoStatus];
+
+
+export const SellerOrderDetailDtoStatus = {
+  ORDERED: 'ORDERED',
+  PAID: 'PAID',
+  CANCELING: 'CANCELING',
+  CANCELED: 'CANCELED',
+} as const;
+
+/**
+ * 취소 이유 (일정 변경 뒤 환불 / 구매자 취소 / 대회 취소). 취소가 아니면 null
+ * @nullable
+ */
+export type SellerOrderDetailDtoCancelReason = typeof SellerOrderDetailDtoCancelReason[keyof typeof SellerOrderDetailDtoCancelReason] | null;
+
+
+export const SellerOrderDetailDtoCancelReason = {
+  SCHEDULE_CHANGED: 'SCHEDULE_CHANGED',
+  BUYER_CANCELED: 'BUYER_CANCELED',
+  RACE_CANCELED: 'RACE_CANCELED',
+} as const;
+
+/**
+ * 보내기 전에 취소된 키트도 PREPARING. 키트가 없으면 null
+ * @nullable
+ */
+export type SellerOrderDetailDtoKitDeliveryStatus = typeof SellerOrderDetailDtoKitDeliveryStatus[keyof typeof SellerOrderDetailDtoKitDeliveryStatus] | null;
+
+
+export const SellerOrderDetailDtoKitDeliveryStatus = {
+  PREPARING: 'PREPARING',
+  SHIPPING: 'SHIPPING',
+  DELIVERED: 'DELIVERED',
+} as const;
+
+/**
+ * 판매자 주문 상세 창 (주문 상품 = 참가권 1장). 키트가 없거나 결제 전이면 배송 칸이 모두 null
+ */
+export interface SellerOrderDetailDto {
+  orderItemId?: number;
+  orderId?: number;
+  orderNo?: string;
+  orderedAt?: string;
+  /**
+     * 결제 전이면 null
+     * @nullable
+     */
+  paidAt?: string | null;
+  raceId?: number;
+  raceCourseId?: number;
+  courseName?: string;
+  status?: SellerOrderDetailDtoStatus;
+  participantName?: string;
+  /**
+     * 옛 티셔츠 사이즈. kitOptions가 비어 있을 때만 쓴다
+     * @nullable
+     */
+  tshirtSize?: string | null;
+  /** 결제 때 고른 키트 옵션. 없으면 빈 목록 */
+  kitOptions?: KitOptionChoiceDto[];
+  /**
+     * 파티로 신청했으면 파티 ID, 개인 신청이면 null
+     * @nullable
+     */
+  partyId?: number | null;
+  /** 주문 당시 참가권 단가 */
+  unitPrice?: number;
+  quantity?: number;
+  /** 결제 금액 */
+  amount?: number;
+  /**
+     * 취소를 마친 시각. 취소가 아니면 null
+     * @nullable
+     */
+  canceledAt?: string | null;
+  /** 환불한 금액. 취소가 아니면 0 */
+  canceledAmount?: number;
+  /**
+     * 취소 이유 (일정 변경 뒤 환불 / 구매자 취소 / 대회 취소). 취소가 아니면 null
+     * @nullable
+     */
+  cancelReason?: SellerOrderDetailDtoCancelReason;
+  /** 키트 배송지. 키트가 없으면 null. 취소된 주문(보내기 전 취소, 취소 중)은 배송지가 null (보낸 뒤 취소된 참가권은 보임) */
+  shippingAddress?: ShippingAddressDto | null;
+  /**
+     * 배송 요청사항. 배송지와 같이 취소된 주문은 null
+     * @nullable
+     */
+  deliveryMemo?: string | null;
+  /**
+     * 보내기 전에 취소된 키트도 PREPARING. 키트가 없으면 null
+     * @nullable
+     */
+  kitDeliveryStatus?: SellerOrderDetailDtoKitDeliveryStatus;
+  /** @nullable */
+  kitCarrier?: string | null;
+  /** @nullable */
+  kitTrackingNumber?: string | null;
+  /** @nullable */
+  kitShippedAt?: string | null;
+  /** @nullable */
+  kitDeliveredAt?: string | null;
+  /**
+     * 구매자가 수령을 확인한 시각
+     * @nullable
+     */
+  kitReceivedAt?: string | null;
+  /** 키트 배송 조회. 발송 전이거나 자동 조회하지 않는 배송이면 null */
+  kitTracking?: KitTrackingDto | null;
+  /**
+     * 「배송 조회」 버튼이 여는 Delivery Tracker 주소 (CRU-40). 구매자 주문 상세와 같은 규칙. 발송 전, 택배사 ID 없는 옛 배송, 서버에 Client ID가 없으면 null
+     * @nullable
+     */
+  kitTrackingUrl?: string | null;
+}
+
 export interface RsDataOrderItemDto {
   status?: number;
   message?: string;
@@ -1497,6 +1621,12 @@ export interface RsDataSellerOrderPageDto {
   status?: number;
   message?: string;
   data?: SellerOrderPageDto;
+}
+
+export interface RsDataSellerOrderDetailDto {
+  status?: number;
+  message?: string;
+  data?: SellerOrderDetailDto;
 }
 
 export interface RsDataSellerPartyPageDto {
@@ -1691,6 +1821,10 @@ from?: string;
  * 조회 종료일 (이날 주문까지 포함, 생략 가능)
  */
 to?: string;
+/**
+ * 참가자 이름 또는 주문번호로 찾기 (한 칸, 부분 일치, 생략 가능)
+ */
+keyword?: string;
 /**
  * 페이지 번호 (0부터)
  * @minimum 0

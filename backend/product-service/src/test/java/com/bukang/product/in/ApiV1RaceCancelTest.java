@@ -180,8 +180,8 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 		LocalDateTime today = LocalDate.now().atStartOfDay();
 		RegisteredRace raceDay = registerOnSale(race()
 			.raceDate(today)
-			.individualOpenAt(today.minusDays(2))
-			.applicationCloseAt(today)
+			.individualOpenAt(today.minusDays(23))
+			.applicationCloseAt(today.minusWeeks(3))
 			.build());
 
 		cancelRace(raceDay.raceId(), SELLER_MEMBER_ID)
@@ -506,13 +506,13 @@ class ApiV1RaceCancelTest extends ProductIntegrationTest {
 			.andExpect(jsonPath("$.data.result").value("SOLD"));
 	}
 
-	// 대회일이 이틀 전인 대회 (개인 예매 오픈 5일 전, 접수 마감 3일 전). registerOnSale()로 만들면 판매 중이다
+	// 대회일이 이틀 전인 대회 (개인 예매 오픈 25일 전, 접수 마감 23일 전). registerOnSale()로 만들면 판매 중이다
 	private RaceSaveRequestDto pastRace() {
 		LocalDateTime now = LocalDateTime.now().withNano(0);
 		return race()
 			.raceDate(now.minusDays(2))
-			.individualOpenAt(now.minusDays(5))
-			.applicationCloseAt(now.minusDays(3))
+			.individualOpenAt(now.minusDays(25))
+			.applicationCloseAt(now.minusDays(23))
 			.build();
 	}
 

@@ -18,12 +18,13 @@ export type ShowToastOptions = {
 
 // 행동 결과를 3~4초 보여 주고 사라지는 알림. 앱 전체를 한 번 감싼다(app/_providers).
 // 모바일은 화면 아래 가운데에서 좌우 16 여백에 맞춰 늘어나고, 태블릿 이상은 시안대로 위 가운데 24에 폭 343으로 고정한다.
+// 판매자·관리자 화면은 사이드바를 뺀 본문 가운데로 옮긴다(--toast-shift는 globals.css).
 export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Toast.Provider timeout={4000}>
       {children}
       <Toast.Portal>
-        <Toast.Viewport className="fixed inset-x-4 bottom-[calc(--spacing(4)+env(safe-area-inset-bottom))] z-50 flex flex-col gap-2 outline-none tablet:inset-x-auto tablet:top-6 tablet:bottom-auto tablet:left-1/2 tablet:w-[343px] tablet:-translate-x-1/2">
+        <Toast.Viewport className="fixed inset-x-4 bottom-[calc(--spacing(4)+env(safe-area-inset-bottom))] z-50 flex flex-col gap-2 outline-none tablet:inset-x-auto tablet:top-6 tablet:bottom-auto tablet:left-1/2 tablet:w-[343px] tablet:translate-x-[calc(-50%+var(--toast-shift,0px))]">
           <ToastList />
         </Toast.Viewport>
       </Toast.Portal>

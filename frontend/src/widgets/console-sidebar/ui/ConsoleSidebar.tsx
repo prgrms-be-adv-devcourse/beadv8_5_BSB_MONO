@@ -69,7 +69,7 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
     href === menu.home ? pathname === href : pathname === href || pathname.startsWith(`${href}/`)
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-18 shrink-0 flex-col items-center gap-1 bg-bg-hero px-3.5 py-6 desktop:w-60 desktop:items-start desktop:px-4">
+    <aside className="console-sidebar sticky top-0 flex h-dvh w-18 shrink-0 flex-col items-center gap-1 bg-bg-hero px-3.5 py-6 desktop:w-60 desktop:items-start desktop:px-4">
       <Link
         href={menu.home}
         className={cn('flex items-center gap-2 rounded-sm pb-4', FOCUS_RING)}

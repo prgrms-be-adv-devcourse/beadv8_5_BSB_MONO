@@ -66,6 +66,7 @@ import type {
   RsDataQueueAdmissionDto,
   RsDataSellerKitPageDto,
   RsDataSellerKitSummaryDto,
+  RsDataSellerOrderDetailDto,
   RsDataSellerOrderPageDto,
   RsDataSellerPartyPageDto,
   RsDataSellerSalesSummaryDto,
@@ -4143,6 +4144,108 @@ export function useFindSellerOrders<TData = Awaited<ReturnType<typeof findSeller
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getFindSellerOrdersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindSellerOrderUrl = (orderItemId: number,) => {
+
+
+
+
+  return `/api/v1/order/seller/orders/${orderItemId}`
+}
+
+/**
+ * 판매자 대회의 주문 상품(참가권 1장) 하나를 주문 상세 창에 필요한 칸까지 돌려준다. 참가권 단가·결제 금액, 취소 시각·환불 금액·취소 이유, 키트 배송지·배송 요청사항·택배사·송장·이동 기록을 담는다. 보내기 전에 취소된 키트 주문도 열린다(kitDeliveryStatus는 목록과 같이 PREPARING, status가 CANCELED). 키트가 없거나 결제 전이면 배송 칸은 모두 null이다. 배송지·연락처는 키트 배송 목록과 같은 범위다. 대회 이름·대회일·환불 마감은 상품 대회 상세 API로 붙인다. 기한이 지나 만료된 주문은 404다.
+ * @summary 내 대회 주문 상세
+ */
+export const findSellerOrder = async (orderItemId: number, options?: Parameters<typeof customFetch>[1]): Promise<RsDataSellerOrderDetailDto> => {
+
+  return customFetch<RsDataSellerOrderDetailDto>(getFindSellerOrderUrl(orderItemId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindSellerOrderQueryKey = (orderItemId: number,) => {
+    return [
+    `/api/v1/order/seller/orders/${orderItemId}`
+    ] as const;
+    }
+
+
+export const getFindSellerOrderQueryOptions = <TData = Awaited<ReturnType<typeof findSellerOrder>>, TError = RsData>(orderItemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSellerOrder>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindSellerOrderQueryKey(orderItemId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findSellerOrder>>> = ({ signal }) => findSellerOrder(orderItemId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orderItemId !== null && orderItemId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findSellerOrder>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindSellerOrderQueryResult = NonNullable<Awaited<ReturnType<typeof findSellerOrder>>>
+export type FindSellerOrderQueryError = RsData
+
+
+export function useFindSellerOrder<TData = Awaited<ReturnType<typeof findSellerOrder>>, TError = RsData>(
+ orderItemId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSellerOrder>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSellerOrder>>,
+          TError,
+          Awaited<ReturnType<typeof findSellerOrder>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSellerOrder<TData = Awaited<ReturnType<typeof findSellerOrder>>, TError = RsData>(
+ orderItemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSellerOrder>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findSellerOrder>>,
+          TError,
+          Awaited<ReturnType<typeof findSellerOrder>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindSellerOrder<TData = Awaited<ReturnType<typeof findSellerOrder>>, TError = RsData>(
+ orderItemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSellerOrder>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 내 대회 주문 상세
+ */
+
+export function useFindSellerOrder<TData = Awaited<ReturnType<typeof findSellerOrder>>, TError = RsData>(
+ orderItemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findSellerOrder>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindSellerOrderQueryOptions(orderItemId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

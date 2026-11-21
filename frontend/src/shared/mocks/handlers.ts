@@ -7,6 +7,7 @@ import {
   getFindByRefResponseMock,
 } from '@/shared/api/generated/file/file.msw'
 import {
+  getApplyResponseMock,
   getBukangMemberAPIMock,
   getLoginResponseMock,
   getReissueResponseMock,
@@ -74,8 +75,9 @@ import {
   mockImageOfRace,
   searchMockRaces,
 } from './races'
-import { recordCertHandlers } from './record-certs'
+import { recordCertHandlers, sellerRecordCertHandlers } from './record-certs'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
+import { sellerOrderHandlers } from './seller-orders'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
 
 /** 경로 변수(:raceId) 수. 적은 것부터 둬야 /races/suggestions가 /races/:raceId에 먼저 걸리지 않는다. */
@@ -229,11 +231,28 @@ const authHandlers = [
   ),
 ]
 
+function caseOf(referer: string | null) {
+  try {
+    return new URL(referer ?? '').searchParams.get('case')
+  } catch {
+    return null
+  }
+}
+
 /**
  * 내 정보 목. 방금 가입한 회원이면 가입 때 넣은 프로필을, 아니면 명세 예시(시연용 기존 회원 runner1)를 돌려준다.
  * 방금 가입한 회원이 정보를 고치면 쿠키의 프로필을 고쳐 다음 조회부터 그 값이 보인다.
  */
 const meHandlers = [
+  // 화면 주소에 ?case=pending을 붙이면 판매자 신청이 심사 중인 회원으로 답한다(판매자 권한 없음 · 심사 중 2070:59948)
+  http.get('*/api/v1/member/sellers/me', ({ request }) => {
+    if (caseOf(request.headers.get('referer')) !== 'pending') return undefined
+    return HttpResponse.json({
+      status: 200,
+      message: '판매자 신청을 조회했습니다.',
+      data: { ...getApplyResponseMock().data, status: 'PENDING' },
+    })
+  }),
   http.get('*/api/v1/member/members/me', ({ cookies }) => {
     const profile = freshMemberOf(cookies)
     if (!profile) return undefined
@@ -798,12 +817,14 @@ export const handlers = [
   ...signupHandlers,
   ...fileUploadHandlers,
   ...recordCertHandlers,
+  ...sellerRecordCertHandlers,
   myOrdersHandler,
   ...raceHandlers,
   ...queueHandlers,
   ...orderHandlers,
   ...walletHandlers,
   ...sellerKitHandlers,
+  ...sellerOrderHandlers,
   ...payoutHandlers,
   ...generatedHandlers,
 ]

@@ -150,11 +150,11 @@ class ProductFacadeRaceCourseChangedTest extends ProductIntegrationTest {
 		assertThat(raceCourseChangedKeys()).containsExactly(raceKey, raceKey);
 	}
 
-	// 판매 예정 대회의 일정 (대회 15일 뒤, 개인 예매 이틀 뒤 오픈, 접수 마감 10일 뒤)
+	// 판매 예정 대회의 일정 (대회 31일 뒤, 개인 예매 이틀 뒤 오픈, 접수 마감 10일 뒤)
 	// 판매 시작일이 오늘로부터 이틀 뒤라 register()로 등록되고, 판매 시작 전이라 종목을 뺄 수 있다
 	private RaceBuilder scheduledRace() {
 		return race()
-			.raceDate(now.plusDays(15))
+			.raceDate(now.plusDays(31))
 			.individualOpenAt(now.plusDays(2))
 			.applicationCloseAt(now.plusDays(10));
 	}
