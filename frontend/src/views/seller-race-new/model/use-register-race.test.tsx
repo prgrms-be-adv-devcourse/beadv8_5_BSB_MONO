@@ -17,8 +17,9 @@ const values: RaceFormValues = {
   regionSido: '서울특별시',
   regionSigungu: '성동구',
   raceDate: '2026-11-01',
-  individualOpenAt: '2026-10-20',
-  applicationCloseAt: '2026-10-31',
+  raceTime: '08:00',
+  individualOpenAt: '2026-10-20 10:00',
+  applicationCloseAt: '2026-10-31 23:59',
   refundDeadline: '2026-10-31',
 }
 
@@ -57,8 +58,8 @@ describe('useRegisterRace', () => {
 
     expect(result.current.data?.raceId).toBe(7)
     expect(body).toMatchObject({
-      raceDate: '2026-11-01T00:00:00',
-      individualOpenAt: '2026-10-20T00:00:00',
+      raceDate: '2026-11-01T08:00:00',
+      individualOpenAt: '2026-10-20T10:00:00',
       applicationCloseAt: '2026-10-31T23:59:59',
       refundDeadline: '2026-10-31',
       crewMinCount: 4,

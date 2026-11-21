@@ -125,6 +125,12 @@ function renderPage() {
   )
 }
 
+async function pickDateTime(label: string, day: number, time: string) {
+  await pickDates(label, [day])
+  const group = screen.getByRole('group', { name: label })
+  await userEvent.type(within(group).getByRole('textbox', { name: `${label} 시간` }), time)
+}
+
 async function pickDates(label: string, days: number[]) {
   const group = screen.getByRole('group', { name: label })
   await userEvent.click(within(group).getAllByRole('button')[0])
@@ -135,14 +141,14 @@ async function pickDates(label: string, days: number[]) {
 }
 
 async function applyCover() {
-  const zone = screen.queryByRole('button', { name: '대표 이미지 (필수 · 1장)' })
+  const zone = screen.queryByRole('button', { name: '대표 이미지' })
   await userEvent.click(zone ?? screen.getByRole('button', { name: '바꾸기' }))
   await userEvent.click(screen.getByRole('button', { name: '자르기 적용' }))
 }
 
 async function addIntro() {
   await userEvent.click(
-    screen.queryByRole('button', { name: '소개 이미지 (여러 장)' }) ??
+    screen.queryByRole('button', { name: '소개 이미지' }) ??
       screen.getByRole('button', { name: '추가 · 편집' }),
   )
   await userEvent.click(screen.getByRole('button', { name: '사진 추가' }))
@@ -225,8 +231,10 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     completePostcode()
+    await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
     await pickDates('대회 날짜', [25])
-    await pickDates('접수 기간', [3, 24])
+    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDateTime('접수 마감', 24, '23:59')
     await pickDates('환불 기한', [20])
     await applyCover()
 
