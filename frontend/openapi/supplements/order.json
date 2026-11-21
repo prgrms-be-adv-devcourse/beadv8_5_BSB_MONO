@@ -1370,7 +1370,7 @@
         },
         "crewMember": {
           "type": "boolean",
-          "description": "링크를 연 회원이 이 파티 크루의 크루원인지. false면 합류할 수 없다(합류 API 403 ORDER_CREW_MEMBER_REQUIRED). 크루가 없어졌어도 false"
+          "description": "링크를 연 회원이 이 파티 크루의 크루원인지. 크루원 여부만 본다. false면 합류할 수 없다(합류 API 403 ORDER_CREW_MEMBER_REQUIRED, 크루가 없으면 404). 크루가 없어졌어도 false"
         }
       }
     },
