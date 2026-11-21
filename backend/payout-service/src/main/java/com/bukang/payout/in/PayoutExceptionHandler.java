@@ -60,7 +60,8 @@ public class PayoutExceptionHandler {
 		MissingServletRequestParameterException exception,
 		HttpServletRequest request
 	) {
-		logBadRequest(request, null, "필수 요청 값 없음 name=" + exception.getParameterName());
+		// 로그 문구는 상품·주문 처리기와 같게 둔다 (한 검색어로 서비스 전체의 누락을 모으도록)
+		logBadRequest(request, null, "필수 요청 값(%s)이 없습니다.".formatted(exception.getParameterName()));
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, "필수 요청 값이 없습니다.", null));
@@ -80,20 +81,27 @@ public class PayoutExceptionHandler {
 	}
 
 	// Payout의 @Version 충돌: 지급 배치나 다른 관리자 요청이 같은 정산 내역을 먼저 바꿨다
-	// 언제 어느 요청이 부딪혔는지 보려고 메서드 · 경로만 warn으로 남긴다. 다시 시도하면 풀리므로 스택은 남기지 않는다
+	// 언제 어느 요청이 부딪혔는지 보려고 메서드 · 경로를 남긴다. 다시 시도하면 풀리는 4xx라 공통 기준(4xx는 info)대로 info이고 스택은 남기지 않는다
 	@ExceptionHandler(OptimisticLockingFailureException.class)
 	public ResponseEntity<RsData<Void>> optimisticLockingFailureException(
 		OptimisticLockingFailureException exception,
 		HttpServletRequest request
 	) {
-		log.warn("409 {} {} 정산 내역 낙관적 락 충돌", request.getMethod(), request.getRequestURI());
+		String message = "다른 요청이 먼저 정산 내역을 바꿨습니다. 다시 시도해주세요.";
+		logHandled(request, HttpStatus.CONFLICT, null, message);
 		return ResponseEntity
 			.status(HttpStatus.CONFLICT)
-			.body(RsData.of(HttpStatus.CONFLICT, "다른 요청이 먼저 정산 내역을 바꿨습니다. 다시 시도해주세요.", null));
+			.body(RsData.of(HttpStatus.CONFLICT, message, null));
 	}
 
-	// common GlobalExceptionHandler와 같은 형식으로 400 이유를 info로 남긴다 (상품·파일 처리기와 같은 방식)
 	private static void logBadRequest(HttpServletRequest request, String code, String message) {
-		log.info("400 {} {} code={}, message={}", request.getMethod(), request.getRequestURI(), code, message);
+		logHandled(request, HttpStatus.BAD_REQUEST, code, message);
+	}
+
+	// common GlobalExceptionHandler와 같은 형식으로 4xx 이유를 info로 남긴다 (상품·파일·주문 처리기와 같은 방식)
+	// shortcut: GlobalExceptionHandler의 로그 메서드가 private이라 서비스마다 복사본을 둔다, 공통 메서드가 공개되면 그것을 부르게 바꾼다
+	private static void logHandled(HttpServletRequest request, HttpStatus status, String code, String message) {
+		log.info("{} {} {} code={}, message={}", status.value(), request.getMethod(), request.getRequestURI(), code,
+			message);
 	}
 }
