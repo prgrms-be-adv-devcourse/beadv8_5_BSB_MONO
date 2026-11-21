@@ -111,7 +111,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
       onConfirm={() => void confirm()}
       body={
         <div className="flex flex-col gap-8 pt-2">
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <TextField
               label={required('종목 이름')}
               error={errors.name?.message}
@@ -134,7 +134,7 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
               )}
             />
           </div>
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             {crewOpen && numberField('crewQuota', '크루 정원', '명')}
             {numberField(
               'individualQuota',
@@ -148,11 +148,11 @@ export function CourseAddDialog({ open, onOpenChange, crewOpen, onAdd }: CourseA
             {!crewOpen && <div className="flex-1" />}
           </div>
           {crewOpen && (
-            <p className="-mt-2 text-caption-regular text-text-tertiary">
+            <p className="-mt-6 text-caption-regular text-text-tertiary">
               크루 정원 + 일반 정원 = 크루런에 배정할 수량
             </p>
           )}
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             {numberField('price', '참가비', '원')}
             {numberField('timeLimitMinutes', '제한 시간', '분')}
           </div>
