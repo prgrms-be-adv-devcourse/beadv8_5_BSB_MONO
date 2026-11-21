@@ -1,19 +1,17 @@
 -- 재발급: 들어온 토큰이 지금 쓸 수 있는 것인지 판정하고, 정상이면 새 토큰으로 바꾼다
 -- 판정과 교체를 한 번에 해서, 같은 토큰으로 동시에 온 두 요청이 둘 다 정상으로 통과하지 못하게 한다
--- KEYS[1] members:{memberId}:refreshToken
+-- 들어온 토큰의 family 키 하나 안에서만 읽고 바꾼다. 다른 기기의 family는 건드리지 않는다
+-- KEYS[1] members:{memberId}:refreshTokens:{familyId}
+-- KEYS[2] members:{memberId}:refreshTokenFamilies
 -- ARGV[1] 들어온 토큰의 familyId  ARGV[2] 들어온 토큰의 jti
 -- ARGV[3] 새 jti  ARGV[4] 지금(초)  ARGV[5] 유예(초)  ARGV[6] 새 토큰 만료(초, TTL)
 -- 돌려주는 값: { 판정 } 또는 GRACE면 { 'GRACE', 지금 토큰 jti, 지금 토큰 만료(초) }
 if redis.call('EXISTS', KEYS[1]) == 0 then
-	return { 'MISSING' }  -- 로그아웃, 탈취 처리, TTL 만료
+	return { 'MISSING' }  -- 로그아웃, 탈취 처리, TTL 만료, 탈퇴, 만든 적 없는 family
 end
 
-local saved = redis.call('HMGET', KEYS[1], 'familyId', 'currentJti', 'previousJti', 'rotatedAt', 'currentExpiresAt')
-local familyId, currentJti, previousJti, rotatedAt, currentExpiresAt = saved[1], saved[2], saved[3], saved[4], saved[5]
-
-if familyId ~= ARGV[1] then
-	return { 'STALE' }  -- 다른 기기에서 새로 로그인해 family가 바뀌었다. 지금 family는 건드리지 않는다
-end
+local saved = redis.call('HMGET', KEYS[1], 'currentJti', 'previousJti', 'rotatedAt', 'currentExpiresAt')
+local currentJti, previousJti, rotatedAt, currentExpiresAt = saved[1], saved[2], saved[3], saved[4]
 
 if currentJti == ARGV[2] then
 	redis.call('HSET', KEYS[1], 'previousJti', currentJti, 'currentJti', ARGV[3], 'currentExpiresAt', ARGV[6], 'rotatedAt', ARGV[4])
@@ -29,5 +27,6 @@ if previousJti == ARGV[2] and tonumber(ARGV[4]) - tonumber(rotatedAt) <= tonumbe
 	return { 'GRACE', currentJti, currentExpiresAt }  -- 방금 회전된 토큰이 유예 안에 다시 왔다. 서비스가 지금 토큰을 다시 서명해 돌려준다
 end
 
-redis.call('DEL', KEYS[1])  -- 같은 family의 이미 쓴 토큰: 누가 진짜인지 모르므로 family를 끊는다
+redis.call('DEL', KEYS[1])  -- 같은 family의 이미 쓴 토큰: 누가 진짜인지 모르므로 이 family만 끊는다
+redis.call('SREM', KEYS[2], ARGV[1])
 return { 'THEFT' }
