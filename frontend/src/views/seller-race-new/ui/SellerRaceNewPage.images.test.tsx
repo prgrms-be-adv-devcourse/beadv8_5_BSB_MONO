@@ -227,6 +227,95 @@ describe('SellerRaceNewPage 이미지 임시 주소', () => {
   })
 })
 
+// 소개 이미지 칸의 썸네일에서 바로 지운다 (대표 이미지의 「삭제」와 같은 방식). 편집 창에서 빼거나 더해 바꾸고 끌어서 순서를 정한다
+async function saveIntroList(count: number) {
+  await userEvent.click(
+    screen.queryByRole('button', { name: '소개 이미지' }) ??
+      screen.getByRole('button', { name: '추가 · 편집' }),
+  )
+  for (let i = 0; i < count; i += 1) {
+    await userEvent.click(screen.getByRole('button', { name: '사진 추가' }))
+  }
+  await waitFor(() =>
+    expect(screen.getAllByRole('button', { name: /done 빼기$/ })).toHaveLength(count),
+  )
+  await userEvent.click(screen.getByRole('button', { name: '목록 저장' }))
+}
+
+describe('SellerRaceNewPage 소개 이미지 지우기', () => {
+  it('썸네일의 지우기 버튼으로 한 장을 지우면 빈 칸으로 돌아가고 그 임시 주소를 해제한다', async () => {
+    renderPage()
+    await saveIntroList(1)
+    const shown = screen.getByRole('img', { name: '1번째 소개 이미지' }).getAttribute('src')
+
+    await userEvent.click(screen.getByRole('button', { name: '1번째 소개 이미지 지우기' }))
+
+    expect(screen.queryByRole('img', { name: /번째 소개 이미지/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '소개 이미지' })).toBeInTheDocument()
+    expect(revoked).toContain(shown)
+  })
+
+  it('앞 장을 지우면 남은 이미지가 앞으로 오고 번호를 다시 매긴다', async () => {
+    renderPage()
+    await saveIntroList(2)
+    const [first, second] = screen
+      .getAllByRole('img', { name: /번째 소개 이미지/ })
+      .map((img) => img.getAttribute('src'))
+    expect(first).not.toBe(second)
+
+    await userEvent.click(screen.getByRole('button', { name: '1번째 소개 이미지 지우기' }))
+
+    const left = screen.getAllByRole('img', { name: /번째 소개 이미지/ })
+    expect(left).toHaveLength(1)
+    expect(left[0]).toHaveAttribute('alt', '1번째 소개 이미지')
+    expect(left[0]).toHaveAttribute('src', second)
+    expect(revoked).toContain(first)
+    expect(revoked).not.toContain(second)
+  })
+
+  it('지운 뒤에도 편집 창을 열면 남은 이미지만 보이고, 거기서 빼거나 더해 바꿀 수 있다', async () => {
+    renderPage()
+    await saveIntroList(2)
+    await userEvent.click(screen.getByRole('button', { name: '2번째 소개 이미지 지우기' }))
+    await userEvent.click(screen.getByRole('button', { name: '추가 · 편집' }))
+    expect(screen.getAllByRole('button', { name: /done 빼기$/ })).toHaveLength(1)
+  })
+
+  it('지운 이미지는 등록 요청에 실리지 않고 남은 이미지만 종목에 붙는다', async () => {
+    let body: { courses: { images: unknown[] }[] } | undefined
+    server.use(
+      http.post('*/api/v1/product/races', async ({ request }) => {
+        body = (await request.json()) as typeof body
+        return HttpResponse.json(
+          { status: 201, message: '대회를 등록했습니다.', data: { raceId: 9 } },
+          { status: 201 },
+        )
+      }),
+      http.post('*/api/v1/product/races/:raceId/kit-options', () =>
+        HttpResponse.json({ status: 201, message: '', data: null }, { status: 201 }),
+      ),
+    )
+    renderPage()
+    await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
+    await pickDates('대회 날짜', [28])
+    await pickDates('일반 판매 시작', [3])
+    await pickDateTime('접수 마감', 5, '23:59')
+    await pickDates('환불 기한', [20])
+    await addTenK()
+    await applyCover()
+    await saveIntroList(3)
+    await userEvent.click(screen.getByRole('button', { name: '2번째 소개 이미지 지우기' }))
+
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/seller/races?registered=9'))
+    // 종목 10K 하나에 소개 이미지 2장(3장 중 1장 지움)이 붙는다
+    expect(body?.courses[0].images).toHaveLength(2)
+  }, 20_000)
+})
+
 describe('SellerRaceNewPage 두 번 제출', () => {
   it('등록이 끝나 화면을 옮기는 동안 다시 누르거나 Enter로 보내도 한 번만 등록한다', async () => {
     let registered = 0
@@ -248,7 +337,7 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     completePostcode()
     await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
     await pickDates('대회 날짜', [28])
-    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDates('일반 판매 시작', [3])
     await pickDateTime('접수 마감', 5, '23:59')
     await pickDates('환불 기한', [20])
     await addTenK()
@@ -303,7 +392,7 @@ describe('SellerRaceNewPage 임시 저장 지우기', () => {
     completePostcode()
     await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
     await pickDates('대회 날짜', [28])
-    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDates('일반 판매 시작', [3])
     await pickDateTime('접수 마감', 5, '23:59')
     await pickDates('환불 기한', [20])
     await addTenK()

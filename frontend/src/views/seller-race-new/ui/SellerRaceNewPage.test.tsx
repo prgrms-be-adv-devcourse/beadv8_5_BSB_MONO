@@ -122,9 +122,9 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByText(RACE_FORM_ERRORS.locationRequired)).toBeInTheDocument()
     expect(screen.getByText(RACE_FORM_ERRORS.coverRequired)).toBeInTheDocument()
     expect(screen.getByText(RACE_FORM_ERRORS.timeRequired)).toBeInTheDocument()
-    // 대회 날짜 · 환불 기한은 날짜만, 일반 판매 시작 · 접수 마감은 날짜와 시각
-    expect(screen.getAllByText(RACE_FORM_ERRORS.dateRequired)).toHaveLength(2)
-    expect(screen.getAllByText(RACE_FORM_ERRORS.dateTimeRequired)).toHaveLength(2)
+    // 대회 날짜 · 일반 판매 시작 · 환불 기한은 날짜만, 접수 마감은 날짜와 시각
+    expect(screen.getAllByText(RACE_FORM_ERRORS.dateRequired)).toHaveLength(3)
+    expect(screen.getAllByText(RACE_FORM_ERRORS.dateTimeRequired)).toHaveLength(1)
     expect(requested).toBe(false)
   })
 
@@ -153,6 +153,43 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByRole('group', { name: '접수 마감' })).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: '접수 기간' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '만 19세' })).not.toBeInTheDocument()
+  })
+
+  it('일반 판매 시작은 날짜만 받아 시간 칸이 없고, 접수 마감은 시간 칸이 그대로 있다', () => {
+    renderPage()
+    const open = screen.getByRole('group', { name: '일반 판매 시작' })
+    expect(within(open).queryByRole('textbox')).not.toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: '접수 마감' })).getByRole('textbox', {
+        name: '접수 마감 시간',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('크루 선예매를 열어도 크루 예매 시작 · 마감은 시간 칸이 그대로 있고, 일반 판매 시작만 날짜만 받는다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    for (const label of ['크루 예매 시작', '크루 예매 마감']) {
+      expect(
+        within(screen.getByRole('group', { name: label })).getByRole('textbox', {
+          name: `${label} 시간`,
+        }),
+      ).toBeInTheDocument()
+    }
+    expect(
+      within(screen.getByRole('group', { name: '일반 판매 시작' })).queryByRole('textbox'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('출발 시각은 대회 날짜 옆이 아니라 아래 다음 줄에 있다', () => {
+    renderPage()
+    const date = screen.getByRole('group', { name: '대회 날짜' })
+    const time = screen.getByRole('textbox', { name: '출발 시각' })
+    expect(date.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // 둘을 한 줄(가로 flex)로 묶은 칸이 없다
+    const row = date.parentElement as HTMLElement
+    const horizontal = row.classList.contains('flex') && !row.classList.contains('flex-col')
+    expect(horizontal && row.contains(time)).toBe(false)
   })
 
   it('크루 선예매를 열면 크루 예매 날짜 칸과 크루 정원 열이 보이고, 열지 않으면 숨는다', async () => {
@@ -214,7 +251,8 @@ describe('SellerRaceNewPage', () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: '열기' }))
     await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
-    expect(await screen.findAllByText(RACE_FORM_ERRORS.dateTimeRequired)).toHaveLength(4)
+    // 크루 예매 시작 · 마감 · 접수 마감은 날짜와 시각, 일반 판매 시작은 날짜
+    expect(await screen.findAllByText(RACE_FORM_ERRORS.dateTimeRequired)).toHaveLength(3)
   })
 
   it('종목 표는 종목 · 거리 · 참가비 · 정원 · 최소 나이 · 키트 열로 그린다', async () => {
@@ -269,7 +307,7 @@ describe('SellerRaceNewPage', () => {
     renderPage()
     await typeRaceTime('08:00')
     await pickDates('대회 날짜', [28])
-    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDates('일반 판매 시작', [3])
     await pickDateTime('접수 마감', 5, '23:59')
     const tooEarly = raceAfterCloseMessage('2026-10-26 23:59')
     expect(screen.queryByText(tooEarly)).not.toBeInTheDocument()
@@ -293,7 +331,7 @@ describe('SellerRaceNewPage', () => {
     expect(screen.getByRole('button', { name: /10월 26일/ })).toBeEnabled()
   })
 
-  it('일반 판매 시작은 이틀 뒤 전 날을, 접수 마감은 대회 다음 날부터를 고를 수 없다', async () => {
+  it('일반 판매 시작은 이틀 뒤 전 날을, 접수 마감은 대회 3주 전 다음 날부터를 고를 수 없다', async () => {
     renderPage()
     await pickDates('대회 날짜', [25])
     // 오늘은 10/1(테스트 고정), 이틀 뒤는 10/3
@@ -307,8 +345,56 @@ describe('SellerRaceNewPage', () => {
     await userEvent.click(
       within(screen.getByRole('group', { name: '접수 마감' })).getAllByRole('button')[0],
     )
-    expect(screen.getByRole('button', { name: /10월 25일/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /10월 26일/ })).toBeDisabled()
+    // 대회 10/25의 3주 전은 10/4
+    expect(screen.getByRole('button', { name: /10월 4일/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /10월 5일/ })).toBeDisabled()
+  })
+
+  it('접수 마감 안내는 대회 일시 3주 전까지 고를 수 있다고 하고, 대회 날짜 3주 전 다음 날부터는 고를 수 없다', async () => {
+    renderPage()
+    expect(screen.getByText('대회 일시 3주 전까지 고를 수 있어요')).toBeInTheDocument()
+    expect(screen.queryByText('대회 전날까지 고를 수 있어요')).not.toBeInTheDocument()
+
+    await pickDates('대회 날짜', [28])
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '접수 마감' })).getAllByRole('button')[0],
+    )
+    // 대회 10/28의 3주 전은 10/7
+    expect(screen.getByRole('button', { name: /10월 7일/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /10월 8일/ })).toBeDisabled()
+  })
+
+  it('크루 예매 마감 당일 이전은 일반 판매 시작으로 고를 수 없고, 열지 않기로 바꾸면 다시 고를 수 있다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    await pickDateTime('크루 예매 시작', 4, '10:00')
+    await pickDateTime('크루 예매 마감', 7, '18:00')
+    const open = screen.getByRole('group', { name: '일반 판매 시작' })
+
+    await userEvent.click(within(open).getAllByRole('button')[0])
+    // 크루 예매는 10/4~10/7이라 일반 판매는 10/8부터
+    expect(screen.getByRole('button', { name: /10월 4일/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /10월 7일/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /10월 8일/ })).toBeEnabled()
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '일반 판매 시작' })).getAllByRole('button')[0],
+    )
+    expect(screen.getByRole('button', { name: /10월 7일/ })).toBeEnabled()
+  })
+
+  it('크루 예매 마감이 0시 정각이면 그날 0시부터 일반 판매를 시작할 수 있다', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '열기' }))
+    await pickDateTime('크루 예매 시작', 4, '10:00')
+    await pickDateTime('크루 예매 마감', 7, '00:00')
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '일반 판매 시작' })).getAllByRole('button')[0],
+    )
+    expect(screen.getByRole('button', { name: /10월 6일/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /10월 7일/ })).toBeEnabled()
   })
 
   it('만들지 않기로 한 공개 범위 칸은 없다', () => {
@@ -636,7 +722,7 @@ describe('SellerRaceNewPage', () => {
       renderPage()
       await typeRaceTime('08:00')
       await pickDates('대회 날짜', [28])
-      await pickDateTime('일반 판매 시작', 3, '10:00')
+      await pickDates('일반 판매 시작', [3])
       await pickDateTime('접수 마감', 5, '23:59')
       vi.setSystemTime(new Date(2026, 9, 2, 0, 10))
 
