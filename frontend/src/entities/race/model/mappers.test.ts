@@ -6,6 +6,7 @@ import {
   applicationPhase,
   raceBadge,
   toClosingSoonCard,
+  toNewRaceCard,
   toRaceDetail,
   toRaceListItem,
 } from './mappers'
@@ -70,6 +71,11 @@ describe('대회 응답 → 화면 모양', () => {
     )
     expect(card.meta).toBe('서울숲 일대')
     expect(card.status).toBe('')
+  })
+
+  it('새로 등록된 대회 카드: 접수 전이면 「오픈 예정」, 접수 중이면 남은 날', () => {
+    expect(toNewRaceCard(summary, BEFORE_OPEN).status).toBe('오픈 예정')
+    expect(toNewRaceCard(summary, OPEN)).toMatchObject({ id: '1', status: 'D-11' })
   })
 
   it('신청 기간: 개인 예매 오픈 전 · 접수 중 · 접수 마감 뒤', () => {
