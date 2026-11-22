@@ -30,11 +30,14 @@ import type {
   FindByRaceDateParams,
   FindByRefundDeadlineParams,
   HoldRequestDto,
+  HomeBannerReplaceRequestDto,
   KitOptionsSaveRequestDto,
   ListParams,
   RaceSaveRequestDto,
   RsData,
   RsDataKitOptionListDto,
+  RsDataListHomeBannerAdminDto,
+  RsDataListRaceSummaryDto,
   RsDataListSellerRaceDto,
   RsDataRaceDetailDto,
   RsDataRacePageDto,
@@ -65,6 +68,299 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getFindHomeBannersUrl = () => {
+
+
+
+
+  return `/api/v1/product/banners`
+}
+
+/**
+ * 관리자가 고른 순서대로 홈에 보일 대회를 준다. 접수 마감·판매 중지·판매 종료·대회 취소된 대회는 뺀다. 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * @summary 홈 배너 대회 목록
+ */
+export const findHomeBanners = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataListRaceSummaryDto> => {
+
+  return customFetch<RsDataListRaceSummaryDto>(getFindHomeBannersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindHomeBannersQueryKey = () => {
+    return [
+    `/api/v1/product/banners`
+    ] as const;
+    }
+
+
+export const getFindHomeBannersQueryOptions = <TData = Awaited<ReturnType<typeof findHomeBanners>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findHomeBanners>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindHomeBannersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findHomeBanners>>> = ({ signal }) => findHomeBanners({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findHomeBanners>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindHomeBannersQueryResult = NonNullable<Awaited<ReturnType<typeof findHomeBanners>>>
+export type FindHomeBannersQueryError = unknown
+
+
+export function useFindHomeBanners<TData = Awaited<ReturnType<typeof findHomeBanners>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findHomeBanners>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findHomeBanners>>,
+          TError,
+          Awaited<ReturnType<typeof findHomeBanners>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindHomeBanners<TData = Awaited<ReturnType<typeof findHomeBanners>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findHomeBanners>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findHomeBanners>>,
+          TError,
+          Awaited<ReturnType<typeof findHomeBanners>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindHomeBanners<TData = Awaited<ReturnType<typeof findHomeBanners>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findHomeBanners>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 홈 배너 대회 목록
+ */
+
+export function useFindHomeBanners<TData = Awaited<ReturnType<typeof findHomeBanners>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findHomeBanners>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindHomeBannersQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindAdminHomeBannersUrl = () => {
+
+
+
+
+  return `/api/v1/product/admin/banners`
+}
+
+/**
+ * 배너로 고른 대회를 순서대로 모두 준다(홈에 안 보이는 대회 포함). 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * @summary 관리자 홈 배너 목록
+ */
+export const findAdminHomeBanners = async ( options?: Parameters<typeof customFetch>[1]): Promise<RsDataListHomeBannerAdminDto> => {
+
+  return customFetch<RsDataListHomeBannerAdminDto>(getFindAdminHomeBannersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindAdminHomeBannersQueryKey = () => {
+    return [
+    `/api/v1/product/admin/banners`
+    ] as const;
+    }
+
+
+export const getFindAdminHomeBannersQueryOptions = <TData = Awaited<ReturnType<typeof findAdminHomeBanners>>, TError = RsData>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminHomeBanners>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindAdminHomeBannersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findAdminHomeBanners>>> = ({ signal }) => findAdminHomeBanners({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findAdminHomeBanners>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type FindAdminHomeBannersQueryResult = NonNullable<Awaited<ReturnType<typeof findAdminHomeBanners>>>
+export type FindAdminHomeBannersQueryError = RsData
+
+
+export function useFindAdminHomeBanners<TData = Awaited<ReturnType<typeof findAdminHomeBanners>>, TError = RsData>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminHomeBanners>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findAdminHomeBanners>>,
+          TError,
+          Awaited<ReturnType<typeof findAdminHomeBanners>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindAdminHomeBanners<TData = Awaited<ReturnType<typeof findAdminHomeBanners>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminHomeBanners>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof findAdminHomeBanners>>,
+          TError,
+          Awaited<ReturnType<typeof findAdminHomeBanners>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useFindAdminHomeBanners<TData = Awaited<ReturnType<typeof findAdminHomeBanners>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminHomeBanners>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 관리자 홈 배너 목록
+ */
+
+export function useFindAdminHomeBanners<TData = Awaited<ReturnType<typeof findAdminHomeBanners>>, TError = RsData>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof findAdminHomeBanners>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getFindAdminHomeBannersQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReplaceAdminHomeBannersUrl = () => {
+
+
+
+
+  return `/api/v1/product/admin/banners`
+}
+
+/**
+ * 배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * @summary 관리자 홈 배너 저장
+ */
+export const replaceAdminHomeBanners = async (homeBannerReplaceRequestDto: HomeBannerReplaceRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListHomeBannerAdminDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RsDataListHomeBannerAdminDto>(getReplaceAdminHomeBannersUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(homeBannerReplaceRequestDto)
+  }
+);}
+
+
+
+
+
+export const getReplaceAdminHomeBannersMutationKey = () => ['replaceAdminHomeBanners'] as const;
+
+export const getReplaceAdminHomeBannersMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replaceAdminHomeBanners>>, TError,ReplaceAdminHomeBannersMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof replaceAdminHomeBanners>>, TError,ReplaceAdminHomeBannersMutationVariables, TContext> => {
+
+const mutationKey = getReplaceAdminHomeBannersMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof replaceAdminHomeBanners>>, ReplaceAdminHomeBannersMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  replaceAdminHomeBanners(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReplaceAdminHomeBannersMutationResult = NonNullable<Awaited<ReturnType<typeof replaceAdminHomeBanners>>>
+    export type ReplaceAdminHomeBannersMutationBody = HomeBannerReplaceRequestDto
+    export type ReplaceAdminHomeBannersMutationError = RsData
+    export type ReplaceAdminHomeBannersMutationVariables = {data: HomeBannerReplaceRequestDto}
+
+    /**
+ * @summary 관리자 홈 배너 저장
+ */
+export const useReplaceAdminHomeBanners = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replaceAdminHomeBanners>>, TError,ReplaceAdminHomeBannersMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof replaceAdminHomeBanners>>,
+        TError,
+        ReplaceAdminHomeBannersMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReplaceAdminHomeBannersMutationOptions(options), queryClient);
+    }
 
 export const getFindRaceUrl = (raceId: number,) => {
 

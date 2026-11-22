@@ -352,6 +352,11 @@ export interface RaceSummaryDto {
   applicationCloseAt?: string;
   minPrice?: number;
   courses?: RaceSummaryCourseDto[];
+  /**
+     * 대표 이미지 보기 주소 (30분 뒤 만료). 없으면 null
+     * @nullable
+     */
+  imageUrl?: string | null;
 }
 
 export interface RacePageDto {
@@ -583,6 +588,51 @@ export interface KitOptionGroupDto {
 export interface KitOptionListDto {
   raceId: number;
   kitOptions: KitOptionGroupDto[];
+}
+
+export type HomeBannerAdminDtoSaleStatus = typeof HomeBannerAdminDtoSaleStatus[keyof typeof HomeBannerAdminDtoSaleStatus];
+
+
+export const HomeBannerAdminDtoSaleStatus = {
+  SCHEDULED: 'SCHEDULED',
+  ON_SALE: 'ON_SALE',
+  STOPPED: 'STOPPED',
+  CLOSED: 'CLOSED',
+  CANCELED: 'CANCELED',
+} as const;
+
+export interface HomeBannerAdminDto {
+  raceId: number;
+  title: string;
+  saleStatus: HomeBannerAdminDtoSaleStatus;
+  /** @nullable */
+  crewSaleStartAt?: string | null;
+  /** @nullable */
+  crewSaleEndAt?: string | null;
+  individualOpenAt?: string;
+  applicationCloseAt?: string;
+  /** 홈에 보이는지. 접수 마감·판매 중지·판매 종료·대회 취소면 false */
+  visible: boolean;
+}
+
+export interface HomeBannerReplaceRequestDto {
+  /**
+     * 배너에 올릴 대회 ID. 이 순서대로 보인다(최대 5개)
+     * @maxItems 5
+     */
+  raceIds: number[];
+}
+
+export interface RsDataListRaceSummaryDto {
+  status?: number;
+  message?: string;
+  data?: RaceSummaryDto[];
+}
+
+export interface RsDataListHomeBannerAdminDto {
+  status?: number;
+  message?: string;
+  data?: HomeBannerAdminDto[];
 }
 
 export interface RsDataRaceDetailDto {
