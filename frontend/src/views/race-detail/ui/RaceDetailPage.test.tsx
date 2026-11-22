@@ -282,6 +282,19 @@ describe('RaceDetailPage 비슷한 대회 (M02-6)', () => {
     expect(screen.getAllByRole('link', { name: /추천 \d/ })).toHaveLength(3)
   })
 
+  it('추천 대회의 imageUrl이 있으면 사진을 보여 주고, null이면 사진 없이 그린다', async () => {
+    similar([
+      { ...base, raceId: 101, title: '추천 사진', imageUrl: '/mock/races/101.webp' },
+      { ...base, raceId: 102, title: '추천 기본', imageUrl: null },
+    ])
+    renderPage()
+
+    const withImage = await screen.findByRole('link', { name: /추천 사진/ })
+    const withoutImage = screen.getByRole('link', { name: /추천 기본/ })
+    expect(withImage.querySelector('img')).not.toBeNull()
+    expect(withoutImage.querySelector('img')).toBeNull()
+  })
+
   it('추천이 없으면 영역을 숨긴다', async () => {
     similar([])
     renderPage()

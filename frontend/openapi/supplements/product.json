@@ -239,6 +239,13 @@
           "items": {
             "$ref": "#/components/schemas/RaceSummaryCourseDto"
           }
+        },
+        "imageUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "대표 이미지 보기 주소(30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null"
         }
       }
     },

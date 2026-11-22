@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { server } from '@/shared/testing'
 
-import { fetchRaceDetail, fetchRacePageWithCovers, raceCoverQueryOptions } from './race-api'
+import { fetchRaceDetail, fetchRacePage, raceCoverQueryOptions } from './race-api'
 
 describe('fetchRaceDetail', () => {
   it('상품 API의 대회와 파일 API의 대회 대표 이미지를 합친다', async () => {
@@ -64,43 +64,31 @@ describe('raceCoverQueryOptions', () => {
   })
 })
 
-describe('fetchRacePageWithCovers', () => {
-  const page = (ids: number[]) =>
-    http.get('*/api/v1/product/races', () =>
-      HttpResponse.json({
-        status: 200,
-        message: 'ok',
-        data: {
-          races: ids.map((raceId) => ({ raceId, title: `대회 ${raceId}` })),
-          page: 0,
-          size: 20,
-        },
-      }),
-    )
-
-  it('목록 응답에 없는 대표 이미지를 대회 파일(refType=Race)에서 받아 imageUrl에 채운다', async () => {
+describe('fetchRacePage', () => {
+  it('목록 한 번 요청으로 받은 imageUrl을 그대로 주고, 파일 서비스는 부르지 않는다', async () => {
+    const fileRequests: string[] = []
     server.use(
-      page([7, 8]),
+      http.get('*/api/v1/product/races', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: {
+            races: [
+              { raceId: 7, title: '대회 7', imageUrl: '/seven.webp' },
+              { raceId: 8, title: '대회 8', imageUrl: null },
+            ],
+            page: 0,
+            size: 20,
+          },
+        }),
+      ),
       http.get('*/api/v1/file/files', ({ request }) => {
-        const params = new URL(request.url).searchParams
-        const isRace7 = params.get('refType') === 'Race' && params.get('refId') === '7'
-        const data = isRace7 ? [{ id: 1, fileType: 'THUMBNAIL', url: '/seven.webp' }] : []
-        return HttpResponse.json({ status: 200, message: 'ok', data })
+        fileRequests.push(request.url)
+        return HttpResponse.json({ status: 200, message: 'ok', data: [] })
       }),
     )
-    const { races } = await fetchRacePageWithCovers({ page: 0, size: 20 })
-    expect(races?.map((r) => (r as { imageUrl?: string }).imageUrl)).toEqual([
-      '/seven.webp',
-      undefined,
-    ])
-  })
-
-  it('이미지를 못 받아도 목록은 그대로 준다', async () => {
-    server.use(
-      page([7]),
-      http.get('*/api/v1/file/files', () => HttpResponse.error()),
-    )
-    const { races } = await fetchRacePageWithCovers({ page: 0, size: 20 })
-    expect(races).toHaveLength(1)
+    const { races } = await fetchRacePage({ page: 0, size: 20 })
+    expect(races?.map((r) => r.imageUrl)).toEqual(['/seven.webp', null])
+    expect(fileRequests).toEqual([])
   })
 })

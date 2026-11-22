@@ -186,18 +186,18 @@ describe('RaceListPage', () => {
   })
 
   it('첫 카드에 사진이 없으면 사진이 있는 첫 카드 썸네일을 먼저 불러온다', async () => {
+    // 목록 응답의 imageUrl을 그대로 쓴다. 1번 대회는 대표 이미지가 없어 null이다.
     const races = [1, 2, 3].map((raceId) => ({
       ...base,
       raceId,
       title: `${raceId}번 대회`,
+      imageUrl: raceId === 1 ? null : `/mock/races/${raceId}.webp`,
     }))
+    const fileRequests: string[] = []
     server.use(
-      // 목록 응답엔 이미지가 없고, 대회 파일(file 서비스)에서 받는다. 1번 대회만 파일이 없다.
       http.get('*/api/v1/file/files', ({ request }) => {
-        const id = new URL(request.url).searchParams.get('refId')
-        const data =
-          id === '1' ? [] : [{ id: 1, fileType: 'THUMBNAIL', url: `/mock/races/${id}.webp` }]
-        return HttpResponse.json({ status: 200, message: 'ok', data })
+        fileRequests.push(request.url)
+        return HttpResponse.json({ status: 200, message: 'ok', data: [] })
       }),
       http.get('*/api/v1/product/races', () =>
         HttpResponse.json({
@@ -213,6 +213,8 @@ describe('RaceListPage', () => {
     expect(items[0].querySelector('img')).toBeNull()
     expect(items[1].querySelector('img')).toHaveAttribute('fetchpriority', 'high')
     expect(items[2].querySelector('img')).toHaveAttribute('loading', 'lazy')
+    // 카드마다 파일 서비스를 따로 부르지 않는다
+    expect(fileRequests).toEqual([])
   })
 
   it('검색어를 제출하면 최근 검색어에 남고, 하나씩 또는 전체 삭제할 수 있다', async () => {
