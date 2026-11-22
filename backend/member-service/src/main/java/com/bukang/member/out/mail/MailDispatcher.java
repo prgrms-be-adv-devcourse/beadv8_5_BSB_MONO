@@ -47,6 +47,8 @@ public class MailDispatcher {
 		}
 		try {
 			mailSender.send(mail);
+			// 메일 설정이 없으면 예외 없이 끝나는 발송기도 있어, 어느 발송기가 처리했는지 남긴다
+			log.info("메일을 발송기에 넘겼습니다({}): {}", mailSender.getClass().getSimpleName(), mail);
 		} catch (RuntimeException e) {
 			if (retry >= retryDelays.size()) {
 				log.warn("메일을 {}번 다시 보냈지만 실패했습니다: {}", retry, mail, e);

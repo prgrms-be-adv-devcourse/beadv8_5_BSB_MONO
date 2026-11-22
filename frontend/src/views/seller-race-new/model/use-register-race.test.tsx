@@ -61,7 +61,8 @@ describe('useRegisterRace', () => {
     expect(result.current.data?.raceId).toBe(7)
     expect(body).toMatchObject({
       raceDate: '2026-11-01T08:00:00',
-      individualOpenAt: '2026-10-20T10:00:00',
+      // 일반 판매 시작은 날짜만 받아 그 날짜의 00:00으로 보낸다
+      individualOpenAt: '2026-10-20T00:00:00',
       applicationCloseAt: '2026-10-31T23:59:59',
       refundDeadline: '2026-10-31',
       crewMinCount: 4,

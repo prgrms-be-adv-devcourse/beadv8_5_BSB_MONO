@@ -70,10 +70,10 @@ describe('raceFormSchema 날짜 칸', () => {
     }
   })
 
-  it('일반 판매 시작 · 접수 마감은 시각까지 있어야 한다', () => {
+  it('일반 판매 시작은 날짜를 골라야 하고(오류 문구도 날짜만 말한다), 접수 마감은 시각까지 있어야 한다', () => {
     for (const individualOpenAt of ['', '2026-10-23', '2026-10-23 ', '2026-10-23 24:00']) {
       expect(issuesOf({ ...base, individualOpenAt })).toEqual([
-        `individualOpenAt: ${RACE_FORM_ERRORS.dateTimeRequired}`,
+        `individualOpenAt: ${RACE_FORM_ERRORS.dateRequired}`,
       ])
     }
     expect(issuesOf({ ...base, applicationCloseAt: '2026-10-28' })).toEqual([
@@ -87,11 +87,12 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
     expect(issuesOf(base)).toEqual([])
   })
 
-  it('접수 마감이 일반 판매 시작과 같거나 빠르면 막는다', () => {
+  it('접수 마감이 일반 판매 시작(그 날짜 00:00)과 같거나 빠르면 막는다', () => {
     const closeAfterOpen = `applicationCloseAt: ${RACE_FORM_ERRORS.closeAfterOpen}`
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-23 10:00' })).toEqual([closeAfterOpen])
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-22 23:59' })).toEqual([closeAfterOpen])
-    expect(issuesOf({ ...base, applicationCloseAt: '2026-10-23 10:01' })).toEqual([])
+    const open = { ...base, individualOpenAt: '2026-10-23 00:00' }
+    expect(issuesOf({ ...open, applicationCloseAt: '2026-10-23 00:00' })).toEqual([closeAfterOpen])
+    expect(issuesOf({ ...open, applicationCloseAt: '2026-10-22 23:59' })).toEqual([closeAfterOpen])
+    expect(issuesOf({ ...open, applicationCloseAt: '2026-10-23 00:01' })).toEqual([])
   })
 
   it('접수 마감이 대회 시작보다 늦으면 막는다', () => {
@@ -111,6 +112,40 @@ describe('일정 순서 규칙 (서버 RaceRequestValidator · Race와 같다)',
     expect(issuesOf({ ...base, raceDate: '2026-11-18', raceTime: '23:58' })).toEqual([
       `raceDate: ${raceAfterCloseMessage('2026-11-18 23:59')}`,
     ])
+  })
+
+  it('출발 시각을 아직 안 쳤어도 대회 날짜가 접수 마감 3주 뒤 날보다 앞이면 막는다', () => {
+    // 접수 마감 10/28 → 11/18 23:59가 가장 이른 시각이라, 날짜가 11/17이면 그날 끝까지도 모자란다
+    const early = issuesOf({ ...base, raceDate: '2026-11-17', raceTime: '' })
+    expect(early).toContain(`raceDate: ${raceAfterCloseMessage('2026-11-18 23:59')}`)
+    // 11/18은 시각에 따라 통과할 수 있어 시각을 칠 때까지 날짜에는 오류를 보이지 않는다
+    expect(issuesOf({ ...base, raceDate: '2026-11-18', raceTime: '' })).toEqual([
+      `raceTime: ${RACE_FORM_ERRORS.timeRequired}`,
+    ])
+  })
+
+  it('이어 쓴 값에 시각이 붙어 있어도 일반 판매 시작은 그 날짜의 00:00으로 보고 순서를 본다 (요청에 실제로 보내는 값과 같다)', () => {
+    // 일반 판매 시작 10/23 10:00(이어 쓴 값) · 접수 마감 10/23 08:00: 실제로는 10/23 00:00이라 마감이 더 늦다
+    expect(
+      issuesOf({
+        ...base,
+        individualOpenAt: '2026-10-23 10:00',
+        applicationCloseAt: '2026-10-23 08:00',
+        raceDate: '2026-11-13',
+      }),
+    ).toEqual([])
+  })
+
+  it('접수 마감과 대회 날짜가 이틀 간격이면 막는다', () => {
+    expect(
+      issuesOf({
+        ...base,
+        individualOpenAt: '2026-11-20 00:00',
+        applicationCloseAt: '2026-12-02 23:59',
+        raceDate: '2026-12-04',
+        refundDeadline: '2026-12-03',
+      }),
+    ).toEqual([`raceDate: ${raceAfterCloseMessage('2026-12-23 23:59')}`])
   })
 
   it('환불 기한이 대회일보다 늦으면 막고, 같은 날은 통과한다', () => {
@@ -164,6 +199,24 @@ describe('크루 예매 일정 (서버 RaceRequestValidator.validateSchedule과 
     expect(issuesOf({ ...midnightEnd, individualOpenAt: '2026-10-22 23:59' })).toEqual([message])
   })
 
+  it('크루 예매 마감 당일은 몇 시에 끝나도 일반 판매 시작으로 고를 수 없고, 다음 날부터 고를 수 있다', () => {
+    const message = `individualOpenAt: ${RACE_FORM_ERRORS.individualAfterCrew}`
+    const evening = { ...crewBase, crewSaleEndAt: '2026-10-22 18:00' }
+    expect(issuesOf({ ...evening, individualOpenAt: '2026-10-22 00:00' })).toEqual([message])
+    expect(issuesOf({ ...evening, individualOpenAt: '2026-10-23 00:00' })).toEqual([])
+    // 크루 예매 기간 안(10/19~10/22)의 날짜도 막는다
+    expect(issuesOf({ ...evening, individualOpenAt: '2026-10-20 00:00' })).toEqual([message])
+  })
+
+  it('크루 예매를 열지 않으면 크루 예매 칸은 일반 판매 시작을 막지 않는다', () => {
+    const closed = {
+      ...base,
+      crewSaleStartAt: '2026-10-19 10:00',
+      crewSaleEndAt: '2026-10-25 18:00',
+    }
+    expect(issuesOf({ ...closed, individualOpenAt: '2026-10-20 00:00' })).toEqual([])
+  })
+
   it('크루 예매를 열면 판매 시작일은 크루 예매 시작일이라 오늘로부터 이틀 뒤부터 받는다', () => {
     const today = new Date(2026, 9, 18)
     expect(issuesOf(crewBase, today)).toEqual([
@@ -180,10 +233,15 @@ describe('크루 예매 일정 (서버 RaceRequestValidator.validateSchedule과 
 })
 
 describe('toRaceSaveRequest 시각', () => {
-  it('고른 시각을 그대로 붙이고, 23:59는 초까지 59로 보내며, 환불 기한은 날짜만 보낸다', () => {
+  it('일반 판매 시작은 고른 날짜의 00:00으로 보내고(이어 쓴 값에 시각이 있어도), 접수 마감은 고른 시각 그대로, 23:59는 초까지 59로 보내며, 환불 기한은 날짜만 보낸다', () => {
     const request = toRaceSaveRequest(base, [], [])
     expect(request.raceDate).toBe('2026-11-19T08:00:00')
-    expect(request.individualOpenAt).toBe('2026-10-23T10:00:00')
+    // base는 저장해 둔 작성 내용처럼 10:00이 붙어 있다
+    expect(base.individualOpenAt).toBe('2026-10-23 10:00')
+    expect(request.individualOpenAt).toBe('2026-10-23T00:00:00')
+    expect(
+      toRaceSaveRequest({ ...base, individualOpenAt: '2026-10-23 00:00' }, [], []).individualOpenAt,
+    ).toBe('2026-10-23T00:00:00')
     expect(request.applicationCloseAt).toBe('2026-10-28T23:59:59')
     expect(request.refundDeadline).toBe('2026-10-29')
   })

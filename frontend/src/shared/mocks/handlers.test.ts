@@ -263,6 +263,23 @@ describe('대기열 줄서기 목', () => {
     await customFetch('http://localhost/api/v1/order/queue/admission?raceId=1&raceCourseId=1')
     await expect(register()).rejects.toMatchObject({ status: 409 })
   })
+
+  it('입장을 해제하면 다시 줄을 새로 설 수 있고, 입장 중이 아니어도 200이다', async () => {
+    const release = () => customFetch(`${base}/races/1/racecourses/1/active`, { method: 'DELETE' })
+    await register()
+    await poll()
+    await poll()
+    await poll()
+    await customFetch('http://localhost/api/v1/order/queue/admission?raceId=1&raceCourseId=1')
+    await expect(register()).rejects.toMatchObject({ status: 409 })
+
+    await release()
+    await release()
+    expect((await register()).data).toMatchObject({ myRank: 3, canEnter: false })
+    await expect(
+      customFetch(`${base}/parties/races/1/racecourses/1/active`, { method: 'DELETE' }),
+    ).resolves.toMatchObject({ status: 200 })
+  })
 })
 
 // 서버(proxy.ts)가 화면 요청에서 로그인 여부를 알 수 있게, 가짜 로그인이 Path=/ 표시 쿠키를 같이 심고 지우는지 확인한다.

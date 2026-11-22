@@ -14,6 +14,7 @@ import {
   admissionExpiredHref,
   isQueueNotAdmitted,
   useAdmissionTimer,
+  useReleaseAdmissionOnExit,
 } from '@/features/queue-admission'
 import { RaceTicketCard, type RaceDetail, type RaceOption } from '@/entities/race'
 import {
@@ -92,6 +93,12 @@ export function RaceApplyPage({
     'follow',
   )
   const remaining = preview ? previewRemainingSeconds : timer.remaining
+  // 신청서를 벗어나면 입장을 풀어 다시 들어올 때 줄을 새로 선다. 결제로 넘어가는 것은 같은 입장이라 풀지 않는다.
+  useReleaseAdmissionOnExit(
+    preview
+      ? undefined
+      : { line: 'individual', raceId: Number(race.id), raceCourseId: Number(option.id) },
+  )
   // 0 참가자 정보, 1 키트 옵션. 헤더 뒤로 가기가 키트 옵션 단계에서 참가자 정보 단계로 돌아간다. 키트 조회 오류 화면이면 단계를 바꾸지 않고 이전 페이지로 간다.
   const [step, setStep] = useState(0)
   // 결제를 저장하는 중에는 헤더 뒤로 가기로 단계를 바꿀 수 없다

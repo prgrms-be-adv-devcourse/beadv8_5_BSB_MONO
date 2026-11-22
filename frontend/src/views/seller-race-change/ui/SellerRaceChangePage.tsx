@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { isAfter, isBefore, parse, parseISO, startOfToday } from 'date-fns'
+import { addDays, addWeeks, isAfter, isBefore, parse, parseISO, startOfToday } from 'date-fns'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -12,6 +12,7 @@ import { ConsoleCard, ConsoleLoading, ConsolePage } from '@/widgets/console-page
 import { AddressSearch } from '@/features/address-search'
 import { useCancelRace, useUpdateRace } from '@/features/seller-race'
 import {
+  crewCloseAt,
   earliestRaceAt,
   earliestRefundDay,
   formatRaceDate,
@@ -20,8 +21,10 @@ import {
   myRacesQueryOptions,
   parseDateTimeInput,
   parseRaceDateInput,
+  RACE_AFTER_CLOSE_WEEKS,
   raceForEditQueryOptions,
   RaceScheduleFields,
+  SALE_OPEN_MIN_DAYS,
   scheduleChangeSchema,
   scheduleLocks,
   toScheduleChangeValues,
@@ -155,6 +158,11 @@ function ChangeContent({
   const raceText = parseDateTimeInput(raceDateTime)
   const closeText = parseDateTimeInput(applicationCloseAt)
   const raceDay = raceText ? parseISO(raceText.slice(0, 10)) : undefined
+  // 접수 마감은 대회 날짜의 3주 전 날까지 (시각까지 맞는지는 검사에서 본다)
+  const lastCloseDay = raceDay && addWeeks(raceDay, -RACE_AFTER_CLOSE_WEEKS)
+  const crewSaleEndAt = useWatch({ control, name: 'crewSaleEndAt' })
+  const crewEndText = crewOpen ? parseDateTimeInput(crewSaleEndAt) : null
+  const crewOpenDay = crewEndText ? parseISO(crewCloseAt(crewEndText).slice(0, 10)) : undefined
   // 대회 일시는 접수 마감 3주 뒤 날부터, 환불 기한은 접수 마감 다음 날부터 고를 수 있다
   const minRaceDay = closeText ? parseISO(earliestRaceAt(closeText).slice(0, 10)) : new Date(0)
   const minRefundDay = closeText ? parseISO(earliestRefundDay(closeText)) : new Date(0)
@@ -341,9 +349,17 @@ function ChangeContent({
                 }}
                 isDateDisabled={(name, date) =>
                   isBefore(date, startOfToday()) ||
+                  // 일반 판매 시작은 그 날짜 00:00으로 보내므로 오늘은 이미 지난 시각이다. 크루 예매가 없으면 판매 시작일이라 이틀 뒤부터다
+                  (name === 'individualOpenAt' &&
+                    isBefore(date, addDays(startOfToday(), crewOpen ? 1 : SALE_OPEN_MIN_DAYS))) ||
+                  // 일반 판매는 크루 예매 마감 다음 날 0시부터 (마감이 0시 정각이면 그 시각부터)
+                  (name === 'individualOpenAt' &&
+                    crewOpenDay !== undefined &&
+                    isBefore(date, crewOpenDay)) ||
+                  // 접수 마감은 대회 일시 3주 전까지라, 일반 판매 시작도 그보다 늦을 수 없다
                   ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
-                    raceDay !== undefined &&
-                    isAfter(date, raceDay))
+                    lastCloseDay !== undefined &&
+                    isAfter(date, lastCloseDay))
                 }
               />
               {errors.crewOpen?.message && (

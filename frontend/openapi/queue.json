@@ -1511,6 +1511,264 @@
           }
         }
       }
+    },
+    "/api/v1/queue/races/{raceId}/racecourses/{raceCourseId}/active": {
+      "delete": {
+        "tags": [
+          "Queue"
+        ],
+        "summary": "대기열 입장 해제",
+        "description": "결제 화면을 벗어날 때(뒤로 가기, 페이지 이탈) 불러 회원의 입장(active)을 푼다. 해제한 뒤 다시 대기열에 등록하면 줄 맨 뒤에 선다. 입장 중이 아니어도(이미 해제함, 입장 시간이 끝남, 줄에서 기다리는 중) 200이라 여러 번 불러도 된다. 줄(waiting)에서 빼지는 않는다. Access Token(Authorization 헤더)이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. 대기열(Redis)에 연결하지 못하면 503이다.",
+        "operationId": "releaseActive",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          },
+          {
+            "name": "raceCourseId",
+            "in": "path",
+            "description": "종목 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "해제 성공 (입장 중이 아니었어도 같음)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "입장을 해제했습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회·종목 ID 또는 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회·종목 ID가 0 이하": {
+                    "description": "대회·종목 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "message": "대회 ID는 0보다 커야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "대기열(Redis) 연결 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/queue/parties/races/{raceId}/racecourses/{raceCourseId}/active": {
+      "delete": {
+        "tags": [
+          "Queue"
+        ],
+        "summary": "파티 대기열 입장 해제",
+        "description": "파티 신청 화면을 벗어날 때 불러 파티장의 파티 대기열 입장(active)을 푼다. 입장 중이 아니어도 200이라 여러 번 불러도 된다. Access Token이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. 대기열(Redis)에 연결하지 못하면 503이다.",
+        "operationId": "releasePartyActive",
+        "parameters": [
+          {
+            "name": "X-Member-Id",
+            "in": "header",
+            "description": "로그인한 회원 ID (게이트웨이가 Access Token에서 꺼내 넣는다)",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          },
+          {
+            "name": "raceId",
+            "in": "path",
+            "description": "대회 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          },
+          {
+            "name": "raceCourseId",
+            "in": "path",
+            "description": "종목 ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "exclusiveMinimum": 0
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "해제 성공 (입장 중이 아니었어도 같음)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": 200,
+                  "message": "입장을 해제했습니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "대회·종목 ID 또는 회원 ID 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "examples": {
+                  "ID 형식 오류": {
+                    "description": "ID 형식 오류",
+                    "value": {
+                      "status": 400,
+                      "message": "요청 값의 형식이 올바르지 않습니다.",
+                      "data": null
+                    }
+                  },
+                  "대회·종목 ID가 0 이하": {
+                    "description": "대회·종목 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "message": "대회 ID는 0보다 커야 합니다.",
+                      "data": null
+                    }
+                  },
+                  "회원 ID가 0 이하": {
+                    "description": "회원 ID가 0 이하",
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "회원 ID가 올바르지 않습니다.",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "회원 ID 헤더 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "LOGIN_REQUIRED",
+                  "message": "로그인이 필요합니다.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "대기열(Redis) 연결 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

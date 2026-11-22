@@ -27,6 +27,7 @@ export {
   checkRefundAfterClose,
   checkScheduleOrder,
   crewCloseAt,
+  RACE_AFTER_CLOSE_WEEKS,
   earliestRaceAt,
   earliestRefundDay,
   earliestSaleOpenDate,

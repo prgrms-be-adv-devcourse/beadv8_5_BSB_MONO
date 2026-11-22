@@ -50,13 +50,21 @@ public class PasswordResetUseCase {
 	@Transactional(readOnly = true)
 	public void request(String rawEmail, String clientIp) {
 		String email = rawEmail.trim();
-		if (!store.tryAcquireIpRequest(Sha256.hex(clientIp), properties.ipDailyLimit(), properties.dailyWindow())
-			|| !store.tryAcquireRequest(Sha256.hex(email.toLowerCase(Locale.ROOT)), properties.requestCooldown(),
+		String emailHash = Sha256.hex(email.toLowerCase(Locale.ROOT));
+		// 응답은 같은 429지만, 메일을 못 받은 이유를 찾을 수 있게 어느 한도인지 로그로 나눈다
+		if (!store.tryAcquireIpRequest(Sha256.hex(clientIp), properties.ipDailyLimit(), properties.dailyWindow())) {
+			log.info("같은 IP의 하루 재설정 요청 한도를 넘었습니다. emailHash={}", emailHash);
+			throw new PasswordResetTooManyRequestsException(TOO_MANY_MESSAGE);
+		}
+		if (!store.tryAcquireRequest(emailHash, properties.requestCooldown(),
 			properties.dailyLimit(), properties.dailyWindow())) {
+			log.info("같은 이메일의 재설정 요청 한도를 넘었습니다. emailHash={}", emailHash);
 			throw new PasswordResetTooManyRequestsException(TOO_MANY_MESSAGE);
 		}
 
-		memberRepository.findActiveByEmail(email).ifPresent(this::sendMail);
+		// 응답은 같아도 로그로는 구분한다. 이메일 원문 대신 해시를 남긴다
+		memberRepository.findActiveByEmail(email).ifPresentOrElse(this::sendMail,
+			() -> log.info("활성 회원이 없어 재설정 메일을 보내지 않습니다. emailHash={}", emailHash));
 	}
 
 	// 새 비밀번호 화면을 열 때 링크가 아직 쓸 수 있는지 미리 본다. 토큰을 지우지 않는다
@@ -87,6 +95,7 @@ public class PasswordResetUseCase {
 
 	private void sendMail(Member member) {
 		if (!member.hasPassword()) {
+			log.info("비밀번호 없는 소셜 가입 회원이라 로그인 안내 메일을 보냅니다. memberId={}", member.getId());
 			mailDispatcher.dispatch(
 				PasswordResetMails.socialAccount(member.getEmail(), member.socialProviders(), properties.loginLink()));
 			return;
@@ -96,6 +105,7 @@ public class PasswordResetUseCase {
 		String tokenHash = Sha256.hex(token);
 		long memberId = member.getId();
 		store.saveToken(memberId, tokenHash, properties.tokenTtl());
+		log.info("재설정 링크 메일을 보냅니다. memberId={}", memberId);
 		// 다시 보내기 전에 그사이 새 링크를 요청했는지 본다. 무효가 된 링크는 보내지 않는다
 		mailDispatcher.dispatch(
 			PasswordResetMails.resetLink(member.getEmail(), properties.resetLink(token), properties.tokenTtl()),

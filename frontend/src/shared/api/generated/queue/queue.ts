@@ -1048,3 +1048,157 @@ export function useGetStatus1<TData = Awaited<ReturnType<typeof getStatus1>>, TE
 
 
 
+export const getReleaseActiveUrl = (raceId: number,
+    raceCourseId: number,) => {
+
+
+
+
+  return `/api/v1/queue/races/${raceId}/racecourses/${raceCourseId}/active`
+}
+
+/**
+ * 결제 화면을 벗어날 때(뒤로 가기, 페이지 이탈) 불러 회원의 입장(active)을 푼다. 해제한 뒤 다시 대기열에 등록하면 줄 맨 뒤에 선다. 입장 중이 아니어도(이미 해제함, 입장 시간이 끝남, 줄에서 기다리는 중) 200이라 여러 번 불러도 된다. 줄(waiting)에서 빼지는 않는다. Access Token(Authorization 헤더)이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. 대기열(Redis)에 연결하지 못하면 503이다.
+ * @summary 대기열 입장 해제
+ */
+export const releaseActive = async (raceId: number,
+    raceCourseId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getReleaseActiveUrl(raceId,raceCourseId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getReleaseActiveMutationKey = () => ['releaseActive'] as const;
+
+export const getReleaseActiveMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseActive>>, TError,ReleaseActiveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releaseActive>>, TError,ReleaseActiveMutationVariables, TContext> => {
+
+const mutationKey = getReleaseActiveMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releaseActive>>, ReleaseActiveMutationVariables> = (props) => {
+          const {raceId,raceCourseId} = props ?? {};
+
+          return  releaseActive(raceId,raceCourseId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReleaseActiveMutationResult = NonNullable<Awaited<ReturnType<typeof releaseActive>>>
+
+    export type ReleaseActiveMutationError = RsData
+    export type ReleaseActiveMutationVariables = {raceId: number;raceCourseId: number}
+
+    /**
+ * @summary 대기열 입장 해제
+ */
+export const useReleaseActive = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseActive>>, TError,ReleaseActiveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof releaseActive>>,
+        TError,
+        ReleaseActiveMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReleaseActiveMutationOptions(options), queryClient);
+    }
+
+export const getReleasePartyActiveUrl = (raceId: number,
+    raceCourseId: number,) => {
+
+
+
+
+  return `/api/v1/queue/parties/races/${raceId}/racecourses/${raceCourseId}/active`
+}
+
+/**
+ * 파티 신청 화면을 벗어날 때 불러 파티장의 파티 대기열 입장(active)을 푼다. 입장 중이 아니어도 200이라 여러 번 불러도 된다. Access Token이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. 대기열(Redis)에 연결하지 못하면 503이다.
+ * @summary 파티 대기열 입장 해제
+ */
+export const releasePartyActive = async (raceId: number,
+    raceCourseId: number, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getReleasePartyActiveUrl(raceId,raceCourseId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getReleasePartyActiveMutationKey = () => ['releasePartyActive'] as const;
+
+export const getReleasePartyActiveMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releasePartyActive>>, TError,ReleasePartyActiveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releasePartyActive>>, TError,ReleasePartyActiveMutationVariables, TContext> => {
+
+const mutationKey = getReleasePartyActiveMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releasePartyActive>>, ReleasePartyActiveMutationVariables> = (props) => {
+          const {raceId,raceCourseId} = props ?? {};
+
+          return  releasePartyActive(raceId,raceCourseId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReleasePartyActiveMutationResult = NonNullable<Awaited<ReturnType<typeof releasePartyActive>>>
+
+    export type ReleasePartyActiveMutationError = RsData
+    export type ReleasePartyActiveMutationVariables = {raceId: number;raceCourseId: number}
+
+    /**
+ * @summary 파티 대기열 입장 해제
+ */
+export const useReleasePartyActive = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releasePartyActive>>, TError,ReleasePartyActiveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof releasePartyActive>>,
+        TError,
+        ReleasePartyActiveMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReleasePartyActiveMutationOptions(options), queryClient);
+    }
+
