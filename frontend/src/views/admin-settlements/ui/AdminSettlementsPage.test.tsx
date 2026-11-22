@@ -131,13 +131,38 @@ beforeEach(() => {
 })
 
 describe('AdminSettlementsPage', () => {
-  it('가짜 정산 행과 칩 건수를 보여 주지 않고 빈 상태를 보인다', () => {
+  it('탭마다 그 상태의 정산을 서버에서 받아 보여 준다', async () => {
     search = ''
+    const urls = useList()
     renderPage()
 
-    expect(screen.queryByText(/ST-2026/)).toBeNull()
+    expect(await screen.findByText('한강 나이트런')).toBeInTheDocument()
+    expect(urls[0].searchParams.get('status')).toBe('지급_예정')
     expect(screen.getByRole('button', { name: '지급 예정' })).toBeInTheDocument()
-    expect(screen.getByText('정산 목록을 아직 불러올 수 없어요')).toBeInTheDocument()
+  })
+
+  it('지급보류 탭은 줄마다 보류 사유와 보류 풀기를 보여 주고 누르면 해제를 부른다', async () => {
+    const urls = useList([LINES[1]])
+    let released = ''
+    server.use(
+      http.post('*/api/v1/payout/holds/:holdId/release', ({ params }) => {
+        released = String(params.holdId)
+        return HttpResponse.json({ status: 200, message: 'ok', data: HOLD })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByText('서울 하프마라톤')).toBeInTheDocument()
+    expect(urls[0].searchParams.get('status')).toBe('지급보류')
+    expect(
+      within(screen.getByRole('table', { name: '지급보류 정산' })).getByText('대회 취소 처리'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '보류 풀기' }))
+
+    await waitFor(() => expect(released).toBe('2'))
+    // 풀고 나면 관리자 목록을 다시 불러온다
+    await waitFor(() => expect(urls.length).toBeGreaterThan(1))
   })
 
   describe('새 보류 걸기 · 정산 고르기', () => {
@@ -189,7 +214,7 @@ describe('AdminSettlementsPage', () => {
 
       expect(within(dialog).queryByText('한강 나이트런')).toBeNull()
       expect(within(dialog).getByText('서울 하프마라톤')).toBeInTheDocument()
-      expect(urls).toHaveLength(1)
+      expect(urls.filter((u) => !u.searchParams.has('status'))).toHaveLength(1)
     })
 
     it('거른 결과가 없으면 비었다고 알린다', async () => {

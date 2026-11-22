@@ -38,6 +38,26 @@ export interface RsData {
   data?: unknown;
 }
 
+/**
+ * 정산 내역 CSV 내려받기 요청. 정산 월 기간을 받는다(조회 API payouts와 같은 조건)
+ */
+export interface PayoutExportRequestDto {
+  /** 조회 시작 정산 월 (yyyy-MM) */
+  fromMonth: string;
+  /** 조회 끝 정산 월 (yyyy-MM, 포함). 시작 달 포함 최대 12개월 */
+  toMonth: string;
+}
+
+/**
+ * 건별 정산 CSV 내려받기 요청. 정산 생성일 기간을 받는다(조회 API payout-items와 같은 조건)
+ */
+export interface PayoutItemExportRequestDto {
+  /** 조회 시작 정산 생성일 (yyyy-MM-dd) */
+  from: string;
+  /** 조회 끝 정산 생성일 (yyyy-MM-dd, 포함). 시작 날 + 1개월 전까지(최대 1개월) */
+  to: string;
+}
+
 export interface PayoutSummaryDto {
   /**
      * 다음 정산일. 지급 예정 정산 내역이 없으면 null

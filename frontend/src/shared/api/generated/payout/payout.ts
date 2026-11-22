@@ -31,7 +31,9 @@ import type {
   FindPayoutParams,
   HoldsParams,
   ItemsParams,
+  PayoutExportRequestDto,
   PayoutHoldRequestDto,
+  PayoutItemExportRequestDto,
   Payouts1Params,
   PayoutsParams,
   RefundEligibilityParams,
@@ -1598,4 +1600,182 @@ export function usePayouts1<TData = Awaited<ReturnType<typeof payouts1>>, TError
 
 
 
+
+export const getExportPayoutsUrl = () => {
+
+
+
+
+  return `/api/v1/payout/seller/payouts/export`
+}
+
+/**
+ * 정산 조회(GET payouts)와 같은 값을 담는다. 정산 월이 기간 안인 정산 내역을 최근 달부터, 시작 달을 포함해 최대 12개월까지 페이지 없이 모두 담는다. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받기를 기록한다.
+ * @summary 정산 내역 내려받기 (CSV)
+ */
+export const exportPayouts = async (payoutExportRequestDto: PayoutExportRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getExportPayoutsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(payoutExportRequestDto)
+  }
+);}
+
+
+
+
+
+export const getExportPayoutsMutationKey = () => ['exportPayouts'] as const;
+
+export const getExportPayoutsMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportPayouts>>, TError,ExportPayoutsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exportPayouts>>, TError,ExportPayoutsMutationVariables, TContext> => {
+
+const mutationKey = getExportPayoutsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportPayouts>>, ExportPayoutsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  exportPayouts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExportPayoutsMutationResult = NonNullable<Awaited<ReturnType<typeof exportPayouts>>>
+    export type ExportPayoutsMutationBody = PayoutExportRequestDto
+    export type ExportPayoutsMutationError = RsData
+    export type ExportPayoutsMutationVariables = {data: PayoutExportRequestDto}
+
+    /**
+ * @summary 정산 내역 내려받기 (CSV)
+ */
+export const useExportPayouts = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportPayouts>>, TError,ExportPayoutsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof exportPayouts>>,
+        TError,
+        ExportPayoutsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExportPayoutsMutationOptions(options), queryClient);
+    }
+
+export const getExportPayoutItemsUrl = () => {
+
+
+
+
+  return `/api/v1/payout/seller/payout-items/export`
+}
+
+/**
+ * 건별 정산 조회(GET payout-items)와 같은 값을 담는다. 정산 생성일이 기간 안인 건별 정산을 최근 날부터, 끝 날이 시작 날 + 1개월 전까지(최대 1개월) 페이지 없이 모두 담는다. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받기를 기록한다.
+ * @summary 건별 정산 내려받기 (CSV)
+ */
+export const exportPayoutItems = async (payoutItemExportRequestDto: PayoutItemExportRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<unknown>(getExportPayoutItemsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(payoutItemExportRequestDto)
+  }
+);}
+
+
+
+
+
+export const getExportPayoutItemsMutationKey = () => ['exportPayoutItems'] as const;
+
+export const getExportPayoutItemsMutationOptions = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportPayoutItems>>, TError,ExportPayoutItemsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exportPayoutItems>>, TError,ExportPayoutItemsMutationVariables, TContext> => {
+
+const mutationKey = getExportPayoutItemsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exportPayoutItems>>, ExportPayoutItemsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  exportPayoutItems(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExportPayoutItemsMutationResult = NonNullable<Awaited<ReturnType<typeof exportPayoutItems>>>
+    export type ExportPayoutItemsMutationBody = PayoutItemExportRequestDto
+    export type ExportPayoutItemsMutationError = RsData
+    export type ExportPayoutItemsMutationVariables = {data: PayoutItemExportRequestDto}
+
+    /**
+ * @summary 건별 정산 내려받기 (CSV)
+ */
+export const useExportPayoutItems = <TError = RsData,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exportPayoutItems>>, TError,ExportPayoutItemsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof exportPayoutItems>>,
+        TError,
+        ExportPayoutItemsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExportPayoutItemsMutationOptions(options), queryClient);
+    }
 
