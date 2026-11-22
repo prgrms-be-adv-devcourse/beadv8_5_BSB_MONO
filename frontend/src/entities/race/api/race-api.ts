@@ -40,6 +40,11 @@ export async function fetchRacePage(params: productModel.SearchParams) {
   return unwrapData(await productApi.search(params))
 }
 
+/** 홈 배너: 관리자가 고른 순서대로, 홈에 보일 대회만 온다(대표 이미지 주소 포함). RSC(홈)에서 부른다 */
+export async function fetchHomeBanners() {
+  return unwrapData(await productApi.findHomeBanners())
+}
+
 function searchParams(filters: RaceSearchFilters, page: number): productModel.SearchParams {
   const keyword = filters.keyword?.trim()
   return {

@@ -22,6 +22,14 @@ export function adminRacesQueryOptions() {
   })
 }
 
+/** 관리자 홈 배너: 고른 순서대로, 홈에 안 보이는 대회도 함께 */
+export function adminHomeBannersQueryOptions() {
+  return queryOptions({
+    queryKey: productApi.getFindAdminHomeBannersQueryKey(),
+    queryFn: async () => unwrapData(await productApi.findAdminHomeBanners()),
+  })
+}
+
 export type RaceForEdit = {
   race: productModel.RaceDetailDto
   /** 지금 상태 그대로의 수정 요청. 바꿀 값만 덮어써 PUT 한다 */

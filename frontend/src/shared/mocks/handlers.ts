@@ -45,6 +45,7 @@ import { aiHandlers } from './ai'
 import { boardHandlers } from './board'
 import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
+import { homeBannerHandlers } from './home-banners'
 import { answerMockPass, readMockVerificationToken, type MockAnswer } from './identity-verification'
 import { inquiryHandlers } from './inquiry'
 import {
@@ -616,14 +617,23 @@ const raceHandlers = [
     })
   }),
   getFindMyRacesMockHandler(),
-  // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다
+  // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다.
+  // 홈 배너 대회 추가 창에 고를 대회가 보이도록 접수 기간은 지금 기준으로 맞추고 이름은 가짜 대회 목록에서 가져온다
   getFindAdminRacesMockHandler(() => {
     const example = getFindAdminRacesResponseMock()
     const [race] = example.data ?? []
     const statuses = ['SCHEDULED', 'ON_SALE', 'STOPPED'] as const
+    const DAY = 24 * 60
     return {
       ...example,
-      data: statuses.map((saleStatus, i) => ({ ...race, raceId: i + 1, saleStatus })),
+      data: statuses.map((saleStatus, i) => ({
+        ...race,
+        raceId: i + 1,
+        title: findMockRace(i + 1)?.detail.title ?? race.title,
+        saleStatus,
+        individualOpenAt: kstMinutesFromNow(saleStatus === 'SCHEDULED' ? 5 * DAY : -DAY),
+        applicationCloseAt: kstMinutesFromNow(20 * DAY),
+      })),
     }
   }),
   // 가짜 대회 목록(races.ts)에 있는 대회만 열린다. 없는 번호는 진짜 서버처럼 404, 숫자가 아니면 400
@@ -829,6 +839,7 @@ export const handlers = [
   ...recordCertHandlers,
   ...sellerRecordCertHandlers,
   myOrdersHandler,
+  ...homeBannerHandlers,
   ...raceHandlers,
   ...queueHandlers,
   ...orderHandlers,
