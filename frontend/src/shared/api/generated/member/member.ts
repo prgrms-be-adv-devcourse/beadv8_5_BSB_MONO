@@ -49,6 +49,7 @@ import type {
   RsDataIdentityReviewPageDto,
   RsDataIdentityVerificationStartDto,
   RsDataKakaoInviteSendResultDto,
+  RsDataListAdminMemberSearchDto,
   RsDataListCrewInviteDto,
   RsDataListKakaoFriendDto,
   RsDataListMyCrewDto,
@@ -61,6 +62,7 @@ import type {
   RsDataTokenReissueResponseDto,
   RsDataVerifiedIdentityDto,
   RsDataVoid,
+  SearchAdminMembersParams,
   SellerApplyRequestDto,
   SellerPayoutAccountModifyRequestDto,
   SellerRejectRequestDto,
@@ -4007,6 +4009,115 @@ export const useSendKakaoCrewInvites = <TError = RsData,
       > => {
       return useMutation(getSendKakaoCrewInvitesMutationOptions(options), queryClient);
     }
+
+export const getSearchAdminMembersUrl = (params?: SearchAdminMembersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/member/admin/members?${stringifiedParams}` : `/api/v1/member/admin/members`
+}
+
+/**
+ * 닉네임이 입력한 글자로 시작하는 회원을 닉네임 순으로 최대 20명 돌려준다. 앞뒤 공백은 지우고, %·_는 글자 그대로 찾는다. 탈퇴한 회원은 빠진다. 이름·휴대폰·이메일은 주지 않는다. 예치금·참가권 수는 각 서비스에 묻고, 묻지 못하면 그 값만 null이다.
+ * @summary 닉네임으로 회원 찾기
+ */
+export const searchAdminMembers = async (params?: SearchAdminMembersParams, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListAdminMemberSearchDto> => {
+
+  return customFetch<RsDataListAdminMemberSearchDto>(getSearchAdminMembersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchAdminMembersQueryKey = (params?: SearchAdminMembersParams,) => {
+    return [
+    `/api/v1/member/admin/members`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchAdminMembersQueryOptions = <TData = Awaited<ReturnType<typeof searchAdminMembers>>, TError = RsData>(params?: SearchAdminMembersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchAdminMembers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchAdminMembersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchAdminMembers>>> = ({ signal }) => searchAdminMembers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchAdminMembers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SearchAdminMembersQueryResult = NonNullable<Awaited<ReturnType<typeof searchAdminMembers>>>
+export type SearchAdminMembersQueryError = RsData
+
+
+export function useSearchAdminMembers<TData = Awaited<ReturnType<typeof searchAdminMembers>>, TError = RsData>(
+ params: undefined |  SearchAdminMembersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchAdminMembers>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchAdminMembers>>,
+          TError,
+          Awaited<ReturnType<typeof searchAdminMembers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchAdminMembers<TData = Awaited<ReturnType<typeof searchAdminMembers>>, TError = RsData>(
+ params?: SearchAdminMembersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchAdminMembers>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchAdminMembers>>,
+          TError,
+          Awaited<ReturnType<typeof searchAdminMembers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchAdminMembers<TData = Awaited<ReturnType<typeof searchAdminMembers>>, TError = RsData>(
+ params?: SearchAdminMembersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchAdminMembers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 닉네임으로 회원 찾기
+ */
+
+export function useSearchAdminMembers<TData = Awaited<ReturnType<typeof searchAdminMembers>>, TError = RsData>(
+ params?: SearchAdminMembersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchAdminMembers>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSearchAdminMembersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getFindIdentityReviewUrl = (params?: FindIdentityReviewParams,) => {
   const normalizedParams = new URLSearchParams();

@@ -963,6 +963,29 @@ export const SendKakaoCrewInvitesResponse = zod.object({
 
 
 /**
+ * 닉네임이 입력한 글자로 시작하는 회원을 닉네임 순으로 최대 20명 돌려준다. 앞뒤 공백은 지우고, %·_는 글자 그대로 찾는다. 탈퇴한 회원은 빠진다. 이름·휴대폰·이메일은 주지 않는다. 예치금·참가권 수는 각 서비스에 묻고, 묻지 못하면 그 값만 null이다.
+ * @summary 닉네임으로 회원 찾기
+ */
+export const searchAdminMembersQueryNicknameDefault = ``;
+
+export const SearchAdminMembersQueryParams = zod.object({
+  "nickname": zod.string().default(searchAdminMembersQueryNicknameDefault).describe('찾을 닉네임 앞부분')
+})
+
+export const SearchAdminMembersResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "id": zod.int(),
+  "nickname": zod.string(),
+  "joinedAt": zod.iso.datetime({"offset":true}).describe('한국 시간, 시간대 표시 없음'),
+  "deposit": zod.int().nullable().describe('예치금 잔액(원). 예치금 서비스에 묻지 못하면 null'),
+  "activeTickets": zod.int().nullable().describe('끝나지 않은 참가권 수. 주문 서비스에 묻지 못하면 null')
+})).optional()
+})
+
+
+/**
  * 관리자가 같은 사람으로 보이는 계정 묶음을 확인한다.
  * @summary 확인이 필요한 계정 목록 조회
  */

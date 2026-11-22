@@ -243,6 +243,17 @@
           "$ref": "#/components/schemas/MyPayoutAccountDto"
         }
       }
+    },
+    "searchAdminMembers": {
+      "200": {
+        "wrapper": "RsDataListAdminMemberSearchDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/AdminMemberSearchDto"
+          }
+        }
+      }
     }
   },
   "schemas": {
@@ -883,6 +894,42 @@
           "type": "string",
           "format": "date-time",
           "description": "한국 시간, 시간대 표시 없음"
+        }
+      }
+    },
+    "AdminMemberSearchDto": {
+      "type": "object",
+      "required": [
+        "id",
+        "nickname",
+        "joinedAt",
+        "deposit",
+        "activeTickets"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "한국 시간, 시간대 표시 없음"
+        },
+        "deposit": {
+          "type": "integer",
+          "format": "int64",
+          "nullable": true,
+          "description": "예치금 잔액(원). 예치금 서비스에 묻지 못하면 null"
+        },
+        "activeTickets": {
+          "type": "integer",
+          "format": "int32",
+          "nullable": true,
+          "description": "끝나지 않은 참가권 수. 주문 서비스에 묻지 못하면 null"
         }
       }
     }
