@@ -131,6 +131,40 @@ describe('TicketDetailPage', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1/canceled'))
   })
 
+  it('취소를 확정해 주문이 다시 로드돼도 확인 창의 환불 안내는 열 때 그대로다', async () => {
+    let canceled = false
+    server.use(
+      http.post('*/api/v1/order/orders/:orderId/items/:orderItemId/cancel', () => {
+        canceled = true
+        return undefined
+      }),
+      http.get('*/api/v1/order/orders/:orderId', () => {
+        const example = orderMock.getFindById1ResponseMock()
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            items: example.data?.items?.map((item) =>
+              canceled ? { ...item, status: 'CANCELED' } : item,
+            ),
+          },
+        })
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithClient(<TicketDetailPage ticketId="1-1" />)
+
+    await user.click(await screen.findByRole('button', { name: '참가 취소하기' }))
+    expect(await screen.findByText(/예치금으로 돌려받아요/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '취소하기' }))
+
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/tickets/1-1/canceled'))
+    // 주문을 다시 받아 뒤 화면이 취소 상태로 바뀐 뒤에도
+    await vi.waitFor(() => expect(screen.queryByText(/지금 취소하면/)).not.toBeInTheDocument())
+    expect(screen.getByText(/예치금으로 돌려받아요/)).toBeInTheDocument()
+    expect(screen.queryByText(/돌려받는 금액이 없어요/)).not.toBeInTheDocument()
+  })
+
   it('참가 취소를 확인하면 취소 API를 부르고 취소 완료 화면으로 간다', async () => {
     const calls: string[] = []
     server.use(
