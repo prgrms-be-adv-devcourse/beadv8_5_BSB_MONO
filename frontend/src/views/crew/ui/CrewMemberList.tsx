@@ -20,6 +20,7 @@ export function CrewMemberList({
   moreHref,
   showAll,
   labelId,
+  meId,
   action,
 }: {
   members: Member[]
@@ -29,6 +30,8 @@ export function CrewMemberList({
   showAll?: boolean
   /** 닉네임의 id. 줄 버튼이 aria-describedby로 이 이름을 가리킨다. */
   labelId?: (member: Member) => string
+  /** 내 회원 ID. 내 닉네임 옆에 「 · 나」를 붙인다(파티 상세와 같은 표기). */
+  meId?: number
   /** 줄 오른쪽 끝에 붙는 버튼 (크루 관리의 「관리」) */
   action?: (member: Member) => ReactNode
 }) {
@@ -50,6 +53,10 @@ export function CrewMemberList({
               {member.nickname}
             </span>
           )
+          // 긴 닉네임이 말줄임으로 잘려도 「나」는 남도록 닉네임 밖에 둔다
+          const me = member.memberId === meId && (
+            <span className="shrink-0 text-body1-medium">· 나</span>
+          )
           const role = (
             <span className="shrink-0 text-caption-regular text-text-secondary">
               {CREW_ROLE_LABEL[member.role]}
@@ -65,13 +72,17 @@ export function CrewMemberList({
                 <>
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     {name}
+                    {me}
                     {role}
                   </div>
                   <div>{action(member)}</div>
                 </>
               ) : (
                 <>
-                  <div className="flex min-w-0 flex-1">{name}</div>
+                  <div className="flex min-w-0 flex-1 gap-1">
+                    {name}
+                    {me}
+                  </div>
                   {role}
                 </>
               )}
