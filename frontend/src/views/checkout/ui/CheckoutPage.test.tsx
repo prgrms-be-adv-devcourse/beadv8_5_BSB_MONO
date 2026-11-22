@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1202,5 +1202,100 @@ describe('결제 화면', () => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       },
     )
+  })
+})
+
+describe('결제 화면 · 입장 해제', () => {
+  let released: string[]
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(NOW)
+    released = []
+    requestCharge.mockReset()
+    requestCharge.mockResolvedValue('redirecting')
+    server.use(
+      orderMock.getFindById1MockHandler(orderResponse()),
+      orderMock.getFindByIdMockHandler(participationResponse()),
+      balanceHandler(100_000),
+      kitOptionsHandler([]),
+      http.delete('*/api/v1/queue/races/:raceId/racecourses/:courseId/active', ({ params }) => {
+        released.push(`${params.raceId}/${params.courseId}`)
+        return HttpResponse.json({ status: 200, message: '', data: null })
+      }),
+    )
+    window.history.pushState({}, '', '/checkout')
+  })
+  afterEach(() => {
+    // 같은 입장 안의 주소에서 화면을 내려, 남은 화면이 다음 테스트에 해제를 흘리지 않게 한다
+    window.history.pushState({}, '', '/checkout')
+    cleanup()
+    vi.useRealTimers()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('결제 화면에서 다른 화면으로 나가면 해제를 부른다', async () => {
+    renderCheckout()
+    await screen.findByRole('timer')
+    window.history.pushState({}, '', '/me/tickets')
+    cleanup()
+    await vi.waitFor(() => expect(released).toEqual(['1/1']))
+  })
+
+  it('탭을 닫으면(pagehide) 해제를 부른다', async () => {
+    renderCheckout()
+    await screen.findByRole('timer')
+    window.dispatchEvent(new Event('pagehide'))
+    await vi.waitFor(() => expect(released).toEqual(['1/1']))
+  })
+
+  it('이미 결제한 주문은 해제하지 않는다 (결제 뒤는 주문 쪽이 맡는다)', async () => {
+    server.use(orderMock.getFindById1MockHandler(orderResponse({ status: 'PAID' })))
+    renderCheckout()
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+    window.history.pushState({}, '', '/checkout/complete')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
+  })
+
+  it('결제 직후 주문을 다시 받기 전에 완료 화면으로 가도 해제하지 않는다', async () => {
+    // 결제는 PAID로 답하지만 주문 조회는 결제 대기 그대로다 (재조회 실패와 같은 상태)
+    server.use(
+      payHandler(() =>
+        HttpResponse.json({
+          status: 200,
+          message: '',
+          data: orderResponse({ status: 'PAID' }).data,
+        }),
+      ),
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout()
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
+    await agree(user)
+    await user.click(pay)
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+    window.history.pushState({}, '', '/checkout/complete')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
+  })
+
+  it('토스 충전창으로 떠나는 중에는 pagehide에도 해제하지 않는다', async () => {
+    server.use(
+      balanceHandler(40_000),
+      http.post('*/api/v1/order/orders/:orderId/payment', () =>
+        conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 5000 }),
+      ),
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout()
+    const button = await screen.findByRole('button', { name: '10,000원 충전하고 결제하기' })
+    await agree(user)
+    await user.click(button)
+    await vi.waitFor(() => expect(requestCharge).toHaveBeenCalled())
+    window.dispatchEvent(new Event('pagehide'))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
   })
 })

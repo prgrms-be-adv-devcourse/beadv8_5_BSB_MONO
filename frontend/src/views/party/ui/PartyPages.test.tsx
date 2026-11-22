@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   completePostcode,
@@ -1081,5 +1081,65 @@ describe('파티 · 키트 배송지', () => {
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/1'))
       expect(bodies[0].participant).not.toHaveProperty('shippingAddress')
     })
+  })
+})
+
+describe('파티 신청 · 입장 해제', () => {
+  let released: string[]
+  beforeEach(() => {
+    released = []
+    server.use(
+      http.delete(
+        '*/api/v1/queue/parties/races/:raceId/racecourses/:courseId/active',
+        ({ params }) => {
+          released.push(`${params.raceId}/${params.courseId}`)
+          return HttpResponse.json({ status: 200, message: '', data: null })
+        },
+      ),
+    )
+    window.history.pushState({}, '', '/parties/9/apply')
+  })
+  afterEach(() => {
+    window.history.pushState({}, '', '/parties/9/apply')
+    cleanup()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('대기열에 들어가지 않았으면 나가도 해제하지 않는다', async () => {
+    renderPage(<PartyApplyPage partyId={9} />)
+    await screen.findByRole('button', { name: /명 파티 신청하기/ })
+    window.history.pushState({}, '', '/parties/9')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
+  })
+
+  it('이미 입장해 있어 등록이 409면, 나갈 때 파티 입장을 해제한다', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post('*/api/v1/queue/parties', () =>
+        HttpResponse.json(
+          { status: 409, message: '이미 입장한 회원입니다', data: null },
+          { status: 409 },
+        ),
+      ),
+    )
+    renderPage(<PartyApplyPage partyId={9} />)
+    await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
+    await screen.findByText(/이미 입장|지금은 신청할 수 없어요/)
+    window.history.pushState({}, '', '/parties/9')
+    cleanup()
+    await waitFor(() => expect(released).toHaveLength(1))
+  })
+
+  it('신청에 성공해 파티 상세로 가면 해제하지 않는다', async () => {
+    const user = userEvent.setup()
+    renderPage(<PartyApplyPage partyId={1} />)
+    await user.click(await screen.findByRole('button', { name: /명 파티 신청하기/ }))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/parties/1'))
+    window.history.pushState({}, '', '/parties/1')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
   })
 })

@@ -195,3 +195,39 @@ export const GetStatus1Params = zod.object({
 })
 
 export const GetStatus1Response = zod.unknown()
+
+
+/**
+ * 결제 화면을 벗어날 때(뒤로 가기, 페이지 이탈) 불러 회원의 입장(active)을 푼다. 해제한 뒤 다시 대기열에 등록하면 줄 맨 뒤에 선다. 입장 중이 아니어도(이미 해제함, 입장 시간이 끝남, 줄에서 기다리는 중) 200이라 여러 번 불러도 된다. 줄(waiting)에서 빼지는 않는다. Access Token(Authorization 헤더)이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. 대기열(Redis)에 연결하지 못하면 503이다.
+ * @summary 대기열 입장 해제
+ */
+export const releaseActivePathRaceIdExclusiveMin = 0;
+
+export const releaseActivePathRaceCourseIdExclusiveMin = 0;
+
+
+
+export const ReleaseActiveParams = zod.object({
+  "raceId": zod.int().gt(releaseActivePathRaceIdExclusiveMin).describe('대회 ID'),
+  "raceCourseId": zod.int().gt(releaseActivePathRaceCourseIdExclusiveMin).describe('종목 ID')
+})
+
+export const ReleaseActiveResponse = zod.unknown()
+
+
+/**
+ * 파티 신청 화면을 벗어날 때 불러 파티장의 파티 대기열 입장(active)을 푼다. 입장 중이 아니어도 200이라 여러 번 불러도 된다. Access Token이 필요하므로 sendBeacon 대신 fetch의 keepalive 옵션으로 부른다. 대기열(Redis)에 연결하지 못하면 503이다.
+ * @summary 파티 대기열 입장 해제
+ */
+export const releasePartyActivePathRaceIdExclusiveMin = 0;
+
+export const releasePartyActivePathRaceCourseIdExclusiveMin = 0;
+
+
+
+export const ReleasePartyActiveParams = zod.object({
+  "raceId": zod.int().gt(releasePartyActivePathRaceIdExclusiveMin).describe('대회 ID'),
+  "raceCourseId": zod.int().gt(releasePartyActivePathRaceCourseIdExclusiveMin).describe('종목 ID')
+})
+
+export const ReleasePartyActiveResponse = zod.unknown()

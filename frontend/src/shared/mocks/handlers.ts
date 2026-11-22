@@ -546,6 +546,16 @@ const queueHandlers = [
       data: queueStatus(Math.max(ahead, 0), position.entered),
     })
   }),
+  // 입장 해제. 입장한 기록(입장 끝 시각 · 입장 가능이 된 줄)을 지워 다시 등록하면 줄 맨 뒤에 선다. 입장 중이 아니어도 200이다
+  http.delete('*/api/v1/queue/races/:raceId/racecourses/:raceCourseId/active', ({ params }) => {
+    const key = queueKey(params.raceId, params.raceCourseId)
+    if (mockQueuePosition.get(key)?.entered) mockQueuePosition.delete(key)
+    mockQueue.delete(key)
+    return HttpResponse.json({ status: 200, message: '입장을 해제했습니다.', data: null })
+  }),
+  http.delete('*/api/v1/queue/parties/races/:raceId/racecourses/:raceCourseId/active', () =>
+    HttpResponse.json({ status: 200, message: '입장을 해제했습니다.', data: null }),
+  ),
 ]
 
 /**

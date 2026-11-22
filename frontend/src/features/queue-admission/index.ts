@@ -12,3 +12,7 @@ export {
 } from './model/use-queue-admission'
 export { useEnterQueue } from './model/use-enter-queue'
 export { useQueuePosition } from './model/use-queue-position'
+export {
+  useReleaseAdmissionOnExit,
+  type AdmissionTarget,
+} from './model/use-release-admission-on-exit'

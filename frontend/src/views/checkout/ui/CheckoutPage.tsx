@@ -19,7 +19,7 @@ import {
   MAX_CHARGE,
   requestCharge,
 } from '@/features/deposit-charge'
-import { useQueueAdmission } from '@/features/queue-admission'
+import { useQueueAdmission, useReleaseAdmissionOnExit } from '@/features/queue-admission'
 import { partyKeys } from '@/entities/party'
 import {
   parseKstDateTime,
@@ -336,6 +336,8 @@ function OrderCheckout({
   )
   // 토스 결제창을 띄우는 중(페이지를 떠나기 전까지)
   const [charging, setCharging] = useState(false)
+  // 결제 API가 PAID로 답함. 주문을 다시 받기 전에 화면을 옮겨도 입장을 풀지 않게 쓴다
+  const [paidNow, setPaidNow] = useState(false)
   // 결과를 모르는 충전이 있어 결제창을 띄우지 않았음
   const [chargeHeld, setChargeHeld] = useState(false)
 
@@ -391,6 +393,7 @@ function OrderCheckout({
     // 202(결제 확인 중)면 주문을 다시 받아 결제 확인 중 화면(M07-4)을 보여 주고, 결과는 주문 재조회가 맞춘다.
     // 거절되면 결제 대기로 돌아와 다시 결제하므로 고른 키트 옵션은 지우지 않는다.
     onSuccess: async (result) => {
+      if (result.status === orderModel.OrderDtoStatus.PAID) setPaidNow(true)
       const queryKey = orderApi.getFindById1QueryKey(orderId)
       if (result.status === orderModel.OrderDtoStatus.PAYING) {
         // 진행 중이던 옛 조회 결과(결제 대기)를 다시 쓰지 않도록 받은 주문을 캐시에 바로 넣는다
@@ -421,6 +424,15 @@ function OrderCheckout({
   })
 
   const status = order.data?.status
+  // 결제 화면을 벗어나면 입장을 푼다. 결제를 끝낸 주문은 주문 쪽이 맡으므로 풀지 않는다.
+  // 토스 결제창으로 떠나는 동안(charging)은 같은 입장으로 돌아와야 해서 pagehide에도 풀지 않는다.
+  const courseId = order.data?.items?.[0]?.raceCourseId
+  useReleaseAdmissionOnExit(
+    raceId !== undefined && courseId !== undefined && status !== 'PAID' && !paidNow
+      ? { line: 'individual', raceId, raceCourseId: courseId }
+      : undefined,
+    { keep: charging },
+  )
   // 결제 확인 중이던 주문이 결제 대기로 돌아오면 서버가 결제를 거절한 것이다 → 결제 실패(M07-3)
   const [prevStatus, setPrevStatus] = useState(status)
   if (status !== prevStatus) {
