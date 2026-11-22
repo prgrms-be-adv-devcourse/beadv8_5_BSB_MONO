@@ -353,7 +353,7 @@ export interface RaceSummaryDto {
   minPrice?: number;
   courses?: RaceSummaryCourseDto[];
   /**
-     * 대표 이미지 보기 주소 (30분 뒤 만료). 없으면 null
+     * 대표 이미지 보기 주소(30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null
      * @nullable
      */
   imageUrl?: string | null;
