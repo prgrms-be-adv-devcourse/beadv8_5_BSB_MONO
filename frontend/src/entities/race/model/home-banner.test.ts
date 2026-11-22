@@ -58,6 +58,21 @@ describe('toHomeBanner', () => {
     expect(banner.description).toBe('12/1 (화) 10:00 오픈 · 5K · 10K · 서울숲 일대')
   })
 
+  it('접수 마감이 7일 뒤면 이번 주, 8일 뒤면 접수 중이다', () => {
+    expect(toHomeBanner({ ...SUMMARY, applicationCloseAt: '2026-11-29T18:00:00' }, NOW).chip).toBe(
+      '이번 주 접수 마감',
+    )
+    expect(toHomeBanner({ ...SUMMARY, applicationCloseAt: '2026-11-30T18:00:00' }, NOW).chip).toBe(
+      '접수 중',
+    )
+  })
+
+  it('개인 예매 오픈 시각과 같은 순간부터 접수 중이다', () => {
+    expect(toHomeBanner({ ...SUMMARY, individualOpenAt: '2026-11-22T12:00:00' }, NOW).chip).toBe(
+      '접수 중',
+    )
+  })
+
   it('대표 이미지가 없으면 image가 비고, 장소가 없으면 장소를 빼고 잇는다', () => {
     const banner = toHomeBanner({ ...SUMMARY, imageUrl: null, location: undefined }, NOW)
     expect(banner.image).toBeUndefined()
@@ -99,11 +114,18 @@ describe('toHomeBannerRow', () => {
     )
   })
 
+  it('접수 마감 시각과 같은 순간부터 마감이다', () => {
+    expect(
+      toHomeBannerRow({ ...ADMIN, visible: false, applicationCloseAt: '2026-11-22T12:00:00' }, NOW)
+        .stage,
+    ).toBe('접수 마감 · 홈에 안 보임')
+  })
+
   it('홈에 안 보이는 대회는 이유를 붙인다', () => {
     const hidden = { ...ADMIN, visible: false }
-    expect(toHomeBannerRow({ ...hidden, applicationCloseAt: '2026-11-20T18:00:00' }, NOW).stage).toBe(
-      '접수 마감 · 홈에 안 보임',
-    )
+    expect(
+      toHomeBannerRow({ ...hidden, applicationCloseAt: '2026-11-20T18:00:00' }, NOW).stage,
+    ).toBe('접수 마감 · 홈에 안 보임')
     expect(toHomeBannerRow({ ...hidden, saleStatus: 'STOPPED' }, NOW).stage).toBe(
       '판매 중지 · 홈에 안 보임',
     )
@@ -134,10 +156,22 @@ describe('toBannerCandidate', () => {
     })
   })
 
-  it('접수가 끝났거나 판매 중지 · 종료 · 취소된 대회는 고를 수 없다', () => {
-    expect(toBannerCandidate({ ...SELLER_RACE, applicationCloseAt: '2026-11-21T18:00:00' }, NOW)).toBe(
-      undefined,
+  it('크루 예매 마감이 없으면 개인 예매 오픈 전까지를 크루 예매 기간으로 본다', () => {
+    const crew = {
+      ...SELLER_RACE,
+      crewSaleStartAt: '2026-11-21T10:00:00',
+      individualOpenAt: '2026-11-25T10:00:00',
+    }
+    expect(toBannerCandidate(crew, NOW)?.meta).toBe('크루 예매 중 · 12/14 마감')
+    expect(toBannerCandidate(crew, new Date('2026-11-25T10:00:00+09:00'))?.meta).toBe(
+      '접수 중 · 12/14 마감',
     )
+  })
+
+  it('접수가 끝났거나 판매 중지 · 종료 · 취소된 대회는 고를 수 없다', () => {
+    expect(
+      toBannerCandidate({ ...SELLER_RACE, applicationCloseAt: '2026-11-21T18:00:00' }, NOW),
+    ).toBe(undefined)
     for (const saleStatus of ['STOPPED', 'CLOSED', 'CANCELED'] as const) {
       expect(toBannerCandidate({ ...SELLER_RACE, saleStatus }, NOW)).toBeUndefined()
     }

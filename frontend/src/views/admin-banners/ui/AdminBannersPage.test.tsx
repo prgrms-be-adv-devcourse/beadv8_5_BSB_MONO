@@ -78,7 +78,7 @@ describe('AdminBannersPage', () => {
     const user = userEvent.setup()
     const sent = useBanners(THREE)
     renderPage()
-    await user.click(within(await rowOf('둘째 대회')).getByRole('button', { name: '빼기' }))
+    await user.click(within(await rowOf('둘째 대회')).getByRole('button', { name: /빼기$/ }))
     expect(sent).toEqual([[11, 13]])
     expect(await screen.findByText('2 / 5')).toBeInTheDocument()
   })
@@ -111,11 +111,11 @@ describe('AdminBannersPage', () => {
     const dialog = await screen.findByRole('dialog', { name: '배너에 올릴 대회' })
 
     // 관리자 대회 목록 예시는 판매 예정(1) · 판매 중(2) · 판매 중지(3). 판매 중지는 고를 수 없다
-    const added = await within(dialog).findByRole('button', { name: '추가됨' })
+    const added = await within(dialog).findByRole('button', { name: /추가됨$/ })
     expect(added).toBeDisabled()
-    expect(within(dialog).getAllByRole('button', { name: '추가' })).toHaveLength(1)
+    expect(within(dialog).getAllByRole('button', { name: /추가$/ })).toHaveLength(1)
 
-    await user.click(within(dialog).getByRole('button', { name: '추가' }))
+    await user.click(within(dialog).getByRole('button', { name: /추가$/ }))
     expect(sent).toEqual([[1, 2]])
   })
 
@@ -125,10 +125,60 @@ describe('AdminBannersPage', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: '대회 추가' }))
     const dialog = await screen.findByRole('dialog', { name: '배너에 올릴 대회' })
-    await within(dialog).findAllByRole('button', { name: '추가' })
+    await within(dialog).findAllByRole('button', { name: /추가$/ })
     await user.type(within(dialog).getByRole('searchbox'), '없는 이름')
-    expect(within(dialog).queryByRole('button', { name: '추가' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /추가$/ })).not.toBeInTheDocument()
     expect(within(dialog).getByText('「없는 이름」로 찾은 대회가 없어요')).toBeInTheDocument()
+  })
+
+  it('빼기 · 추가 버튼은 화면 낭독기가 어느 대회의 버튼인지 읽을 수 있다', async () => {
+    useBanners(THREE)
+    renderPage()
+    expect(await screen.findByRole('button', { name: '둘째 대회 빼기' })).toBeInTheDocument()
+  })
+
+  it('저장하는 동안에는 다른 버튼을 눌러 다시 보낼 수 없다', async () => {
+    const user = userEvent.setup()
+    const sent = useBanners(THREE)
+    let release = () => {}
+    server.use(
+      http.put(URL, async ({ request }) => {
+        sent.push(((await request.json()) as { raceIds: number[] }).raceIds)
+        await new Promise<void>((resolve) => (release = resolve))
+        return HttpResponse.json({ status: 200, message: '', data: THREE })
+      }),
+    )
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '첫째 대회 빼기' }))
+    expect(await screen.findByRole('button', { name: '둘째 대회 빼기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '셋째 대회 위로' })).toBeDisabled()
+    expect(sent).toHaveLength(1)
+    release()
+  })
+
+  it('없는 대회라 거절되면(404) 목록을 새로 받는다', async () => {
+    const user = userEvent.setup()
+    let gets = 0
+    server.use(
+      http.get(URL, () => {
+        gets += 1
+        return HttpResponse.json({
+          status: 200,
+          message: '',
+          data: gets === 1 ? THREE : THREE.slice(0, 2),
+        })
+      }),
+      http.put(URL, () =>
+        HttpResponse.json(
+          { status: 404, code: 'RACE_NOT_FOUND', message: '대회를 찾을 수 없습니다.', data: null },
+          { status: 404 },
+        ),
+      ),
+    )
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '첫째 대회 빼기' }))
+    expect(await screen.findByText('2 / 5')).toBeInTheDocument()
+    expect(screen.queryByText('셋째 대회')).not.toBeInTheDocument()
   })
 
   it('5개를 다 고르면 대회 추가를 누를 수 없다', async () => {
@@ -162,7 +212,7 @@ describe('AdminBannersPage', () => {
       ),
     )
     renderPage()
-    await user.click(within(await rowOf('둘째 대회')).getByRole('button', { name: '빼기' }))
+    await user.click(within(await rowOf('둘째 대회')).getByRole('button', { name: /빼기$/ }))
     // 알림은 화면 낭독기용 영역에도 같은 문구가 들어가 두 번 잡힌다
     expect(
       await screen.findAllByText('취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.'),

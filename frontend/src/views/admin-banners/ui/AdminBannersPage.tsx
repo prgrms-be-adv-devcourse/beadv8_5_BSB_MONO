@@ -36,7 +36,8 @@ export function AdminBannersPage() {
   const [adding, setAdding] = useState(false)
 
   const rows = now ? (banners.data ?? []).map((b) => toHomeBannerRow(b, now)) : []
-  const ids = rows.map((r) => r.raceId)
+  // 개수 · 순서는 현재 시각과 상관없으므로 받은 목록에서 바로 센다(마운트 직후 0 / 5가 깜빡이지 않게)
+  const ids = (banners.data ?? []).map((b) => b.raceId)
   const full = ids.length >= MAX_BANNERS
 
   const move = (index: number, by: -1 | 1) => {
@@ -70,6 +71,7 @@ export function AdminBannersPage() {
       ) : (
         <DataTable
           label="홈 배너"
+          framed
           rows={rows}
           rowKey={(r) => String(r.raceId)}
           columns={[
@@ -136,6 +138,7 @@ export function AdminBannersPage() {
                 <Button
                   variant="secondary"
                   size="s"
+                  aria-label={`${r.title} 빼기`}
                   disabled={save.isPending}
                   onClick={() => save.mutate(ids.filter((id) => id !== r.raceId))}
                 >
@@ -220,6 +223,7 @@ function AddBody({
                 <Button
                   variant="secondary"
                   size="s"
+                  aria-label={`${c.title} ${added ? '추가됨' : '추가'}`}
                   disabled={added || full || saving}
                   onClick={() => onAdd(c.raceId)}
                 >
@@ -247,7 +251,7 @@ function Dim({
   return <span className={cn(className, !row.visible && 'text-text-tertiary')}>{children}</span>
 }
 
-/** 배너 목록 전체를 저장하고, 서버가 돌려준 목록으로 화면을 바꾼다. 실패하면 서버 문구를 알린다 */
+/** 배너 목록 전체를 저장하고, 서버가 돌려준 목록으로 화면을 바꾼다. 실패하면 서버 문구를 알리고 목록을 새로 받는다 */
 function useSaveBanners() {
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -256,13 +260,15 @@ function useSaveBanners() {
       unwrapData(await productApi.replaceAdminHomeBanners({ raceIds })),
     onSuccess: (list) => {
       queryClient.setQueryData(productApi.getFindAdminHomeBannersQueryKey(), list)
-      void queryClient.invalidateQueries({ queryKey: productApi.getFindHomeBannersQueryKey() })
     },
-    onError: (error) =>
+    onError: (error) => {
       toast({
         message:
           (error instanceof ApiError && error.serverMessage) || '잠시 후 다시 시도해 주세요.',
         tone: 'error',
-      }),
+      })
+      // 그사이 지워지거나 취소된 대회가 있으면 옛 목록으로 다시 보내도 같은 오류가 나므로 새로 받는다
+      void queryClient.invalidateQueries({ queryKey: productApi.getFindAdminHomeBannersQueryKey() })
+    },
   })
 }

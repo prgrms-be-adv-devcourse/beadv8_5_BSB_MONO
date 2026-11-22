@@ -282,7 +282,7 @@ export const getReplaceAdminHomeBannersUrl = () => {
 }
 
 /**
- * 배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * 배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 409는 새로 올리는 대회에만 따진다(이미 올라 있던 대회가 나중에 취소·판매 종료돼도 빼기·순서 바꾸기는 막지 않는다). 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
  * @summary 관리자 홈 배너 저장
  */
 export const replaceAdminHomeBanners = async (homeBannerReplaceRequestDto: HomeBannerReplaceRequestDto, options?: Parameters<typeof customFetch>[1]): Promise<RsDataListHomeBannerAdminDto> => {

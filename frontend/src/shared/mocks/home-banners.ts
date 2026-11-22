@@ -11,6 +11,7 @@ const MAX = 5
 // 대표 이미지가 없는 배너(색 포스터)를 볼 수 있게 7번은 이미지를 비운다
 const NO_IMAGE_IDS = new Set([7])
 const HIDDEN_STATUS = new Set(['STOPPED', 'CLOSED', 'CANCELED'])
+const ENDED_STATUS = new Set(['CLOSED', 'CANCELED'])
 
 let bannerIds = [...INITIAL_IDS]
 
@@ -68,6 +69,18 @@ export const homeBannerHandlers = [
     }
     if (!ids.every((id: number) => findMockRace(id))) {
       return fail(404, 'RACE_NOT_FOUND', '대회를 찾을 수 없습니다.')
+    }
+    // 409는 새로 올리는 대회에만 따진다. 이미 올라 있던 대회가 나중에 끝나도 빼기 · 순서 바꾸기는 막지 않는다
+    const ended = (ids as number[]).some(
+      (id) =>
+        !bannerIds.includes(id) && ENDED_STATUS.has(findMockRace(id)!.detail.saleStatus ?? ''),
+    )
+    if (ended) {
+      return fail(
+        409,
+        'HOME_BANNER_RACE_ENDED',
+        '취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.',
+      )
     }
     bannerIds = ids as number[]
     return HttpResponse.json({
