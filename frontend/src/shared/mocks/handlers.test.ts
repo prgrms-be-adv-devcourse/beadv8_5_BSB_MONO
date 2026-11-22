@@ -643,7 +643,9 @@ describe('AI 추천 대회(검색어) 목', () => {
 })
 
 describe('홈 배너 목', () => {
-  type Ids = { data: { raceId: number; visible?: boolean }[] }
+  type Ids = {
+    data: { raceId: number; visible?: boolean; hiddenReason?: string; hiddenReasonLabel?: string }[]
+  }
   const put = (raceIds: unknown) =>
     customFetch<Ids>('http://localhost/api/v1/product/admin/banners', {
       method: 'PUT',
@@ -660,7 +662,11 @@ describe('홈 배너 목', () => {
   })
 
   it('저장한 순서대로 관리자 목록과 공개 배너가 바뀐다', async () => {
-    expect(ids(await put([3, 5]))).toEqual([3, 5])
+    const saved = await put([3, 5])
+    expect(ids(saved)).toEqual([3, 5])
+    expect(saved.data.map((race) => (race as { displayOrder?: number }).displayOrder)).toEqual([
+      0, 1,
+    ])
     const pub = await customFetch<Ids>('http://localhost/api/v1/product/banners')
     expect(ids(pub)).toEqual([3, 5])
   })
@@ -668,7 +674,12 @@ describe('홈 배너 목', () => {
   it('공개 배너에서는 접수가 끝난 대회를 빼고, 관리자 목록에는 안 보임으로 남긴다', async () => {
     // 가짜 대회 10(춘천마라톤)은 접수 마감이 어제다
     const admin = await put([10, 3])
-    expect(admin.data.find((race) => race.raceId === 10)?.visible).toBe(false)
+    const closed = admin.data.find((race) => race.raceId === 10)
+    expect(closed).toMatchObject({
+      visible: false,
+      hiddenReason: 'APPLICATION_CLOSED',
+      hiddenReasonLabel: '접수 마감',
+    })
     const pub = await customFetch<Ids>('http://localhost/api/v1/product/banners')
     expect(ids(pub)).toEqual([3])
   })

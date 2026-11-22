@@ -759,7 +759,11 @@
         "raceId",
         "title",
         "saleStatus",
-        "visible"
+        "applicationCloseAt",
+        "displayOrder",
+        "visible",
+        "hiddenReason",
+        "hiddenReasonLabel"
       ],
       "properties": {
         "raceId": {
@@ -779,31 +783,39 @@
             "CANCELED"
           ]
         },
-        "crewSaleStartAt": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date-time"
-        },
-        "crewSaleEndAt": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date-time"
-        },
-        "individualOpenAt": {
-          "type": "string",
-          "format": "date-time"
-        },
         "applicationCloseAt": {
           "type": "string",
           "format": "date-time"
         },
+        "displayOrder": {
+          "type": "integer",
+          "format": "int32",
+          "description": "홈에 보이는 순서 (0부터)"
+        },
         "visible": {
           "type": "boolean",
-          "description": "홈에 보이는지. 접수 마감·판매 중지·판매 종료·대회 취소면 false"
+          "description": "지금 홈에 보이는지"
+        },
+        "hiddenReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CANCELED",
+            "CLOSED",
+            "STOPPED",
+            "APPLICATION_CLOSED",
+            null
+          ],
+          "description": "홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null"
+        },
+        "hiddenReasonLabel": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "이유의 화면 이름(대회 취소 / 판매 종료 / 판매 중지 / 접수 마감). 보이면 null"
         }
       }
     },
@@ -821,7 +833,7 @@
             "type": "integer",
             "format": "int64"
           },
-          "description": "배너에 올릴 대회 ID. 이 순서대로 보인다(최대 5개)"
+          "description": "배너로 고른 대회 ID. 보낸 순서가 홈에 보이는 순서다(최대 5개, 중복 없음). []이면 배너를 모두 비운다"
         }
       }
     },
@@ -870,7 +882,7 @@
         ],
         "operationId": "findHomeBanners",
         "summary": "홈 배너 대회 목록",
-        "description": "관리자가 고른 순서대로 홈에 보일 대회를 준다. 접수 마감·판매 중지·판매 종료·대회 취소된 대회는 뺀다. 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.",
+        "description": "관리자가 고른 순서대로 지금 홈에 보일 대회만 준다(대회 목록 카드와 같은 모양). 접수 마감·판매 중지·판매 종료·대회 취소된 대회는 뺀다. 대표 이미지를 받지 못하면 imageUrl만 null이다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.",
         "responses": {
           "200": {
             "description": "성공",
@@ -924,7 +936,7 @@
         ],
         "operationId": "findAdminHomeBanners",
         "summary": "관리자 홈 배너 목록",
-        "description": "배너로 고른 대회를 순서대로 모두 준다(홈에 안 보이는 대회 포함). 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.",
+        "description": "배너로 고른 대회를 순서대로 모두 준다. 홈에 안 보이는 대회는 이유(hiddenReason, hiddenReasonLabel)와 함께 온다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.",
         "responses": {
           "200": {
             "description": "성공",
@@ -935,27 +947,27 @@
                 },
                 "example": {
                   "status": 200,
-                  "message": "홈 배너를 조회했습니다.",
+                  "message": "홈 배너 목록을 조회했습니다.",
                   "data": [
                     {
                       "raceId": 3,
-                      "title": "2026 서울마라톤",
+                      "title": "2026 용감한 쿠키RUN in 서울",
                       "saleStatus": "ON_SALE",
-                      "crewSaleStartAt": null,
-                      "crewSaleEndAt": null,
-                      "individualOpenAt": "2026-11-19T09:00:00",
-                      "applicationCloseAt": "2026-12-10T18:00:00",
-                      "visible": true
+                      "applicationCloseAt": "2026-12-13T18:00:00",
+                      "displayOrder": 0,
+                      "visible": true,
+                      "hiddenReason": null,
+                      "hiddenReasonLabel": null
                     },
                     {
                       "raceId": 1,
-                      "title": "2026 용감한 쿠키RUN in 서울",
-                      "saleStatus": "ON_SALE",
-                      "crewSaleStartAt": null,
-                      "crewSaleEndAt": null,
-                      "individualOpenAt": "2026-11-20T09:00:00",
-                      "applicationCloseAt": "2026-11-27T18:00:00",
-                      "visible": true
+                      "title": "2026 한강 나이트 런",
+                      "saleStatus": "STOPPED",
+                      "applicationCloseAt": "2026-12-10T18:00:00",
+                      "displayOrder": 1,
+                      "visible": false,
+                      "hiddenReason": "STOPPED",
+                      "hiddenReasonLabel": "판매 중지"
                     }
                   ]
                 }
@@ -971,9 +983,9 @@
                 },
                 "example": {
                   "status": 401,
-                  "code": "LOGIN_REQUIRED",
                   "message": "로그인이 필요합니다.",
-                  "data": null
+                  "data": null,
+                  "code": "LOGIN_REQUIRED"
                 }
               }
             }
@@ -987,9 +999,25 @@
                 },
                 "example": {
                   "status": 403,
-                  "code": "ADMIN_FORBIDDEN",
                   "message": "관리자만 이용할 수 있습니다.",
-                  "data": null
+                  "data": null,
+                  "code": "PRODUCT_ADMIN_FORBIDDEN"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스에 연결하지 못했습니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "회원 서비스에 연결하지 못했습니다.",
+                  "data": null,
+                  "code": "PRODUCT_EXTERNAL_SERVICE_UNAVAILABLE"
                 }
               }
             }
@@ -1002,7 +1030,7 @@
         ],
         "operationId": "replaceAdminHomeBanners",
         "summary": "관리자 홈 배너 저장",
-        "description": "배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 409는 새로 올리는 대회에만 따진다(이미 올라 있던 대회가 나중에 취소·판매 종료돼도 빼기·순서 바꾸기는 막지 않는다). 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.",
+        "description": "배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 판매 중지·접수 마감 대회는 저장되지만 홈에는 안 보인다. 취소·판매 종료 대회는 보낸 목록 어디에 있든(이미 올라 있던 대회도) 409로 막힌다. 오류가 나면 아무것도 바뀌지 않는다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1027,23 +1055,13 @@
                   "data": [
                     {
                       "raceId": 3,
-                      "title": "2026 서울마라톤",
-                      "saleStatus": "ON_SALE",
-                      "crewSaleStartAt": null,
-                      "crewSaleEndAt": null,
-                      "individualOpenAt": "2026-11-19T09:00:00",
-                      "applicationCloseAt": "2026-12-10T18:00:00",
-                      "visible": true
-                    },
-                    {
-                      "raceId": 1,
                       "title": "2026 용감한 쿠키RUN in 서울",
                       "saleStatus": "ON_SALE",
-                      "crewSaleStartAt": null,
-                      "crewSaleEndAt": null,
-                      "individualOpenAt": "2026-11-20T09:00:00",
-                      "applicationCloseAt": "2026-11-27T18:00:00",
-                      "visible": true
+                      "applicationCloseAt": "2026-12-13T18:00:00",
+                      "displayOrder": 0,
+                      "visible": true,
+                      "hiddenReason": null,
+                      "hiddenReasonLabel": null
                     }
                   ]
                 }
@@ -1051,17 +1069,35 @@
             }
           },
           "400": {
-            "description": "배너는 겹치지 않게 5개까지 고를 수 있습니다.",
+            "description": "6개 이상 · 같은 대회 두 번 · raceIds 없음 · 본문 형식 오류",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "example": {
-                  "status": 400,
-                  "code": "INVALID_REQUEST",
-                  "message": "배너는 겹치지 않게 5개까지 고를 수 있습니다.",
-                  "data": null
+                "examples": {
+                  "6개 이상": {
+                    "value": {
+                      "status": 400,
+                      "message": "홈 배너는 최대 5개까지 고를 수 있습니다.",
+                      "data": null
+                    }
+                  },
+                  "중복": {
+                    "value": {
+                      "status": 400,
+                      "message": "같은 대회를 홈 배너에 두 번 넣을 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "raceIds 없음": {
+                    "value": {
+                      "status": 400,
+                      "code": "INVALID_REQUEST",
+                      "message": "배너로 고른 대회 목록을 보내주세요.",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1075,9 +1111,9 @@
                 },
                 "example": {
                   "status": 401,
-                  "code": "LOGIN_REQUIRED",
                   "message": "로그인이 필요합니다.",
-                  "data": null
+                  "data": null,
+                  "code": "LOGIN_REQUIRED"
                 }
               }
             }
@@ -1091,15 +1127,31 @@
                 },
                 "example": {
                   "status": 403,
-                  "code": "ADMIN_FORBIDDEN",
                   "message": "관리자만 이용할 수 있습니다.",
-                  "data": null
+                  "data": null,
+                  "code": "PRODUCT_ADMIN_FORBIDDEN"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "회원 서비스에 연결하지 못했습니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsData"
+                },
+                "example": {
+                  "status": 503,
+                  "message": "회원 서비스에 연결하지 못했습니다.",
+                  "data": null,
+                  "code": "PRODUCT_EXTERNAL_SERVICE_UNAVAILABLE"
                 }
               }
             }
           },
           "404": {
-            "description": "대회를 찾을 수 없습니다.",
+            "description": "존재하지 않는 대회입니다.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1107,25 +1159,35 @@
                 },
                 "example": {
                   "status": 404,
-                  "code": "RACE_NOT_FOUND",
-                  "message": "대회를 찾을 수 없습니다.",
-                  "data": null
+                  "message": "존재하지 않는 대회입니다.",
+                  "data": null,
+                  "code": "RACE_NOT_FOUND"
                 }
               }
             }
           },
           "409": {
-            "description": "새로 올리는 대회가 취소·판매 종료됨",
+            "description": "취소된 대회 · 판매가 끝난 대회",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RsData"
                 },
-                "example": {
-                  "status": 409,
-                  "code": "HOME_BANNER_RACE_ENDED",
-                  "message": "취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.",
-                  "data": null
+                "examples": {
+                  "취소": {
+                    "value": {
+                      "status": 409,
+                      "message": "취소된 대회는 배너로 고를 수 없습니다.",
+                      "data": null
+                    }
+                  },
+                  "판매 종료": {
+                    "value": {
+                      "status": 409,
+                      "message": "판매가 끝난 대회는 배너로 고를 수 없습니다.",
+                      "data": null
+                    }
+                  }
                 }
               }
             }

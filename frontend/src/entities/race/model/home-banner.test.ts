@@ -84,57 +84,36 @@ const ADMIN: productModel.HomeBannerAdminDto = {
   raceId: 3,
   title: '2026 서울마라톤',
   saleStatus: 'ON_SALE',
-  crewSaleStartAt: null,
-  crewSaleEndAt: null,
-  individualOpenAt: '2026-11-20T09:00:00',
   applicationCloseAt: '2026-12-10T18:00:00',
+  displayOrder: 0,
   visible: true,
+  hiddenReason: null,
+  hiddenReasonLabel: null,
 }
 
 describe('toHomeBannerRow', () => {
-  it('홈에 보이는 대회는 접수 단계와 접수 마감일을 보여 준다', () => {
-    expect(toHomeBannerRow(ADMIN, NOW)).toEqual({
+  it('홈에 보이는 대회는 판매 상태와 접수 마감일을 보여 준다', () => {
+    expect(toHomeBannerRow(ADMIN)).toEqual({
       raceId: 3,
       title: '2026 서울마라톤',
-      stage: '접수 중',
+      stage: '판매 중',
       closeDate: '12/10',
       visible: true,
     })
+    expect(toHomeBannerRow({ ...ADMIN, saleStatus: 'SCHEDULED' }).stage).toBe('판매 예정')
   })
 
-  it('크루 예매 기간 · 오픈 전 단계를 나눠 보여 준다', () => {
-    expect(
-      toHomeBannerRow(
-        { ...ADMIN, crewSaleStartAt: '2026-11-21T10:00:00', crewSaleEndAt: '2026-11-28T18:00:00' },
-        NOW,
-      ).stage,
-    ).toBe('크루 예매 중')
-    expect(toHomeBannerRow({ ...ADMIN, individualOpenAt: '2026-12-01T10:00:00' }, NOW).stage).toBe(
-      '오픈 예정',
-    )
+  it('홈에 안 보이는 대회는 서버가 준 이유 이름을 붙인다', () => {
+    const hidden = (hiddenReason: productModel.HomeBannerAdminDto['hiddenReason'], label: string) =>
+      toHomeBannerRow({ ...ADMIN, visible: false, hiddenReason, hiddenReasonLabel: label }).stage
+    expect(hidden('APPLICATION_CLOSED', '접수 마감')).toBe('접수 마감 · 홈에 안 보임')
+    expect(hidden('STOPPED', '판매 중지')).toBe('판매 중지 · 홈에 안 보임')
+    expect(hidden('CLOSED', '판매 종료')).toBe('판매 종료 · 홈에 안 보임')
+    expect(hidden('CANCELED', '대회 취소')).toBe('대회 취소 · 홈에 안 보임')
   })
 
-  it('접수 마감 시각과 같은 순간부터 마감이다', () => {
-    expect(
-      toHomeBannerRow({ ...ADMIN, visible: false, applicationCloseAt: '2026-11-22T12:00:00' }, NOW)
-        .stage,
-    ).toBe('접수 마감 · 홈에 안 보임')
-  })
-
-  it('홈에 안 보이는 대회는 이유를 붙인다', () => {
-    const hidden = { ...ADMIN, visible: false }
-    expect(
-      toHomeBannerRow({ ...hidden, applicationCloseAt: '2026-11-20T18:00:00' }, NOW).stage,
-    ).toBe('접수 마감 · 홈에 안 보임')
-    expect(toHomeBannerRow({ ...hidden, saleStatus: 'STOPPED' }, NOW).stage).toBe(
-      '판매 중지 · 홈에 안 보임',
-    )
-    expect(toHomeBannerRow({ ...hidden, saleStatus: 'CLOSED' }, NOW).stage).toBe(
-      '판매 종료 · 홈에 안 보임',
-    )
-    expect(toHomeBannerRow({ ...hidden, saleStatus: 'CANCELED' }, NOW).stage).toBe(
-      '대회 취소 · 홈에 안 보임',
-    )
+  it('이유 이름이 비어 오면 홈에 안 보임만 쓴다', () => {
+    expect(toHomeBannerRow({ ...ADMIN, visible: false }).stage).toBe('홈에 안 보임')
   })
 })
 

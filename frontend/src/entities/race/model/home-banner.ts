@@ -20,7 +20,7 @@ export type HomeBanner = {
 export type HomeBannerRow = {
   raceId: number
   title: string
-  /** 접수 단계. 홈에 안 보이면 이유를 붙인다(판매 중지 · 홈에 안 보임) */
+  /** 판매 상태. 홈에 안 보이면 이유를 붙인다(판매 중지 · 홈에 안 보임) */
   stage: string
   closeDate: string
   visible: boolean
@@ -45,8 +45,12 @@ const STAGE_TEXT: Record<Exclude<Stage, 'closed'>, string> = {
   upcoming: '오픈 예정',
 }
 
-/** 홈에 보이지 않는 판매 상태와 그 이름. 시각과 상관없이 배너에서 빠진다 */
-const HIDDEN_STATUS: Record<string, string> = {
+/** 판매가 멈췄거나 끝난 상태. 시각과 상관없이 배너에서 빠진다 */
+const HIDDEN_STATUS = new Set(['STOPPED', 'CLOSED', 'CANCELED'])
+
+const SALE_STATUS_LABEL: Record<productModel.HomeBannerAdminDto['saleStatus'], string> = {
+  SCHEDULED: '판매 예정',
+  ON_SALE: '판매 중',
   STOPPED: '판매 중지',
   CLOSED: '판매 종료',
   CANCELED: '대회 취소',
@@ -61,7 +65,7 @@ function crewEnd(race: StageInput) {
 }
 
 function stageOf(race: StageInput, now: Date): Stage {
-  if (race.saleStatus && race.saleStatus in HIDDEN_STATUS) return 'closed'
+  if (race.saleStatus && HIDDEN_STATUS.has(race.saleStatus)) return 'closed'
   if (race.applicationCloseAt && now >= parseKstDateTime(race.applicationCloseAt)) return 'closed'
   const end = crewEnd(race)
   if (
@@ -105,18 +109,16 @@ export function toHomeBanner(race: productModel.RaceSummaryDto, now: Date): Home
   }
 }
 
-export function toHomeBannerRow(race: productModel.HomeBannerAdminDto, now: Date): HomeBannerRow {
-  const stage = stageOf(race, now)
-  const label = race.visible
-    ? stage === 'closed'
-      ? '접수 마감'
-      : STAGE_TEXT[stage]
-    : `${HIDDEN_STATUS[race.saleStatus] ?? '접수 마감'} · 홈에 안 보임`
+/** 관리자 줄: 홈에 보이면 판매 상태, 안 보이면 서버가 준 이유 이름(판매 중지 · 홈에 안 보임) */
+export function toHomeBannerRow(race: productModel.HomeBannerAdminDto): HomeBannerRow {
+  const stage = race.visible
+    ? SALE_STATUS_LABEL[race.saleStatus]
+    : [race.hiddenReasonLabel, '홈에 안 보임'].filter(Boolean).join(' · ')
   return {
     raceId: race.raceId,
     title: race.title,
-    stage: label,
-    closeDate: race.applicationCloseAt ? monthDay(race.applicationCloseAt) : '-',
+    stage,
+    closeDate: monthDay(race.applicationCloseAt),
     visible: race.visible,
   }
 }

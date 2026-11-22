@@ -8,7 +8,7 @@
 import * as zod from 'zod';
 
 /**
- * 관리자가 고른 순서대로 홈에 보일 대회를 준다. 접수 마감·판매 중지·판매 종료·대회 취소된 대회는 뺀다. 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * 관리자가 고른 순서대로 지금 홈에 보일 대회만 준다(대회 목록 카드와 같은 모양). 접수 마감·판매 중지·판매 종료·대회 취소된 대회는 뺀다. 대표 이미지를 받지 못하면 imageUrl만 null이다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.
  * @summary 홈 배너 대회 목록
  */
 export const FindHomeBannersResponse = zod.object({
@@ -43,7 +43,7 @@ export const FindHomeBannersResponse = zod.object({
 
 
 /**
- * 배너로 고른 대회를 순서대로 모두 준다(홈에 안 보이는 대회 포함). 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * 배너로 고른 대회를 순서대로 모두 준다. 홈에 안 보이는 대회는 이유(hiddenReason, hiddenReasonLabel)와 함께 온다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.
  * @summary 관리자 홈 배너 목록
  */
 export const FindAdminHomeBannersResponse = zod.object({
@@ -53,17 +53,17 @@ export const FindAdminHomeBannersResponse = zod.object({
   "raceId": zod.int(),
   "title": zod.string(),
   "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
-  "crewSaleStartAt": zod.iso.datetime({"offset":true}).nullish(),
-  "crewSaleEndAt": zod.iso.datetime({"offset":true}).nullish(),
-  "individualOpenAt": zod.iso.datetime({"offset":true}).optional(),
-  "applicationCloseAt": zod.iso.datetime({"offset":true}).optional(),
-  "visible": zod.boolean().describe('홈에 보이는지. 접수 마감·판매 중지·판매 종료·대회 취소면 false')
+  "applicationCloseAt": zod.iso.datetime({"offset":true}),
+  "displayOrder": zod.int().describe('홈에 보이는 순서 (0부터)'),
+  "visible": zod.boolean().describe('지금 홈에 보이는지'),
+  "hiddenReason": zod.union([zod.literal('CANCELED'),zod.literal('CLOSED'),zod.literal('STOPPED'),zod.literal('APPLICATION_CLOSED'),zod.literal(null)]).nullable().describe('홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null'),
+  "hiddenReasonLabel": zod.string().nullable().describe('이유의 화면 이름(대회 취소 / 판매 종료 / 판매 중지 / 접수 마감). 보이면 null')
 })).optional()
 })
 
 
 /**
- * 배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 409는 새로 올리는 대회에만 따진다(이미 올라 있던 대회가 나중에 취소·판매 종료돼도 빼기·순서 바꾸기는 막지 않는다). 백엔드(상품 서비스)가 아직 없는 API다. 계약은 CRU-146. 백엔드 명세가 생기면 이 항목을 지운다.
+ * 배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 판매 중지·접수 마감 대회는 저장되지만 홈에는 안 보인다. 취소·판매 종료 대회는 보낸 목록 어디에 있든(이미 올라 있던 대회도) 409로 막힌다. 오류가 나면 아무것도 바뀌지 않는다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.
  * @summary 관리자 홈 배너 저장
  */
 export const replaceAdminHomeBannersBodyRaceIdsMax = 5;
@@ -71,7 +71,7 @@ export const replaceAdminHomeBannersBodyRaceIdsMax = 5;
 
 
 export const ReplaceAdminHomeBannersBody = zod.object({
-  "raceIds": zod.array(zod.int()).max(replaceAdminHomeBannersBodyRaceIdsMax).describe('배너에 올릴 대회 ID. 이 순서대로 보인다(최대 5개)')
+  "raceIds": zod.array(zod.int()).max(replaceAdminHomeBannersBodyRaceIdsMax).describe('배너로 고른 대회 ID. 보낸 순서가 홈에 보이는 순서다(최대 5개, 중복 없음). []이면 배너를 모두 비운다')
 })
 
 export const ReplaceAdminHomeBannersResponse = zod.object({
@@ -81,11 +81,11 @@ export const ReplaceAdminHomeBannersResponse = zod.object({
   "raceId": zod.int(),
   "title": zod.string(),
   "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
-  "crewSaleStartAt": zod.iso.datetime({"offset":true}).nullish(),
-  "crewSaleEndAt": zod.iso.datetime({"offset":true}).nullish(),
-  "individualOpenAt": zod.iso.datetime({"offset":true}).optional(),
-  "applicationCloseAt": zod.iso.datetime({"offset":true}).optional(),
-  "visible": zod.boolean().describe('홈에 보이는지. 접수 마감·판매 중지·판매 종료·대회 취소면 false')
+  "applicationCloseAt": zod.iso.datetime({"offset":true}),
+  "displayOrder": zod.int().describe('홈에 보이는 순서 (0부터)'),
+  "visible": zod.boolean().describe('지금 홈에 보이는지'),
+  "hiddenReason": zod.union([zod.literal('CANCELED'),zod.literal('CLOSED'),zod.literal('STOPPED'),zod.literal('APPLICATION_CLOSED'),zod.literal(null)]).nullable().describe('홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null'),
+  "hiddenReasonLabel": zod.string().nullable().describe('이유의 화면 이름(대회 취소 / 판매 종료 / 판매 중지 / 접수 마감). 보이면 null')
 })).optional()
 })
 

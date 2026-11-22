@@ -34,7 +34,7 @@ export function AdminBannersPage() {
   const save = useSaveBanners()
   const [adding, setAdding] = useState(false)
 
-  const rows = now ? (banners.data ?? []).map((b) => toHomeBannerRow(b, now)) : []
+  const rows = (banners.data ?? []).map(toHomeBannerRow)
   // 개수 · 순서는 현재 시각과 상관없으므로 받은 목록에서 바로 센다(마운트 직후 0 / 5가 깜빡이지 않게)
   const ids = (banners.data ?? []).map((b) => b.raceId)
   const full = ids.length >= MAX_BANNERS
@@ -55,7 +55,7 @@ export function AdminBannersPage() {
         </Button>
       }
     >
-      {banners.isPending || !now ? (
+      {banners.isPending ? (
         <ConsoleLoading />
       ) : banners.isError && !banners.data ? (
         <ConsoleMessage
@@ -91,7 +91,7 @@ export function AdminBannersPage() {
             },
             {
               key: 'stage',
-              header: '접수 단계',
+              header: '판매 상태',
               width: 'w-52',
               render: (r) => (
                 <Dim row={r} className={cn(r.visible && 'text-body1-medium')}>

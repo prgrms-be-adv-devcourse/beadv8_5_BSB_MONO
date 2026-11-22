@@ -16,11 +16,11 @@ const banner = (raceId: number, title: string): productModel.HomeBannerAdminDto 
   raceId,
   title,
   saleStatus: 'ON_SALE',
-  crewSaleStartAt: null,
-  crewSaleEndAt: null,
-  individualOpenAt: '2026-10-10T09:00:00',
   applicationCloseAt: '2026-10-31T18:00:00',
+  displayOrder: 0,
   visible: true,
+  hiddenReason: null,
+  hiddenReasonLabel: null,
 })
 
 const THREE = [banner(11, '첫째 대회'), banner(12, '둘째 대회'), banner(13, '셋째 대회')]
@@ -98,7 +98,15 @@ describe('AdminBannersPage', () => {
   })
 
   it('홈에 안 보이는 대회는 이유를 보여 준다', async () => {
-    useBanners([{ ...banner(11, '끝난 대회'), saleStatus: 'STOPPED', visible: false }])
+    useBanners([
+      {
+        ...banner(11, '끝난 대회'),
+        saleStatus: 'STOPPED',
+        visible: false,
+        hiddenReason: 'STOPPED',
+        hiddenReasonLabel: '판매 중지',
+      },
+    ])
     renderPage()
     expect(await screen.findByText('판매 중지 · 홈에 안 보임')).toBeInTheDocument()
   })
@@ -203,8 +211,7 @@ describe('AdminBannersPage', () => {
         HttpResponse.json(
           {
             status: 409,
-            code: 'HOME_BANNER_RACE_ENDED',
-            message: '취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.',
+            message: '판매가 끝난 대회는 배너로 고를 수 없습니다.',
             data: null,
           },
           { status: 409 },
@@ -215,7 +222,7 @@ describe('AdminBannersPage', () => {
     await user.click(within(await rowOf('둘째 대회')).getByRole('button', { name: /빼기$/ }))
     // 알림은 화면 낭독기용 영역에도 같은 문구가 들어가 두 번 잡힌다
     expect(
-      await screen.findAllByText('취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.'),
+      await screen.findAllByText('판매가 끝난 대회는 배너로 고를 수 없습니다.'),
     ).not.toHaveLength(0)
     expect(screen.getByText('3 / 5')).toBeInTheDocument()
   })
