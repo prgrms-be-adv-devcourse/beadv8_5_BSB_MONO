@@ -6,17 +6,22 @@ import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { usePlaceHold } from '@/features/payout-hold'
 import { formatMonthDay, HOLD_REASON_ITEMS, PAYOUT_STAGE } from '@/entities/payout'
 import type { payoutModel } from '@/shared/api'
-import { formatWon, useSearchParamsState } from '@/shared/lib'
-import { Button, Chip, EmptyState, KeyValue, Select } from '@/shared/ui'
+import { formatWon, useNow, useSearchParamsState } from '@/shared/lib'
+import { Button, Chip, KeyValue, Select, Skeleton } from '@/shared/ui'
 
+import { AdminPayoutList } from './AdminPayoutList'
 import { PayoutPickerDialog } from './PayoutPickerDialog'
 
 const TABS = ['지급 예정', '지급보류', '지급 완료'] as const
 type Tab = (typeof TABS)[number]
+const TAB_STATUS = {
+  '지급 예정': '지급_예정',
+  지급보류: '지급보류',
+  '지급 완료': '지급_완료',
+} as const satisfies Record<(typeof TABS)[number], payoutModel.PayoutStatus>
 const isTab = (value: string): value is Tab => TABS.some((tab) => tab === value)
 
 // 피그마 v3 · 정산 관리. 지급은 매월 20일 자동이라 관리자는 보기와 지급보류 걸기만 한다.
-// TODO(api): 관리자 정산 목록 API가 openapi에 없어 목록은 비워 둔다. 생기면 칩 건수와 목록을 연결한다.
 export function AdminSettlementsPage() {
   const [{ tab: tabParam }, setParams] = useSearchParamsState({ tab: '지급 예정' })
   const tab: Tab = isTab(tabParam) ? tabParam : '지급 예정'
@@ -32,7 +37,7 @@ export function AdminSettlementsPage() {
       </div>
 
       <ConsoleCard title={tab}>
-        <EmptyState title="정산 목록을 아직 불러올 수 없어요" />
+        <TabList tab={tab} />
       </ConsoleCard>
 
       {tab === '지급보류' && <PlaceHoldCard />}
@@ -106,4 +111,19 @@ function PlaceHoldCard() {
       />
     </ConsoleCard>
   )
+}
+
+// 지급 완료는 이미 지난 지급일이라, 기본값(가까운 20일)이 아니라 가장 최근에 지난 20일을 먼저 보여 준다
+function TabList({ tab }: { tab: Tab }) {
+  const now = useNow()
+  if (tab === '지급 완료') {
+    if (!now) return <Skeleton className="h-40 w-full" />
+    const lastPayDay = new Date(
+      now.getFullYear(),
+      now.getMonth() - (now.getDate() >= 20 ? 0 : 1),
+      20,
+    )
+    return <AdminPayoutList key={tab} status={TAB_STATUS[tab]} defaultPayDate={lastPayDay} />
+  }
+  return <AdminPayoutList key={tab} status={TAB_STATUS[tab]} />
 }

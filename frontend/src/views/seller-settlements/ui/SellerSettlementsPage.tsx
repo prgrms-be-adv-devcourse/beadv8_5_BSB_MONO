@@ -23,7 +23,6 @@ import { payoutApi, payoutModel, unwrapData } from '@/shared/api'
 import { cn, formatNumber, useNow, useSearchParamsState } from '@/shared/lib'
 import {
   Alert,
-  Button,
   DataTable,
   Pagination,
   Select,
@@ -37,6 +36,7 @@ import {
 
 import { ClaimList } from './ClaimList'
 import { errorText, QueryRows, StatusText } from './parts'
+import { SettlementExportButton } from './SettlementExportButton'
 import { TaxInvoiceList } from './TaxInvoiceList'
 
 export type SettlementTab = 'monthly' | 'orders' | 'holds' | 'claims' | 'taxInvoices'
@@ -86,12 +86,7 @@ function SettlementsBody({ initialTab, today }: { initialTab: SettlementTab; tod
   return (
     <ConsolePage
       title="정산"
-      // TODO(api): 정산 내역 엑셀 내려받기 API가 없어 막아 둔다
-      actions={
-        <Button variant="secondary" disabled title="엑셀 내려받기는 준비 중이에요">
-          엑셀로 내려받기
-        </Button>
-      }
+      actions={<SettlementExportButton tab={tab} today={today} period={period} />}
     >
       {summary.data ? (
         <div role="group" aria-label="정산 요약">
