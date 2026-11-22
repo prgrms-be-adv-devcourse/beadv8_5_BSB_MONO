@@ -128,7 +128,16 @@ final class OrderApiExamples {
 
 	static final String NOT_PAYABLE = """
 		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_PAYABLE",
-			"message": "결제를 시작할 수 없는 신청입니다(현재 상태: 결제 대기).", "data": null }
+			"message": "결제를 시작할 수 없는 신청입니다(현재 상태: 미결제 해제).", "data": null }
+		""";
+
+	// 다른 키로 같은 신청서를 다시 보냈는데 그 주문이 이미 끝났다 (CRU-151). 결제 전이면 200으로 그 주문을 돌려준다
+	static final String CREATE_ALREADY_PAID = """
+		{ "status": 409, "code": "ORDER_NOT_PAYABLE", "message": "이미 결제한 신청서입니다.", "data": null }
+		""";
+
+	static final String CREATE_ORDER_CANCELED = """
+		{ "status": 409, "code": "ORDER_NOT_PAYABLE", "message": "취소된 주문입니다.", "data": null }
 		""";
 
 	static final String PARTY_NOT_PAYABLE = """

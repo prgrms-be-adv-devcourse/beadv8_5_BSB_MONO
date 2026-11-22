@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.domain.Order;
+import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.ParticipationType;
@@ -58,7 +59,7 @@ public class OrderCreateUseCase {
 
 	/**
 	 * 상품 HTTP(종목 조회·자리 확보)는 참가 신청을 잠그지 않은 채 부른다 (BUK-213). 순서:
-	 * 1. 잠그지 않고 값만 읽어 거른다 (없는 신청·남의 신청·같은 키로 만든 주문·끝난 신청)
+	 * 1. 잠그지 않고 값만 읽어 거른다 (없는 신청·남의 신청·이미 만든 주문(같은 키 또는 같은 신청서)·끝난 신청)
 	 * 2. 상품에 종목을 묻는다 (취소된 대회, 접수 기간)
 	 * 3. 잠그고 다시 확인한 뒤 「자리 잡으러 감」 표시(결제 기한 칸)를 남겨 커밋한다
 	 * 4. 상품에 자리를 잡는다 (참가 신청 ID로 멱등: 다시 불러도 처음 결과)
@@ -73,12 +74,12 @@ public class OrderCreateUseCase {
 		if (precheck.result() != null) {
 			return precheck.result();
 		}
-		// 같은 키로 만든 주문이 있으면 상품을 묻지 않고 잠근 뒤 그 주문을 돌려준다
+		// 이미 만든 주문이 있으면 상품을 묻지 않고 잠근 뒤 그 주문을 돌려준다 (결제할 수 없는 주문이면 409)
 		if (precheck.existing()) {
 			return transactionTemplate.execute(status -> {
 				Participation participation = lock(participationId);
-				return findExisting(participation, memberId, idempotencyKey).orElseThrow(
-					() -> new IllegalStateException("같은 키로 만든 주문이 사라졌습니다. participationId=" + participationId));
+				return findExisting(participation, memberId, idempotencyKey, now).orElseThrow(
+					() -> new IllegalStateException("이미 만든 주문이 사라졌습니다. participationId=" + participationId));
 			});
 		}
 		RaceCourseInfo course = raceCoursePort.findCourse(precheck.raceCourseId())
@@ -103,7 +104,7 @@ public class OrderCreateUseCase {
 		LocalDateTime holdUntil = capAdmissionEndsAt(admissionEndsAt, now, memberId, course.raceCourseId());
 		OrderCreateResult finished = transactionTemplate.execute(status -> {
 			Participation participation = lock(participationId);
-			Optional<OrderCreateResult> done = finishedResult(participation, memberId, idempotencyKey);
+			Optional<OrderCreateResult> done = finishedResult(participation, memberId, idempotencyKey, now);
 			if (done.isPresent()) {
 				return done.get();
 			}
@@ -115,7 +116,7 @@ public class OrderCreateUseCase {
 		}
 		SeatHoldResult hold = seatHoldPort.hold(course.raceCourseId(), participationId, holdUntil);
 		OrderCreateResult result = transactionTemplate.execute(status -> applyHold(memberId, participationId,
-			idempotencyKey, course, hold));
+			idempotencyKey, course, hold, now));
 		if (result == null) {
 			throw new ParticipationNotPayableException(
 				"자리를 잡는 사이 신청서가 끝나 주문을 만들지 않았습니다. 잡은 자리는 다시 풀었습니다.");
@@ -125,7 +126,7 @@ public class OrderCreateUseCase {
 
 	/**
 	 * 1단계: 잠그지 않고 값만 읽는다. 오류 순서는 잠금 안에서 확인하던 때와 같다
-	 * (없음 → 남의 신청 → 같은 키 주문 → 매진으로 끝난 신청 → 파티원·개인의 결제할 수 없는 상태)
+	 * (없음 → 남의 신청 → 같은 키 주문·같은 신청서 주문 → 매진으로 끝난 신청 → 파티원·개인의 결제할 수 없는 상태)
 	 */
 	private Precheck precheck(long memberId, long participationId, String idempotencyKey, LocalDateTime now) {
 		CreateTarget target = participationRepository.findCreateTarget(participationId)
@@ -133,7 +134,9 @@ public class OrderCreateUseCase {
 		if (target.memberId() != memberId) {
 			throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
 		}
-		if (orderRepository.existsByBuyerIdAndIdempotencyKey(memberId, idempotencyKey)) {
+		// 같은 키로, 또는 다른 키로 이 신청서에 이미 만든 주문이 있으면 상품·대기열을 묻지 않고 잠근 뒤 그 주문을 본다 (CRU-151)
+		if (orderRepository.existsByBuyerIdAndIdempotencyKey(memberId, idempotencyKey)
+			|| orderRepository.findByParticipationId(participationId).isPresent()) {
 			return Precheck.existingOrder();
 		}
 		// 매진으로 이미 끝난 신청서로 다시 요청하면(같은 키 재시도 포함) 처음과 같은 매진 결과를 돌려준다
@@ -173,10 +176,10 @@ public class OrderCreateUseCase {
 	}
 
 	private Optional<OrderCreateResult> findExisting(Participation participation, long memberId,
-		String idempotencyKey) {
+		String idempotencyKey, LocalDateTime now) {
 		Optional<Order> existing = orderRepository.findByBuyerIdAndIdempotencyKey(memberId, idempotencyKey);
 		if (existing.isEmpty()) {
-			return Optional.empty();
+			return findByParticipation(participation, memberId, now);
 		}
 		// 같은 키를 다른 신청서에 다시 쓰면 처음 주문을 돌려주지 않는다 (엉뚱한 주문을 성공으로 알리지 않게)
 		if (!existing.get().isFor(participation.getId())) {
@@ -185,10 +188,38 @@ public class OrderCreateUseCase {
 		return Optional.of(OrderCreateResult.existing(existing.get().toDto(applicationShippingAddress(participation))));
 	}
 
+	/**
+	 * 다른 키로 같은 신청서를 다시 보냈다 (CRU-151). 프론트 키는 화면 메모리에만 있어 새로고침·뒤로 가기·결제 실패 뒤 다시 누르면 새 키가 온다
+	 * 결제 전(결제 대기·결제 중)이면 그 주문을 그대로 돌려줘 결제 화면으로 다시 들어가게 한다. 자리 확보·상품 호출은 다시 하지 않는다
+	 * 기한이 지난 결제 대기는 만료 정리(1분마다) 전이라도 기한 지남 409다. 끝난 주문이면 무엇으로 끝났는지 409로 알린다
+	 * 돌려준 뒤 기한이 지나는 경우는 결제(OrderPayUseCase)가 기한을 다시 본다
+	 */
+	private Optional<OrderCreateResult> findByParticipation(Participation participation, long memberId,
+		LocalDateTime now) {
+		Optional<Order> found = orderRepository.findByParticipationId(participation.getId());
+		if (found.isEmpty()) {
+			return Optional.empty();
+		}
+		Order order = found.get();
+		if (!order.isOwnedBy(memberId)) {
+			throw new ParticipationNotFoundException("존재하지 않는 참가 신청입니다.");
+		}
+		if (order.getStatus() == OrderStatus.CREATED && !now.isBefore(order.getPaymentDueAt())) {
+			throw OrderNotPayableException.deadlinePassed("결제 기한이 지났습니다.");
+		}
+		return switch (order.getStatus()) {
+			case CREATED, PAYING -> Optional.of(OrderCreateResult.existing(
+				order.toDto(applicationShippingAddress(participation))));
+			case PAID, PARTIAL_CANCELED -> throw new OrderNotPayableException("이미 결제한 신청서입니다.");
+			case EXPIRED -> throw OrderNotPayableException.deadlinePassed("결제 기한이 지났습니다.");
+			case CANCELED -> throw new OrderNotPayableException("취소된 주문입니다.");
+		};
+	}
+
 	// 잠근 뒤: 잠그기 전 확인과 이 사이에 다른 요청이 끝냈으면 그 결과를 돌려준다. 결제할 수 없는 상태면 409
 	private Optional<OrderCreateResult> finishedResult(Participation participation, long memberId,
-		String idempotencyKey) {
-		Optional<OrderCreateResult> existing = findExisting(participation, memberId, idempotencyKey);
+		String idempotencyKey, LocalDateTime now) {
+		Optional<OrderCreateResult> existing = findExisting(participation, memberId, idempotencyKey, now);
 		if (existing.isPresent()) {
 			return existing;
 		}
@@ -203,14 +234,14 @@ public class OrderCreateUseCase {
 	// 자리를 잡는 사이 신청서가 취소·미결제 해제로 끝났으면, 그쪽이 보낸 해제가 확보보다 먼저 닿았을 수 있어 해제를 다시 남기고
 	// null을 돌려준다 (커밋한 뒤 409). 끝난 신청서는 만료 정리 대상이 아니라 여기서 풀지 않으면 자리가 남는다
 	private OrderCreateResult applyHold(long memberId, long participationId, String idempotencyKey,
-		RaceCourseInfo course, SeatHoldResult hold) {
+		RaceCourseInfo course, SeatHoldResult hold, LocalDateTime now) {
 		Participation participation = lock(participationId);
 		ParticipationStatus current = participation.getStatus();
 		if (hold.held() && (current == ParticipationStatus.CANCELED || current == ParticipationStatus.RELEASED)) {
 			orderOutboxKafkaAppendUseCase.appendSeatRelease(participationId);
 			return null;
 		}
-		Optional<OrderCreateResult> done = finishedResult(participation, memberId, idempotencyKey);
+		Optional<OrderCreateResult> done = finishedResult(participation, memberId, idempotencyKey, now);
 		if (done.isPresent()) {
 			return done.get();
 		}
@@ -240,7 +271,7 @@ public class OrderCreateUseCase {
 	private OrderCreateResult createPartyOrder(long memberId, long participationId, String idempotencyKey,
 		RaceCourseInfo course, LocalDateTime now) {
 		Participation participation = lock(participationId);
-		Optional<OrderCreateResult> existing = findExisting(participation, memberId, idempotencyKey);
+		Optional<OrderCreateResult> existing = findExisting(participation, memberId, idempotencyKey, now);
 		if (existing.isPresent()) {
 			return existing.get();
 		}
@@ -249,9 +280,9 @@ public class OrderCreateUseCase {
 		try {
 			orderRepository.saveAndFlush(order);
 		} catch (DataIntegrityViolationException exception) {
-			// 같은 신청서로 다른 키를 써서 다시 만들면 주문 상품 유니크 제약이 막는다
+			// 줄 세우기를 거쳐도 남는 경합은 유니크 제약이 막는다 (다른 키 재요청은 위 findExisting이 처음 주문을 돌려준다, CRU-151)
 			if (isOrderConflict(exception)) {
-				throw new OrderConflictException("이미 이 신청서로 만든 주문이 있습니다. 주문 내역에서 결제해주세요.");
+				throw new OrderConflictException("같은 주문 요청을 처리하고 있습니다. 잠시 뒤 주문 내역을 확인해주세요.");
 			}
 			throw exception;
 		}
