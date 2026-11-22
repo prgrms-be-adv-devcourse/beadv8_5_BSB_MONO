@@ -18,8 +18,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -53,6 +56,7 @@ import com.bukang.member.out.passwordreset.InMemoryPasswordResetStore;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 @Import({InMemoryPasswordResetStore.Config.class, InMemoryMemberMailSender.Config.class,
 	InMemoryIdentityVerificationStore.Config.class, InMemorySocialLoginStore.Config.class})
 class ApiV1PasswordResetTest {
@@ -288,6 +292,25 @@ class ApiV1PasswordResetTest {
 
 		assertThat(unknown).isEqualTo(known);
 		assertThat(mailSender.sent()).extracting(OutgoingMail::to).containsExactly(EMAIL);
+	}
+
+	@Test
+	@DisplayName("가입하지 않은 이메일이면 메일을 보내지 않았다고 로그에 남기고, 이메일 원문은 남기지 않는다")
+	void unknownEmailIsLogged(CapturedOutput output) throws Exception {
+		requestReset("nobody@crewrun.com").andExpect(status().isOk());
+
+		assertThat(output.getOut()).contains("활성 회원이 없어 재설정 메일을 보내지 않습니다")
+			.doesNotContain("nobody@crewrun.com");
+	}
+
+	@Test
+	@DisplayName("가입한 이메일이면 회원 ID로 링크 메일을 보낸다고 로그에 남기고, 이메일과 링크는 남기지 않는다")
+	void resetLinkMailIsLogged(CapturedOutput output) throws Exception {
+		requestReset(EMAIL).andExpect(status().isOk());
+
+		assertThat(output.getOut()).contains("재설정 링크 메일을 보냅니다. memberId=" + memberId)
+			.doesNotContain(EMAIL)
+			.doesNotContain("#token=");
 	}
 
 	@Test

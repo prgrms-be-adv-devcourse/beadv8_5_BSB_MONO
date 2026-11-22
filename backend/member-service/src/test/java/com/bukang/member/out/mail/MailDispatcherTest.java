@@ -10,9 +10,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import com.bukang.member.config.auth.PasswordResetProperties;
 
+@ExtendWith(OutputCaptureExtension.class)
 class MailDispatcherTest {
 	private static final OutgoingMail MAIL = new OutgoingMail("runner1@crewrun.com", "제목", "본문", "<p>본문</p>");
 	private static final List<Duration> DELAYS = List.of(
@@ -41,6 +45,15 @@ class MailDispatcherTest {
 
 		assertThat(sender.sent()).containsExactly(MAIL);
 		assertThat(scheduledDelays).containsExactly(Duration.ZERO);
+	}
+
+	@Test
+	@DisplayName("보내면 제목만 로그에 남기고, 받는 주소는 남기지 않는다")
+	void logsSuccessWithoutAddress(CapturedOutput output) {
+		dispatcher.dispatch(MAIL);
+
+		assertThat(output.getOut()).contains("메일을 보냈습니다: OutgoingMail[subject=제목]")
+			.doesNotContain("runner1@crewrun.com");
 	}
 
 	@Test
