@@ -18,11 +18,7 @@ import type {
   RaceSummary,
 } from './types'
 
-/**
- * 목록 응답의 대표 이미지. 명세(RaceSummaryDto)에는 아직 없고, 목 모드의 MSW 응답만 실어 준다.
- * 실제 백엔드 응답에는 이 칸이 없어 이미지는 비고 카드는 색 포스터로 보인다.
- */
-type SummaryDto = productModel.RaceSummaryDto & { imageUrl?: string }
+type SummaryDto = productModel.RaceSummaryDto
 type DetailDto = productModel.RaceDetailDto
 type FileDto = fileModel.FileDto
 
@@ -88,7 +84,7 @@ export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceLi
   return {
     id: String(race.raceId),
     title: race.title ?? '',
-    image: race.imageUrl,
+    image: race.imageUrl ?? undefined,
     posterLabel: courseNames(race.courses).join(' · '),
     badge: listBadge(race, now),
     meta: race.raceDate ? `${formatRaceDate(race.raceDate)} · ${place}` : place,
@@ -102,7 +98,7 @@ export function toClosingSoonCard(race: SummaryDto, now: Date = new Date()): Rac
   return {
     id: String(race.raceId),
     title: race.title ?? '',
-    image: race.imageUrl,
+    image: race.imageUrl ?? undefined,
     posterLabel: courseNames(race.courses).join(' · '),
     // 대회별 남은 자리 수는 회원에게 보여 주지 않는다 (11/10 결정)
     status: race.applicationCloseAt ? formatDDay(race.applicationCloseAt, now) : '',

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
 import { OfflineBody } from '@/widgets/status-screens'
-import { RACE_BANNERS, RaceCard, type RaceSummary } from '@/entities/race'
+import { RaceCard, type HomeBanner, type RaceSummary } from '@/entities/race'
 import { clientEnv } from '@/shared/config'
 import { cn } from '@/shared/lib'
 import { Carousel, CarouselSlide, FOCUS_RING, Icon, Skeleton } from '@/shared/ui'
@@ -16,11 +16,13 @@ export type HomePageProps = {
   state?: 'loading' | 'offline'
   /** 곧 마감 (대회별 카드, 4개) */
   closingSoon: RaceSummary[]
+  /** 메인 배너 (관리자가 고른 대회, 최대 5개). 비면 배너 영역을 그리지 않는다 */
+  banners?: HomeBanner[]
 }
 
 // 피그마 V3 · 홈(11/17 확정): 로고·알림 → 메인 배너 → 다음 대회(로그인 + 다가오는 대회) → 곧 마감돼요(2열 4개) → 러너 이야기
-// (+ 홈 로딩, 공통 연결 끊김). 배너는 API가 없어 시안 예시를 그대로 쓴다.
-export function HomePage({ state, closingSoon }: HomePageProps) {
+// (+ 홈 로딩, 공통 연결 끊김). 배너는 관리자가 고른 대회(v4 · 홈 배너 · 실제 대회, 2253:19903).
+export function HomePage({ state, closingSoon, banners = [] }: HomePageProps) {
   return (
     <>
       {state ? (
@@ -33,28 +35,46 @@ export function HomePage({ state, closingSoon }: HomePageProps) {
         <>
           <AppHeader search={false} loginWhenGuest className="border-b-0" />
           <main className="flex-1">
-            <Carousel label="접수 중인 대회" showDots={false} className="pt-1 pb-2">
-              {RACE_BANNERS.map((banner, i) => (
-                <CarouselSlide
-                  key={banner.id}
-                  image={
-                    <Image
-                      src={banner.image}
-                      alt={banner.title ?? ''}
-                      fill
-                      sizes="568px"
-                      // 첫 장이 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다. 나머지는 지연 로딩
-                      loading={i === 0 ? 'eager' : undefined}
-                      fetchPriority={i === 0 ? 'high' : undefined}
-                      className="object-cover"
+            {banners.length > 0 && (
+              <Carousel label="접수 중인 대회" showDots={false} className="pt-1 pb-2">
+                {banners.map((banner, i) => (
+                  <Link
+                    key={banner.id}
+                    href={`/races/${banner.id}`}
+                    className={cn('block rounded-lg', FOCUS_RING)}
+                  >
+                    <CarouselSlide
+                      dim={Boolean(banner.image)}
+                      image={
+                        banner.image ? (
+                          <Image
+                            src={banner.image}
+                            alt=""
+                            fill
+                            sizes="568px"
+                            // 첫 장이 첫 화면에서 가장 큰 요소(LCP)라 먼저 받는다. 나머지는 지연 로딩
+                            loading={i === 0 ? 'eager' : undefined}
+                            fetchPriority={i === 0 ? 'high' : undefined}
+                            className="object-cover"
+                          />
+                        ) : (
+                          // 대표 이미지가 없으면 대회 카드처럼 색 포스터에 종목을 크게 쓴다
+                          <div
+                            aria-hidden
+                            className="absolute inset-0 bg-bg-hero p-6 text-title1 text-text-on-hero"
+                          >
+                            {banner.posterLabel}
+                          </div>
+                        )
+                      }
+                      chip={banner.chip}
+                      title={banner.title}
+                      description={banner.description}
                     />
-                  }
-                  chip={banner.chip}
-                  title={banner.title}
-                  description={banner.description}
-                />
-              ))}
-            </Carousel>
+                  </Link>
+                ))}
+              </Carousel>
+            )}
 
             <NextRaceCard />
 

@@ -660,17 +660,17 @@ describe('홈 배너 목', () => {
   })
 
   it('저장한 순서대로 관리자 목록과 공개 배너가 바뀐다', async () => {
-    expect(ids(await put([3, 1]))).toEqual([3, 1])
+    expect(ids(await put([3, 5]))).toEqual([3, 5])
     const pub = await customFetch<Ids>('http://localhost/api/v1/product/banners')
-    expect(ids(pub)).toEqual([3, 1])
+    expect(ids(pub)).toEqual([3, 5])
   })
 
   it('공개 배너에서는 접수가 끝난 대회를 빼고, 관리자 목록에는 안 보임으로 남긴다', async () => {
     // 가짜 대회 10(춘천마라톤)은 접수 마감이 어제다
-    const admin = await put([10, 1])
+    const admin = await put([10, 3])
     expect(admin.data.find((race) => race.raceId === 10)?.visible).toBe(false)
     const pub = await customFetch<Ids>('http://localhost/api/v1/product/banners')
-    expect(ids(pub)).toEqual([1])
+    expect(ids(pub)).toEqual([3])
   })
 
   it('6개 이상 · 겹침은 400, 없는 대회는 404다', async () => {

@@ -40,6 +40,11 @@ export async function fetchRacePage(params: productModel.SearchParams) {
   return unwrapData(await productApi.search(params))
 }
 
+/** 홈 배너: 관리자가 고른 순서대로, 홈에 보일 대회만 온다(대표 이미지 주소 포함). RSC(홈)에서 부른다 */
+export async function fetchHomeBanners() {
+  return unwrapData(await productApi.findHomeBanners())
+}
+
 /**
  * 목록 응답에는 대표 이미지가 없다(이미지는 file 서비스가 관리). 카드에 쓰도록 대회마다 받아 imageUrl에 채운다.
  * 이미지를 못 받은 대회는 imageUrl 없이 두어 단색 바탕 카드로 그린다.

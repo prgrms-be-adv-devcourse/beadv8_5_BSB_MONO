@@ -89,7 +89,9 @@ describe('AdminBannersPage', () => {
     renderPage()
     const first = await rowOf('첫째 대회')
     expect(within(first).getByRole('button', { name: '첫째 대회 위로' })).toBeDisabled()
-    expect(within(await rowOf('셋째 대회')).getByRole('button', { name: '셋째 대회 아래로' })).toBeDisabled()
+    expect(
+      within(await rowOf('셋째 대회')).getByRole('button', { name: '셋째 대회 아래로' }),
+    ).toBeDisabled()
 
     await user.click(within(first).getByRole('button', { name: '첫째 대회 아래로' }))
     expect(sent).toEqual([[12, 11, 13]])
@@ -161,9 +163,10 @@ describe('AdminBannersPage', () => {
     )
     renderPage()
     await user.click(within(await rowOf('둘째 대회')).getByRole('button', { name: '빼기' }))
+    // 알림은 화면 낭독기용 영역에도 같은 문구가 들어가 두 번 잡힌다
     expect(
-      await screen.findByText('취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.'),
-    ).toBeInTheDocument()
+      await screen.findAllByText('취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.'),
+    ).not.toHaveLength(0)
     expect(screen.getByText('3 / 5')).toBeInTheDocument()
   })
 })

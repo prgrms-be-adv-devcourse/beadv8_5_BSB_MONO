@@ -243,15 +243,17 @@ export type CarouselSlideProps = {
   title?: ReactNode
   /** 예: 10/31까지 · 5K · 10K · 서울숲 일대 */
   description?: ReactNode
+  /** false면 어두운 막을 덮지 않는다(사진 대신 짙은 색 포스터를 깔 때) */
+  dim?: boolean
 }
 
 // 피그마 v2 메인 배너 한 장. 모든 배너에 같은 어두운 막을 덮고, 아래쪽에 흰 글자를 놓는다.
 // 이미지 위 반투명 색은 피그마에도 변수 없이 쓴 값이다.
-export function CarouselSlide({ image, chip, title, description }: CarouselSlideProps) {
+export function CarouselSlide({ image, chip, title, description, dim = true }: CarouselSlideProps) {
   return (
     <div className="relative aspect-568/300 overflow-hidden rounded-lg bg-bg-subtle">
       {image}
-      <div aria-hidden className="absolute inset-0 bg-[rgb(10_15_28/0.55)]" />
+      {dim && <div aria-hidden className="absolute inset-0 bg-[rgb(10_15_28/0.55)]" />}
       {title && (
         <div className="absolute inset-x-5 bottom-4.5 flex flex-col items-start gap-2 text-text-on-image">
           {chip && (
