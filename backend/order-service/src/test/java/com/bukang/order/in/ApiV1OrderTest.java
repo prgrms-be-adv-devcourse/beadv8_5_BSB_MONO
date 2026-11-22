@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -33,16 +34,20 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.order.app.OrderExpiryUseCase;
+import com.bukang.order.domain.Gender;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderItem;
 import com.bukang.order.domain.OrderStatus;
+import com.bukang.order.domain.ParticipantInfo;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
+import com.bukang.order.domain.ShippingAddress;
 import com.bukang.order.out.OrderItemRepository;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
@@ -66,6 +71,10 @@ class ApiV1OrderTest {
 	private static final long COURSE_ID = 10;
 	private static final long RACE_ID = 100;
 	private static final String ORDER_NO_PATTERN = "^OD-\\d{8}-[0-9A-F]{4}$";
+	private static final long PARTY_ID = 900;
+	private static final ParticipantInfo PARTICIPANT = new ParticipantInfo("김러너", LocalDate.of(1994, 6, 25),
+		Gender.MALE, "010-1234-5678", "김가족", "010-9876-5432", "L",
+		new ShippingAddress("김러너", "010-1234-5678", "04700", "서울 성동구 왕십리로 00", null));
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -372,18 +381,150 @@ class ApiV1OrderTest {
 	}
 
 	@Test
-	@DisplayName("다른 키로 같은 신청서를 다시 보내면 이미 결제 대기라 409다")
+	@DisplayName("다른 키로 같은 신청서를 다시 보내면 200으로 처음 주문을 돌려주고, 대기열·자리는 다시 묻지 않는다 (CRU-151)")
 	void createTwiceWithDifferentKey() throws Exception {
 		long participationId = applyAndGetId(MEMBER_ID);
-		create(MEMBER_ID, participationId, newKey()).andExpect(status().isCreated());
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		// 다시 들어올 때 대기열 입장이 끝났어도 이미 잡은 자리의 주문으로 결제 화면에 돌아간다. 상품 서비스도 묻지 않는다
+		queueAdmissionPort.clear();
+		raceCoursePort.setUnavailable(true);
 
 		create(MEMBER_ID, participationId, newKey())
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.message").value("결제를 시작할 수 없는 신청입니다(현재 상태: 결제 대기)."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_PAYABLE"));
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("이미 처리한 주문 요청입니다."))
+			.andExpect(jsonPath("$.data.id").value(orderId))
+			.andExpect(jsonPath("$.data.status").value("CREATED"));
 
 		assertThat(orderRepository.count()).isEqualTo(1);
 		assertThat(seatHoldPort.holdCalls()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("파티원이 다른 키로 같은 신청서를 다시 보내면 200으로 처음 주문을 돌려주고, 상품 서비스를 부르지 않는다 (CRU-151)")
+	void partyCreateTwiceWithDifferentKey() throws Exception {
+		long participationId = partyParticipation(MEMBER_ID);
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		raceCoursePort.setUnavailable(true);
+
+		create(MEMBER_ID, participationId, newKey())
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("이미 처리한 주문 요청입니다."))
+			.andExpect(jsonPath("$.data.id").value(orderId));
+
+		assertThat(orderRepository.count()).isEqualTo(1);
+		assertThat(seatHoldPort.holdCalls()).isZero();
+	}
+
+	@Test
+	@DisplayName("결제를 마친 신청서로 다른 키를 보내면 409 「이미 결제한 신청서입니다.」 (CRU-151)")
+	void partyCreateAfterPaid() throws Exception {
+		long participationId = partyParticipation(MEMBER_ID);
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		transactionTemplate.executeWithoutResult(status -> orderRepository.findById(orderId).orElseThrow()
+			.markPaid(LocalDateTime.now(), null));
+
+		create(MEMBER_ID, participationId, newKey())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_PAYABLE"))
+			.andExpect(jsonPath("$.message").value("이미 결제한 신청서입니다."));
+	}
+
+	@Test
+	@DisplayName("취소한 주문의 신청서로 다른 키를 보내면 409 「취소된 주문입니다.」 (CRU-151)")
+	void partyCreateAfterCanceled() throws Exception {
+		long participationId = partyParticipation(MEMBER_ID);
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		transactionTemplate.executeWithoutResult(status -> {
+			Order order = orderRepository.findById(orderId).orElseThrow();
+			order.markPaid(LocalDateTime.now(), null);
+			order.cancelItem(order.getItems().getFirst(), LocalDateTime.now());
+		});
+
+		create(MEMBER_ID, participationId, newKey())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_NOT_PAYABLE"))
+			.andExpect(jsonPath("$.message").value("취소된 주문입니다."));
+	}
+
+	@Test
+	@DisplayName("기한이 지나 만료된 주문의 신청서로 다른 키를 보내면 409 「결제 기한이 지났습니다.」 (CRU-151)")
+	void partyCreateAfterExpired() throws Exception {
+		long participationId = partyParticipation(MEMBER_ID);
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		orderExpiryUseCase.expireOverdue(orderRepository.findById(orderId).orElseThrow().getPaymentDueAt());
+
+		create(MEMBER_ID, participationId, newKey())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PAYMENT_DEADLINE_PASSED"))
+			.andExpect(jsonPath("$.message").value("결제 기한이 지났습니다."));
+	}
+
+	@Test
+	@DisplayName("기한이 지났지만 만료 정리 전인 결제 대기 주문의 신청서로 다른 키를 보내도 409 「결제 기한이 지났습니다.」 (CRU-151)")
+	void partyCreateAfterDeadlineBeforeExpiry() throws Exception {
+		long participationId = partyParticipation(MEMBER_ID);
+		long orderId = createAndGetId(MEMBER_ID, participationId, newKey());
+		transactionTemplate.executeWithoutResult(status -> ReflectionTestUtils.setField(
+			orderRepository.findById(orderId).orElseThrow(), "paymentDueAt", LocalDateTime.now().minusSeconds(1)));
+
+		create(MEMBER_ID, participationId, newKey())
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ORDER_PAYMENT_DEADLINE_PASSED"));
+		assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.CREATED);
+	}
+
+	@Test
+	@DisplayName("주문이 있는 남의 파티원 신청서로 보내면 404다 (CRU-151)")
+	void partyCreateOthersParticipation() throws Exception {
+		long participationId = partyParticipation(OTHER_MEMBER_ID);
+		createAndGetId(OTHER_MEMBER_ID, participationId, newKey());
+
+		create(MEMBER_ID, participationId, newKey())
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("파티원이 다른 키로 동시에 두 번 보내면 주문은 하나이고 둘 다 그 주문을 받는다 (CRU-151)")
+	void partyCreateConcurrentlyWithDifferentKeys() throws Exception {
+		long participationId = partyParticipation(MEMBER_ID);
+
+		CountDownLatch start = new CountDownLatch(1);
+		List<Callable<String>> requests = List.of(
+			() -> createBodyAfter(start, MEMBER_ID, participationId),
+			() -> createBodyAfter(start, MEMBER_ID, participationId));
+		List<Long> orderIds = new ArrayList<>();
+		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+			List<Future<String>> futures = requests.stream().map(executor::submit).toList();
+			start.countDown();
+			for (Future<String> future : futures) {
+				orderIds.add(JsonPath.<Number>read(future.get(), "$.data.id").longValue());
+			}
+		}
+
+		assertThat(orderRepository.count()).isEqualTo(1);
+		assertThat(orderIds.getFirst()).isEqualTo(orderIds.getLast());
+	}
+
+	@Test
+	@DisplayName("개인 신청서로 다른 키를 동시에 두 번 보내도 주문은 하나이고 둘 다 그 주문을 받는다 (CRU-151)")
+	void createConcurrentlyWithDifferentKeys() throws Exception {
+		long participationId = applyAndGetId(MEMBER_ID);
+
+		CountDownLatch start = new CountDownLatch(1);
+		List<Callable<String>> requests = List.of(
+			() -> createBodyAfter(start, MEMBER_ID, participationId),
+			() -> createBodyAfter(start, MEMBER_ID, participationId));
+		List<Long> orderIds = new ArrayList<>();
+		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+			List<Future<String>> futures = requests.stream().map(executor::submit).toList();
+			start.countDown();
+			for (Future<String> future : futures) {
+				orderIds.add(JsonPath.<Number>read(future.get(), "$.data.id").longValue());
+			}
+		}
+
+		assertThat(orderRepository.count()).isEqualTo(1);
+		assertThat(orderIds.getFirst()).isEqualTo(orderIds.getLast());
 	}
 
 	@Test
@@ -577,6 +718,19 @@ class ApiV1OrderTest {
 	private Integer createStatusAfter(CountDownLatch start, long memberId, long participationId) throws Exception {
 		start.await();
 		return create(memberId, participationId, newKey()).andReturn().getResponse().getStatus();
+	}
+
+	private String createBodyAfter(CountDownLatch start, long memberId, long participationId) throws Exception {
+		start.await();
+		return create(memberId, participationId, newKey()).andReturn().getResponse().getContentAsString();
+	}
+
+	// 파티장이 신청해 결제 기간이 열린 파티원 신청서 (자리는 파티장이 이미 잡았다)
+	private long partyParticipation(long memberId) {
+		Participation participation = Participation.partyMember(memberId, RACE_ID, COURSE_ID, PARTY_ID, PARTICIPANT,
+			LocalDateTime.now());
+		participation.markApplied(LocalDateTime.now().plusMinutes(30));
+		return participationRepository.save(participation).getId();
 	}
 
 	private ResultActions create(long memberId, long participationId, String key) throws Exception {

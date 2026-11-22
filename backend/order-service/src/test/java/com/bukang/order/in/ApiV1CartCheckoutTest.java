@@ -316,17 +316,19 @@ class ApiV1CartCheckoutTest {
 	}
 
 	@Test
-	@DisplayName("다른 키로 이미 주문한 신청서를 다시 보내면 그 항목만 FAILED이고 자리는 다시 잡지 않는다")
+	@DisplayName("다른 키로 이미 주문한 신청서를 다시 보내면 그 항목은 처음 주문(EXISTING)이고 자리는 다시 잡지 않는다 (CRU-151)")
 	void checkoutAlreadyOrderedWithOtherKey() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
 		long participationId = apply(MEMBER_ID, COURSE_ID);
-		checkout(MEMBER_ID, newKey(), participationId).andExpect(status().isOk());
+		String first = checkout(MEMBER_ID, newKey(), participationId).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		long orderId = JsonPath.<Number>read(first, "$.data.results[0].order.id").longValue();
 
 		checkout(MEMBER_ID, newKey(), participationId)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.message").value("주문한 참가권이 없습니다. 항목별 결과를 확인해주세요."))
-			.andExpect(jsonPath("$.data.orderedCount").value(0))
-			.andExpect(jsonPath("$.data.results[0].outcome").value("FAILED"));
+			.andExpect(jsonPath("$.data.orderedCount").value(1))
+			.andExpect(jsonPath("$.data.results[0].outcome").value("EXISTING"))
+			.andExpect(jsonPath("$.data.results[0].order.id").value(orderId));
 
 		assertThat(orderRepository.count()).isEqualTo(1);
 		assertThat(seatHoldPort.holdCalls()).isEqualTo(1);
