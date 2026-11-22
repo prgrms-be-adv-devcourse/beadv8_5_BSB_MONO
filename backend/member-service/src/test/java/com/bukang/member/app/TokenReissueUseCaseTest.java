@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -57,7 +58,8 @@ class TokenReissueUseCaseTest {
 		repository = mock(RefreshTokenRepository.class);
 		useCase = new TokenReissueUseCase(jwtProvider, JWT_PROPERTIES, REFRESH_PROPERTIES, repository, clock);
 		presentedToken = jwtProvider.issueRefreshToken(MEMBER_ID, FAMILY_ID, NOW.plus(Duration.ofDays(13)));
-		given(repository.findFamilyExpiresAt(MEMBER_ID)).willReturn(Optional.of(LOGIN_AT.plus(Duration.ofDays(30))));
+		given(repository.findFamilyExpiresAt(MEMBER_ID, FAMILY_ID))
+			.willReturn(Optional.of(LOGIN_AT.plus(Duration.ofDays(30))));
 	}
 
 	@Test
@@ -88,7 +90,7 @@ class TokenReissueUseCaseTest {
 	@DisplayName("새 Refresh Token의 만료는 로그인 + 30일을 넘지 않는다")
 	void capsNewTokenAtFamilyExpiry() {
 		Instant familyExpiresAt = NOW.plus(Duration.ofDays(3));
-		given(repository.findFamilyExpiresAt(MEMBER_ID)).willReturn(Optional.of(familyExpiresAt));
+		given(repository.findFamilyExpiresAt(MEMBER_ID, FAMILY_ID)).willReturn(Optional.of(familyExpiresAt));
 		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class)))
 			.willReturn(RotationResult.of(RotationOutcome.ROTATED));
 
@@ -143,8 +145,8 @@ class TokenReissueUseCaseTest {
 	}
 
 	@ParameterizedTest
-	@DisplayName("THEFT·STALE·MISSING이면 401로 거절한다")
-	@EnumSource(value = RotationOutcome.class, names = {"THEFT", "STALE", "MISSING"})
+	@DisplayName("THEFT·MISSING이면 401로 거절한다")
+	@EnumSource(value = RotationOutcome.class, names = {"THEFT", "MISSING"})
 	void rejectsWhenNotRotated(RotationOutcome outcome) {
 		given(repository.rotate(eq(MEMBER_ID), any(Rotation.class))).willReturn(RotationResult.of(outcome));
 
@@ -156,7 +158,7 @@ class TokenReissueUseCaseTest {
 	@Test
 	@DisplayName("Redis에 기록이 없으면 판정 전에 401로 거절한다")
 	void rejectsWhenNoFamilyStored() {
-		given(repository.findFamilyExpiresAt(MEMBER_ID)).willReturn(Optional.empty());
+		given(repository.findFamilyExpiresAt(MEMBER_ID, FAMILY_ID)).willReturn(Optional.empty());
 
 		assertThatThrownBy(() -> useCase.reissue(presentedToken))
 			.isInstanceOf(InvalidRefreshTokenException.class)
@@ -167,7 +169,7 @@ class TokenReissueUseCaseTest {
 	@Test
 	@DisplayName("family 최종 만료가 지났으면 만료 메시지로 거절한다")
 	void rejectsWhenFamilyExpired() {
-		given(repository.findFamilyExpiresAt(MEMBER_ID)).willReturn(Optional.of(NOW));
+		given(repository.findFamilyExpiresAt(MEMBER_ID, FAMILY_ID)).willReturn(Optional.of(NOW));
 
 		assertThatThrownBy(() -> useCase.reissue(presentedToken))
 			.isInstanceOf(InvalidRefreshTokenException.class)
@@ -191,7 +193,7 @@ class TokenReissueUseCaseTest {
 		assertThatThrownBy(() -> useCase.reissue(expiredToken))
 			.isInstanceOf(InvalidRefreshTokenException.class)
 			.hasMessage(TokenReissueUseCase.EXPIRED_MESSAGE);
-		verify(repository, never()).findFamilyExpiresAt(anyLong());
+		verify(repository, never()).findFamilyExpiresAt(anyLong(), anyString());
 	}
 
 	@Test

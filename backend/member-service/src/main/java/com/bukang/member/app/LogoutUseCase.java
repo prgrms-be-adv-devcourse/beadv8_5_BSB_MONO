@@ -27,10 +27,10 @@ public class LogoutUseCase {
 	private final RevokedAccessTokenRepository revokedAccessTokenRepository;
 	private final Clock clock;
 
-	// Redis의 Refresh Token 기록(family)을 지워 더 이상 재발급되지 않게 한다.
+	// Redis의 Refresh Token 기록(family) 중 이 토큰의 것 하나만 지워 이 기기가 더 이상 재발급되지 않게 한다.
 	// 쿠키가 없거나 만료·위조된 토큰이면 지울 것이 없으므로 그냥 넘어간다 (로그아웃은 항상 성공).
-	// 지금 family의 토큰일 때만 지운다. 다른 기기에서 다시 로그인해 family가 바뀌었으면, 지금 로그인한 기기가 로그아웃되지 않도록 남긴다.
-	// 같은 family라면 회전으로 이미 바뀐 이전 토큰이어도 지운다 (같은 로그인을 끝내는 것이므로).
+	// 같은 회원의 다른 기기 family는 그대로 남아, 그 기기들은 계속 재발급된다.
+	// 회전으로 이미 바뀐 이전 토큰이어도 같은 family라면 지운다 (같은 로그인을 끝내는 것이므로).
 	// 요청의 Access Token은 jti를 남은 시간만큼 막힌 토큰으로 남겨 게이트웨이가 바로 막게 한다. 없거나 무효하면 남기지 않는다.
 	public void logout(String refreshToken, String authorization) {
 		revokeAccessToken(authorization);
@@ -50,7 +50,7 @@ public class LogoutUseCase {
 		if (claims.familyId() == null) {
 			return;
 		}
-		refreshTokenRepository.deleteIfFamily(claims.memberId(), claims.familyId());
+		refreshTokenRepository.deleteFamily(claims.memberId(), claims.familyId());
 	}
 
 	private void revokeAccessToken(String authorization) {
