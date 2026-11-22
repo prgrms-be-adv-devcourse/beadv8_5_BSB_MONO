@@ -1,6 +1,10 @@
 package com.bukang.order.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,6 +30,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -38,8 +45,10 @@ import com.bukang.order.domain.OrderItemStatus;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
+import com.bukang.order.domain.event.QueueAdmissionUsedEvent;
 import com.bukang.order.out.OrderRepository;
 import com.bukang.order.out.ParticipationRepository;
+import com.bukang.order.out.queue.QueueAdmissionPort;
 import com.bukang.order.out.race.RaceCourseInfo;
 import com.bukang.order.support.QueueEntry;
 import com.bukang.order.support.StubRaceCoursePort;
@@ -54,12 +63,20 @@ import com.jayway.jsonpath.JsonPath;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubSeatHoldPortConfig.class, StubWalletPortConfig.class})
+@RecordApplicationEvents
 class ApiV1OrderPaymentTest {
 	private static final String BASE_URL = "/api/v1/order/orders";
 	private static final long MEMBER_ID = 1;
 	private static final long OTHER_MEMBER_ID = 2;
 	private static final long COURSE_ID = 10;
 	private static final long TICKET_PRICE = StubRaceCoursePort.PRICE;
+	// StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, ...)로 만든 종목의 대회
+	private static final long RACE_ID = 100;
+	// 대기열 해제는 결제 커밋 뒤 다른 쓰레드에서 부르므로 이만큼 기다리며 확인한다
+	// 다른 테스트가 남긴 늦은 해제와 섞이지 않게 해제 테스트는 그 테스트만 쓰는 회원으로 결제한다
+	private static final long RELEASE_MEMBER_ID = 3;
+	private static final long RELEASE_FAIL_MEMBER_ID = 4;
+	private static final long RELEASE_WAIT_MILLIS = 3_000;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -88,9 +105,16 @@ class ApiV1OrderPaymentTest {
 	@Autowired
 	private TransactionTemplate transactionTemplate;
 
+	@MockitoSpyBean
+	private QueueAdmissionPort queueAdmissionPort;
+
+	// 이 테스트 쓰레드에서 발행한 이벤트 (MockMvc 요청도 같은 쓰레드)
+	@Autowired
+	private ApplicationEvents applicationEvents;
+
 	@BeforeEach
 	void setUp() {
-		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, 100, 14, null));
+		raceCoursePort.put(StubRaceCoursePort.openCourse(COURSE_ID, RACE_ID, 14, null));
 	}
 
 	@AfterEach
@@ -128,6 +152,33 @@ class ApiV1OrderPaymentTest {
 	}
 
 	@Test
+	@DisplayName("결제가 끝나면 커밋 뒤 대기열 입장을 풀어 다음 사람이 들어올 자리를 비운다 (CRU-158)")
+	void releaseQueueAdmissionAfterPay() throws Exception {
+		long orderId = orderAndGetId(RELEASE_MEMBER_ID);
+
+		pay(RELEASE_MEMBER_ID, orderId).andExpect(status().isOk());
+
+		verify(queueAdmissionPort, timeout(RELEASE_WAIT_MILLIS))
+			.releaseAdmission(RELEASE_MEMBER_ID, RACE_ID, COURSE_ID);
+	}
+
+	@Test
+	@DisplayName("대기열 입장 해제가 실패해도 결제는 그대로 끝난다 (입장은 15분 뒤 저절로 풀린다)")
+	void payEvenIfQueueReleaseFails() throws Exception {
+		doThrow(new IllegalStateException("대기열 연결 실패"))
+			.when(queueAdmissionPort).releaseAdmission(anyLong(), anyLong(), anyLong());
+		long orderId = orderAndGetId(RELEASE_FAIL_MEMBER_ID);
+
+		pay(RELEASE_FAIL_MEMBER_ID, orderId)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("PAID"));
+
+		verify(queueAdmissionPort, timeout(RELEASE_WAIT_MILLIS))
+			.releaseAdmission(RELEASE_FAIL_MEMBER_ID, RACE_ID, COURSE_ID);
+		assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.PAID);
+	}
+
+	@Test
 	@DisplayName("같은 주문에 결제를 두 번 보내면 두 번째는 차감 없이 200으로 결제한 주문을 돌려준다")
 	void payTwice() throws Exception {
 		long orderId = orderAndGetId(MEMBER_ID);
@@ -154,6 +205,8 @@ class ApiV1OrderPaymentTest {
 			.andExpect(jsonPath("$.data.shortage").value(12_000));
 		assertThat(orderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.CREATED);
 		assertThat(participationOf(orderId).getStatus()).isEqualTo(ParticipationStatus.APPLIED);
+		// 충전하고 다시 결제해야 하므로 입장을 풀지 않는다 (해제 이벤트를 발행하지 않는다)
+		assertThat(applicationEvents.stream(QueueAdmissionUsedEvent.class)).isEmpty();
 
 		walletPort.setBalance(TICKET_PRICE);
 		pay(MEMBER_ID, orderId)

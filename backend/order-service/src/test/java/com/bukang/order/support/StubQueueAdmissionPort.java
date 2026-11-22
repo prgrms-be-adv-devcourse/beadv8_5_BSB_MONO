@@ -53,6 +53,14 @@ public class StubQueueAdmissionPort implements QueueAdmissionPort {
 		admissionEndsAt.put(raceCourseId, endsAt);
 	}
 
+	@Override
+	public void releaseAdmission(long memberId, long raceId, long raceCourseId) {
+	}
+
+	@Override
+	public void releasePartyAdmission(long leaderMemberId, long raceId, long raceCourseId) {
+	}
+
 	public void clear() {
 		notAdmittedCourses.clear();
 		notAdmittedPartyCourses.clear();
