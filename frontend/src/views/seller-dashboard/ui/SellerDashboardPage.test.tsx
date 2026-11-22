@@ -53,6 +53,36 @@ describe('SellerDashboardPage', () => {
     expect(hold).toHaveAttribute('href', '/seller/settlements')
   })
 
+  it('심사 필요 기록증이 있으면 건수를 보여 주고 대회 관리로 보낸다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/review-count', () =>
+        HttpResponse.json({ status: 200, message: 'ok', data: { waitingCount: 3 } }),
+      ),
+    )
+    renderPage()
+
+    const todo = await card('처리할 일')
+    const cert = await within(todo).findByRole('link', { name: /기록증 심사\s*3건\s*대회 관리/ })
+    expect(cert).toHaveAttribute('href', '/seller/races')
+  })
+
+  it('기록증 건수를 불러오지 못해도 다른 줄은 그대로 보이고, 기록증 줄은 건수 대신 - 를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/review-count', () =>
+        HttpResponse.json({ status: 503, message: '잠시 뒤', data: null }, { status: 503 }),
+      ),
+    )
+    renderPage()
+
+    const todo = await card('처리할 일')
+    expect(await within(todo).findByRole('link', { name: /기록증 심사 -/ })).toBeInTheDocument()
+    expect(
+      await within(todo).findByRole('link', { name: /송장 입력 대기 2건/ }),
+    ).toBeInTheDocument()
+    expect(within(todo).getByRole('link', { name: /지급보류 1건/ })).toBeInTheDocument()
+    expect(within(todo).queryByText('처리할 일이 없어요')).not.toBeInTheDocument()
+  })
+
   it('0건인 줄은 숨긴다', async () => {
     server.use(
       http.get('*/api/v1/payout/seller/summary', () =>
