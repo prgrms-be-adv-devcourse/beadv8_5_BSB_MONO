@@ -69,6 +69,12 @@ class ParticipationStateTest {
 		assertThat(applied.getStatus()).isEqualTo(ParticipationStatus.RELEASED);
 		assertThat(applied.getActiveFlag()).isNull();
 		assertThat(applied.getReleasedAt()).isEqualTo(DUE);
+
+		Participation confirmed = newParticipation();
+		confirmed.markApplied(DUE);
+		confirmed.markConfirmed(NOW);
+		assertThat(confirmed.markReleased(DUE)).isFalse();
+		assertThat(confirmed.getStatus()).isEqualTo(ParticipationStatus.CONFIRMED);
 	}
 
 	@Test

@@ -38,7 +38,7 @@ class OrderPaymentStateTest {
 	}
 
 	@Test
-	@DisplayName("만료된 주문은 기한 지남으로, 결제 완료 주문은 결제할 수 없는 주문으로 거절한다")
+	@DisplayName("만료된 주문은 기한 지남으로, 결제 완료·결제 중 주문은 결제할 수 없는 주문으로 거절한다")
 	void checkPayableByStatus() {
 		assertThatThrownBy(() -> Order.checkPayable(OrderStatus.EXPIRED, DUE, NOW))
 			.extracting("code").isEqualTo(OrderNotPayableException.DEADLINE_PASSED_CODE);
