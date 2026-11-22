@@ -2,6 +2,27 @@ package com.bukang.member.in;
 
 // 관리자 회원 확인 API의 Swagger 응답 예시
 final class AdminMemberApiExamples {
+	static final String SEARCH_SUCCESS = """
+		{
+			"status": 200,
+			"message": "회원을 찾았습니다.",
+			"data": [
+				{
+					"id": 2041, "nickname": "달리는곰", "joinedAt": "2025-03-02T09:00:00",
+					"deposit": 45000, "activeTickets": 2
+				},
+				{
+					"id": 3318, "nickname": "달리는곰2", "joinedAt": "2026-09-14T09:00:00",
+					"deposit": null, "activeTickets": 0
+				}
+			]
+		}
+		""";
+
+	static final String SEARCH_NICKNAME_REQUIRED = """
+		{ "status": 400, "code": "INVALID_REQUEST", "message": "찾을 닉네임을 입력해주세요.", "data": null }
+		""";
+
 	static final String IDENTITY_REVIEW_SUCCESS = """
 		{
 			"status": 200,
