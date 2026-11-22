@@ -482,3 +482,27 @@ export const Payouts1Response = zod.object({
 })
 }).optional()
 })
+
+
+/**
+ * 정산 조회(GET payouts)와 같은 값을 담는다. 정산 월이 기간 안인 정산 내역을 최근 달부터, 시작 달을 포함해 최대 12개월까지 페이지 없이 모두 담는다. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받기를 기록한다.
+ * @summary 정산 내역 내려받기 (CSV)
+ */
+export const ExportPayoutsBody = zod.object({
+  "fromMonth": zod.string().describe('조회 시작 정산 월 (yyyy-MM)'),
+  "toMonth": zod.string().describe('조회 끝 정산 월 (yyyy-MM, 포함). 시작 달 포함 최대 12개월')
+}).describe('정산 내역 CSV 내려받기 요청. 정산 월 기간을 받는다(조회 API payouts와 같은 조건)')
+
+export const ExportPayoutsResponse = zod.unknown()
+
+
+/**
+ * 건별 정산 조회(GET payout-items)와 같은 값을 담는다. 정산 생성일이 기간 안인 건별 정산을 최근 날부터, 끝 날이 시작 날 + 1개월 전까지(최대 1개월) 페이지 없이 모두 담는다. 엑셀에서 바로 열리는 CSV(UTF-8 BOM)다. 내려받기를 기록한다.
+ * @summary 건별 정산 내려받기 (CSV)
+ */
+export const ExportPayoutItemsBody = zod.object({
+  "from": zod.iso.date().describe('조회 시작 정산 생성일 (yyyy-MM-dd)'),
+  "to": zod.iso.date().describe('조회 끝 정산 생성일 (yyyy-MM-dd, 포함). 시작 날 + 1개월 전까지(최대 1개월)')
+}).describe('건별 정산 CSV 내려받기 요청. 정산 생성일 기간을 받는다(조회 API payout-items와 같은 조건)')
+
+export const ExportPayoutItemsResponse = zod.unknown()

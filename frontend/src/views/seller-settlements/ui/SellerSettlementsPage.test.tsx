@@ -41,6 +41,34 @@ describe('SellerSettlementsPage', () => {
     expect(months).toMatch(/^\d{4}-\d{2}~\d{4}-\d{2}$/)
   })
 
+  it('월별 정산 탭의 엑셀 버튼은 최근 12개월 정산 내역을 CSV로 받아 저장한다', async () => {
+    let body: unknown
+    URL.createObjectURL = vi.fn(() => 'blob:payouts')
+    URL.revokeObjectURL = vi.fn()
+    server.use(
+      http.post('*/api/v1/payout/seller/payouts/export', async ({ request }) => {
+        body = await request.json()
+        return new HttpResponse('정산 ID\nST-1\n', { headers: { 'Content-Type': 'text/csv' } })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: '엑셀로 내려받기' }))
+
+    await vi.waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled())
+    expect(body).toMatchObject({
+      fromMonth: expect.stringMatching(/^\d{4}-\d{2}$/),
+      toMonth: expect.stringMatching(/^\d{4}-\d{2}$/),
+    })
+  })
+
+  it('월별 · 건별 정산 탭이 아니면 엑셀 버튼을 막는다', async () => {
+    renderPage('holds')
+
+    expect(await screen.findByRole('button', { name: '엑셀로 내려받기' })).toBeDisabled()
+  })
+
   it('지급 예정 정산이 없어 다음 정산일이 null이면 - 를 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/payout/seller/summary', () =>
