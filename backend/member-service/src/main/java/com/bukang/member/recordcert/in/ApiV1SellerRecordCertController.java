@@ -176,7 +176,7 @@ public class ApiV1SellerRecordCertController {
 
 	@GetMapping("/record-certs/review-count")
 	@Operation(operationId = "countRecordCertReviews", summary = "심사 필요 기록증 제출 수",
-		description = "내 대회 전체의 심사 필요 제출 수를 돌려준다. 제출에 저장된 판매자 회원 ID로 센다. "
+		description = "내 대회 전체의 심사 필요 제출 수와 대회별 건수를 돌려준다. 제출에 저장된 판매자 회원 ID로 센다. "
 			+ "대시보드 처리할 일 카드와 AI 브리핑이 부른다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공",

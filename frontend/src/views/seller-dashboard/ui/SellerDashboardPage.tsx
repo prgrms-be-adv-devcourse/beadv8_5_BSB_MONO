@@ -94,6 +94,9 @@ function DashboardBody() {
   )
 }
 
+// 처리할 일에 대회마다 따로 보여 줄 기록증 심사 줄 수. 넘는 대회는 한 줄로 묶어 대회 관리로 보낸다
+const CERT_RACE_ROWS = 3
+
 // 처리할 일: 송장 입력 대기 · 답변 대기 문의 · 기록증 심사 · 지급보류. 0건인 줄은 숨긴다
 function TodoCard() {
   const kits = useSellerKitSummary()
@@ -103,6 +106,11 @@ function TodoCard() {
   const waiting = inquiries.data?.waitingCount
   const certs = useQuery(recordCertReviewCountQueryOptions())
   const reviewing = certs.data?.waitingCount
+  // 심사 화면이 대회마다 있어 대회별로 한 줄씩 그 화면으로 보낸다. 대회 이름은 내 대회 목록(대시보드가 이미 받는다)에서 붙인다
+  const certRaces = certs.data?.races ?? []
+  const restRaces = certRaces.slice(CERT_RACE_ROWS)
+  const myRaces = useQuery(myRacesQueryOptions())
+  const titleOf = (raceId: number) => myRaces.data?.find((race) => race.raceId === raceId)?.title
   const held = summary.data?.heldCount
   const total =
     shippable === undefined ||
@@ -136,8 +144,33 @@ function TodoCard() {
               menu="문의"
             />
           )}
-          {/* 심사 화면은 대회마다 있어, 건수는 전체로 보여 주고 대회 관리로 보낸다 */}
-          {(reviewing === undefined || reviewing > 0) && (
+          {certRaces.slice(0, CERT_RACE_ROWS).map((race) => {
+            const title = titleOf(race.raceId)
+            return (
+              <TodoRow
+                key={race.raceId}
+                href={`/seller/races/${race.raceId}/record-certs`}
+                icon="FileText"
+                name={title ? `기록증 심사 · ${title}` : '기록증 심사'}
+                count={countLabel(race.waitingCount, false)}
+                menu="기록증 심사"
+              />
+            )
+          })}
+          {restRaces.length > 0 && (
+            <TodoRow
+              href="/seller/races"
+              icon="FileText"
+              name={`기록증 심사 · 외 ${formatNumber(restRaces.length)}개 대회`}
+              count={countLabel(
+                restRaces.reduce((sum, race) => sum + race.waitingCount, 0),
+                false,
+              )}
+              menu="대회 관리"
+            />
+          )}
+          {/* 대회별 건수가 없으면(불러오는 중 · 실패 · 대회별 건수를 안 주는 서버) 합계 한 줄로 대회 관리로 보낸다 */}
+          {certRaces.length === 0 && (reviewing === undefined || reviewing > 0) && (
             <TodoRow
               href="/seller/races"
               icon="FileText"
@@ -195,7 +228,8 @@ function TodoRow({
     >
       <Icon name={icon} className="size-5" />
       <span className="flex min-w-0 flex-1 items-center gap-3">
-        <span>{name}</span> <span className="text-body1-bold">{count}</span>
+        <span className="truncate">{name}</span>{' '}
+        <span className="shrink-0 text-body1-bold">{count}</span>
       </span>
       <span className="text-caption-regular text-text-secondary">{menu}</span>
       <Icon name="ChevronRight" className="size-4 text-text-secondary" />

@@ -60,6 +60,26 @@ class ApiV1SellerRecordCertTest {
 	}
 
 	@Test
+	@DisplayName("심사 필요 건수는 대회별로도 돌려준다: 많은 순, 0건인 대회와 남의 대회는 없다")
+	void countsByRace() throws Exception {
+		long sellerId = fixture.approvedSeller();
+		fixture.submission(sellerId, 1, SubmissionStatus.NEEDS_REVIEW);
+		fixture.submission(sellerId, 2, SubmissionStatus.NEEDS_REVIEW);
+		fixture.submission(sellerId, 2, SubmissionStatus.NEEDS_REVIEW);
+		fixture.submission(sellerId, 4, SubmissionStatus.APPROVED);
+		fixture.submission(fixture.approvedSeller(), 3, SubmissionStatus.NEEDS_REVIEW);
+
+		mockMvc.perform(get(SELLER + "/record-certs/review-count").header(MemberIdHeader.NAME, sellerId))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.waitingCount").value(3))
+			.andExpect(jsonPath("$.data.races.length()").value(2))
+			.andExpect(jsonPath("$.data.races[0].raceId").value(2))
+			.andExpect(jsonPath("$.data.races[0].waitingCount").value(2))
+			.andExpect(jsonPath("$.data.races[1].raceId").value(1))
+			.andExpect(jsonPath("$.data.races[1].waitingCount").value(1));
+	}
+
+	@Test
 	@DisplayName("승인된 판매자가 아니면 심사 필요 건수를 볼 수 없다 (403)")
 	void notSellerCannotCount() throws Exception {
 		long memberId = fixture.member();
