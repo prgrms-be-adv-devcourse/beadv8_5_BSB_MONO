@@ -32,6 +32,7 @@ export type ApplyCtaProps = {
 // 하단 신청 버튼: 상태별 문구(M02-1 · M02-4 · M02-5)와 신청 방법 바텀시트(M02-3-1)
 export function ApplyCta({ race, optionId, alreadyApplied, reapplyBlocked, party }: ApplyCtaProps) {
   const authStatus = useAuthStatus()
+  const now = useNow()
   const queueHref = `/races/${race.id}/queue?option=${optionId}` as const
 
   return <BottomCta className="sticky bottom-0 z-10" primary={primary()} />
@@ -41,8 +42,17 @@ export function ApplyCta({ race, optionId, alreadyApplied, reapplyBlocked, party
       return disabled('이미 신청한 대회예요')
     }
     if (reapplyBlocked) return disabled('다시 신청할 수 없는 대회예요')
-    if (race.phase !== 'open') {
-      return disabled(race.phase === 'upcoming' ? '아직 접수 전이에요' : '접수가 마감됐어요')
+    if (race.phase === 'closed') return disabled('접수가 마감됐어요')
+    if (race.phase === 'upcoming') {
+      // 시안(크루 선예매 중): 크루 예매 기간의 회원은 신청하기로 들어가 파티로 신청하고,
+      // 로그인 전이거나 크루 예매 기간이 아니면 개인 오픈 시각을 알리는 꺼진 버튼만 보인다
+      if (!inCrewWindow(race, now) || authStatus !== 'authenticated') {
+        return disabled(
+          race.individualOpenAt
+            ? `${formatRaceDateTime(race.individualOpenAt)} 접수 시작`
+            : '아직 접수 전이에요',
+        )
+      }
     }
     if (optionId === '') {
       return disabled(
@@ -81,8 +91,25 @@ export function ApplyCta({ race, optionId, alreadyApplied, reapplyBlocked, party
       }
       return disabled('파티로 신청 중이에요')
     }
-    return <HowToApply race={race} optionId={optionId} party={party} />
+    return (
+      <HowToApply
+        race={race}
+        optionId={optionId}
+        party={party}
+        individualOpensAt={race.phase === 'upcoming' ? race.individualOpenAt : undefined}
+      />
+    )
   }
+}
+
+function inCrewWindow(race: RaceDetail, now: Date | undefined): boolean {
+  const { startAt, endAt } = race.crew ?? {}
+  return (
+    !!race.crew &&
+    !!now &&
+    (!startAt || now >= parseKstDateTime(startAt)) &&
+    (!endAt || now < parseKstDateTime(endAt))
+  )
 }
 
 function disabled(label: string) {
@@ -106,10 +133,13 @@ function HowToApply({
   race,
   optionId,
   party,
+  individualOpensAt,
 }: {
   race: RaceDetail
   optionId: string
   party?: PartyRaceStatus
+  /** 개인 예매가 아직 열리지 않았을 때 그 오픈 일시. 있으면 개인 신청 항목을 끈다 */
+  individualOpensAt?: string
 }) {
   const router = useRouter()
   const { enter, pending } = useEnterQueue(race.id, optionId)
@@ -127,6 +157,8 @@ function HowToApply({
       <BottomSheet open={open} onOpenChange={setOpen} title="어떻게 신청할까요?">
         <SheetRow
           icon="User"
+          disabled={!!individualOpensAt}
+          sub={individualOpensAt ? `${formatRaceDateTime(individualOpensAt)}부터` : undefined}
           onClick={() => {
             setOpen(false)
             void enter()

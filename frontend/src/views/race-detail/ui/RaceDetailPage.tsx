@@ -307,7 +307,11 @@ function CrewSummary({
         )}
         {saleOpen && <CrewRow label="일반 판매 오픈">{saleOpen}</CrewRow>}
         {crew.minCount !== undefined && (
-          <CrewRow label="파티 인원">{`${crew.minCount}명 ~ ${crew.maxCount ?? crew.minCount}명`}</CrewRow>
+          <CrewRow label="파티 인원">
+            {crew.maxCount === undefined
+              ? `${crew.minCount}명 이상`
+              : `${crew.minCount}명 ~ ${crew.maxCount}명`}
+          </CrewRow>
         )}
       </dl>
     </div>
