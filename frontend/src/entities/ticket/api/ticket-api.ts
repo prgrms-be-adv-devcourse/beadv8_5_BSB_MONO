@@ -19,13 +19,17 @@ const PAYING_LIST_POLL_MS = 15_000
 /** 한 번에 받는 주문 수 (API 최대 100) */
 const ORDER_PAGE_SIZE = 100
 
-/** 참가권으로 보여 줄 주문 상태: 결제했거나 결제 확인 중인 주문 (결제 대기 · 기한 만료는 빼고) */
+/** 참가권으로 보여 줄 주문 상태: 결제했거나 결제 확인 중인 주문. 결제 대기(CREATED)는 기한 전일 때만 따로 더한다 */
 const TICKET_ORDER_STATUSES: orderModel.OrderSummaryDtoStatus[] = [
   orderModel.OrderSummaryDtoStatus.PAYING,
   orderModel.OrderSummaryDtoStatus.PAID,
   orderModel.OrderSummaryDtoStatus.PARTIAL_CANCELED,
   orderModel.OrderSummaryDtoStatus.CANCELED,
 ]
+
+/** 결제 기한 전인가. 기한이 지난 결제 대기 주문은 서버가 만료 처리하기 전이어도 자리가 풀린 것으로 본다 */
+const stillPayable = (dueAt?: string | null) =>
+  !!dueAt && new Date(`${dueAt}+09:00`).getTime() > Date.now()
 
 /** 참가권으로 보여 줄 주문 상품 상태 */
 const TICKET_ITEM_STATUSES: orderModel.OrderItemDtoStatus[] = [
@@ -58,6 +62,10 @@ export function toMyTickets(
       amount: item.amount ?? 0,
       itemStatus: item.status ?? orderModel.OrderItemDtoStatus.PAID,
       paying,
+      dueAt:
+        order.status === orderModel.OrderDtoStatus.CREATED
+          ? (order.paymentDueAt ?? undefined)
+          : undefined,
     }))
 }
 
@@ -72,10 +80,23 @@ export function myTicketsQueryOptions() {
     queryFn: async ({ signal }) => {
       const page = unwrapData(await orderApi.findMine(params, { signal }))
       const orders = (page.orders ?? []).filter(
-        (o) => o.id !== undefined && o.status && TICKET_ORDER_STATUSES.includes(o.status),
+        (o) =>
+          o.id !== undefined &&
+          o.status &&
+          (TICKET_ORDER_STATUSES.includes(o.status) ||
+            (o.status === orderModel.OrderSummaryDtoStatus.CREATED &&
+              stillPayable(o.paymentDueAt))),
       )
       const details = await Promise.all(orders.map((o) => fetchOrder(o.id ?? 0, signal)))
-      return details.flatMap((order) => toMyTickets(order))
+      return details.flatMap((order) =>
+        toMyTickets(
+          order,
+          // 결제 대기 주문의 상품(ORDERED)은 결제 대기 참가권으로 넣는다
+          order.status === orderModel.OrderDtoStatus.CREATED
+            ? [...TICKET_ITEM_STATUSES, orderModel.OrderItemDtoStatus.ORDERED]
+            : TICKET_ITEM_STATUSES,
+        ),
+      )
     },
     // 결제 확인 중 참가권이 있으면 결과가 나올 때까지 다시 받는다
     refetchInterval: (query) =>
@@ -95,7 +116,6 @@ export function withdrawTicketsQueryOptions() {
       'withdraw-tickets',
     ],
     queryFn: async ({ signal }) => {
-      const now = Date.now()
       const summaries: orderModel.OrderSummaryDto[] = []
       for (let page = 0; ; page += 1) {
         const result = unwrapData(
@@ -104,8 +124,6 @@ export function withdrawTicketsQueryOptions() {
         summaries.push(...(result.orders ?? []))
         if (page + 1 >= (result.totalPages ?? 0)) break
       }
-      const stillPayable = (dueAt?: string | null) =>
-        !!dueAt && new Date(`${dueAt}+09:00`).getTime() > now
       const orders = summaries.filter(
         (o) =>
           o.id !== undefined &&
@@ -128,15 +146,16 @@ export function withdrawTicketsQueryOptions() {
 
 /**
  * 내 참가 대회 수(마이 화면). 내 참가권 화면과 같은 목록에서 취소한 참가권과 결제 확인 중 참가권을 빼고 센다 (참가 확정 + 끝난 대회).
- * 결제 대기 · 기한 만료 주문은 목록에 처음부터 없다. 같은 쿼리 키라 두 화면이 같은 데이터를 쓴다.
+ * 결제 대기 참가권(dueAt)도 빼고 센다. 같은 쿼리 키라 두 화면이 같은 데이터를 쓴다.
  * enabled가 false면 부르지 않는다.
  */
 export function myTicketCountQueryOptions(enabled: boolean) {
   return queryOptions({
     ...myTicketsQueryOptions(),
     select: (tickets: MyTicket[]) =>
-      tickets.filter((t) => !t.paying && t.itemStatus !== orderModel.OrderItemDtoStatus.CANCELED)
-        .length,
+      tickets.filter(
+        (t) => !t.paying && !t.dueAt && t.itemStatus !== orderModel.OrderItemDtoStatus.CANCELED,
+      ).length,
     enabled,
   })
 }

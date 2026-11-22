@@ -92,6 +92,56 @@ describe('MyTicketsPage', () => {
     expect(screen.queryByText(/전액 환불/)).not.toBeInTheDocument()
   })
 
+  it('결제 기한 전인 결제 대기 주문은 다가오는 대회 탭에 기한과 결제하기 버튼을 달고 보이고, 기한이 지난 주문은 숨긴다', async () => {
+    const detailIds: string[] = []
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '주문 내역을 조회했습니다.',
+          data: {
+            orders: [
+              { id: 3, status: 'CREATED', paymentDueAt: '2026-10-15T12:30:00' },
+              { id: 4, status: 'CREATED', paymentDueAt: '2026-10-15T11:00:00' },
+              { id: 1, status: 'PAID' },
+            ],
+            page: 0,
+            size: 100,
+            totalElements: 3,
+            totalPages: 1,
+          },
+        }),
+      ),
+      http.get('*/api/v1/order/orders/:orderId', ({ params }) => {
+        detailIds.push(String(params.orderId))
+        const example = orderMock.getFindById1ResponseMock()
+        if (params.orderId !== '3') return HttpResponse.json(example)
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            id: 3,
+            orderNo: 'OD-20261015-0003',
+            status: 'CREATED',
+            paymentDueAt: '2026-10-15T12:30:00',
+            items: example.data?.items?.map((item) => ({ ...item, id: 5, status: 'ORDERED' })),
+          },
+        })
+      }),
+    )
+    renderPage()
+
+    const pay = await screen.findByRole('link', { name: '결제하기' })
+    expect(pay).toHaveAttribute('href', '/checkout?orderId=3')
+    expect(screen.getByText('결제 대기')).toBeInTheDocument()
+    expect(screen.getByText('결제 기한 10/15 (목) 12:30')).toBeInTheDocument()
+    // 결제 대기 카드 + 결제 완료 카드
+    expect(screen.getByRole('tab', { name: /^다가오는 대회\s*2$/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: '결제하기' })).toHaveLength(1)
+    // 기한이 지난 주문은 상세도 부르지 않는다
+    expect(detailIds.sort()).toEqual(['1', '3'])
+  })
+
   it('결제 확인 중 참가권이 있으면 다시 조회해 결과가 나오면 참가 확정으로 바꾼다', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-10-15T12:00:00+09:00'))
