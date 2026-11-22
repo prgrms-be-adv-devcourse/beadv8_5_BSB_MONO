@@ -1,0 +1,96 @@
+time="2026-11-19T22:14:07Z" level=warning msg="The test has generated metrics with 100044 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-19T22:15:16Z" level=warning msg="The test has generated metrics with 200007 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-19T22:17:26Z" level=warning msg="The test has generated metrics with 400128 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-19T22:18:28Z" level=error msg="thresholds on metrics 'http_req_duration{api:balance,stage:1}, http_req_duration{api:charge,stage:1}, http_req_failed{api:charge,stage:1}, http_req_failed{api:charge,stage:2}, http_req_failed{api:charge,stage:3}' have been crossed"
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{api:balance,stage:1}
+    ✗ 'p(99)<1000' p(99)=1.2s
+
+    http_req_duration{api:balance,stage:2}
+    ✓ 'p(99)<1000' p(99)=92.36ms
+
+    http_req_duration{api:balance,stage:3}
+    ✓ 'p(99)<1000' p(99)=6.72ms
+
+    http_req_duration{api:charge_dup}
+    ✓ 'med<3200' med=18.72ms
+
+    http_req_duration{api:charge,stage:1}
+    ✗ 'p(99)<10000' p(99)=10.64s
+
+    http_req_duration{api:charge,stage:2}
+    ✓ 'p(99)<10000' p(99)=4.2s
+
+    http_req_duration{api:charge,stage:3}
+    ✓ 'p(99)<10000' p(99)=4.09s
+
+    http_req_duration{api:pay,stage:1}
+    ✓ 'p(95)<2000' p(95)=484.37ms
+    ✓ 'p(99)<1000' p(99)=698.7ms
+
+    http_req_duration{api:pay,stage:2}
+    ✓ 'p(95)<2000' p(95)=100.4ms
+    ✓ 'p(99)<1000' p(99)=190.92ms
+
+    http_req_duration{api:pay,stage:3}
+    ✓ 'p(95)<2000' p(95)=64.63ms
+    ✓ 'p(99)<1000' p(99)=83.99ms
+
+    http_req_failed{api:charge,stage:1}
+    ✗ 'rate<0.01' rate=15.27%
+
+    http_req_failed{api:charge,stage:2}
+    ✗ 'rate<0.01' rate=53.00%
+
+    http_req_failed{api:charge,stage:3}
+    ✗ 'rate<0.01' rate=68.01%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 88233  162.186456/s
+    checks_succeeded...................: 82.12% 72463 out of 88233
+    checks_failed......................: 17.87% 15770 out of 88233
+
+    ✓ 결제 200·결제됨
+    ✓ 잔액 조회 200
+    ✗ 충전 200·완료
+      ↳  45% — ✓ 12312 / ✗ 14629
+    ✗ 같은 충전 두 번째 200·완료
+      ↳  15% — ✓ 207 / ✗ 1141
+
+    HTTP
+    http_req_duration.......................................................: avg=633.35ms med=13.43ms  p(95)=4.09s    p(99)=4.33s    max=14.49s  
+      { api:balance,stage:1 }...............................................: avg=92.82ms  med=87.66ms  p(95)=292.18ms p(99)=1.2s     max=2.68s   
+      { api:balance,stage:2 }...............................................: avg=7.23ms   med=2.31ms   p(95)=85.76ms  p(99)=92.36ms  max=102.48ms
+      { api:balance,stage:3 }...............................................: avg=2.06ms   med=1.71ms   p(95)=4.16ms   p(99)=6.72ms   max=16.37ms 
+      { api:charge_dup }....................................................: avg=1.54s    med=18.72ms  p(95)=4.15s    p(99)=4.82s    max=12.78s  
+      { api:charge,stage:1 }................................................: avg=3.76s    med=4.15s    p(95)=5.24s    p(99)=10.64s   max=14.49s  
+      { api:charge,stage:2 }................................................: avg=1.92s    med=66.89ms  p(95)=4.13s    p(99)=4.2s     max=4.47s   
+      { api:charge,stage:3 }................................................: avg=1.29s    med=12.88ms  p(95)=4.05s    p(99)=4.09s    max=4.27s   
+      { api:pay,stage:1 }...................................................: avg=200.82ms med=189.57ms p(95)=484.37ms p(99)=698.7ms  max=3.29s   
+      { api:pay,stage:2 }...................................................: avg=34.81ms  med=13.24ms  p(95)=100.4ms  p(99)=190.92ms max=385.1ms 
+      { api:pay,stage:3 }...................................................: avg=22.37ms  med=12.21ms  p(95)=64.63ms  p(99)=83.99ms  max=192.67ms
+      { expected_response:true }............................................: avg=751.79ms med=14.45ms  p(95)=4.11s    p(99)=4.37s    max=14.49s  
+    http_req_failed.........................................................: 17.87% 15770 out of 88233
+      { api:charge,stage:1 }................................................: 15.27% 679 out of 4445
+      { api:charge,stage:2 }................................................: 53.00% 4768 out of 8996
+      { api:charge,stage:3 }................................................: 68.01% 9182 out of 13500
+    http_reqs...............................................................: 88233  162.186456/s
+
+    EXECUTION
+    dropped_iterations......................................................: 64     0.117642/s
+    iteration_duration......................................................: avg=627.86ms med=14.34ms  p(95)=4.09s    p(99)=4.32s    max=14.49s  
+    iterations..............................................................: 86885  159.708615/s
+    vus.....................................................................: 7      min=7              max=114
+    vus_max.................................................................: 328    min=264            max=328
+
+    NETWORK
+    data_received...........................................................: 20 MB  37 kB/s
+    data_sent...............................................................: 20 MB  36 kB/s
+
+
+

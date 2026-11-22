@@ -80,7 +80,7 @@ k6 run -e RUN=3 loadtest/scenario-b/b2-payment-with-payout.js && ./loadtest/scen
 | `b6-external.js` | 2차 B-6·B-7·B-8: 충전 초당 25→50→75건 + 결제 동시 4개 + 잔액 조회, 같은 충전 두 번 5% (`seed-charge.sh`의 회원을 씀) |
 | `b0-integrity.js` `MODE=again·split` | 2차 P8 묶음: 섞인 구간만 다시, 결제→환불만 → 정산 지급만 |
 | `sql/12-verify-charge.sql` | 중복 충전 확인 (C6) |
-| `.github/workflows/cash-load-test.yml` | GitHub Actions에서 A만 3번, 또는 A·B를 번갈아 3번. 2차는 PR에 `cash-load-test-2` 라벨 |
+| `.github/workflows/cash-load-test.yml` | GitHub Actions에서 A만 3번, 또는 A·B를 번갈아 3번. 2차는 PR에 `cash-load-test-2` 라벨, 2차 고친 것의 A·B(B-6·B-7만)는 `cash-load-test-2ab` 라벨 |
 
 ```bash
 # 확인용으로 짧게 (지금 코드를 LABEL=local로 빌드, 약 10분)
@@ -95,6 +95,7 @@ LABEL=local REP=1 OUT=/tmp/cashload SCENARIOS="warmup b0 b1 b2 b3 b4 b5 b5-limit
   - `cash-load-test`: 그 PR 커밋을 A로 3번 재요.
   - `cash-load-test-ab`: B는 그 PR 커밋, A는 B에서 `container/ab-fixes.txt`의 커밋만 되돌린 코드예요. A·B를 번갈아 3번 재요(약 4시간).
     고친 커밋이 늘면 이 파일에 최근 커밋부터 더해요.
+  - `cash-load-test-2ab`: A·B를 만드는 방법은 위와 같고, 2차 순서 중 예열·B-6·B-7만 번갈아 3번 재요(약 3시간, B-1 한계 없음).
 
 ### 끝난 뒤 지표 다시 보기
 

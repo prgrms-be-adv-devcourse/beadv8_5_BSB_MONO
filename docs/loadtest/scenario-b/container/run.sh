@@ -56,6 +56,12 @@ printf 'STAGE_SEC=%s\nPHASE_SEC=%s\nDURATION_SEC=%s\nEXT_STAGE_SEC=%s\n' \
 
 log "환경 띄우기 (빈 DB)"
 compose down -v --remove-orphans >/dev/null 2>&1 || true
+# compose up은 이미지가 있으면 다시 만들지 않아, 로컬에서는 지금 코드로 예치금 이미지를 다시 만든다.
+# Actions(LABEL=a·b)는 워크플로가 A·B 이미지를 따로 만들어 두므로 덮어쓰지 않는다
+if [ "$LABEL" = local ]; then
+	log "예치금 이미지를 지금 코드로 다시 만들기"
+	compose build cash
+fi
 compose up -d --wait
 
 # 앱 밖에서 잰 CPU(cAdvisor)는 컨테이너 ID로만 나와서, graph.py가 이 파일로 예치금·MySQL을 고른다

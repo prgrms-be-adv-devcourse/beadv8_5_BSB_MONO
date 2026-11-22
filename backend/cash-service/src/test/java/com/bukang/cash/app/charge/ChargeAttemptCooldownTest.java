@@ -1,15 +1,18 @@
 package com.bukang.cash.app.charge;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,10 +24,14 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bukang.cash.RedisTestcontainersConfiguration;
 import com.bukang.cash.app.CashFacade;
+import com.bukang.cash.domain.charge.ChargeStatus;
+import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.exception.charge.ChargeCooldownException;
 import com.bukang.cash.domain.member.CashMember;
 import com.bukang.cash.domain.wallet.Wallet;
@@ -59,6 +66,8 @@ class ChargeAttemptCooldownTest {
 
 	@MockitoBean
 	private PaymentClient paymentClient;
+	@MockitoSpyBean
+	private ChargeAbuseGuard chargeAbuseGuard;
 
 	@AfterEach
 	void tearDown() {
@@ -100,6 +109,41 @@ class ChargeAttemptCooldownTest {
 			.hasMessageContaining("7분");
 
 		verify(paymentClient, never()).approve(anyString(), anyString(), anyLong());
+	}
+
+	@Test
+	@DisplayName("쿨다운에 걸린 충전은 처리 중으로 남지 않고 실패로 남는다 (토스를 부르지 않아 돈이 빠지지 않음)")
+	void cooledDownChargeEndsFailedNotInProgress() {
+		createCustomerWallet();
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key", null));
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_2", "order_2", 10_000);
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_3", "order_3", 10_000);
+
+		assertThatThrownBy(() -> cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_4", "order_4", 10_000))
+			.isInstanceOf(ChargeCooldownException.class);
+
+		assertThat(walletChargeRepository.findByIdempotencyKey("order_4"))
+			.get().extracting(WalletCharge::getStatus).isEqualTo(ChargeStatus.FAILED);
+	}
+
+	@Test
+	@DisplayName("시도 횟수(Redis)는 지갑을 잠근 트랜잭션 밖에서 센다. Redis가 느려도 DB 연결·지갑 잠금을 쥐지 않게")
+	void countsAttemptOutsideWalletLockTransaction() {
+		createCustomerWallet();
+		given(paymentClient.approve(anyString(), anyString(), anyLong()))
+			.willReturn(new PaymentApprovalResult(10_000, "toss_key", null));
+		AtomicBoolean inTransaction = new AtomicBoolean(true);
+		doAnswer(invocation -> {
+			inTransaction.set(TransactionSynchronizationManager.isActualTransactionActive());
+			return invocation.callRealMethod();
+		}).when(chargeAbuseGuard).registerNewAttempt(CUSTOMER_ID);
+
+		cashFacade.confirmWalletCharge(CUSTOMER_ID, "pay_1", "order_1", 10_000);
+
+		verify(chargeAbuseGuard).registerNewAttempt(CUSTOMER_ID);
+		assertThat(inTransaction).isFalse();
 	}
 
 	private Wallet createCustomerWallet() {

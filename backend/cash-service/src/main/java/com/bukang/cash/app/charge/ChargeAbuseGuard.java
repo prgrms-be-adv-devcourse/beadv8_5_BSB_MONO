@@ -47,9 +47,9 @@ class ChargeAbuseGuard {
 		}
 	}
 
-	// 지갑 잠금 안에서 새로 선점한(= 진짜 새 시도인) 충전만 횟수를 센다. 멱등 재확인(이미 COMPLETED·IN_PROGRESS)은 부르지 않는다.
+	// 새로 선점한(= 진짜 새 시도인) 충전만 횟수를 센다. 멱등 재확인(이미 COMPLETED·IN_PROGRESS)은 부르지 않는다.
 	// 5분 고정 구간 안에 이 횟수를 넘겨 시도하면(4번째부터) 10분 쿨다운을 건다
-	// (던진 예외가 선점 트랜잭션을 롤백시켜, 쿨다운에 걸린 시도는 충전 행을 남기지 않는다)
+	// (선점 트랜잭션이 끝난 뒤 불리므로, 쿨다운에 걸리면 부른 쪽이 선점한 충전을 실패로 돌려놓는다)
 	void registerNewAttempt(long customerId) {
 		try {
 			String attemptsKey = "charge:" + customerId + ":attempts";
