@@ -67,7 +67,9 @@ public class SellerTools {
 		+ "soldCount: 결제일이 이 기간인 참가권 장수, soldAmount: 그 결제 금액 합(원). "
 		+ "취소된 참가권은 판매에서 빠지고, 환불을 처리 중인 참가권은 정산처럼 판매로 센다. 정산 예정액이나 입금액이 아니다. "
 		+ "canceledCount: 취소를 마친 때가 이 기간인 참가권 장수(대회 취소 환불 포함), refundedAmount: 그 환불액 합(원). "
-		+ "환불을 처리 중인 참가권은 아직 취소로 세지 않는다")
+		+ "환불을 처리 중인 참가권은 아직 취소로 세지 않는다. "
+		+ "모든 값은 판매자의 모든 대회를 합친 것이라, 대회 하나의 판매·취소(예: 「OO 대회 몇 장 팔렸어?」)를 물으면 부르지 않는다. "
+		+ "그런 질문에는 대회별 판매는 아직 답할 수 없다고 하고 판매 현황 화면에서 대회를 골라 보라고 안내한다")
 	public Object sellerMonthlySales(ToolContext toolContext) {
 		return monthlySales(AiToolTrace.of(toolContext), LocalDate.now(AiToolTrace.ZONE));
 	}
@@ -78,7 +80,7 @@ public class SellerTools {
 			LocalDate from = today.withDayOfMonth(1);
 			OpsPort.SalesSummary sales = opsPort.salesSummary(trace.memberId(), from, today);
 			return new SalesResult(from, today, sales.soldCount(), sales.soldAmount(), sales.canceledCount(),
-				sales.refundedAmount());
+				sales.refundedAmount(), SalesResult.ALL_RACES);
 		});
 	}
 
@@ -142,8 +144,10 @@ public class SellerTools {
 		long notListedCount) {
 	}
 
+	// scope: 모델이 이 합계를 대회 하나의 값처럼 답하지 않게 결과에도 범위를 적는다 (CRU-154)
 	record SalesResult(LocalDate from, LocalDate to, long soldCount, long soldAmount, long canceledCount,
-		long refundedAmount) {
+		long refundedAmount, String scope) {
+		static final String ALL_RACES = "판매자의 모든 대회 합계. 대회 하나의 값이 아니다";
 	}
 
 	record HoldsResult(long heldPayoutCount, List<HoldLine> holds, int notListedCount, long olderHeldPayoutCount) {
