@@ -12,7 +12,7 @@ import com.bukang.product.domain.RaceCourse;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-// 공개 대회 목록의 대회 한 줄. 목록 카드는 대회 정보로 만든 색 포스터를 쓰므로 이미지는 넣지 않는다 (정책 2장 이미지 규격)
+// 공개 대회 목록의 대회 한 줄. 카드는 대표 이미지를 보여 주고, 없으면 대회 정보로 만든 색 포스터를 보여 준다 (CRU-141)
 @AllArgsConstructor
 @Getter
 public class RaceSummaryDto {
@@ -35,8 +35,10 @@ public class RaceSummaryDto {
 	//   "하프"만 골랐으면 5K가 더 싸도 하프 종목의 참가비
 	private final long minPrice;
 	private final List<RaceSummaryCourseDto> courses;
+	// 대표 이미지 보기 주소 (30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null이고, 카드는 색 포스터를 보여 준다
+	private final String imageUrl;
 
-	public static RaceSummaryDto from(Race race, long minPrice) {
+	public static RaceSummaryDto from(Race race, long minPrice, String imageUrl) {
 		List<RaceSummaryCourseDto> courses = race.getCourses().stream()
 			.sorted(Comparator.comparingLong(RaceCourse::getId))
 			.map(RaceSummaryCourseDto::from)
@@ -44,6 +46,6 @@ public class RaceSummaryDto {
 		return new RaceSummaryDto(race.getId(), race.getTitle(), race.getLocation(), race.getRegionSido(),
 			race.getRegionSigungu(), race.getRaceDate(), race.getSaleStatus(), race.getSaleOpenDate(),
 			race.getCrewSaleStartAt(), race.getCrewSaleEndAt(), race.getIndividualOpenAt(),
-			race.getApplicationCloseAt(), minPrice, courses);
+			race.getApplicationCloseAt(), minPrice, courses, imageUrl);
 	}
 }

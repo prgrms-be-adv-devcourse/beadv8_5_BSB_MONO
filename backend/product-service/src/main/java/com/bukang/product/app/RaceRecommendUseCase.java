@@ -15,6 +15,7 @@ import com.bukang.product.dto.RaceSummaryDto;
 import com.bukang.product.out.RaceRepository;
 import com.bukang.product.out.RaceSearchRepository;
 import com.bukang.product.out.RaceSearchRepository.MatchedRace;
+import com.bukang.product.out.file.RaceThumbnailPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class RaceRecommendUseCase {
 	private final RaceSearchRepository raceSearchRepository;
 	private final RaceRepository raceRepository;
 	private final RaceRecommendProperties properties;
+	private final RaceThumbnailPort raceThumbnailPort;
 
 	// 검색어와 뜻이 비슷한 대회. 검색어가 너무 짧거나 추천하지 못하면 빈 목록
 	public List<RaceSummaryDto> recommendByKeyword(String keyword) {
@@ -84,9 +86,12 @@ public class RaceRecommendUseCase {
 		List<Long> raceIds = matched.stream().map(MatchedRace::raceId).toList();
 		Map<Long, Race> racesById = raceRepository.findAllWithCoursesByIdIn(raceIds).stream()
 			.collect(Collectors.toMap(Race::getId, Function.identity()));
+		// 대표 이미지 주소는 파일 서비스에서 한 번에 받는다. 받지 못한 대회는 null(색 포스터)이다 (CRU-141)
+		Map<Long, String> imageUrls = raceThumbnailPort.findThumbnailUrls(raceIds);
 		return matched.stream()
 			.filter(race -> racesById.containsKey(race.raceId()))
-			.map(race -> RaceSummaryDto.from(racesById.get(race.raceId()), race.minPrice()))
+			.map(race -> RaceSummaryDto.from(racesById.get(race.raceId()), race.minPrice(),
+				imageUrls.get(race.raceId())))
 			.toList();
 	}
 }

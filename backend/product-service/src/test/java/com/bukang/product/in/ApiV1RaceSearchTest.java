@@ -341,6 +341,25 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 		expectRacesInOrder(search("keyword", "대관령"), daegwallyeong);
 	}
 
+	@Test
+	@DisplayName("대회 목록에서 대표 이미지가 있는 대회는 imageUrl에 파일 서비스가 준 주소가 들어가고, 없는 대회는 null이다 (CRU-141)")
+	void fillsThumbnailUrl() throws Exception {
+		// given
+		LocalDateTime now = LocalDateTime.now().withNano(0);
+		RegisteredRace withImage = registerOnSale(race().title("이미지 있는 대회")
+			.applicationCloseAt(now.plusDays(5))
+			.build());
+		RegisteredRace withoutImage = registerOnSale(race().title("이미지 없는 대회")
+			.applicationCloseAt(now.plusDays(10))
+			.build());
+		raceThumbnailPort.thumbnail(withImage.raceId(), "https://s3/thumb-1.jpg");
+
+		// when · then
+		expectRacesInOrder(search(), withImage, withoutImage)
+			.andExpect(jsonPath("$.data.races[0].imageUrl").value("https://s3/thumb-1.jpg"))
+			.andExpect(jsonPath("$.data.races[1].imageUrl").value(nullValue()));
+	}
+
 	// ---------- 필터 ----------
 
 	@Test

@@ -69,6 +69,10 @@ product:
     member:
       mode: fake
       base-url: http://localhost:8080
+    # 대회 목록 대표 이미지 주소 (CRU-141). fake면 이미지 없이 준다. 파일 서비스를 함께 띄웠으면 http로 바꾼다
+    file:
+      mode: fake
+      base-url: http://localhost:8083
 
 logging:
   level:

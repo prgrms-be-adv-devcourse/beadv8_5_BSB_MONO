@@ -42,6 +42,10 @@ product:
     member:
       mode: http
       base-url: http://bukang-member-service:8080
+    # 대회 목록 대표 이미지 주소는 파일 서비스에 묻는다 (CRU-141, k8s Service 이름)
+    file:
+      mode: http
+      base-url: http://bukang-file-service:8083
 
 logging:
   level:

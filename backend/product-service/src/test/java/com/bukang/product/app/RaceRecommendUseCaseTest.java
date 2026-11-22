@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.bukang.product.config.RaceRecommendProperties;
 import com.bukang.product.out.RaceRepository;
 import com.bukang.product.out.RaceSearchRepository;
+import com.bukang.product.out.file.RaceThumbnailPort;
 
 /**
  * AI 추천이 검색어와 비슷한 대회에 각자의 기준값을 쓰는지 확인한다 (CRU-134).
@@ -38,6 +39,8 @@ class RaceRecommendUseCaseTest {
 	private RaceSearchRepository raceSearchRepository;
 	@Mock
 	private RaceRepository raceRepository;
+	@Mock
+	private RaceThumbnailPort raceThumbnailPort;
 
 	private RaceRecommendUseCase raceRecommendUseCase;
 
@@ -46,7 +49,7 @@ class RaceRecommendUseCaseTest {
 		RaceRecommendProperties properties = new RaceRecommendProperties(KEYWORD_MIN_SIMILARITY,
 			SIMILAR_MIN_SIMILARITY);
 		raceRecommendUseCase = new RaceRecommendUseCase(raceTextEmbedder, raceSearchRepository, raceRepository,
-			properties);
+			properties, raceThumbnailPort);
 	}
 
 	@Test
