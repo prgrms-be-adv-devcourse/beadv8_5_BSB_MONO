@@ -205,7 +205,7 @@ export function Carousel({
             {slide}
             <span
               aria-hidden
-              className="absolute right-5 bottom-4.5 text-caption-regular text-text-on-image"
+              className="absolute right-6 bottom-4.5 text-caption-regular text-text-on-image"
             >
               {i + 1} / {count}
             </span>
@@ -255,11 +255,9 @@ export function CarouselSlide({ image, chip, title, description, dim = true }: C
       {image}
       {dim && <div aria-hidden className="absolute inset-0 bg-[rgb(10_15_28/0.55)]" />}
       {title && (
-        <div className="absolute inset-x-5 bottom-4.5 flex flex-col items-start gap-2 text-text-on-image">
+        <div className="absolute inset-x-5 bottom-2 flex flex-col items-start gap-2 text-text-on-image">
           {chip && (
-            <span className="rounded-sm bg-neutral-0/20 px-2 py-0.75 text-caption-medium">
-              {chip}
-            </span>
+            <span className="rounded-sm bg-neutral-0/20 px-2 py-1 text-caption-medium">{chip}</span>
           )}
           <p className="text-title2 break-keep">{title}</p>
           {description && <p className="text-body1-regular opacity-80">{description}</p>}

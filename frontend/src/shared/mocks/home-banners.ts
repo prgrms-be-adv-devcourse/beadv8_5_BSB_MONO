@@ -5,15 +5,18 @@ import type { productModel } from '@/shared/api'
 import { findMockRace } from './races'
 
 // 홈 배너 목 (CRU-146). 백엔드 계약대로 목록 전체를 바꾸고, 공개 배너에서는 홈에 안 보일 대회를 뺀다.
-// 이번 주 접수 마감(2) · 접수 중(3) · 오픈 예정(7)이 섞이게 고른다
-const INITIAL_IDS = [2, 3, 7]
+// 이번 주 접수 마감(2) · 접수 중(3) · 오픈 예정(7) · 접수 마감이라 홈에 안 보임(10)이 섞이게 고른다
+const INITIAL_IDS = [2, 3, 7, 10]
 const MAX = 5
 // 대표 이미지가 없는 배너(색 포스터)를 볼 수 있게 7번은 이미지를 비운다
 const NO_IMAGE_IDS = new Set([7])
 const HIDDEN_STATUS = new Set(['STOPPED', 'CLOSED', 'CANCELED'])
 const ENDED_STATUS = new Set(['CLOSED', 'CANCELED'])
 
-let bannerIds = [...INITIAL_IDS]
+// API 라우트와 서버 컴포넌트가 이 모듈을 따로 불러도 같은 목록을 보도록 전역에 둔다
+const store = globalThis as typeof globalThis & { __mockHomeBannerIds?: number[] }
+store.__mockHomeBannerIds ??= [...INITIAL_IDS]
+const bannerIds = () => store.__mockHomeBannerIds!
 
 function visibleOf(race: { saleStatus?: string; applicationCloseAt?: string }) {
   if (race.saleStatus && HIDDEN_STATUS.has(race.saleStatus)) return false
@@ -43,7 +46,7 @@ export const homeBannerHandlers = [
     HttpResponse.json({
       status: 200,
       message: '홈 배너를 조회했습니다.',
-      data: bannerIds
+      data: bannerIds()
         .map((id) => findMockRace(id)!.summary)
         .filter(visibleOf)
         .map((race) => (NO_IMAGE_IDS.has(race.raceId ?? 0) ? { ...race, imageUrl: null } : race)),
@@ -53,7 +56,7 @@ export const homeBannerHandlers = [
     HttpResponse.json({
       status: 200,
       message: '홈 배너를 조회했습니다.',
-      data: bannerIds.map(adminRow),
+      data: bannerIds().map(adminRow),
     }),
   ),
   http.put('*/api/v1/product/admin/banners', async ({ request }) => {
@@ -73,7 +76,7 @@ export const homeBannerHandlers = [
     // 409는 새로 올리는 대회에만 따진다. 이미 올라 있던 대회가 나중에 끝나도 빼기 · 순서 바꾸기는 막지 않는다
     const ended = (ids as number[]).some(
       (id) =>
-        !bannerIds.includes(id) && ENDED_STATUS.has(findMockRace(id)!.detail.saleStatus ?? ''),
+        !bannerIds().includes(id) && ENDED_STATUS.has(findMockRace(id)!.detail.saleStatus ?? ''),
     )
     if (ended) {
       return fail(
@@ -82,11 +85,11 @@ export const homeBannerHandlers = [
         '취소되었거나 판매가 끝난 대회는 배너에 올릴 수 없습니다.',
       )
     }
-    bannerIds = ids as number[]
+    store.__mockHomeBannerIds = ids as number[]
     return HttpResponse.json({
       status: 200,
       message: '홈 배너를 저장했습니다.',
-      data: bannerIds.map(adminRow),
+      data: bannerIds().map(adminRow),
     })
   }),
 ]

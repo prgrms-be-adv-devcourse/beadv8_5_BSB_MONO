@@ -16,7 +16,6 @@ import { cn, useNow } from '@/shared/lib'
 import {
   Button,
   DataTable,
-  EmptyState,
   Icon,
   IconButton,
   Modal,
@@ -67,7 +66,7 @@ export function AdminBannersPage() {
           홈 배너를 불러오지 못했어요
         </ConsoleMessage>
       ) : rows.length === 0 ? (
-        <EmptyState title="배너로 고른 대회가 없어요" />
+        <ConsoleMessage kind="empty">배너로 고른 대회가 없어요</ConsoleMessage>
       ) : (
         <DataTable
           label="홈 배너"
@@ -81,13 +80,21 @@ export function AdminBannersPage() {
               width: 'w-16',
               render: (r) => <Dim row={r}>{ids.indexOf(r.raceId) + 1}</Dim>,
             },
-            { key: 'title', header: '대회', render: (r) => <Dim row={r}>{r.title}</Dim> },
+            {
+              key: 'title',
+              header: '대회',
+              render: (r) => (
+                <Dim row={r} className="text-body1-medium">
+                  {r.title}
+                </Dim>
+              ),
+            },
             {
               key: 'stage',
               header: '접수 단계',
               width: 'w-52',
               render: (r) => (
-                <Dim row={r} className={cn(r.visible && 'text-body2-medium')}>
+                <Dim row={r} className={cn(r.visible && 'text-body1-medium')}>
                   {r.stage}
                 </Dim>
               ),
@@ -132,7 +139,6 @@ export function AdminBannersPage() {
             {
               key: 'remove',
               header: <span className="sr-only">빼기</span>,
-              align: 'right',
               width: 'w-20',
               render: (r) => (
                 <Button
@@ -217,7 +223,7 @@ function AddBody({
                 className="flex items-center gap-4 border-b border-border-default py-3"
               >
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <p className="truncate text-body2-medium">{c.title}</p>
+                  <p className="truncate text-body1-medium">{c.title}</p>
                   <p className="text-caption-regular text-text-tertiary">{c.meta}</p>
                 </div>
                 <Button
