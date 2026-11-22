@@ -64,6 +64,8 @@ export type RaceDetail = {
   place: string
   /** 판매자가 쓴 대회 소개 */
   description?: string
+  /** 개인 예매 오픈 일시 원본(시간대 없는 한국 시간). 오픈 전 버튼 문구에 쓴다 */
+  individualOpenAt?: string
   /** 접수 마감까지 남은 날 (D-12) */
   dDay: string
   capacity: number

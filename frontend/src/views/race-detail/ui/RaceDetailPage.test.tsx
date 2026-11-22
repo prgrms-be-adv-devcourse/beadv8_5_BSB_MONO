@@ -503,3 +503,20 @@ describe('RaceDetailPage v3 배치', () => {
     expect(screen.getByText(RACE_DETAIL.seller.mailOrderNo)).toBeInTheDocument()
   })
 })
+
+describe('RaceDetailPage 파티 인원', () => {
+  const withCrew = (crew: NonNullable<RaceDetail['crew']>): RaceDetail => ({ ...RACE_DETAIL, crew })
+
+  it('최대 인원이 없으면 「4명 이상」으로 보여 준다', () => {
+    clearAccessToken()
+    renderPage({ race: withCrew({ minCount: 4 }) })
+    expect(screen.getByText('4명 이상')).toBeInTheDocument()
+    expect(screen.queryByText(/4명 ~ 4명/)).not.toBeInTheDocument()
+  })
+
+  it('최대 인원이 있으면 범위로 보여 준다', () => {
+    clearAccessToken()
+    renderPage({ race: withCrew({ minCount: 4, maxCount: 10 }) })
+    expect(screen.getByText('4명 ~ 10명')).toBeInTheDocument()
+  })
+})
