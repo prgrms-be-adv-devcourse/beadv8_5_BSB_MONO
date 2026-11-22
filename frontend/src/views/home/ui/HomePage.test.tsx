@@ -56,11 +56,15 @@ const BANNERS: HomeBanner[] = [
   },
 ]
 
-function renderHome(closingSoon: RaceSummary[] = [], banners: HomeBanner[] = BANNERS) {
+function renderHome(
+  closingSoon: RaceSummary[] = [],
+  banners: HomeBanner[] = BANNERS,
+  newRaces: RaceSummary[] = [],
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <HomePage closingSoon={closingSoon} banners={banners} />
+      <HomePage closingSoon={closingSoon} banners={banners} newRaces={newRaces} />
     </QueryClientProvider>,
   )
 }
@@ -159,6 +163,26 @@ describe('HomePage', () => {
     const link = screen.getByRole('link', { name: /곧 마감돼요/ })
     expect(link).toHaveAttribute('href', '/races')
     expect(screen.queryByRole('link', { name: '전체 보기' })).not.toBeInTheDocument()
+  })
+
+  it('새로 등록된 대회: 곧 마감돼요 아래에 같은 2열 카드로 보이고 제목 줄은 최신 등록순 목록으로 간다', () => {
+    const newRaces = [1, 2, 3, 4].map((n) => ({ ...RACE, id: `n${n}`, status: '오픈 예정' }))
+    renderHome([RACE], BANNERS, newRaces)
+    const section = within(screen.getByRole('region', { name: /새로 등록된 대회/ }))
+    expect(section.getByText('4')).toBeInTheDocument()
+    expect(section.getAllByText('오픈 예정')).toHaveLength(4)
+    expect(section.getAllByRole('link', { name: /용감한 쿠키RUN/ })).toHaveLength(4)
+    expect(section.getByRole('link', { name: /새로 등록된 대회/ })).toHaveAttribute(
+      'href',
+      '/races?sort=LATEST',
+    )
+    const regions = screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby'))
+    expect(regions.indexOf('new-races')).toBe(regions.indexOf('closing-soon') + 1)
+  })
+
+  it('새로 등록된 대회가 없으면 영역을 그리지 않는다', () => {
+    renderHome([RACE])
+    expect(screen.queryByRole('region', { name: /새로 등록된 대회/ })).not.toBeInTheDocument()
   })
 
   it('마감 임박 칩은 경고 톤 배지로 그린다', () => {

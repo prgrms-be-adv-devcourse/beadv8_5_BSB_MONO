@@ -47,6 +47,9 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
     },
   })
 
+  const me = memberApi.useFindMe({
+    query: { select: unwrapData, enabled: useAuthStatus() === 'authenticated' },
+  })
   const parties = useCrewActiveParties(crewId)
   // 고른 탭은 주소(?tab=)에 둔다. 크루 관리 · 크루원 목록에서 뒤로 와도 보던 탭이 열린다
   const [url, setUrl] = useSearchParamsState({ tab: 'parties' }, { tab: ['parties', 'members'] })
@@ -132,6 +135,7 @@ export function CrewHomePage({ crewId }: { crewId: number }) {
                   )}
                   <CrewMemberList
                     members={crew.data.members}
+                    meId={me.data?.id}
                     moreHref={`/crews/${crewId}/members` as Route}
                   />
                 </CrewBand>

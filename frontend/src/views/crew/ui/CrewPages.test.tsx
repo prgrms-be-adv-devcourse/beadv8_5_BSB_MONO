@@ -253,6 +253,15 @@ describe('CrewHomePage (M09)', () => {
     expect(screen.queryByRole('button', { name: '크루 떠나기' })).not.toBeInTheDocument()
   })
 
+  it('크루원 탭에서 내 닉네임 옆에만 「나」를 붙인다', async () => {
+    const user = userEvent.setup()
+    renderPage(<CrewHomePage crewId={1} />)
+    await screen.findByText('진행 중인 파티가 없어요')
+    await openMembersTab(user)
+    await screen.findByText('한강페이서')
+    expect(screen.getAllByText('· 나')).toHaveLength(1)
+  })
+
   it('크루원은 크루원 탭에서만 크루 떠나기를 본다', async () => {
     const user = userEvent.setup()
     renderPage(<CrewHomePage crewId={5} />)

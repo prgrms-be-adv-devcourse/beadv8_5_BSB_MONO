@@ -1,69 +1,30 @@
 'use client'
 
+import { useState } from 'react'
+
 import { ConsolePage } from '@/widgets/console-page'
 import { useAuthStatus } from '@/features/auth'
 import { cashApi, memberApi, unwrapData } from '@/shared/api'
-import { cn, useSearchParamsState } from '@/shared/lib'
-import { Chip, DataTable, Icon, TextField } from '@/shared/ui'
+import { useSearchParamsState } from '@/shared/lib'
+import { Chip, Icon, TextField } from '@/shared/ui'
 
 import { ADMIN_MEMBER_PAGE_SIZE } from '../model/admin-members-api'
 import { ChargeReviewTab } from './ChargeReviewTab'
 import { IdentityReviewTab } from './IdentityReviewTab'
-
-// 상태는 칩 대신 뜻 색 글자로 보여 준다 (완료 초록, 실패 빨강, 나머지 보조 글자)
-const STATUS_TEXT: Record<string, string> = {
-  success: 'text-text-success',
-  danger: 'text-text-danger',
-  warning: 'text-text-warning',
-}
-const statusText = (tone: string) =>
-  cn('text-body2-medium', STATUS_TEXT[tone] ?? 'text-text-secondary')
+import { MemberSearchTab } from './MemberSearchTab'
 
 type Tab = 'all' | 'identity' | 'charge'
 
-type Member = {
-  id: string
-  nickname: string
-  joinedAt: string
-  deposit: string
-  tickets: string
-  suspended: boolean
-}
-
-// TODO(api): 전체 회원 목록 API로 바꾼다. 시안 예시 값.
-const MEMBERS: Member[] = [
-  {
-    id: '2041',
-    nickname: '달리는곰',
-    joinedAt: '2025. 3. 2',
-    deposit: '₩45,000',
-    tickets: '2장',
-    suspended: false,
-  },
-  {
-    id: '3318',
-    nickname: '달리는곰2',
-    joinedAt: '2026. 9. 14',
-    deposit: '₩0',
-    tickets: '0장',
-    suspended: false,
-  },
-  {
-    id: '4120',
-    nickname: '달리는곰곰',
-    joinedAt: '2026. 10. 30',
-    deposit: '₩0',
-    tickets: '0장',
-    suspended: true,
-  },
-]
-
-// 피그마 V2 · A04 회원 · 주문 조회
+// 피그마 v4 · 관리자 · 02 회원 관리
 export function AdminMembersPage() {
   const authenticated = useAuthStatus() === 'authenticated'
-  // 탭은 URL(?tab=)에 담는다
-  const [url, setUrl] = useSearchParamsState({ tab: 'all' }, { tab: ['all', 'identity', 'charge'] })
+  // 탭과 찾은 닉네임은 URL(?tab=, ?q=)에 담는다
+  const [url, setUrl] = useSearchParamsState(
+    { tab: 'all', q: '' },
+    { tab: ['all', 'identity', 'charge'] },
+  )
   const tab = url.tab as Tab
+  const [draft, setDraft] = useState(url.q)
   // 탭 배지. 탭을 누르기 전에도 개수가 보이도록 첫 페이지를 항상 불러온다(각 탭의 첫 페이지와 같은 요청이라 한 번만 간다).
   const identity = memberApi.useFindIdentityReview(
     { page: 0, size: ADMIN_MEMBER_PAGE_SIZE },
@@ -93,57 +54,29 @@ export function AdminMembersPage() {
         </div>
         <div className="flex-1" />
         {tab === 'all' && (
-          // TODO(api): 닉네임·주문번호 검색
-          <TextField
-            compact
-            leading={<Icon name="Search" />}
-            aria-label="닉네임·주문번호로 찾기"
-            placeholder="닉네임·주문번호로 찾기"
-            className="w-80"
-          />
+          // 막을 규칙 없이 앞뒤 공백만 빼는 검색창이라 trim만 한다
+          <form
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault()
+              setUrl({ q: draft.trim() })
+            }}
+          >
+            <TextField
+              compact
+              leading={<Icon name="Search" />}
+              aria-label="닉네임으로 찾기"
+              placeholder="닉네임으로 찾기"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="w-80"
+            />
+          </form>
         )}
       </div>
       {tab === 'identity' && <IdentityReviewTab />}
       {tab === 'charge' && <ChargeReviewTab />}
-      {tab === 'all' && (
-        <DataTable
-          label="전체 회원"
-          framed
-          rows={MEMBERS}
-          rowKey={(m) => m.id}
-          columns={[
-            { key: 'nickname', header: '닉네임', render: (m) => m.nickname },
-            { key: 'id', header: '회원 ID', align: 'right', width: 'w-34', render: (m) => m.id },
-            {
-              key: 'joinedAt',
-              header: '가입일',
-              align: 'right',
-              width: 'w-34',
-              render: (m) => m.joinedAt,
-            },
-            {
-              key: 'deposit',
-              header: '예치금',
-              align: 'right',
-              width: 'w-34',
-              render: (m) => m.deposit,
-            },
-            {
-              key: 'tickets',
-              header: '참가권',
-              align: 'right',
-              width: 'w-22',
-              render: (m) => m.tickets,
-            },
-            {
-              key: 'status',
-              header: '상태',
-              width: 'w-30',
-              render: (m) => m.suspended && <span className={statusText('danger')}>이용 정지</span>,
-            },
-          ]}
-        />
-      )}
+      {tab === 'all' && <MemberSearchTab nickname={url.q} />}
     </ConsolePage>
   )
 }

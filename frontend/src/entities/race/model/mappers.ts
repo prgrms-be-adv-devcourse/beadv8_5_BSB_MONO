@@ -109,6 +109,12 @@ export function toClosingSoonCard(race: SummaryDto, now: Date = new Date()): Rac
   }
 }
 
+/** 새로 등록된 대회 카드: 곧 마감 카드와 같은 모양이고, 접수 전 대회는 상태 칩에 「오픈 예정」을 쓴다 */
+export function toNewRaceCard(race: SummaryDto, now: Date = new Date()): RaceSummary {
+  const card = toClosingSoonCard(race, now)
+  return applicationPhase(race, now) === 'upcoming' ? { ...card, status: '오픈 예정' } : card
+}
+
 /** 대회 파일 목록에서 대표 이미지 URL (없으면 첫 이미지) */
 export function coverImage(files: FileDto[] | undefined): string | undefined {
   const images = (files ?? []).filter((f) => f.url)

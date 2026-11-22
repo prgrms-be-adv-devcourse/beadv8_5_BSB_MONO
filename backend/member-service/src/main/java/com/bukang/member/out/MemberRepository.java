@@ -89,6 +89,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 	List<Member> findByNameBirthHashInAndStatusNot(Collection<String> nameBirthHashes, MemberStatus status);
 
+	// 관리자 회원 찾기 (CRU-156). StartingWith는 입력의 %·_를 글자로 escape하고 like 'x%'라 닉네임 unique 인덱스를 탄다
+	List<Member> findTop20ByNicknameStartingWithAndStatusNotOrderByNicknameAsc(String nickname, MemberStatus status);
+
 	// 다른 서비스에 닉네임을 줄 때 쓴다 (BUK-39). 엔티티 전체가 아니라 세 칸만 읽어 다른 개인정보를 메모리에 올리지 않는다
 	@Query("select new com.bukang.member.dto.MemberNicknameDto(m.id, m.nickname, m.status)"
 		+ " from Member m where m.id in :ids")

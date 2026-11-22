@@ -10,6 +10,7 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.tool.annotation.Tool;
 
 import com.bukang.ai.domain.AiSource;
 import com.bukang.ai.dto.AiListDto;
@@ -236,13 +237,25 @@ class AiToolsTest {
 
 		// 취소 건수·환불액도 같은 기간으로 함께 담는다 (BUK-264)
 		assertThat(result).isEqualTo(new SellerTools.SalesResult(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16),
-			42, 2310000, 3, 165000));
+			42, 2310000, 3, 165000, SellerTools.SalesResult.ALL_RACES));
 		assertThat(ops.salesCall).containsExactly(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 16));
 		assertThat(trace.sources()).singleElement().satisfies(source -> {
 			assertThat(source.screen()).isEqualTo(AiSource.SELLER_SALES.getScreen());
 			assertThat(source.path()).isEqualTo("/seller/sales");
 			assertThat(source.asOf()).isNotNull();
 		});
+	}
+
+	@Test
+	@DisplayName("판매 합계는 판매자의 모든 대회를 합친 값이라고 결과와 도구 설명에 적어, 대회 하나의 값처럼 답하지 않게 한다 (CRU-154)")
+	void monthlySalesIsAllRaces() throws NoSuchMethodException {
+		Object result = sellerTools.monthlySales(trace, LocalDate.of(2026, 11, 16));
+
+		assertThat(result).isInstanceOfSatisfying(SellerTools.SalesResult.class,
+			sales -> assertThat(sales.scope()).contains("모든 대회 합계"));
+		String description = SellerTools.class.getMethod("sellerMonthlySales", ToolContext.class)
+			.getAnnotation(Tool.class).description();
+		assertThat(description).contains("대회 하나의 판매", "부르지 않는다", "판매 현황(주문 · 참가자) 화면");
 	}
 
 	@Test
