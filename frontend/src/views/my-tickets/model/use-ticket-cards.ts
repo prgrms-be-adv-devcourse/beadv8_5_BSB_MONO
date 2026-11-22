@@ -1,5 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 
+import { formatKstDateTime } from '@/entities/crew'
 import { daysUntil, formatRaceDate, raceCoverQueryOptions, raceQueryOptions } from '@/entities/race'
 import {
   myTicketsQueryOptions,
@@ -13,6 +14,9 @@ import { formatNumber } from '@/shared/lib'
 
 export type TicketCard = {
   id: string
+  orderId: number
+  /** 결제 대기 카드의 결제 기한 */
+  dueAt?: string
   status: TicketStatus
   image?: string
   eyebrow: string
@@ -53,6 +57,8 @@ export function useTicketCards() {
     const courseName = course?.name ?? ticket.itemName
     return {
       id: ticket.id,
+      orderId: ticket.orderId,
+      dueAt: ticket.dueAt,
       status,
       image: coverByRace.get(ticket.raceId),
       eyebrow: race?.title ?? ticket.itemName,
@@ -63,7 +69,11 @@ export function useTicketCards() {
   })
 
   return {
-    upcoming: cards.filter((c) => c.status === 'confirmed' || c.status === 'paying'),
+    // 결제하지 않으면 참가가 확정되지 않으므로 결제 대기 카드를 맨 위에 둔다
+    upcoming: [
+      ...cards.filter((c) => c.status === 'pending'),
+      ...cards.filter((c) => c.status === 'confirmed' || c.status === 'paying'),
+    ],
     past: cards.filter((c) => c.status === 'finished' || c.status === 'canceled'),
     isPending: tickets.isPending,
     isError: tickets.isError,
@@ -81,12 +91,15 @@ function summaryText(
 ): string {
   const date = raceDate ? formatRaceDate(raceDate) : ''
   const note =
-    status === 'canceled'
-      ? '참가 취소'
-      : status === 'finished'
-        ? '대회 종료'
-        : status === 'confirmed' && refundDeadline && daysUntil(refundDeadline) >= 0
-          ? `${formatRaceDate(refundDeadline)}까지 취소하면 ${formatNumber(ticket.amount)}원 전액 환불`
-          : ''
+    status === 'pending'
+      ? ''
+      : status === 'canceled'
+        ? '참가 취소'
+        : status === 'finished'
+          ? '대회 종료'
+          : status === 'confirmed' && refundDeadline && daysUntil(refundDeadline) >= 0
+            ? `${formatRaceDate(refundDeadline)}까지 취소하면 ${formatNumber(ticket.amount)}원 전액 환불`
+            : ''
+  if (status === 'pending' && ticket.dueAt) return `결제 기한 ${formatKstDateTime(ticket.dueAt)}`
   return [date, note].filter(Boolean).join(' · ')
 }
