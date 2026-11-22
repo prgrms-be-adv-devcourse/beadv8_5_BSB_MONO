@@ -67,6 +67,35 @@ const balanceHandler = (balance: number) =>
     HttpResponse.json({ status: 200, message: '잔액 조회 성공', data: { holderId: 1, balance } }),
   )
 
+type KitGroups = NonNullable<
+  NonNullable<ReturnType<typeof productMock.getFindKitOptionsResponseMock>['data']>['kitOptions']
+>
+
+const kitOptionsHandler = (kitOptions: KitGroups) =>
+  productMock.getFindKitOptionsMockHandler({
+    status: 200,
+    message: '키트 옵션 목록을 조회했습니다.',
+    data: { raceId: 1, kitOptions },
+  })
+
+/** 명세 예시: 기념 티셔츠(M 11 · L 12), 양말(230-250 21 · 255-280 22) */
+const KIT_GROUPS: KitGroups = [
+  {
+    name: '기념 티셔츠',
+    values: [
+      { kitOptionId: 11, value: 'M', stock: 100 },
+      { kitOptionId: 12, value: 'L', stock: 80 },
+    ],
+  },
+  {
+    name: '양말',
+    values: [
+      { kitOptionId: 21, value: '230-250', stock: null },
+      { kitOptionId: 22, value: '255-280', stock: null },
+    ],
+  },
+]
+
 const conflict = (code: string, data: unknown = null) =>
   HttpResponse.json({ status: 409, code, message: '아무 문구', data }, { status: 409 })
 
@@ -105,6 +134,8 @@ describe('결제 화면', () => {
       orderMock.getFindById1MockHandler(orderResponse()),
       orderMock.getFindByIdMockHandler(participationResponse()),
       balanceHandler(100_000),
+      // 기본은 키트 옵션이 없는 대회. 있는 대회는 아래 「키트 옵션」 묶음이 따로 켠다
+      kitOptionsHandler([]),
     )
   })
   afterEach(() => {
@@ -951,5 +982,200 @@ describe('결제 화면', () => {
 
     expect(screen.getByText('결제 시간이 지났어요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '대회 다시 보기' })).toHaveAttribute('href', '/races/1')
+  })
+
+  describe('키트 옵션', () => {
+    const PAY = '45,000원 결제하기'
+    const payBodies = () => {
+      const bodies: unknown[] = []
+      server.use(
+        http.post('*/api/v1/order/orders/:orderId/payment', async ({ request }) => {
+          bodies.push(await request.json())
+          return HttpResponse.json(orderMock.getPayResponseMock())
+        }),
+      )
+      return bodies
+    }
+    const chip = (name: string) => screen.getByRole('button', { name })
+    const setup = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    it('키트 옵션이 있는 대회는 옵션 칩을 보여 준다', async () => {
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      renderCheckout()
+
+      expect(await screen.findByRole('heading', { name: '키트 옵션' })).toBeInTheDocument()
+      expect(screen.getByText('기념 티셔츠')).toBeInTheDocument()
+      expect(chip('255-280')).toBeInTheDocument()
+    })
+
+    it('키트 옵션이 없는 대회는 칸이 없고 결제 버튼이 바로 열린다', async () => {
+      const user = setup()
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: PAY })
+      await agree(user)
+
+      expect(screen.queryByRole('heading', { name: '키트 옵션' })).not.toBeInTheDocument()
+      expect(pay).toBeEnabled()
+    })
+
+    it('옵션을 다 고르기 전에는 동의해도 결제 버튼이 막힌다', async () => {
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      const user = setup()
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: PAY })
+      await screen.findByRole('heading', { name: '키트 옵션' })
+      await agree(user)
+      expect(pay).toBeDisabled()
+
+      await user.click(chip('L'))
+      expect(pay).toBeDisabled()
+
+      await user.click(chip('230-250'))
+      expect(pay).toBeEnabled()
+    })
+
+    it('고른 옵션을 결제 본문 kitOptionIds로 보낸다', async () => {
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      const bodies = payBodies()
+      const user = setup()
+      renderCheckout()
+
+      await user.click(await screen.findByRole('button', { name: 'L' }))
+      await user.click(chip('255-280'))
+      await agree(user)
+      await user.click(screen.getByRole('button', { name: PAY }))
+
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+      expect(bodies).toEqual([{ kitOptionIds: [12, 22] }])
+    })
+
+    it('고를 때마다 주문별로 저장해 충전하고 돌아와도 남는다', async () => {
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      const user = setup()
+      renderCheckout()
+
+      await user.click(await screen.findByRole('button', { name: 'L' }))
+      expect(readKitOptionIds(1)).toEqual([12])
+      await user.click(chip('230-250'))
+      expect(readKitOptionIds(1)).toEqual([12, 21])
+      // 같은 옵션 이름에서 다시 고르면 바꾼다
+      await user.click(chip('M'))
+      expect(readKitOptionIds(1)).toEqual([11, 21])
+    })
+
+    it('개인 예매에서 이미 고른 값은 미리 채워져 있고 바로 결제할 수 있다', async () => {
+      saveKitOptionIds(1, [12, 21])
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      const bodies = payBodies()
+      const user = setup()
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: PAY })
+      await screen.findByRole('heading', { name: '키트 옵션' })
+      expect(chip('L')).toHaveAttribute('aria-pressed', 'true')
+      expect(chip('M')).toHaveAttribute('aria-pressed', 'false')
+      expect(chip('230-250')).toHaveAttribute('aria-pressed', 'true')
+
+      await agree(user)
+      await user.click(pay)
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+      expect(bodies).toEqual([{ kitOptionIds: [12, 21] }])
+    })
+
+    it('충전하고 돌아와 자동으로 다시 결제할 때 저장해 둔 키트 옵션을 본문에 싣는다', async () => {
+      saveKitOptionIds(1, [12, 22])
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      const bodies = payBodies()
+      renderCheckout(undefined, { charged: true })
+
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+      expect(bodies).toEqual([{ kitOptionIds: [12, 22] }])
+    })
+
+    it('저장된 값에 목록에 없는 옵션이나 같은 이름의 중복이 있어도 화면에 보이는 선택만 보낸다', async () => {
+      saveKitOptionIds(1, [99, 11, 12, 21])
+      server.use(kitOptionsHandler(KIT_GROUPS))
+      const bodies = payBodies()
+      const user = setup()
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: PAY })
+      await screen.findByRole('heading', { name: '키트 옵션' })
+      await agree(user)
+      await user.click(pay)
+
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+      // 같은 이름에 둘이면 먼저 나온 값(M)만 고른 것으로 본다
+      expect(bodies).toEqual([{ kitOptionIds: [11, 21] }])
+    })
+
+    it('키트 옵션 목록을 불러오지 못하면 결제 버튼을 막고 다시 시도하게 한다', async () => {
+      let fail = true
+      server.use(
+        http.get('*/api/v1/product/races/:raceId/kit-options', () =>
+          fail
+            ? HttpResponse.json({ status: 500, message: '오류', data: null }, { status: 500 })
+            : HttpResponse.json({
+                status: 200,
+                message: '',
+                data: { raceId: 1, kitOptions: KIT_GROUPS },
+              }),
+        ),
+      )
+      const user = setup()
+      renderCheckout()
+
+      const pay = await screen.findByRole('button', { name: PAY })
+      await agree(user)
+      expect(await screen.findByText('키트 옵션을 불러오지 못했어요')).toBeInTheDocument()
+      expect(pay).toBeDisabled()
+
+      fail = false
+      await user.click(screen.getByRole('button', { name: '다시 시도하기' }))
+      expect(await screen.findByRole('button', { name: 'L' })).toBeInTheDocument()
+      expect(screen.queryByText('키트 옵션을 불러오지 못했어요')).not.toBeInTheDocument()
+    })
+
+    it.each([
+      [400, 'ORDER_KIT_OPTION_INVALID', '키트 옵션을 옵션 이름마다 하나씩 골라 주세요.'],
+      [409, 'ORDER_KIT_OPTION_SOLD_OUT', '고른 키트 옵션이 모두 소진됐어요.'],
+    ])(
+      '%i %s이면 결제 화면에 남아 서버 문구를 키트 칸 위 안내로 보여 준다',
+      async (status, code, message) => {
+        saveKitOptionIds(1, [11, 21])
+        server.use(
+          kitOptionsHandler(KIT_GROUPS),
+          payHandler(() => HttpResponse.json({ status, code, message, data: null }, { status })),
+        )
+        const user = setup()
+        renderCheckout()
+
+        const pay = await screen.findByRole('button', { name: PAY })
+        await screen.findByRole('heading', { name: '키트 옵션' })
+        await agree(user)
+        await user.click(pay)
+
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent(message)
+        // 실패 화면으로 넘어가지 않고 칩을 다시 고를 수 있다
+        expect(screen.queryByText('결제하지 못했어요')).not.toBeInTheDocument()
+        expect(screen.queryByText('남은 자리가 없어요')).not.toBeInTheDocument()
+        expect(chip('M')).toBeInTheDocument()
+        // 안내는 키트 칸 제목과 칩 사이에 있다
+        const heading = screen.getByRole('heading', { name: '키트 옵션' })
+        expect(
+          heading.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy()
+        expect(
+          alert.compareDocumentPosition(chip('M')) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy()
+
+        // 다시 고르면 안내가 사라진다
+        await user.click(chip('L'))
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      },
+    )
   })
 })

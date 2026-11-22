@@ -12,7 +12,12 @@ import { ApiError } from '@/shared/api'
  */
 export type PayFailure =
   | { kind: 'insufficient'; /** 모자란 금액(원) */ shortage: number }
+  | { kind: 'kit'; /** 서버 문구. 결제 화면에 남아 키트 칸 위에 보여 준다 */ message: string }
   | { kind: 'timeout' | 'soldout' | 'failed' }
+
+// 키트 옵션을 못 골랐거나(400) 고른 옵션이 소진됨(409) → 실패 화면 없이 키트 칸에서 다시 고른다
+const KIT_CODES = new Set(['ORDER_KIT_OPTION_INVALID', 'ORDER_KIT_OPTION_SOLD_OUT'])
+const KIT_FALLBACK_MESSAGE = '키트 옵션을 다시 확인해 주세요.'
 
 // 결제를 못 하게 된 주문(ORDER_NOT_PAYABLE)은 결제 화면에서는 거의 항상 기한이 지나 풀린 주문이라 시간 초과로 본다.
 const TIMEOUT_CODES = new Set(['ORDER_PAYMENT_DEADLINE_PASSED', 'ORDER_NOT_PAYABLE'])
@@ -27,6 +32,9 @@ export function toPayFailure(error: unknown): PayFailure {
     const body = InsufficientBody.safeParse(error.body)
     // 부족 금액이 빠져 와도 최소 충전 금액(1만 원)으로 충전하면 된다
     return { kind: 'insufficient', shortage: body.success ? body.data.data.shortage : 0 }
+  }
+  if (error.code !== undefined && KIT_CODES.has(error.code)) {
+    return { kind: 'kit', message: error.serverMessage ?? KIT_FALLBACK_MESSAGE }
   }
   if (error.code !== undefined && TIMEOUT_CODES.has(error.code)) return { kind: 'timeout' }
   if (error.code !== undefined && SOLDOUT_CODES.has(error.code)) return { kind: 'soldout' }

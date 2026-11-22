@@ -49,4 +49,19 @@ describe('toPayFailure', () => {
     expect(toPayFailure(new ApiError(500, null, '/x')).kind).toBe('failed')
     expect(toPayFailure(new TypeError('Failed to fetch')).kind).toBe('failed')
   })
+
+  it('키트 옵션 오류(400 · 409)는 서버 문구를 담은 kit으로 나눈다', () => {
+    const invalid = new ApiError(
+      400,
+      { status: 400, code: 'ORDER_KIT_OPTION_INVALID', message: '옵션을 골라 주세요.', data: null },
+      '/x',
+    )
+    expect(toPayFailure(invalid)).toEqual({ kind: 'kit', message: '옵션을 골라 주세요.' })
+    const soldOut = new ApiError(
+      409,
+      { status: 409, code: 'ORDER_KIT_OPTION_SOLD_OUT', message: '소진됐어요.', data: null },
+      '/x',
+    )
+    expect(toPayFailure(soldOut)).toEqual({ kind: 'kit', message: '소진됐어요.' })
+  })
 })
