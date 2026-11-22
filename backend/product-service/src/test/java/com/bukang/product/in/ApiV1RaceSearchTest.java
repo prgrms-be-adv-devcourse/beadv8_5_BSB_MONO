@@ -325,6 +325,22 @@ class ApiV1RaceSearchTest extends ProductIntegrationTest {
 		expectRacesInOrder(search("keyword", "서울"), seoul);
 	}
 
+	@Test
+	@DisplayName("검색어 '대관령' 한 단어로 찾으면 이름이 '대관령 마라톤'인 대회가 나온다 "
+		+ "(분석기가 검색어를 '대관'+'령'으로 쪼개지 않게 사용자 사전에 넣었다, CRU-139)")
+	void findsPlaceNameInUserDictionary() throws Exception {
+		// given
+		RegisteredRace daegwallyeong = registerOnSale(race().title("대관령 마라톤")
+			.region("강원특별자치도", "평창군")
+			.location("올림픽로 6-5")
+			.description("고원을 달리는 대회")
+			.build());
+		registerOnSale(race().build());
+
+		// when · then
+		expectRacesInOrder(search("keyword", "대관령"), daegwallyeong);
+	}
+
 	// ---------- 필터 ----------
 
 	@Test
