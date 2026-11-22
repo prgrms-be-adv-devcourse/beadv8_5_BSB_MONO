@@ -294,6 +294,23 @@ describe('LoginPage 테스트 계정 로그인', () => {
     expect(button).not.toHaveClass('bg-bg-surface')
   })
 
+  it('로그인 버튼 바로 아래에 테스트 계정 버튼이 붙고, 그 아래에 회원가입·계정 찾기, SNS가 차례로 온다 (CRU-136)', async () => {
+    demoEnabled()
+    render(withQueryClient(<LoginPage />))
+
+    const demo = await screen.findByRole('button', { name: DEMO_BUTTON })
+    const inOrder = [
+      screen.getByRole('button', { name: '로그인' }),
+      demo,
+      screen.getByRole('link', { name: '회원가입' }),
+      screen.getByRole('link', { name: '계정 찾기' }),
+      screen.getByText('SNS 계정으로 시작하기'),
+    ]
+    inOrder.slice(1).forEach((el, i) => {
+      expect(inOrder[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+  })
+
   it('누르면 본문 없이 데모 로그인 API만 부르고, 성공하면 로그인 상태가 되어 가려던 곳으로 간다', async () => {
     demoEnabled()
     let body: string | undefined

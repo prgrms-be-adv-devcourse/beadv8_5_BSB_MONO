@@ -113,22 +113,6 @@ export function LoginPage({
               <Button type="submit" size="l" disabled={!isValid || login.isPending}>
                 로그인
               </Button>
-              {/* 입력칸과 헷갈리지 않게 테두리 없는 글자 링크로 둔다 (CRU-124) */}
-              <div className="flex items-center justify-center gap-4">
-                <Link
-                  href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
-                  className={buttonClassName({ variant: 'text', size: 's' })}
-                >
-                  회원가입
-                </Link>
-                <span aria-hidden className="h-4 w-px bg-border-default" />
-                <Link
-                  href="/find-email"
-                  className={buttonClassName({ variant: 'text', size: 's' })}
-                >
-                  계정 찾기
-                </Link>
-              </div>
               {demoAvailable && (
                 <>
                   <Button
@@ -153,6 +137,22 @@ export function LoginPage({
                   )}
                 </>
               )}
+              {/* 로그인 버튼 두 개가 붙도록 링크는 그 아래에 둔다. 입력칸과 헷갈리지 않게 테두리 없는 글자 링크다 (CRU-124, CRU-136) */}
+              <div className="flex items-center justify-center gap-4">
+                <Link
+                  href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
+                  className={buttonClassName({ variant: 'text', size: 's' })}
+                >
+                  회원가입
+                </Link>
+                <span aria-hidden className="h-4 w-px bg-border-default" />
+                <Link
+                  href="/find-email"
+                  className={buttonClassName({ variant: 'text', size: 's' })}
+                >
+                  계정 찾기
+                </Link>
+              </div>
             </div>
             <p className="mt-8 mb-3 text-caption-regular text-text-secondary">
               SNS 계정으로 시작하기
