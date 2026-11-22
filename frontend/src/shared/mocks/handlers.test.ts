@@ -641,3 +641,41 @@ describe('AI 추천 대회(검색어) 목', () => {
     expect(body.data).toEqual([])
   })
 })
+
+describe('홈 배너 목', () => {
+  type Ids = { data: { raceId: number; visible?: boolean }[] }
+  const put = (raceIds: unknown) =>
+    customFetch<Ids>('http://localhost/api/v1/product/admin/banners', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raceIds }),
+    })
+  const ids = (body: Ids) => body.data.map((race) => race.raceId)
+  let initial: number[] = []
+  beforeEach(async () => {
+    initial = ids(await customFetch<Ids>('http://localhost/api/v1/product/admin/banners'))
+  })
+  afterEach(async () => {
+    await put(initial)
+  })
+
+  it('저장한 순서대로 관리자 목록과 공개 배너가 바뀐다', async () => {
+    expect(ids(await put([3, 1]))).toEqual([3, 1])
+    const pub = await customFetch<Ids>('http://localhost/api/v1/product/banners')
+    expect(ids(pub)).toEqual([3, 1])
+  })
+
+  it('공개 배너에서는 접수가 끝난 대회를 빼고, 관리자 목록에는 안 보임으로 남긴다', async () => {
+    // 가짜 대회 10(춘천마라톤)은 접수 마감이 어제다
+    const admin = await put([10, 1])
+    expect(admin.data.find((race) => race.raceId === 10)?.visible).toBe(false)
+    const pub = await customFetch<Ids>('http://localhost/api/v1/product/banners')
+    expect(ids(pub)).toEqual([1])
+  })
+
+  it('6개 이상 · 겹침은 400, 없는 대회는 404다', async () => {
+    await expect(put([1, 2, 3, 4, 5, 6])).rejects.toMatchObject({ status: 400 })
+    await expect(put([1, 1])).rejects.toMatchObject({ status: 400 })
+    await expect(put([999])).rejects.toMatchObject({ status: 404 })
+  })
+})
