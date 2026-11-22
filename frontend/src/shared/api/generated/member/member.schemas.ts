@@ -750,6 +750,23 @@ export interface IdentityReviewPageDto {
   totalPages: number;
 }
 
+export interface AdminMemberSearchDto {
+  id: number;
+  nickname: string;
+  /** 한국 시간, 시간대 표시 없음 */
+  joinedAt: string;
+  /**
+     * 예치금 잔액(원). 예치금 서비스에 묻지 못하면 null
+     * @nullable
+     */
+  deposit: number | null;
+  /**
+     * 끝나지 않은 참가권 수. 주문 서비스에 묻지 못하면 null
+     * @nullable
+     */
+  activeTickets: number | null;
+}
+
 export interface RsDataMemberDto {
   status?: number;
   message?: string;
@@ -846,6 +863,12 @@ export interface RsDataKakaoInviteSendResultDto {
   data?: KakaoInviteSendResultDto;
 }
 
+export interface RsDataListAdminMemberSearchDto {
+  status?: number;
+  message?: string;
+  data?: AdminMemberSearchDto[];
+}
+
 export interface RsDataIdentityReviewPageDto {
   status?: number;
   message?: string;
@@ -891,6 +914,13 @@ state?: string;
  * 사용자가 동의를 취소하면 제공자가 넣는다
  */
 error?: string;
+};
+
+export type SearchAdminMembersParams = {
+/**
+ * 찾을 닉네임 앞부분
+ */
+nickname?: string;
 };
 
 export type FindIdentityReviewParams = {
