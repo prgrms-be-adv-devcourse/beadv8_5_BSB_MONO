@@ -31,7 +31,7 @@ export type ImageUploadProps = {
   onOpen: () => void
   /** 칸에 파일을 끌어다 놓았을 때. 보통 이 파일을 담아 ImageUploadDialog를 연다. */
   onFilesDrop: (files: File[]) => void
-  /** 대표 이미지의 삭제 버튼 */
+  /** 대표 이미지의 삭제 버튼 · 소개 이미지는 썸네일마다 지우기 버튼 */
   onRemove?: (id: string) => void
   className?: string
 }
@@ -141,9 +141,22 @@ export function ImageUpload({
                 unoptimized
                 className="rounded-sm object-cover"
               />
-              <span className="absolute top-1.5 left-1.5 rounded-full bg-bg-inverse px-1.5 py-0.5 text-caption-medium text-text-inverse">
+              <span className="absolute top-2 left-2 flex h-5 items-center rounded-full bg-bg-inverse px-2 text-caption-medium text-text-inverse">
                 {index + 1}
               </span>
+              {onRemove && (
+                <button
+                  type="button"
+                  aria-label={`${index + 1}번째 소개 이미지 지우기`}
+                  onClick={() => onRemove(image.id)}
+                  className={cn(
+                    'absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-bg-inverse/85 text-text-inverse',
+                    FOCUS_RING,
+                  )}
+                >
+                  <Icon name="X" className="size-4" />
+                </button>
+              )}
             </li>
           ))}
         </ol>

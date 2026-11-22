@@ -205,7 +205,10 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
       crewSaleEndAt: z.string(),
       // 비우면 상한 없음. 값이 있으면 서버처럼 크루 최소 인원 이상이어야 한다
       crewMaxCount: z.string(),
-      individualOpenAt: dateTime,
+      // 일반 판매 시작은 날짜만 받는다 (화면이 고른 날짜의 00:00을 채운다)
+      individualOpenAt: z
+        .string()
+        .refine((value) => parseDateTimeInput(value) !== null, RACE_FORM_ERRORS.dateRequired),
       applicationCloseAt: dateTime,
       refundDeadline: date,
       courses: z.array(courseRowSchema).min(1, RACE_FORM_ERRORS.coursesRequired),
@@ -216,12 +219,18 @@ export function createRaceFormSchema({ today }: { today?: Date } = {}) {
         ctx.addIssue({ code: 'custom', path, message })
       // 형식이 맞는 칸끼리만 순서를 본다. 'yyyy-MM-dd HH:mm' 글자라 글자 비교가 곧 시각 비교다
       const raceDate = parseRaceDateInput(values.raceDate)
-      const raceAt =
-        raceDate && TIME_INPUT.test(values.raceTime) ? `${raceDate} ${values.raceTime}` : null
+      // 출발 시각을 아직 안 쳤어도 3주 규칙이 걸리도록 그날 끝(23:59)으로 본다. 그날 끝까지도 모자랄 때만 막는다
+      const raceAt = raceDate
+        ? `${raceDate} ${TIME_INPUT.test(values.raceTime) ? values.raceTime : '23:59'}`
+        : null
       const openAt = parseDateTimeInput(values.individualOpenAt)
       const refund = parseRaceDateInput(values.refundDeadline)
       const crewStart = values.crewOpen ? parseDateTimeInput(values.crewSaleStartAt) : null
-      checkScheduleOrder(values, raceAt, (path, message) => issue([path], message))
+      // 일반 판매 시작은 요청에 날짜의 00:00으로 보내므로 순서도 그 값으로 본다 (이어 쓴 값에 시각이 붙어 있을 수 있다)
+      const openAt0 = openAt ? `${openAt.slice(0, 10)} 00:00` : values.individualOpenAt
+      checkScheduleOrder({ ...values, individualOpenAt: openAt0 }, raceAt, (path, message) =>
+        issue([path], message),
+      )
       const max = values.crewMaxCount.trim()
       if (values.crewOpen && max !== '' && !(/^\d+$/.test(max) && Number(max) >= CREW_MIN_COUNT)) {
         issue(['crewMaxCount'], RACE_FORM_ERRORS.crewMaxCount)
@@ -381,6 +390,8 @@ export const RACE_FORM_DEFAULTS: RaceFormValues = {
   kitOptions: [],
 }
 
+const individualOpenDay = (text: string) => (parseDateTimeInput(text) ?? text).slice(0, 10)
+
 /** 검사를 마친 입력과 대회 이미지(대표 이미지) · 종목별 이미지로 대회 등록 요청을 만든다. courseImages는 courses와 같은 순서다. */
 export function toRaceSaveRequest(
   values: RaceFormValues,
@@ -396,7 +407,8 @@ export function toRaceSaveRequest(
     raceDate: `${parseRaceDateInput(values.raceDate) ?? values.raceDate}T${values.raceTime}:00`,
     crewSaleStartAt: values.crewOpen ? toLocalDateTime(values.crewSaleStartAt) : undefined,
     crewSaleEndAt: values.crewOpen ? toLocalDateTime(values.crewSaleEndAt) : undefined,
-    individualOpenAt: toLocalDateTime(values.individualOpenAt),
+    // 일반 판매 시작은 날짜만 받으므로 이어 쓴 값에 시각이 있어도 그 날짜의 00:00으로 통일한다
+    individualOpenAt: toLocalDateTime(`${individualOpenDay(values.individualOpenAt)} 00:00`),
     applicationCloseAt: toLocalDateTime(values.applicationCloseAt),
     // 환불 기한은 서버도 날짜(LocalDate)로 받는다
     refundDeadline: parseRaceDateInput(values.refundDeadline) ?? values.refundDeadline,

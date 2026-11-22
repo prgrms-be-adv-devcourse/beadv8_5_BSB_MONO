@@ -8,7 +8,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { addDays, format } from 'date-fns'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { raceAfterCloseMessage } from '@/entities/race'
 import type { productModel } from '@/shared/api'
@@ -234,6 +234,120 @@ describe('SellerRaceChangePage 일정 변경', () => {
     expect(
       await screen.findByText('접수 마감 일시는 대회 일시보다 늦을 수 없습니다.'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('SellerRaceChangePage 일반 판매 시작', () => {
+  it('저장된 시각이 00:00이 아니어도 시간 칸 없이 날짜만 보여 주고, 건드리지 않으면 저장된 값 그대로 보낸다', async () => {
+    const detail = useRace()
+    detail.individualOpenAt = at(10, '10:30:00')
+    let body: productModel.RaceSaveRequestDto | undefined
+    server.use(
+      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
+        body = (await request.json()) as productModel.RaceSaveRequestDto
+        return HttpResponse.json({
+          status: 200,
+          message: '대회를 수정했습니다.',
+          data: { raceId: 1 },
+        })
+      }),
+    )
+    renderPage()
+    const group = await screen.findByRole('group', { name: '일반 판매 시작' })
+    expect(within(group).queryByRole('textbox')).not.toBeInTheDocument()
+    expect(within(group).getByText(new RegExp(day(10)))).toBeInTheDocument()
+    expect(within(group).queryByText(/10:30/)).not.toBeInTheDocument()
+    // 접수 마감 · 크루 예매는 시간 칸이 그대로다
+    expect(screen.getByLabelText('접수 마감 시간')).toBeInTheDocument()
+    expect(screen.getByLabelText('크루 예매 시작 시간')).toBeInTheDocument()
+
+    await typeTime('접수 마감', '07:00')
+    await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
+    await confirmNotify()
+    expect(await screen.findByText('대회 일정을 바꿨어요')).toBeInTheDocument()
+    expect(body?.individualOpenAt).toBe(at(10, '10:30:00'))
+  })
+})
+
+describe('SellerRaceChangePage 일반 판매 시작 날짜 고르기', () => {
+  afterEach(() => vi.useRealTimers())
+
+  const dayButton = (day: number) =>
+    screen.getByRole('button', { name: new RegExp(`10월 ${day}일`) })
+  const openPicker = async () => {
+    const group = await screen.findByRole('group', { name: '일반 판매 시작' })
+    await userEvent.click(within(group).getAllByRole('button')[0])
+  }
+
+  it('오늘 00:00은 이미 지나 서버가 거절하므로 오늘은 고를 수 없고 내일부터 고른다 (크루 예매 마감이 지난 뒤에도)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 1, 12))
+    const detail = useRace()
+    // 크루 예매가 이미 끝난 대회: 크루 마감 규칙(어제 23:59 → 오늘부터)만으로는 오늘이 열려 있다
+    detail.crewSaleStartAt = at(-5, '10:00:00')
+    detail.crewSaleEndAt = at(-1, '23:59:59')
+    renderPage()
+    await openPicker()
+    expect(dayButton(1)).toBeDisabled()
+    expect(dayButton(2)).toBeEnabled()
+  })
+
+  it('달력을 열어 같은 날짜로 선택 완료를 눌러도 저장된 시각(10:30)을 00:00으로 바꾸지 않는다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 1, 12))
+    const detail = useRace()
+    detail.individualOpenAt = at(10, '10:30:00')
+    let body: productModel.RaceSaveRequestDto | undefined
+    server.use(
+      http.put('*/api/v1/product/races/:raceId', async ({ request }) => {
+        body = (await request.json()) as productModel.RaceSaveRequestDto
+        return HttpResponse.json({ status: 200, message: 'ok', data: { raceId: 1 } })
+      }),
+    )
+    renderPage()
+    await openPicker()
+    await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
+    await typeTime('접수 마감', '07:00')
+    await userEvent.click(screen.getByRole('button', { name: '일정 변경 알리기' }))
+    await confirmNotify()
+    expect(await screen.findByText('대회 일정을 바꿨어요')).toBeInTheDocument()
+    expect(body?.individualOpenAt).toBe(at(10, '10:30:00'))
+  })
+
+  it('크루 예매 마감 다음 날부터 고를 수 있다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 1, 12))
+    useRace()
+    renderPage()
+    await openPicker()
+    // useRace의 크루 예매 마감은 10일 뒤(10/10) 23:59라 일반 판매는 10/11부터
+    expect(dayButton(10)).toBeDisabled()
+    expect(dayButton(11)).toBeEnabled()
+  })
+
+  it('접수 마감 안내와 고를 수 있는 마지막 날은 대회 일시 3주 전이다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 1, 12))
+    useRace()
+    renderPage()
+    expect(await screen.findByText('대회 일시 3주 전까지 고를 수 있어요')).toBeInTheDocument()
+    const close = screen.getByRole('group', { name: '접수 마감' })
+    await userEvent.click(within(close).getAllByRole('button')[0])
+    // 대회가 40일 뒤(11/10)라 3주 전은 10/20
+    expect(dayButton(20)).toBeEnabled()
+    expect(dayButton(21)).toBeDisabled()
+  })
+
+  it('크루 예매를 열지 않으면 판매 시작일이라 오늘로부터 이틀 뒤부터 고른다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 1, 12))
+    useRace()
+    renderPage()
+    await screen.findByRole('group', { name: '일반 판매 시작' })
+    await userEvent.click(screen.getByRole('button', { name: '열지 않기' }))
+    await openPicker()
+    expect(dayButton(2)).toBeDisabled()
+    expect(dayButton(3)).toBeEnabled()
   })
 })
 

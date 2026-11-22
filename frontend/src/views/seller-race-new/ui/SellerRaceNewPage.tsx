@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format, isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
+import { addWeeks, format, isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
@@ -9,9 +9,11 @@ import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'rea
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
 import {
+  crewCloseAt,
   earliestRaceAt,
   earliestRefundDay,
   parseRaceDateInput,
+  RACE_AFTER_CLOSE_WEEKS,
   RaceScheduleFields,
 } from '@/entities/race'
 import { ApiError, memberApi, unwrapData } from '@/shared/api'
@@ -167,6 +169,10 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
     ],
   })
   const raceDay = dayOf(schedule[0])
+  // 접수 마감은 대회 날짜의 3주 전 날까지 (시각까지 맞는지는 검사에서 본다)
+  const lastCloseDay = raceDay && addWeeks(raceDay, -RACE_AFTER_CLOSE_WEEKS)
+  const crewEndText = crewOpen ? parseDateTimeInput(schedule[3]) : null
+  const crewOpenDay = crewEndText ? parseISO(crewCloseAt(crewEndText).slice(0, 10)) : undefined
   // 대회 날짜는 접수 마감 3주 뒤 날부터 고를 수 있다 (같은 날은 시각까지 맞아야 해서 검사에서 본다)
   const closeText = parseDateTimeInput(schedule[5])
   // 환불 기한은 접수 마감 다음 날부터 고를 수 있다
@@ -380,41 +386,38 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                 error={errors.title?.message}
                 {...register('title')}
               />
-              <div className="flex gap-4">
-                <Controller
-                  control={control}
-                  name="raceDate"
-                  render={({ field }) => (
-                    <DateTimeField
-                      mode="single"
-                      withTime={false}
-                      defaultValue={dayOf(initial.raceDate)}
-                      label="대회 날짜"
-                      required
-                      error={errors.raceDate?.message}
-                      isDateDisabled={(date) => isPast(date) || isBefore(date, minRaceDay)}
-                      startMonth={startOfToday()}
-                      onValueChange={field.onChange}
-                    />
-                  )}
-                />
-                <TextField
-                  label={
-                    <>
-                      출발 시각
-                      <RequiredMark />
-                    </>
-                  }
-                  placeholder="08:00"
-                  inputMode="numeric"
-                  maxLength={5}
-                  filter={(value) => value.replace(/[^\d:]/g, '')}
-                  filterMessage="숫자와 : 만 입력할 수 있어요"
-                  error={errors.raceTime?.message}
-                  className="flex-1"
-                  {...register('raceTime')}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="raceDate"
+                render={({ field }) => (
+                  <DateTimeField
+                    mode="single"
+                    withTime={false}
+                    defaultValue={dayOf(initial.raceDate)}
+                    label="대회 날짜"
+                    required
+                    error={errors.raceDate?.message}
+                    isDateDisabled={(date) => isPast(date) || isBefore(date, minRaceDay)}
+                    startMonth={startOfToday()}
+                    onValueChange={field.onChange}
+                  />
+                )}
+              />
+              <TextField
+                label={
+                  <>
+                    출발 시각
+                    <RequiredMark />
+                  </>
+                }
+                placeholder="08:00"
+                inputMode="numeric"
+                maxLength={5}
+                filter={(value) => value.replace(/[^\d:]/g, '')}
+                filterMessage="숫자와 : 만 입력할 수 있어요"
+                error={errors.raceTime?.message}
+                {...register('raceTime')}
+              />
             </div>
             <div className="flex flex-col gap-2">
               {manualRegion.sido ? (
@@ -532,9 +535,14 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
               }}
               isDateDisabled={(name, date) =>
                 isBeforeSaleOpen(date) ||
+                // 일반 판매는 크루 예매 마감 다음 날 0시부터 (마감이 0시 정각이면 그 시각부터)
+                (name === 'individualOpenAt' &&
+                  crewOpenDay !== undefined &&
+                  isBefore(date, crewOpenDay)) ||
+                // 접수 마감은 대회 일시 3주 전까지라, 일반 판매 시작도 그보다 늦을 수 없다
                 ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
-                  raceDay !== undefined &&
-                  isAfter(date, raceDay))
+                  lastCloseDay !== undefined &&
+                  isAfter(date, lastCloseDay))
               }
             />
           </ConsoleCard>
@@ -573,7 +581,12 @@ function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
                 error={introError}
                 onOpen={() => openList()}
                 onFilesDrop={openList}
-                onRemove={(id) => setIntro((prev) => prev.filter((v) => v.id !== id))}
+                onRemove={(id) => {
+                  // 지운 이미지의 임시 주소는 바로 해제하고, 남은 이미지는 앞으로 당겨 번호를 다시 매긴다
+                  const kept = intro.filter((v) => v.id !== id)
+                  setIntro(kept)
+                  releaseIntro(kept)
+                }}
                 className="flex-1"
               />
             </div>
