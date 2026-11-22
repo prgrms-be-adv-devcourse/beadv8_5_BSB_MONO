@@ -88,8 +88,11 @@ export function ConsoleSidebar({ role }: { role: ConsoleRole }) {
       </nav>
       <div className="flex-1" />
       <div className="flex w-full flex-col gap-1">
+        {/* 회원 서비스 홈으로 가는 길. 시안 순서·이름이 다르다: 관리자는 내 계정 위 「크루런 홈」, 판매자는 판매자 정보 아래 「크루런 홈으로」. 선택 표시는 하지 않는다 */}
+        {role === 'admin' && (
+          <SidebarItem href="/" label="크루런 홈" icon="Home" selected={false} />
+        )}
         <SidebarItem {...menu.settings} selected={isActive(menu.settings.href)} />
-        {/* 판매자 시안에만 있다(2070:66595). 관리자 시안(2070:11050)에는 없다. 선택 표시는 하지 않는다 */}
         {role === 'seller' && (
           <SidebarItem href="/" label="크루런 홈으로" icon="Home" selected={false} />
         )}
