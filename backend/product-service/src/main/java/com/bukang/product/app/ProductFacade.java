@@ -316,6 +316,8 @@ public class ProductFacade {
 		productDltUseCase.completeByResend(messageId, now);
 	}
 
+	// 공개 대회 목록. 대표 이미지 주소를 파일 서비스에 묻는 동안 DB 연결을 잡지 않게 트랜잭션 밖에서 돈다 (CRU-141)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public RacePageDto searchRaces(RaceSearchCondition condition, int page, int size) {
 		return raceSearchUseCase.search(condition, page, size);
 	}

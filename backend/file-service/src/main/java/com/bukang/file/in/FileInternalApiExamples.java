@@ -95,6 +95,32 @@ final class FileInternalApiExamples {
 		{ "status": 409, "message": "다른 대상에 연결된 파일입니다. (fileId: 1, fileType: THUMBNAIL, sortNo: 0)", "data": null }
 		""";
 
+	static final String THUMBNAILS_SUCCESS = """
+		{
+			"status": 200,
+			"message": "대표 이미지 주소를 조회했습니다.",
+			"data": [
+				{
+					"refId": 187,
+					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/dev/files/1a2b3c4d.jpg?X-Amz-Expires=1800&X-Amz-Signature=..."
+				},
+				{
+					"refId": 189,
+					"url": "https://crewrun-file-dev.s3.ap-northeast-2.amazonaws.com/dev/files/5e6f7a8b.jpg?X-Amz-Expires=1800&X-Amz-Signature=..."
+				}
+			]
+		}
+		""";
+
+	static final String THUMBNAILS_TOO_MANY = """
+		{
+			"status": 400,
+			"code": "INVALID_REQUEST",
+			"message": "대상은 한 번에 100개까지 조회할 수 있습니다.",
+			"data": null
+		}
+		""";
+
 	static final String VIEW_URL_SUCCESS = """
 		{
 			"status": 200,

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { server } from '@/shared/testing'
 
-import { fetchRaceDetail, raceCoverQueryOptions } from './race-api'
+import { fetchRaceDetail, fetchRacePageWithCovers, raceCoverQueryOptions } from './race-api'
 
 describe('fetchRaceDetail', () => {
   it('상품 API의 대회와 파일 API의 대회 대표 이미지를 합친다', async () => {
@@ -61,5 +61,46 @@ describe('raceCoverQueryOptions', () => {
     server.use(http.get('*/api/v1/file/files', () => HttpResponse.error()))
     const { queryFn } = raceCoverQueryOptions(2)
     await expect((queryFn as () => Promise<string | null>)()).resolves.toBeNull()
+  })
+})
+
+describe('fetchRacePageWithCovers', () => {
+  const page = (ids: number[]) =>
+    http.get('*/api/v1/product/races', () =>
+      HttpResponse.json({
+        status: 200,
+        message: 'ok',
+        data: {
+          races: ids.map((raceId) => ({ raceId, title: `대회 ${raceId}` })),
+          page: 0,
+          size: 20,
+        },
+      }),
+    )
+
+  it('목록 응답에 없는 대표 이미지를 대회 파일(refType=Race)에서 받아 imageUrl에 채운다', async () => {
+    server.use(
+      page([7, 8]),
+      http.get('*/api/v1/file/files', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        const isRace7 = params.get('refType') === 'Race' && params.get('refId') === '7'
+        const data = isRace7 ? [{ id: 1, fileType: 'THUMBNAIL', url: '/seven.webp' }] : []
+        return HttpResponse.json({ status: 200, message: 'ok', data })
+      }),
+    )
+    const { races } = await fetchRacePageWithCovers({ page: 0, size: 20 })
+    expect(races?.map((r) => (r as { imageUrl?: string }).imageUrl)).toEqual([
+      '/seven.webp',
+      undefined,
+    ])
+  })
+
+  it('이미지를 못 받아도 목록은 그대로 준다', async () => {
+    server.use(
+      page([7]),
+      http.get('*/api/v1/file/files', () => HttpResponse.error()),
+    )
+    const { races } = await fetchRacePageWithCovers({ page: 0, size: 20 })
+    expect(races).toHaveLength(1)
   })
 })

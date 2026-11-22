@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bukang.common.global.rsdata.RsData;
@@ -17,6 +18,7 @@ import com.bukang.file.app.FileFacade;
 import com.bukang.file.dto.FileDto;
 import com.bukang.file.dto.FileLinkRequestDto;
 import com.bukang.file.dto.FileUploaderDto;
+import com.bukang.file.dto.RefThumbnailDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,6 +29,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -38,6 +41,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/file")
 public class InternalV1FileController {
+	// 대표 이미지 주소를 한 번에 받을 수 있는 대상 수 (상품 대회 목록 한 페이지의 최대 크기와 같다)
+	static final int MAX_THUMBNAIL_REFS = 100;
+
 	private final FileFacade fileFacade;
 
 	@GetMapping("/files/{fileId}/view-url")
@@ -105,6 +111,31 @@ public class InternalV1FileController {
 	) {
 		fileFacade.delete(fileId);
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "파일을 지웠습니다.", null));
+	}
+
+	@GetMapping("/refs/{refType}/thumbnails")
+	@Operation(summary = "대상 여러 개의 대표 이미지 보기 주소",
+		description = "대상 ID 목록을 받아 대상마다 대표 이미지(THUMBNAIL)의 30분 뒤 만료되는 보기 주소를 돌려준다. "
+			+ "대표 이미지가 없거나 업로드 확인 전인 대상은 목록에서 빠진다. 한 번에 100개까지 받는다. "
+			+ "상품 서비스가 대회 목록·비슷한 대회 카드에 넣으려고 부른다(CRU-141).")
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공 (대표 이미지가 있는 대상만)",
+			content = @Content(examples = @ExampleObject(value = FileInternalApiExamples.THUMBNAILS_SUCCESS))),
+		@ApiResponse(responseCode = "400", description = "대상 ID 형식 오류 또는 100개 초과",
+			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
+				@ExampleObject(name = "대상 ID 형식 오류", value = FileInternalApiExamples.INVALID_VALUE_TYPE),
+				@ExampleObject(name = "100개 초과", value = FileInternalApiExamples.THUMBNAILS_TOO_MANY)
+			}))
+	})
+	public ResponseEntity<RsData<List<RefThumbnailDto>>> thumbnails(
+		@Parameter(description = "대상 종류 (대상 엔티티 클래스 이름)", example = "Race")
+		@PathVariable String refType,
+		@Parameter(description = "대상 ID 목록 (쉼표로 구분, 100개까지)", example = "187,188,189")
+		@RequestParam @Size(max = MAX_THUMBNAIL_REFS, message = "대상은 한 번에 100개까지 조회할 수 있습니다.")
+		List<Long> refIds
+	) {
+		return ResponseEntity.ok()
+			.body(RsData.of(HttpStatus.OK, "대표 이미지 주소를 조회했습니다.", fileFacade.findThumbnails(refType, refIds)));
 	}
 
 	@PutMapping("/refs/{refType}/{refId}/files")

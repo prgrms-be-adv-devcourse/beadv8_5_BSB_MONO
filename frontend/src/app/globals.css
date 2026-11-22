@@ -43,6 +43,24 @@
   --font-display: var(--font-barlow-condensed);
 }
 
+/* 입력칸 모양. 회원 시안(v4/Field)은 높이 52 · 둥글기 12 · 누르는 흰 면 그림자, 판매자센터 시안은 높이 48 · 둥글기 8 · 1px 선이다. */
+@layer base {
+  :root {
+    --field-min-h: 52px;
+    --field-radius: 12px;
+    --field-shadow: var(--shadow-field);
+    --field-ring: transparent;
+  }
+  .console-type,
+  :root:has(.console-type),
+  :root:has(.console-sidebar) {
+    --field-min-h: 48px;
+    --field-radius: 8px;
+    --field-shadow: 0 0 #0000;
+    --field-ring: var(--color-border-default);
+  }
+}
+
 /* 판매자센터 시안은 폭 1280 이상에서도 글자를 키우지 않는다(숫자 32 · 제목 20 · 굵은 본문 16). tokens.css의 Desktop 모드보다 뒤에 와서 이긴다. */
 @layer base {
   .console-type,

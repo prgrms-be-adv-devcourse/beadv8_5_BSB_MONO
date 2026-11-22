@@ -190,9 +190,15 @@ describe('RaceListPage', () => {
       ...base,
       raceId,
       title: `${raceId}번 대회`,
-      imageUrl: raceId === 1 ? undefined : `/mock/races/${raceId}.webp`,
     }))
     server.use(
+      // 목록 응답엔 이미지가 없고, 대회 파일(file 서비스)에서 받는다. 1번 대회만 파일이 없다.
+      http.get('*/api/v1/file/files', ({ request }) => {
+        const id = new URL(request.url).searchParams.get('refId')
+        const data =
+          id === '1' ? [] : [{ id: 1, fileType: 'THUMBNAIL', url: `/mock/races/${id}.webp` }]
+        return HttpResponse.json({ status: 200, message: 'ok', data })
+      }),
       http.get('*/api/v1/product/races', () =>
         HttpResponse.json({
           status: 200,

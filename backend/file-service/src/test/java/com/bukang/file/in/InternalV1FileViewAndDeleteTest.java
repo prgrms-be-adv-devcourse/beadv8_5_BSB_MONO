@@ -1,7 +1,10 @@
 package com.bukang.file.in;
 
+import static com.bukang.common.shared.file.domain.FileType.DETAIL;
 import static com.bukang.common.shared.file.domain.FileType.RECORD_CERT;
+import static com.bukang.common.shared.file.domain.FileType.THUMBNAIL;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,6 +22,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.file.domain.FileFormat;
 import com.bukang.file.domain.StoredFile;
 import com.bukang.file.out.StoredFileRepository;
@@ -129,6 +133,36 @@ class InternalV1FileViewAndDeleteTest {
 		assertThat(storedFileRepository.findById(requestFails.getId())).isEmpty();
 		assertThat(fakeFileStorage.exists(partial.getS3Key())).isFalse();
 		assertThat(fakeFileStorage.exists(requestFails.getS3Key())).isFalse();
+	}
+
+	@Test
+	@DisplayName("대표 이미지 주소 일괄 조회는 대회마다 대표 이미지 주소만 주고, 소개 이미지만 있거나 아무 이미지도 없는 대회는 뺀다 (CRU-141)")
+	void thumbnails() throws Exception {
+		// given
+		StoredFile cover1 = linkedRaceImage(THUMBNAIL, 1);
+		linkedRaceImage(DETAIL, 1);
+		linkedRaceImage(DETAIL, 2);
+		StoredFile cover3 = linkedRaceImage(THUMBNAIL, 3);
+
+		// when · then
+		mockMvc.perform(get("/internal/v1/file/refs/Race/thumbnails").param("refIds", "1,2,3,4"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("대표 이미지 주소를 조회했습니다."))
+			.andExpect(jsonPath("$.data[*].refId", containsInAnyOrder(1, 3)))
+			.andExpect(jsonPath("$.data[?(@.refId == 1)].url").value(viewUrl(cover1)))
+			.andExpect(jsonPath("$.data[?(@.refId == 3)].url").value(viewUrl(cover3)));
+	}
+
+	private StoredFile linkedRaceImage(FileType fileType, long raceId) {
+		StoredFile file = StoredFile.pending(
+			"uploads/" + UUID.randomUUID() + ".png", "race.png", fileType, FileFormat.PNG, 70, OWNER_ID);
+		file.confirmUpload(file.getS3Key().replace("uploads/", "files/"));
+		file.linkTo("Race", raceId, 0);
+		return storedFileRepository.save(file);
+	}
+
+	private static String viewUrl(StoredFile file) {
+		return "http://fake-s3/bukang-file/" + file.getS3Key() + "?X-Amz-Signature=fake-get";
 	}
 
 	private StoredFile linkedCert() {

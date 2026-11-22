@@ -119,6 +119,9 @@ public abstract class ProductIntegrationTest {
 	// 관리자 확인용 회원 서비스. 테스트가 admin(회원 ID)으로 정한 회원만 관리자다
 	@Autowired
 	protected StubMemberAdminPort memberAdminPort;
+	// 대회 대표 이미지 주소용 파일 서비스. 테스트가 thumbnail(대회 ID, 주소)로 정한 대회에만 주소가 있다
+	@Autowired
+	protected StubRaceThumbnailPort raceThumbnailPort;
 	@Autowired
 	private RaceDocumentSyncAppendUseCase raceDocumentSyncAppendUseCase;
 	@Autowired
@@ -151,6 +154,7 @@ public abstract class ProductIntegrationTest {
 	@AfterEach
 	void cleanUpProductTest() {
 		memberAdminPort.clear();
+		raceThumbnailPort.reset();
 		participationHoldRepository.deleteAll();
 		kitOptionRepository.deleteAll();
 		raceRepository.deleteAll();

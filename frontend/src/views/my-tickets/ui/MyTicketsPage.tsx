@@ -5,8 +5,18 @@ import Link from 'next/link'
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNav } from '@/widgets/bottom-nav'
 import { TICKET_STATUS } from '@/entities/ticket'
-import { cn } from '@/shared/lib'
-import { BibCard, Button, EmptyState, FOCUS_RING, Skeleton } from '@/shared/ui'
+import { cn, useSearchParamsState } from '@/shared/lib'
+import {
+  BibCard,
+  Button,
+  EmptyState,
+  FOCUS_RING,
+  Skeleton,
+  Tab,
+  TabBar,
+  TabPanel,
+  Tabs,
+} from '@/shared/ui'
 
 import { useTicketCards, type TicketCard } from '../model/use-ticket-cards'
 
@@ -17,6 +27,8 @@ export type MyTicketsState = 'loading' | 'empty'
 // 크루 신청 줄은 참가권에 크루 정보가 없어 아직 없다.
 // state는 시안 미리보기(?preview=loading|empty)용. 없으면 주문 API로 불러온다.
 export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
+  // 탭은 URL(?tab=)에 담아 상세에 갔다 돌아와도 남긴다. 처음에는 다가오는 대회
+  const [url, setUrl] = useSearchParamsState({ tab: 'upcoming' }, { tab: ['upcoming', 'past'] })
   const cards = useTicketCards()
   const loading = state === 'loading' || (state === undefined && cards.isPending)
   const upcoming = state === 'empty' ? [] : cards.upcoming
@@ -59,27 +71,58 @@ export function MyTicketsPage({ state }: { state?: MyTicketsState }) {
     )
   }
 
+  if (loading) {
+    return (
+      <>
+        <AppHeader search={false} className="border-b-0" />
+        <main className="flex flex-1 flex-col gap-6 px-4 pt-6 pb-6">
+          <TicketSkeletons />
+        </main>
+        <BottomNav />
+      </>
+    )
+  }
+
+  // 시안 v4 · 내 참가권 · 다가오는 대회·지난 대회 탭(2233:9773 · 2233:9874) · 비었을 때(2233:9983 · 2233:10098)
   return (
     <>
       <AppHeader search={false} className="border-b-0" />
-      <main className="flex flex-1 flex-col gap-6 px-4 pt-6 pb-6">
-        {loading && <TicketSkeletons />}
-        {!loading && <TicketGroup title="참가 예정" tickets={upcoming} />}
-        {!loading && <TicketGroup title="지난 대회" tickets={past} />}
-      </main>
+      <Tabs
+        className="flex flex-1 flex-col"
+        value={url.tab}
+        onValueChange={(value) => setUrl({ tab: String(value) })}
+      >
+        <TabBar>
+          <Tab value="upcoming" count={upcoming.length}>
+            다가오는 대회
+          </Tab>
+          <Tab value="past" count={past.length}>
+            지난 대회
+          </Tab>
+        </TabBar>
+        <TabPanel value="upcoming">
+          <TicketList tickets={upcoming} emptyTitle="다가오는 대회가 없어요" />
+        </TabPanel>
+        <TabPanel value="past">
+          <TicketList tickets={past} emptyTitle="지난 대회가 없어요" />
+        </TabPanel>
+      </Tabs>
       <BottomNav />
     </>
   )
 }
 
-// 피그마 v2 · 내 참가권(1333:26919): 제목 + 개수, 아래에 참가권 카드
-function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] }) {
-  if (tickets.length === 0) return null
+// 탭 안 목록: 참가권 카드를 세로로 쌓고, 비었으면 빈 화면
+function TicketList({ tickets, emptyTitle }: { tickets: TicketCard[]; emptyTitle: string }) {
+  if (tickets.length === 0) {
+    return (
+      <div className="flex flex-col items-center px-4 pt-24">
+        <EmptyState icon={null} title={emptyTitle} />
+      </div>
+    )
+  }
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-title3">
-        {title} {tickets.length}
-      </h2>
+    <section className="flex flex-col gap-4 px-4 pt-6 pb-6">
       {tickets.map((ticket) => (
         <Link
           key={ticket.id}
@@ -115,7 +158,6 @@ function TicketGroup({ title, tickets }: { title: string; tickets: TicketCard[] 
 function TicketSkeletons() {
   return (
     <div role="status" aria-label="불러오는 중" className="flex flex-col gap-4">
-      <Skeleton className="w-24" />
       {[0, 1].map((i) => (
         <div
           key={i}

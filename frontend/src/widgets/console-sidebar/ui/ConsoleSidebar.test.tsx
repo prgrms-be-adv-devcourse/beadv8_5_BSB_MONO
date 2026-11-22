@@ -77,14 +77,19 @@ describe('ConsoleSidebar 크루런 홈으로', () => {
     expect(home.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  // 관리자 시안(2070:11050)에는 이 줄이 없다
-  it('관리자 콘솔에는 크루런 홈으로 링크가 없다', () => {
+  it('관리자 콘솔의 내 계정 바로 위에 크루런 홈(/)으로 가는 링크가 있다', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ConsoleSidebar role="admin" />
       </QueryClientProvider>,
     )
 
+    const home = screen.getByRole('link', { name: '크루런 홈' })
+    expect(home).toHaveAttribute('href', '/')
+    expect(home).not.toHaveAttribute('aria-current')
+    const settings = screen.getByRole('link', { name: '내 계정' })
+    expect(home.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // 판매자 콘솔의 홈 링크는 이름이 다르다
     expect(screen.queryByRole('link', { name: '크루런 홈으로' })).not.toBeInTheDocument()
   })
 })
