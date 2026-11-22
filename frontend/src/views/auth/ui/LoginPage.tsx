@@ -22,7 +22,7 @@ import {
 } from '@/features/auth'
 import { ApiError } from '@/shared/api'
 import { cn } from '@/shared/lib'
-import { Button, buttonClassName, Dialog, FOCUS_RING, Logo, TextField } from '@/shared/ui'
+import { Button, Dialog, FOCUS_RING, Logo, TextField } from '@/shared/ui'
 
 import { AUTH_ERRORS, loginSchema, type LoginValues } from '../model/schemas'
 
@@ -78,7 +78,7 @@ export function LoginPage({
     <>
       <AppHeader type="sub" title="로그인" />
       <main className="flex flex-1 flex-col bg-bg-surface">
-        <div className="flex flex-1 flex-col justify-center py-8">
+        <div className="flex flex-1 flex-col pt-[86px] pb-8">
           <form
             id="login-form"
             className="flex flex-col items-center px-4"
@@ -87,7 +87,7 @@ export function LoginPage({
               login.mutate(values, { onSuccess: () => router.replace(safeNextPath(next)) }),
             )}
           >
-            <Logo className="h-11 w-36" />
+            <Logo className="h-11 w-[143px]" />
             <div className="mt-12 flex w-full flex-col gap-3">
               <TextField
                 aria-label="이메일"
@@ -119,7 +119,7 @@ export function LoginPage({
                     type="button"
                     variant="secondary"
                     size="m"
-                    className="bg-bg-subtle inset-ring-0 enabled:hover:bg-bg-subtle-hover"
+                    className="bg-bg-subtle shadow-field inset-ring-0 enabled:hover:bg-bg-subtle-hover"
                     disabled={demoLogin.isPending}
                     onClick={() =>
                       demoLogin.mutate(undefined, {
@@ -141,15 +141,12 @@ export function LoginPage({
               <div className="flex items-center justify-center gap-4">
                 <Link
                   href={next ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
-                  className={buttonClassName({ variant: 'text', size: 's' })}
+                  className={HELP_LINK}
                 >
                   회원가입
                 </Link>
-                <span aria-hidden className="h-4 w-px bg-border-default" />
-                <Link
-                  href="/find-email"
-                  className={buttonClassName({ variant: 'text', size: 's' })}
-                >
+                <span aria-hidden className="h-4 w-px bg-border-strong" />
+                <Link href="/find-email" className={HELP_LINK}>
                   계정 찾기
                 </Link>
               </div>
@@ -221,6 +218,13 @@ function loginErrorMessage(error: Error | null): string | undefined {
   if (error instanceof ApiError && error.status === 401) return AUTH_ERRORS.loginFailed
   return (error instanceof ApiError && error.serverMessage) || AUTH_ERRORS.loginUnavailable
 }
+
+// 시안의 글자 링크: 16 · 500 · 자간 0, 줄 높이 20. 누르는 영역(44)은 글자 밖으로 넓혀 줄 높이를 늘리지 않는다
+const HELP_LINK = cn(
+  'relative rounded-sm text-body1-medium leading-5 tracking-normal text-text-secondary',
+  'after:absolute after:-inset-x-2 after:-inset-y-3',
+  FOCUS_RING,
+)
 
 const FOOTER_LINKS = [
   { href: '/terms/service', label: '이용약관' },

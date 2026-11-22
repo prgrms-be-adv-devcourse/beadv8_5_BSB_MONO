@@ -16,7 +16,7 @@ import {
 // 앱 검수가 가이드 색을 보므로 디자인 토큰 대신 가이드 값을 쓴다.
 const STYLE: Record<SocialProviderId, string> = {
   kakao: 'bg-[#FEE500]',
-  google: 'border border-[#747775] bg-white',
+  google: 'border border-[#747775] bg-[#ffffff]',
 }
 
 // 피그마 v2 로그인: 지름 40 원형 아이콘 버튼 (카카오 말풍선, 구글 G)
