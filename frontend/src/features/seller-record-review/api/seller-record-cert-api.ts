@@ -28,6 +28,20 @@ export function raceRecordCertsQueryOptions(raceId: number, status?: SubmissionS
   })
 }
 
+/** 내 대회 전체의 심사 필요 제출 수 (대시보드 처리할 일) */
+export function recordCertReviewCountQueryOptions() {
+  return queryOptions({
+    queryKey: [...RECORD_CERTS_KEY, 'review-count'],
+    queryFn: async ({ signal }) =>
+      unwrapData(
+        await customFetch<RsData<{ waitingCount: number }>>(
+          `${SELLER_PATH}/record-certs/review-count`,
+          { signal },
+        ),
+      ),
+  })
+}
+
 /** 제출 하나 (원본 사진 보기 주소는 30분 유효) */
 export function recordCertDetailQueryOptions(submissionId: number) {
   return queryOptions({

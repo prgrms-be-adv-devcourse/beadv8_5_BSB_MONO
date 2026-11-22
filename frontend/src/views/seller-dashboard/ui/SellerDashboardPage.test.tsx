@@ -53,6 +53,19 @@ describe('SellerDashboardPage', () => {
     expect(hold).toHaveAttribute('href', '/seller/settlements')
   })
 
+  it('심사 필요 기록증이 있으면 건수를 보여 주고 대회 관리로 보낸다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/review-count', () =>
+        HttpResponse.json({ status: 200, message: 'ok', data: { waitingCount: 3 } }),
+      ),
+    )
+    renderPage()
+
+    const todo = await card('처리할 일')
+    const cert = await within(todo).findByRole('link', { name: /기록증 심사\s*3건\s*대회 관리/ })
+    expect(cert).toHaveAttribute('href', '/seller/races')
+  })
+
   it('0건인 줄은 숨긴다', async () => {
     server.use(
       http.get('*/api/v1/payout/seller/summary', () =>
