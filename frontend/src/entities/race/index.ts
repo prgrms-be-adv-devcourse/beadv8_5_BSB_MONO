@@ -60,7 +60,7 @@ export {
   type HomeBanner,
   type HomeBannerRow,
 } from './model/home-banner'
-export { applicationPhase, toClosingSoonCard, toRaceListItem } from './model/mappers'
+export { applicationPhase, toClosingSoonCard, toNewRaceCard, toRaceListItem } from './model/mappers'
 export type {
   ApplicationPhase,
   RaceBadge,
