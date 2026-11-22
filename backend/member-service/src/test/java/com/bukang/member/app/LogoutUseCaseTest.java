@@ -52,7 +52,7 @@ class LogoutUseCaseTest {
 
 		logoutUseCase.logout(refreshToken, null);
 
-		verify(refreshTokenRepository).deleteIfFamily(MEMBER_ID, "family-1");
+		verify(refreshTokenRepository).deleteFamily(MEMBER_ID, "family-1");
 	}
 
 	@Test
@@ -63,7 +63,7 @@ class LogoutUseCaseTest {
 		logoutUseCase.logout("not-a-jwt", null);
 		logoutUseCase.logout(jwtProvider.issueAccessToken(MEMBER_ID), null);
 
-		verify(refreshTokenRepository, never()).deleteIfFamily(anyLong(), anyString());
+		verify(refreshTokenRepository, never()).deleteFamily(anyLong(), anyString());
 	}
 
 	@Test
@@ -86,7 +86,7 @@ class LogoutUseCaseTest {
 		logoutUseCase.logout(refreshToken, "Bearer " + accessToken);
 
 		verify(revokedAccessTokenRepository).revoke(anyString(), any(Duration.class));
-		verify(refreshTokenRepository).deleteIfFamily(MEMBER_ID, "family-1");
+		verify(refreshTokenRepository).deleteFamily(MEMBER_ID, "family-1");
 	}
 
 	@Test
@@ -121,6 +121,6 @@ class LogoutUseCaseTest {
 
 		logoutUseCase.logout(refreshToken, "Bearer " + accessToken);
 
-		verify(refreshTokenRepository).deleteIfFamily(MEMBER_ID, "family-1");
+		verify(refreshTokenRepository).deleteFamily(MEMBER_ID, "family-1");
 	}
 }
