@@ -69,7 +69,7 @@ public class SellerTools {
 		+ "canceledCount: 취소를 마친 때가 이 기간인 참가권 장수(대회 취소 환불 포함), refundedAmount: 그 환불액 합(원). "
 		+ "환불을 처리 중인 참가권은 아직 취소로 세지 않는다. "
 		+ "모든 값은 판매자의 모든 대회를 합친 것이라, 대회 하나의 판매·취소(예: 「OO 대회 몇 장 팔렸어?」)를 물으면 부르지 않는다. "
-		+ "그런 질문에는 대회별 판매는 아직 답할 수 없다고 하고 판매 현황 화면에서 대회를 골라 보라고 안내한다")
+		+ "그런 질문에는 대회별 판매는 아직 답할 수 없다고 하고 판매 현황(주문 · 참가자) 화면에서 대회를 골라 보라고 안내한다")
 	public Object sellerMonthlySales(ToolContext toolContext) {
 		return monthlySales(AiToolTrace.of(toolContext), LocalDate.now(AiToolTrace.ZONE));
 	}

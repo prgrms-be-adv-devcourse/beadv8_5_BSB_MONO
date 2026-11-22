@@ -255,7 +255,7 @@ class AiToolsTest {
 			sales -> assertThat(sales.scope()).contains("모든 대회 합계"));
 		String description = SellerTools.class.getMethod("sellerMonthlySales", ToolContext.class)
 			.getAnnotation(Tool.class).description();
-		assertThat(description).contains("대회 하나의 판매", "부르지 않는다", "판매 현황 화면");
+		assertThat(description).contains("대회 하나의 판매", "부르지 않는다", "판매 현황(주문 · 참가자) 화면");
 	}
 
 	@Test
