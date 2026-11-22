@@ -48,11 +48,13 @@ class MailDispatcherTest {
 	}
 
 	@Test
-	@DisplayName("보내면 제목만 로그에 남기고, 받는 주소는 남기지 않는다")
+	@DisplayName("발송기가 예외 없이 끝나면 발송기 이름과 제목만 로그에 남기고, 받는 주소는 남기지 않는다")
 	void logsSuccessWithoutAddress(CapturedOutput output) {
 		dispatcher.dispatch(MAIL);
 
-		assertThat(output.getOut()).contains("메일을 보냈습니다: OutgoingMail[subject=제목]")
+		// 발송기 이름을 남겨, 메일 설정이 없어 실제로는 보내지 않는 발송기와 구분한다
+		assertThat(output.getOut())
+			.contains("메일을 발송기에 넘겼습니다(InMemoryMemberMailSender): OutgoingMail[subject=제목]")
 			.doesNotContain("runner1@crewrun.com");
 	}
 
