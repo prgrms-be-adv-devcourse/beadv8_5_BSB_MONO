@@ -624,3 +624,20 @@ describe('알림 읽음 목', () => {
     expect(res.status).toBe(200)
   })
 })
+
+describe('AI 추천 대회(검색어) 목', () => {
+  it('/races/recommendations가 /races/:raceId 핸들러에 가로채이지 않는다', async () => {
+    const body = await customFetch<{ data: { raceId: number }[] }>(
+      'http://localhost/api/v1/product/races/recommendations?keyword=서울',
+    )
+    expect(Array.isArray(body.data)).toBe(true)
+    expect(body.data.length).toBeGreaterThan(0)
+  })
+
+  it('검색어가 2글자보다 짧으면 빈 목록', async () => {
+    const body = await customFetch<{ data: unknown[] }>(
+      'http://localhost/api/v1/product/races/recommendations?keyword=서',
+    )
+    expect(body.data).toEqual([])
+  })
+})
