@@ -228,17 +228,22 @@ export function RaceDetailPage({
               {race.description && (
                 <p className="text-body2-regular whitespace-pre-line">{race.description}</p>
               )}
-              {race.images.map((src, i) => (
-                <div key={`${src}-${i}`} className="relative h-112 overflow-hidden rounded-md">
-                  <Image
-                    src={src}
-                    alt={`상세 정보 이미지 ${i + 1}`}
-                    fill
-                    sizes="568px"
-                    className="object-cover"
-                  />
+              {race.images.length > 0 && (
+                <div className="flex flex-col overflow-hidden rounded-md">
+                  {race.images.map((src, i) => (
+                    // 원본 크기를 몰라 정사각형 자리를 잡아 두고, 불러오면 원본 비율로 늘어난다 (h-auto)
+                    <Image
+                      key={`${src}-${i}`}
+                      src={src}
+                      alt={`상세 정보 이미지 ${i + 1}`}
+                      width={720}
+                      height={720}
+                      sizes="(min-width: 720px) 688px, 100vw"
+                      className="block h-auto w-full"
+                    />
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </Section>
         )}
