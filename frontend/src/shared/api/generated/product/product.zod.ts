@@ -516,7 +516,7 @@ export const SearchResponse = zod.object({
   "status": zod.enum(['OPEN', 'SOLD_OUT']).optional(),
   "individualRemaining": zod.int().optional()
 })).optional(),
-  "imageUrl": zod.string().nullish().describe('대표 이미지 보기 주소 (30분 뒤 만료). 없으면 null')
+  "imageUrl": zod.string().nullish().describe('대표 이미지 보기 주소(30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null')
 })).optional(),
   "page": zod.int().optional(),
   "size": zod.int().optional(),

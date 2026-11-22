@@ -84,6 +84,7 @@ export function toRaceListItem(race: SummaryDto, now: Date = new Date()): RaceLi
   return {
     id: String(race.raceId),
     title: race.title ?? '',
+    // 대표 이미지가 없으면 null → 색 포스터
     image: race.imageUrl ?? undefined,
     posterLabel: courseNames(race.courses).join(' · '),
     badge: listBadge(race, now),
@@ -98,6 +99,7 @@ export function toClosingSoonCard(race: SummaryDto, now: Date = new Date()): Rac
   return {
     id: String(race.raceId),
     title: race.title ?? '',
+    // 대표 이미지가 없으면 null → 색 포스터
     image: race.imageUrl ?? undefined,
     posterLabel: courseNames(race.courses).join(' · '),
     // 대회별 남은 자리 수는 회원에게 보여 주지 않는다 (11/10 결정)

@@ -39,7 +39,10 @@ type Env = {
   clientKey: string | undefined
   origin: string
   historyLength: number
+  /** 지금 시점의 기록 길이. 결제창이 닫힌 뒤 늘었는지 비교한다 */
+  historyLengthNow: () => number
   navigate: (url: string) => void
+  goBack: (steps: number) => void
 }
 
 // history.length에는 앞으로 가기로 갈 수 있는 기록도 들어 있지만, 결제창으로 떠나는 순간 브라우저가 그 기록을 지운다.
@@ -58,8 +61,13 @@ const browserEnv = (): Env => ({
   clientKey: clientEnv.NEXT_PUBLIC_TOSS_CLIENT_KEY,
   origin: window.location.origin,
   historyLength: historyLengthUpToHere(),
+  historyLengthNow: historyLengthUpToHere,
   navigate: (url) => window.location.assign(url),
+  goBack: (steps) => window.history.go(-steps),
 })
+
+// 브라우저는 history.length를 50에서 멈춘다. 그 근처면 늘어난 수를 믿을 수 없어 되감지 않는다.
+const HISTORY_LENGTH_CAP = 50
 
 // 돌아갈 주문은 주소에 싣지 않고 sessionStorage의 충전 기록으로만 정한다 (주소를 고쳐도 다른 주문으로 가지 않게)
 function returnUrl(origin: string, result: 'success' | 'fail') {
@@ -111,7 +119,13 @@ export async function requestCharge(
     })
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code
-    if (typeof code === 'string' && isChargeCanceled(code)) return 'canceled'
+    if (typeof code === 'string' && isChargeCanceled(code)) {
+      // 결제창이 닫혀도 안에서 쌓은 기록은 남아 뒤로 가기를 두 번 눌러야 한다. 늘어난 만큼 되감는다.
+      const now = env.historyLengthNow()
+      const added = now - env.historyLength
+      if (added > 0 && now < HISTORY_LENGTH_CAP) env.goBack(added)
+      return 'canceled'
+    }
     throw error
   }
   return 'redirecting'

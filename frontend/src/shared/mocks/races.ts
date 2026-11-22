@@ -211,12 +211,9 @@ const RACE_SEEDS: RaceSeed[] = [
   },
 ]
 
-/** 목록 카드용 대표 이미지(imageUrl)를 더한 목록 항목. 명세에는 아직 없는 칸이다. */
-export type MockRaceSummary = RaceSummaryDto & { imageUrl?: string }
-
 type MockRace = {
   detail: Detail
-  summary: MockRaceSummary
+  summary: RaceSummaryDto
   image: string
   registeredAt: number
 }
@@ -283,7 +280,7 @@ function build(seed: RaceSeed, now: number): MockRace {
       individualRemaining: course.remaining,
     })),
   }
-  const summary: MockRaceSummary = {
+  const summary: RaceSummaryDto = {
     ...base,
     imageUrl: seed.image,
     minPrice: Math.min(...seed.courses.map((course) => course.price)),

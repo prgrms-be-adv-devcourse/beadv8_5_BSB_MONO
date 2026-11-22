@@ -3,12 +3,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readPendingCharge } from '../lib/pending-charge'
 import { chargeAmountFor, requestCharge } from './request-charge'
 
-const env = (patch: { mocking?: boolean } = {}) => ({
+const requestPayment = vi.fn<() => Promise<unknown>>()
+vi.mock('@tosspayments/tosspayments-sdk', () => ({
+  ANONYMOUS: 'ANONYMOUS',
+  loadTossPayments: async () => ({ payment: () => ({ requestPayment }) }),
+}))
+
+const env = (
+  patch: { mocking?: boolean; clientKey?: string; historyLengthNow?: () => number } = {},
+) => ({
   mocking: false,
   clientKey: undefined,
   origin: 'https://crewrun.test',
   historyLength: 3,
+  historyLengthNow: () => 3,
   navigate: vi.fn<(url: string) => void>(),
+  goBack: vi.fn<(steps: number) => void>(),
   ...patch,
 })
 
@@ -92,5 +102,51 @@ describe('requestCharge', () => {
 
     await expect(requestCharge({ amount: 10_000 }, mock)).resolves.toBe('redirecting')
     expect(readPendingCharge()?.orderId).not.toBe('charge-prior')
+  })
+
+  describe('결제창을 닫아 취소했을 때', () => {
+    beforeEach(() => {
+      requestPayment.mockReset()
+    })
+    const cancel = () =>
+      requestPayment.mockImplementation(() => Promise.reject({ code: 'USER_CANCEL' }))
+
+    it('결제창이 쌓은 기록만큼 되감아 뒤로 가기 한 번이면 이전 화면으로 가게 한다', async () => {
+      cancel()
+      const real = env({ clientKey: 'test_ck_x', historyLengthNow: () => 4 })
+
+      await expect(requestCharge({ amount: 10_000 }, real)).resolves.toBe('canceled')
+
+      expect(real.goBack).toHaveBeenCalledExactlyOnceWith(1)
+    })
+
+    it('기록이 늘지 않았으면 되감지 않는다', async () => {
+      cancel()
+      const real = env({ clientKey: 'test_ck_x' })
+
+      await expect(requestCharge({ amount: 10_000 }, real)).resolves.toBe('canceled')
+
+      expect(real.goBack).not.toHaveBeenCalled()
+    })
+
+    it('기록 길이가 상한(50)에 닿아 셀 수 없으면 되감지 않는다', async () => {
+      cancel()
+      const real = env({ clientKey: 'test_ck_x', historyLengthNow: () => 50 })
+
+      await requestCharge({ amount: 10_000 }, real)
+
+      expect(real.goBack).not.toHaveBeenCalled()
+    })
+
+    it('취소가 아닌 오류는 되감지 않고 그대로 던진다', async () => {
+      requestPayment.mockImplementation(() => Promise.reject({ code: 'INVALID_CARD' }))
+      const real = env({ clientKey: 'test_ck_x', historyLengthNow: () => 4 })
+
+      await expect(requestCharge({ amount: 10_000 }, real)).rejects.toEqual({
+        code: 'INVALID_CARD',
+      })
+
+      expect(real.goBack).not.toHaveBeenCalled()
+    })
   })
 })

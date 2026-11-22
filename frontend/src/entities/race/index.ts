@@ -3,7 +3,6 @@ export {
   fetchHomeBanners,
   fetchRaceDetail,
   fetchRacePage,
-  fetchRacePageWithCovers,
   RACE_PAGE_SIZE,
   raceDetailQueryOptions,
   raceCoverQueryOptions,

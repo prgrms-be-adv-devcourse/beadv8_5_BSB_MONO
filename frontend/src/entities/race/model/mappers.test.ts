@@ -45,6 +45,8 @@ describe('대회 응답 → 화면 모양', () => {
 
   it('목록 응답에 imageUrl이 있을 때만 카드 이미지가 붙는다', () => {
     expect(toRaceListItem(summary).image).toBeUndefined()
+    expect(toRaceListItem({ ...summary, imageUrl: null }).image).toBeUndefined()
+    expect(toClosingSoonCard({ ...summary, imageUrl: null }).image).toBeUndefined()
     expect(toRaceListItem({ ...summary, imageUrl: '/mock/races/a.png' }).image).toBe(
       '/mock/races/a.png',
     )
