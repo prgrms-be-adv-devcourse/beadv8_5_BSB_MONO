@@ -1,0 +1,2 @@
+시각	테이블	인덱스	기다린_잠금	기다리는_수	가장_오래_초	기다린_SQL	막은_SQL
+2026-11-20 05:07:54.033	`bukang-db`.`cash_wallet`	PRIMARY	X,REC_NOT_GAP	1	1	select w1_0.id,w1_0.balance,w1 ... e w1_0.id=2 for update of w1_0	NULL

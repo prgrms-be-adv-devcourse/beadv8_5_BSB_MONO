@@ -1,0 +1,96 @@
+time="2026-11-19T21:25:28Z" level=warning msg="The test has generated metrics with 100062 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-19T21:26:37Z" level=warning msg="The test has generated metrics with 200034 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+time="2026-11-19T21:28:45Z" level=warning msg="The test has generated metrics with 400110 unique time series, which is higher than the suggested limit of 100000 and could cause high memory usage. Consider not using high-cardinality values like unique IDs as metric tags or, if you need them in the URL, use the name metric tag or URL grouping. See https://grafana.com/docs/k6/latest/using-k6/tags-and-groups/ for details." component=metrics-engine-ingester
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{api:balance,stage:1}
+    ✓ 'p(99)<1000' p(99)=810.67ms
+
+    http_req_duration{api:balance,stage:2}
+    ✓ 'p(99)<1000' p(99)=10.38ms
+
+    http_req_duration{api:balance,stage:3}
+    ✓ 'p(99)<1000' p(99)=6.04ms
+
+    http_req_duration{api:charge_dup}
+    ✓ 'med<3200' med=22.04ms
+
+    http_req_duration{api:charge,stage:1}
+    ✗ 'p(99)<10000' p(99)=10.99s
+
+    http_req_duration{api:charge,stage:2}
+    ✓ 'p(99)<10000' p(99)=4.17s
+
+    http_req_duration{api:charge,stage:3}
+    ✓ 'p(99)<10000' p(99)=4.08s
+
+    http_req_duration{api:pay,stage:1}
+    ✓ 'p(95)<2000' p(95)=393.56ms
+    ✓ 'p(99)<1000' p(99)=606.9ms
+
+    http_req_duration{api:pay,stage:2}
+    ✓ 'p(95)<2000' p(95)=94.51ms
+    ✓ 'p(99)<1000' p(99)=113.23ms
+
+    http_req_duration{api:pay,stage:3}
+    ✓ 'p(95)<2000' p(95)=62.65ms
+    ✓ 'p(99)<1000' p(99)=85.15ms
+
+    http_req_failed{api:charge,stage:1}
+    ✗ 'rate<0.01' rate=13.71%
+
+    http_req_failed{api:charge,stage:2}
+    ✗ 'rate<0.01' rate=51.87%
+
+    http_req_failed{api:charge,stage:3}
+    ✗ 'rate<0.01' rate=68.05%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 92984  170.92205/s
+    checks_succeeded...................: 83.19% 77359 out of 92984
+    checks_failed......................: 16.80% 15625 out of 92984
+
+    ✓ 결제 200·결제됨
+    ✓ 잔액 조회 200
+    ✗ 충전 200·완료
+      ↳  46% — ✓ 12479 / ✗ 14465
+    ✗ 같은 충전 두 번째 200·완료
+      ↳  14% — ✓ 189 / ✗ 1160
+
+    HTTP
+    http_req_duration.......................................................: avg=599.42ms med=12.67ms  p(95)=4.07s    p(99)=4.27s    max=13.66s  
+      { api:balance,stage:1 }...............................................: avg=42.97ms  med=5.58ms   p(95)=198.32ms p(99)=810.67ms max=1.5s    
+      { api:balance,stage:2 }...............................................: avg=2.69ms   med=1.97ms   p(95)=5.75ms   p(99)=10.38ms  max=96.22ms 
+      { api:balance,stage:3 }...............................................: avg=1.92ms   med=1.65ms   p(95)=3.48ms   p(99)=6.04ms   max=11.4ms  
+      { api:charge_dup }....................................................: avg=1.25s    med=22.04ms  p(95)=4.07s    p(99)=4.5s     max=11.7s   
+      { api:charge,stage:1 }................................................: avg=3.77s    med=4.13s    p(95)=4.76s    p(99)=10.99s   max=13.66s  
+      { api:charge,stage:2 }................................................: avg=1.95s    med=70.91ms  p(95)=4.09s    p(99)=4.17s    max=4.29s   
+      { api:charge,stage:3 }................................................: avg=1.29s    med=16.35ms  p(95)=4.05s    p(99)=4.08s    max=4.24s   
+      { api:pay,stage:1 }...................................................: avg=173.24ms med=111.05ms p(95)=393.56ms p(99)=606.9ms  max=1.9s    
+      { api:pay,stage:2 }...................................................: avg=29.41ms  med=12.59ms  p(95)=94.51ms  p(99)=113.23ms max=305.78ms
+      { api:pay,stage:3 }...................................................: avg=21.93ms  med=11.95ms  p(95)=62.65ms  p(99)=85.15ms  max=183.55ms
+      { expected_response:true }............................................: avg=706.7ms  med=13.39ms  p(95)=4.08s    p(99)=4.31s    max=13.66s  
+    http_req_failed.........................................................: 16.80% 15625 out of 92984
+      { api:charge,stage:1 }................................................: 13.71% 610 out of 4447
+      { api:charge,stage:2 }................................................: 51.87% 4667 out of 8996
+      { api:charge,stage:3 }................................................: 68.05% 9188 out of 13501
+    http_reqs...............................................................: 92984  170.92205/s
+
+    EXECUTION
+    dropped_iterations......................................................: 62     0.113968/s
+    iteration_duration......................................................: avg=597.38ms med=13.57ms  p(95)=4.07s    p(99)=4.27s    max=13.66s  
+    iterations..............................................................: 91635  168.442335/s
+    vus.....................................................................: 6      min=6              max=110
+    vus_max.................................................................: 326    min=264            max=326
+
+    NETWORK
+    data_received...........................................................: 21 MB  38 kB/s
+    data_sent...............................................................: 21 MB  38 kB/s
+
+
+
+time="2026-11-19T21:30:13Z" level=error msg="thresholds on metrics 'http_req_duration{api:charge,stage:1}, http_req_failed{api:charge,stage:1}, http_req_failed{api:charge,stage:2}, http_req_failed{api:charge,stage:3}' have been crossed"
