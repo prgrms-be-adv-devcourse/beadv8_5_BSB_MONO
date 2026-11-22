@@ -374,7 +374,8 @@ final class RaceApiExamples {
 								"status": "OPEN",
 								"individualRemaining": 580
 							}
-						]
+						],
+						"imageUrl": "https://crewrun-file-prod.s3.ap-northeast-2.amazonaws.com/prod/files/1a2b3c4d.jpg?X-Amz-Expires=1800&X-Amz-Signature=..."
 					}
 				],
 				"page": 0,
@@ -634,7 +635,8 @@ final class RaceApiExamples {
 							"status": "OPEN",
 							"individualRemaining": 300
 						}
-					]
+					],
+					"imageUrl": null
 				}
 			]
 		}

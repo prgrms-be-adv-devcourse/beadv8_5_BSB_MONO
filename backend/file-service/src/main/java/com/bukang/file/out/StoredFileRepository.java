@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.file.domain.FileStatus;
 import com.bukang.file.domain.StoredFile;
 
@@ -17,6 +18,10 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, Long> {
 	// 대상의 파일 (idx_file_ref 인덱스). 화면 순서는 StoredFile.DISPLAY_ORDER로 정렬한다
 	// DB에서 file_type으로 정렬하면 알파벳순이 되어 대표 이미지가 맨 뒤로 가기 때문이다
 	List<StoredFile> findAllByRefTypeAndRefIdAndStatus(String refType, Long refId, FileStatus status);
+
+	// 여러 대상의 한 용도 파일 (대회 목록의 대표 이미지, CRU-141). idx_file_ref 인덱스로 대상 ID 목록을 찾는다
+	List<StoredFile> findAllByRefTypeAndRefIdInAndFileTypeAndStatus(String refType, Collection<Long> refIds,
+		FileType fileType, FileStatus status);
 
 	// 정리 후보: 대상 상태이고 기준 시각 전부터 바뀌지 않은 파일 (idx_file_status_modify 인덱스)
 	// 지운 행은 다시 조회되지 않으므로 늘 첫 페이지(PageRequest.of(0, limit))를 읽으면 된다
