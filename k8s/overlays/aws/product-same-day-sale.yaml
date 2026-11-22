@@ -17,4 +17,4 @@ spec:
         - name: app
           env:
             - name: PRODUCT_RACE_SAME_DAY_SALE_ENABLED
-              value: "true"
+              value: "false"
