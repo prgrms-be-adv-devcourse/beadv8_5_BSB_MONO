@@ -165,12 +165,13 @@ describe('useReleaseAdmissionOnExit', () => {
     expect(releases()[0][0]).toBe(PARTY_URL)
   })
 
-  it('같은 화면 안에서 다시 그려져도(개발 모드 이중 실행) 해제하지 않는다', () => {
+  it('개발 모드 이중 실행(StrictMode)에서도 같은 주소면 해제하지 않는다', () => {
     window.history.pushState({}, '', '/races/33/apply')
-    const { rerender, unmount } = renderHook(() => useReleaseAdmissionOnExit(RACE))
-    rerender()
+    const { unmount } = renderHook(() => useReleaseAdmissionOnExit(RACE), {
+      reactStrictMode: true,
+    })
+    expect(releases()).toHaveLength(0)
     unmount()
-
     expect(releases()).toHaveLength(0)
   })
 })

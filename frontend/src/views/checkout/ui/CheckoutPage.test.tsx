@@ -1258,6 +1258,29 @@ describe('결제 화면 · 입장 해제', () => {
     expect(released).toEqual([])
   })
 
+  it('결제 직후 주문을 다시 받기 전에 완료 화면으로 가도 해제하지 않는다', async () => {
+    // 결제는 PAID로 답하지만 주문 조회는 결제 대기 그대로다 (재조회 실패와 같은 상태)
+    server.use(
+      payHandler(() =>
+        HttpResponse.json({
+          status: 200,
+          message: '',
+          data: orderResponse({ status: 'PAID' }).data,
+        }),
+      ),
+    )
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderCheckout()
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
+    await agree(user)
+    await user.click(pay)
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+    window.history.pushState({}, '', '/checkout/complete')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
+  })
+
   it('토스 충전창으로 떠나는 중에는 pagehide에도 해제하지 않는다', async () => {
     server.use(
       balanceHandler(40_000),
