@@ -51,9 +51,14 @@ public class PasswordResetUseCase {
 	public void request(String rawEmail, String clientIp) {
 		String email = rawEmail.trim();
 		String emailHash = Sha256.hex(email.toLowerCase(Locale.ROOT));
-		if (!store.tryAcquireIpRequest(Sha256.hex(clientIp), properties.ipDailyLimit(), properties.dailyWindow())
-			|| !store.tryAcquireRequest(emailHash, properties.requestCooldown(),
+		// 응답은 같은 429지만, 메일을 못 받은 이유를 찾을 수 있게 어느 한도인지 로그로 나눈다
+		if (!store.tryAcquireIpRequest(Sha256.hex(clientIp), properties.ipDailyLimit(), properties.dailyWindow())) {
+			log.info("같은 IP의 하루 재설정 요청 한도를 넘었습니다. emailHash={}", emailHash);
+			throw new PasswordResetTooManyRequestsException(TOO_MANY_MESSAGE);
+		}
+		if (!store.tryAcquireRequest(emailHash, properties.requestCooldown(),
 			properties.dailyLimit(), properties.dailyWindow())) {
+			log.info("같은 이메일의 재설정 요청 한도를 넘었습니다. emailHash={}", emailHash);
 			throw new PasswordResetTooManyRequestsException(TOO_MANY_MESSAGE);
 		}
 
