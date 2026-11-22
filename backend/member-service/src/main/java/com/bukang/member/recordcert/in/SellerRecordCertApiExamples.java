@@ -128,7 +128,10 @@ final class SellerRecordCertApiExamples {
 		{
 			"status": 200,
 			"message": "심사 필요 기록증 제출 수를 조회했습니다.",
-			"data": { "waitingCount": 12 }
+			"data": {
+				"waitingCount": 12,
+				"races": [{ "raceId": 206, "waitingCount": 9 }, { "raceId": 185, "waitingCount": 3 }]
+			}
 		}
 		""";
 

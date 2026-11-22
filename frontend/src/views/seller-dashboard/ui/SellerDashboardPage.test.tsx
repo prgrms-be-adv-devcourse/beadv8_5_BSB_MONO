@@ -53,7 +53,47 @@ describe('SellerDashboardPage', () => {
     expect(hold).toHaveAttribute('href', '/seller/settlements')
   })
 
-  it('심사 필요 기록증이 있으면 건수를 보여 주고 대회 관리로 보낸다', async () => {
+  it('심사할 기록증이 있는 대회마다 한 줄씩 그 대회의 심사 화면으로 보낸다', async () => {
+    renderPage()
+
+    const todo = await card('처리할 일')
+    // 가짜 응답: 대회 1(쿠키RUN)에 심사 필요 제출이 있다
+    const cert = await within(todo).findByRole('link', { name: /기록증 심사 · .*쿠키RUN.*\d+건/ })
+    expect(cert).toHaveAttribute('href', '/seller/races/1/record-certs')
+  })
+
+  it('심사할 대회가 3개를 넘으면 나머지는 한 줄로 묶어 대회 관리로 보낸다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/review-count', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: {
+            waitingCount: 15,
+            races: [
+              { raceId: 1, waitingCount: 5 },
+              { raceId: 902, waitingCount: 4 },
+              { raceId: 903, waitingCount: 3 },
+              { raceId: 904, waitingCount: 2 },
+              { raceId: 905, waitingCount: 1 },
+            ],
+          },
+        }),
+      ),
+    )
+    renderPage()
+
+    const todo = await card('처리할 일')
+    const rest = await within(todo).findByRole('link', { name: /기록증 심사 · 외 2개 대회\s*3건/ })
+    expect(rest).toHaveAttribute('href', '/seller/races')
+    // 내 대회 목록에 없는 대회는 이름 대신 대회 번호로 구분하고 그 대회의 심사 화면으로 보낸다
+    expect(
+      within(todo).getByRole('link', { name: /기록증 심사 · 대회 #902\s*4건/ }),
+    ).toHaveAttribute('href', '/seller/races/902/record-certs')
+    expect(within(todo).getAllByRole('link', { name: /기록증 심사/ })).toHaveLength(4)
+  })
+
+  it('대회별 건수가 없는 응답이면 합계 한 줄로 대회 관리로 보낸다', async () => {
     server.use(
       http.get('*/api/v1/member/seller/record-certs/review-count', () =>
         HttpResponse.json({ status: 200, message: 'ok', data: { waitingCount: 3 } }),

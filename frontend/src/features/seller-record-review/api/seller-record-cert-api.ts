@@ -28,16 +28,15 @@ export function raceRecordCertsQueryOptions(raceId: number, status?: SubmissionS
   })
 }
 
-/** 내 대회 전체의 심사 필요 제출 수 (대시보드 처리할 일) */
+/** 내 대회 전체의 심사 필요 제출 수와 대회별 건수 (대시보드 처리할 일). races는 건수가 많은 순이고 0건인 대회는 없다 */
 export function recordCertReviewCountQueryOptions() {
   return queryOptions({
     queryKey: [...RECORD_CERTS_KEY, 'review-count'],
     queryFn: async ({ signal }) =>
       unwrapData(
-        await customFetch<RsData<{ waitingCount: number }>>(
-          `${SELLER_PATH}/record-certs/review-count`,
-          { signal },
-        ),
+        await customFetch<
+          RsData<{ waitingCount: number; races?: { raceId: number; waitingCount: number }[] }>
+        >(`${SELLER_PATH}/record-certs/review-count`, { signal }),
       ),
   })
 }
