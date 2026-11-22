@@ -231,6 +231,26 @@ export const getPayouts1MockHandler = (overrideResponse?: RsDataPayoutAdminPayou
       })
   }, options)
 }
+
+export const getExportPayoutsMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/payout/seller/payouts/export', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getExportPayoutItemsMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.post('*/api/v1/payout/seller/payout-items/export', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangPayoutAPIMock = () => [
   getHoldMockHandler(),
   getReleaseMockHandler(),
@@ -246,5 +266,7 @@ export const getBukangPayoutAPIMock = () => [
   getFindPayoutMockHandler(),
   getCreateFailuresMockHandler(),
   getAdminClaimsMockHandler(),
-  getPayouts1MockHandler()
+  getPayouts1MockHandler(),
+  getExportPayoutsMockHandler(),
+  getExportPayoutItemsMockHandler()
 ]

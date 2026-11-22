@@ -103,6 +103,8 @@ public class Party extends BaseIdAndTime {
 	@Column(name = "canceled_at")
 	private LocalDateTime canceledAt;
 
+	// 파티를 바꾸는 곳은 모두 PartyRepository.findByIdForUpdate로 행을 먼저 잠그므로 버전 충돌은 나지 않는다
+	// 잠금 없이 바꾸는 코드가 새로 생겨도 덮어쓰기 대신 실패하게 하는 안전장치로 둔다. 충돌 처리기는 두지 않았다(나면 500)
 	@Version
 	@Column(name = "version", nullable = false)
 	private long version;

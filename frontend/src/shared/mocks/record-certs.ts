@@ -87,11 +87,14 @@ function findSellerSubmission(id: string | readonly string[] | undefined) {
 }
 
 export const sellerRecordCertHandlers = [
-  http.get(`${SELLER_PATH}/record-certs/review-count`, () =>
-    ok('심사 필요 기록증 제출 수를 조회했습니다.', {
-      waitingCount: SELLER_SUBMISSIONS.filter((s) => s.status === 'NEEDS_REVIEW').length,
-    }),
-  ),
+  http.get(`${SELLER_PATH}/record-certs/review-count`, () => {
+    // 가짜 제출은 모두 대회 1의 것이다 (아래 목록 핸들러와 같다)
+    const waitingCount = SELLER_SUBMISSIONS.filter((s) => s.status === 'NEEDS_REVIEW').length
+    return ok('심사 필요 기록증 제출 수를 조회했습니다.', {
+      waitingCount,
+      races: waitingCount > 0 ? [{ raceId: 1, waitingCount }] : [],
+    })
+  }),
   http.get(`${SELLER_PATH}/races/:raceId/record-certs`, ({ params, request }) => {
     const status = new URL(request.url).searchParams.get('status')
     const list = Number(params.raceId) === 1 ? SELLER_SUBMISSIONS : []

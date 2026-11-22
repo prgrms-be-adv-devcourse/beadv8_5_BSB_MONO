@@ -21,4 +21,6 @@ export type MyTicket = {
   itemStatus: orderModel.OrderItemDtoStatus
   /** 주문이 결제 확인 중(PAYING)이다. 결과가 나오기 전이라 취소·수정할 수 없다 */
   paying: boolean
+  /** 결제 대기 주문(CREATED)의 결제 기한. 있으면 아직 결제하지 않은 주문이다 */
+  dueAt?: string
 }

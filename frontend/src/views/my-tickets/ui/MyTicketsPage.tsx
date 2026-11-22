@@ -1,5 +1,6 @@
 'use client'
 
+import type { Route } from 'next'
 import Link from 'next/link'
 
 import { AppHeader } from '@/widgets/app-header'
@@ -9,6 +10,7 @@ import { cn, useSearchParamsState } from '@/shared/lib'
 import {
   BibCard,
   Button,
+  buttonClassName,
   EmptyState,
   FOCUS_RING,
   Skeleton,
@@ -123,34 +125,68 @@ function TicketList({ tickets, emptyTitle }: { tickets: TicketCard[]; emptyTitle
   }
   return (
     <section className="flex flex-col gap-4 px-4 pt-6 pb-6">
-      {tickets.map((ticket) => (
-        <Link
-          key={ticket.id}
-          href={`/tickets/${ticket.id}`}
-          className={cn('rounded-lg', FOCUS_RING)}
-          // 카드 제목에 참가자 이름이 있어 Clarity 화면 녹화에서 가린다
-          data-clarity-mask="true"
-        >
-          <BibCard
-            image={ticket.image}
-            imagePosition="50% 12%"
-            eyebrow={ticket.eyebrow}
-            // v3 시안: 참가 확정은 배지 없이 보여 주고, 확인 중 · 종료 · 취소만 배지를 단다
-            status={
-              ticket.status !== 'confirmed' && (
-                <span className="text-body2-medium text-text-on-brand">
-                  {TICKET_STATUS[ticket.status].label}
-                </span>
-              )
-            }
-            unit="No."
-            number={ticket.number}
-            title={ticket.title}
-            meta={ticket.summary}
-          />
-        </Link>
-      ))}
+      {tickets.map((ticket) =>
+        ticket.status === 'pending' ? (
+          <PendingTicketCard key={ticket.id} ticket={ticket} />
+        ) : (
+          <Link
+            key={ticket.id}
+            href={`/tickets/${ticket.id}`}
+            className={cn('rounded-lg', FOCUS_RING)}
+            // 카드 제목에 참가자 이름이 있어 Clarity 화면 녹화에서 가린다
+            data-clarity-mask="true"
+          >
+            <BibCard
+              image={ticket.image}
+              imagePosition="50% 12%"
+              eyebrow={ticket.eyebrow}
+              // v3 시안: 참가 확정은 배지 없이 보여 주고, 확인 중 · 종료 · 취소만 배지를 단다
+              status={
+                ticket.status !== 'confirmed' && (
+                  <span className="text-body2-medium text-text-on-brand">
+                    {TICKET_STATUS[ticket.status].label}
+                  </span>
+                )
+              }
+              unit="No."
+              number={ticket.number}
+              title={ticket.title}
+              meta={ticket.summary}
+            />
+          </Link>
+        ),
+      )}
     </section>
+  )
+}
+
+// 결제 대기 주문: 참가권이 아직 아니라 상세로 가지 않고, 결제 화면으로 다시 들어가는 버튼만 둔다 (피그마 V4 · 2265:59933)
+function PendingTicketCard({ ticket }: { ticket: TicketCard }) {
+  return (
+    <div data-clarity-mask="true">
+      <BibCard
+        image={ticket.image}
+        imagePosition="50% 12%"
+        eyebrow={ticket.eyebrow}
+        status={
+          <span className="text-body1-medium text-text-on-brand">
+            {TICKET_STATUS.pending.label}
+          </span>
+        }
+        unit="No."
+        number={ticket.number}
+        title={ticket.title}
+        meta={ticket.summary}
+        footer={
+          <Link
+            href={`/checkout?orderId=${ticket.orderId}` as Route}
+            className={buttonClassName({ size: 'm', className: 'w-full' })}
+          >
+            결제하기
+          </Link>
+        }
+      />
+    </div>
   )
 }
 

@@ -22,6 +22,12 @@ describe('ticket-display', () => {
     expect(ticketStatus({ itemStatus: 'PAID' }, { raceOver: false })).toBe('confirmed')
   })
 
+  it('결제 기한이 있는 참가권(결제 대기 주문)은 결제 대기다', () => {
+    expect(
+      ticketStatus({ itemStatus: 'ORDERED', dueAt: '2026-10-15T12:30:00' }, { raceOver: false }),
+    ).toBe('pending')
+  })
+
   it('결제 중인 주문의 참가권은 대회 날짜와 상관없이 결제 확인 중이다', () => {
     expect(ticketStatus({ itemStatus: 'ORDERED', paying: true }, { raceOver: false })).toBe(
       'paying',

@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { readKitOptionIds, saveKitOptionIds } from '@/features/booking'
+import { partyKeys } from '@/entities/party'
 import { cashApi, orderApi } from '@/shared/api'
 import { orderMock, productMock, server } from '@/shared/testing'
 
@@ -292,6 +293,9 @@ describe('결제 화면', () => {
     // 결제 전에 열어 둔 내 참가권 목록 (지금은 화면에 없다)
     const ticketsKey = [...orderApi.getFindMineQueryKey({ page: 0, size: 100 }), 'tickets']
     client.setQueryData(ticketsKey, [])
+    // 파티원이 결제 전에 본 파티 상세 · 내 파티 상태 (CRU-153). 지우지 않으면 돌아갔을 때 「결제 전」이 남는다
+    client.setQueryData(partyKeys.detail(3), { id: 3 })
+    client.setQueryData(partyKeys.raceStatus(9), { myPaid: false })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(
       <QueryClientProvider client={client}>
@@ -314,6 +318,8 @@ describe('결제 화면', () => {
       }),
     )
     expect(client.getQueryState(ticketsKey)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(partyKeys.detail(3))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(partyKeys.raceStatus(9))?.isInvalidated).toBe(true)
     // 같은 완료 주소로 push까지 하면 기록이 두 번 남는다
     expect(push).not.toHaveBeenCalled()
   })
@@ -782,6 +788,25 @@ describe('결제 화면', () => {
 
       await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
       expect(readKitOptionIds(1)).toEqual([])
+    })
+
+    it('재조회로 결제 완료가 되면 파티 캐시도 지운다 (CRU-153)', async () => {
+      server.use(orderSequence('PAYING', 'PAID'))
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false, staleTime: 60_000 } },
+      })
+      client.setQueryData(partyKeys.detail(3), { id: 3 })
+      render(
+        <QueryClientProvider client={client}>
+          <CheckoutPage orderId={1} />
+        </QueryClientProvider>,
+      )
+      await screen.findByText(CONFIRMING)
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
+      expect(client.getQueryState(partyKeys.detail(3))?.isInvalidated).toBe(true)
     })
 
     it('2분이 지나도 결제 중이면 내 참가권에서 결과를 보라고 안내한다', async () => {

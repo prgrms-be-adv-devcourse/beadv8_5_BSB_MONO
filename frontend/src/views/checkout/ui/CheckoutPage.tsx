@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -20,6 +20,7 @@ import {
   requestCharge,
 } from '@/features/deposit-charge'
 import { useQueueAdmission } from '@/features/queue-admission'
+import { partyKeys } from '@/entities/party'
 import {
   parseKstDateTime,
   RACE_DETAIL,
@@ -50,6 +51,13 @@ import { useDepositBalance } from '../api/use-deposit-balance'
 import { splitPayment } from '../lib/deposit'
 import { toPayFailure, type PayFailure } from '../lib/pay-error'
 import { useHoldCountdown } from '../model/use-hold-countdown'
+
+// 결제가 끝나면 주문 · 예치금 캐시와 함께 파티 캐시도 지운다 (CRU-153).
+// 파티원의 결제 여부는 파티 상세 · 내 파티 상태에 있어, 지우지 않으면 1분(기본 staleTime) 동안 「결제 전」이 남는다
+function invalidateAfterPay(queryClient: QueryClient) {
+  void invalidateTicketQueries(queryClient)
+  void queryClient.invalidateQueries({ queryKey: partyKeys.all })
+}
 
 export type CheckoutState = 'default' | 'offline' | 'timeout' | 'soldout' | 'failed'
 
@@ -393,7 +401,7 @@ function OrderCheckout({
         return
       }
       forgetKitOptionIds(orderId)
-      void invalidateTicketQueries(queryClient)
+      invalidateAfterPay(queryClient)
       await queryClient.refetchQueries({ queryKey }, { cancelRefetch: false })
       router.replace(completeHref)
     },
@@ -450,7 +458,7 @@ function OrderCheckout({
     if (status !== 'PAID' || finished.current) return
     finished.current = true
     forgetKitOptionIds(orderId)
-    void invalidateTicketQueries(queryClient)
+    invalidateAfterPay(queryClient)
     router.replace(completeHref)
   }, [status, orderId, queryClient, completeHref, router])
 

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.bukang.member.recordcert.domain.RecordCert;
 import com.bukang.member.recordcert.domain.RecordCertSubmission;
 import com.bukang.member.recordcert.domain.SubmissionStatus;
+import com.bukang.member.recordcert.dto.RecordCertReviewCountDto;
 
 // 판매자 기록증 심사(BUK-276)의 조회 · 잠금. 소유는 제출에 저장된 판매자 회원 ID로만 본다(product를 부르지 않음)
 public interface RecordCertReviewRepository extends Repository<RecordCertSubmission, Long> {
@@ -22,8 +23,16 @@ public interface RecordCertReviewRepository extends Repository<RecordCertSubmiss
 	// 대회 하나의 제출 전부, 최신순 (idx_record_cert_submission_race)
 	List<RecordCertSubmission> findByRaceIdOrderByIdDesc(long raceId);
 
-	// idx_record_cert_submission_seller
-	long countBySellerMemberIdAndStatus(long sellerMemberId, SubmissionStatus status);
+	// 대회별 건수. 많은 순, 같으면 최근 대회 순 (idx_record_cert_submission_seller)
+	@Query("""
+		select new com.bukang.member.recordcert.dto.RecordCertReviewCountDto$RaceCount(s.raceId, count(s))
+		from RecordCertSubmission s
+		where s.sellerMemberId = :sellerMemberId and s.status = :status
+		group by s.raceId
+		order by count(s) desc, s.raceId desc
+		""")
+	List<RecordCertReviewCountDto.RaceCount> countByRace(@Param("sellerMemberId") long sellerMemberId,
+		@Param("status") SubmissionStatus status);
 
 	@Query("select c from RecordCert c where c.id in :ids")
 	List<RecordCert> findCertsByIdIn(@Param("ids") Collection<Long> ids);

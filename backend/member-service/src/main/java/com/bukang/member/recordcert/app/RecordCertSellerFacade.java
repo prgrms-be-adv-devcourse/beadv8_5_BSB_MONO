@@ -78,8 +78,8 @@ public class RecordCertSellerFacade {
 
 	public RecordCertReviewCountDto countWaiting(long memberId) {
 		access.requireApprovedSeller(memberId);
-		return new RecordCertReviewCountDto(
-			recordCertReviewRepository.countBySellerMemberIdAndStatus(memberId, SubmissionStatus.NEEDS_REVIEW));
+		return RecordCertReviewCountDto.of(
+			recordCertReviewRepository.countByRace(memberId, SubmissionStatus.NEEDS_REVIEW));
 	}
 
 	private SellerRecordCertSubmissionDto reviewed(long memberId, long submissionId) {

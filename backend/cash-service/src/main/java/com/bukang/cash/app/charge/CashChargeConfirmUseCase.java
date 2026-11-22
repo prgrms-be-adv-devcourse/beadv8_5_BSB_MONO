@@ -15,6 +15,7 @@ import com.bukang.cash.domain.charge.ChargeStatus;
 import com.bukang.cash.domain.charge.WalletCharge;
 import com.bukang.cash.domain.exception.charge.ChargeAmountTooLargeException;
 import com.bukang.cash.domain.exception.charge.ChargeAmountTooSmallException;
+import com.bukang.cash.domain.exception.charge.ChargeCooldownException;
 import com.bukang.cash.domain.exception.charge.ChargeInProgressException;
 import com.bukang.cash.domain.exception.charge.ChargeMemberMismatchException;
 import com.bukang.cash.domain.exception.charge.PaymentApprovalFailedException;
@@ -45,8 +46,13 @@ public class CashChargeConfirmUseCase {
 	private final TransactionTemplate transactionTemplate;
 	private final ChargeAbuseGuard chargeAbuseGuard;
 	private final NewAccountChargeReviewGuard newAccountChargeReviewGuard;
+	private final ChargeConfirmPermits chargeConfirmPermits;
 
 	public CashChargeResponseDto confirmWalletCharge(long customerId, String paymentKey, String orderId, long amount) {
+		return chargeConfirmPermits.run(() -> confirm(customerId, paymentKey, orderId, amount));
+	}
+
+	private CashChargeResponseDto confirm(long customerId, String paymentKey, String orderId, long amount) {
 		if (amount < CashChargePolicy.MINIMUM_AMOUNT) {
 			throw new ChargeAmountTooSmallException("최소 충전 금액은 10,000원입니다.");
 		}
@@ -62,6 +68,7 @@ public class CashChargeConfirmUseCase {
 		if (claim.alreadyInProgress()) {
 			return waitForResolution(customerId, orderId);
 		}
+		countNewAttempt(customerId, orderId);
 
 		PaymentApprovalResult result;
 		try {
@@ -97,9 +104,7 @@ public class CashChargeConfirmUseCase {
 		if (existing != null && existing.getStatus() == ChargeStatus.IN_PROGRESS) {
 			return ChargeClaim.waiting();
 		}
-		// 여기까지 왔으면 진짜 새 시도(또는 실패건 재시도)다. 멱등 재확인은 위에서 이미 반환돼 이 줄까지 안 온다.
-		// 쿨다운에 걸리면 여기서 던져 이 트랜잭션 전체가 롤백되므로, 충전 행이 선점된 채로 남지 않는다
-		chargeAbuseGuard.registerNewAttempt(customerId);
+		// 여기까지 왔으면 진짜 새 시도(또는 실패건 재시도)다. 시도 횟수는 이 트랜잭션이 끝난 뒤 countNewAttempt가 센다
 		// 처리 중인 충전은 아직 원장·잔액에 없지만 곧 들어올 수 있는 돈이라 한도에 함께 센다
 		long pendingAmount = walletChargeRepository.sumPendingAmountExcluding(customerWallet, orderId);
 		assertWithinDailyLimit(customerWallet, amount, pendingAmount);
@@ -109,6 +114,18 @@ public class CashChargeConfirmUseCase {
 			: walletChargeRepository.save(new WalletCharge(customerWallet, amount, "TOSS", orderId));
 		charge.markInProgress();
 		return ChargeClaim.claimed();
+	}
+
+	// 시도 횟수(Redis)는 지갑 잠금 트랜잭션이 끝난 뒤에 센다. Redis가 느려도 DB 연결·지갑 잠금을 쥐지 않게 하려고다
+	// (2차 부하 측정 B-7). 그래서 쿨다운에 걸려도 선점은 이미 저장돼 있어, 토스를 부르기 전에 실패로 돌려놓고 같은 예외를 던진다.
+	// 실패로 돌려놓지 못하면 처리 중으로 남고, 재확인 배치가 멈춘 건으로 보고 토스 조회로 맞춘다
+	private void countNewAttempt(long customerId, String orderId) {
+		try {
+			chargeAbuseGuard.registerNewAttempt(customerId);
+		} catch (ChargeCooldownException cooldown) {
+			transactionTemplate.execute(status -> recordFailedLocked(customerId, orderId, cooldown.getMessage()));
+			throw cooldown;
+		}
 	}
 
 	// IN_PROGRESS일때 Toss호출하지 않고 기다림

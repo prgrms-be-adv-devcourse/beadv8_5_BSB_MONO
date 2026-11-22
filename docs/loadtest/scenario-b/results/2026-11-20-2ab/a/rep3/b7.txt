@@ -1,0 +1,108 @@
+time="2026-11-19T22:00:39Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:00:51Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:01:07Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:01:27Z" level=warning msg="Insufficient VUs, reached 600 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=charge_2
+time="2026-11-19T22:01:55Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:01:58Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:02:12Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:02:48Z" level=warning msg="Insufficient VUs, reached 900 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=charge_3
+time="2026-11-19T22:03:45Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:04:19Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:04:29Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:04:35Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:04:38Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:05:14Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:05:21Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+time="2026-11-19T22:05:28Z" level=warning msg="Request Failed" error="Post \"http://cash:8081/api/v1/cash/charges/confirm\": EOF"
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{api:balance,stage:1}
+    ✗ 'p(99)<1000' p(99)=6.59s
+
+    http_req_duration{api:balance,stage:2}
+    ✗ 'p(99)<1000' p(99)=11.11s
+
+    http_req_duration{api:balance,stage:3}
+    ✗ 'p(99)<1000' p(99)=18.9s
+
+    http_req_duration{api:charge_dup}
+    ✗ 'med<3200' med=13.36s
+
+    http_req_duration{api:charge,stage:1}
+    ✗ 'p(99)<10000' p(99)=12.19s
+
+    http_req_duration{api:charge,stage:2}
+    ✗ 'p(99)<10000' p(99)=14.56s
+
+    http_req_duration{api:charge,stage:3}
+    ✗ 'p(99)<10000' p(99)=21.82s
+
+    http_req_duration{api:pay,stage:1}
+    ✓ 'p(95)<2000' p(95)=807.86ms
+    ✗ 'p(99)<1000' p(99)=3.87s
+
+    http_req_duration{api:pay,stage:2}
+    ✗ 'p(95)<2000' p(95)=10.62s
+    ✗ 'p(99)<1000' p(99)=10.92s
+
+    http_req_duration{api:pay,stage:3}
+    ✗ 'p(95)<2000' p(95)=18.05s
+    ✗ 'p(99)<1000' p(99)=18.49s
+
+    http_req_failed{api:charge,stage:1}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:charge,stage:2}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_req_failed{api:charge,stage:3}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 29608  52.907116/s
+    checks_succeeded...................: 99.95% 29594 out of 29608
+    checks_failed......................: 0.04%  14 out of 29608
+
+    ✓ 결제 200·결제됨
+    ✓ 잔액 조회 200
+    ✓ 충전 200·완료
+    ✗ 같은 충전 두 번째 200·완료
+      ↳  98% — ✓ 1025 / ✗ 14
+
+    HTTP
+    http_req_duration.......................................................: avg=10.72s   med=10.8s    p(95)=20.66s   p(99)=21.07s max=23.2s 
+      { api:balance,stage:1 }...............................................: avg=1.35s    med=283.78ms p(95)=3.98s    p(99)=6.59s  max=11.98s
+      { api:balance,stage:2 }...............................................: avg=6.79s    med=7.5s     p(95)=10.91s   p(99)=11.11s max=12.24s
+      { api:balance,stage:3 }...............................................: avg=16.67s   med=17.53s   p(95)=18.1s    p(99)=18.9s  max=20.74s
+      { api:charge_dup }....................................................: avg=12.66s   med=13.36s   p(95)=20.93s   p(99)=21.61s max=23.13s
+      { api:charge,stage:1 }................................................: avg=4.38s    med=2.31s    p(95)=9.91s    p(99)=12.19s max=16.49s
+      { api:charge,stage:2 }................................................: avg=9.78s    med=10.44s   p(95)=13.7s    p(99)=14.56s max=16.15s
+      { api:charge,stage:3 }................................................: avg=19.5s    med=20.34s   p(95)=20.91s   p(99)=21.82s max=23.2s 
+      { api:pay,stage:1 }...................................................: avg=307.63ms med=186ms    p(95)=807.86ms p(99)=3.87s  max=8.18s 
+      { api:pay,stage:2 }...................................................: avg=3.32s    med=1.7s     p(95)=10.62s   p(99)=10.92s max=11.09s
+      { api:pay,stage:3 }...................................................: avg=16.23s   med=17.46s   p(95)=18.05s   p(99)=18.49s max=18.8s 
+      { expected_response:true }............................................: avg=10.72s   med=10.8s    p(95)=20.66s   p(99)=21.07s max=23.2s 
+    http_req_failed.........................................................: 0.04%  14 out of 29608
+      { api:charge,stage:1 }................................................: 0.00%  0 out of 4341
+      { api:charge,stage:2 }................................................: 0.00%  0 out of 8208
+      { api:charge,stage:3 }................................................: 0.00%  0 out of 8191
+    http_reqs...............................................................: 29608  52.907116/s
+
+    EXECUTION
+    dropped_iterations......................................................: 6435   11.498828/s
+    iteration_duration......................................................: avg=10.66s   med=10.74s   p(95)=20.67s   p(99)=21.12s max=23.23s
+    iterations..............................................................: 28569  51.050506/s
+    vus.....................................................................: 31     min=27          max=1083
+    vus_max.................................................................: 1704   min=264         max=1704
+
+    NETWORK
+    data_received...........................................................: 6.4 MB 12 kB/s
+    data_sent...............................................................: 6.4 MB 12 kB/s
+
+
+
+time="2026-11-19T22:05:34Z" level=error msg="thresholds on metrics 'http_req_duration{api:balance,stage:1}, http_req_duration{api:balance,stage:2}, http_req_duration{api:balance,stage:3}, http_req_duration{api:charge,stage:1}, http_req_duration{api:charge,stage:2}, http_req_duration{api:charge,stage:3}, http_req_duration{api:charge_dup}, http_req_duration{api:pay,stage:1}, http_req_duration{api:pay,stage:2}, http_req_duration{api:pay,stage:3}' have been crossed"

@@ -60,13 +60,15 @@ public class ApiV1OrderController {
 		description = "대기열에 입장 중인지 확인하고, 자리 확보 전(PENDING) 참가 신청으로 상품 서비스에 자리 1석을 확보받아 "
 			+ "입장 끝 시각을 결제 기한으로 하는 주문(CREATED)을 만든다. 입장 중이 아니면 403(ORDER_QUEUE_NOT_ADMITTED). "
 			+ "같은 Idempotency-Key로 다시 보내면 새 주문 없이 처음 주문을 돌려준다. "
+			+ "다른 키라도 이 신청서로 만든 결제 대기·결제 중 주문이 있으면 대기열·자리 확보 없이 그 주문을 200으로 돌려준다 "
+			+ "(새로고침·뒤로 가기 뒤 결제 화면 다시 들어가기, CRU-151). 그 주문이 결제 완료·취소·기한 만료면 409다. "
 			+ "남은 자리가 없으면 참가 신청이 확보 실패(FAILED)가 되고 주문은 만들지 않는다. "
 			+ "파티원 신청서는 파티장이 신청해 크루 자리를 이미 잡았으므로(결제 대기) 대기열·자리 확보 없이 "
 			+ "파티 결제 기한을 결제 기한으로 하는 주문을 만든다. 파티장이 신청하기 전이거나 결제 기간이 끝났으면 409다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "201", description = "자리 확보, 주문 생성",
 			content = @Content(examples = @ExampleObject(value = OrderApiExamples.CREATE_SUCCESS))),
-		@ApiResponse(responseCode = "200", description = "같은 Idempotency-Key로 이미 만든 주문",
+		@ApiResponse(responseCode = "200", description = "같은 Idempotency-Key로, 또는 이 신청서로 이미 만든 결제 전 주문",
 			content = @Content(examples = @ExampleObject(value = OrderApiExamples.CREATE_EXISTING))),
 		@ApiResponse(responseCode = "400", description = "입력값·헤더 오류",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
@@ -95,6 +97,9 @@ public class ApiV1OrderController {
 				@ExampleObject(name = "결제할 수 없는 상태", value = OrderApiExamples.NOT_PAYABLE),
 				@ExampleObject(name = "파티장 신청 전 파티원 신청서", value = OrderApiExamples.PARTY_NOT_PAYABLE),
 				@ExampleObject(name = "파티 결제 기한 지남", value = OrderApiExamples.PARTY_DEADLINE_PASSED),
+				@ExampleObject(name = "이미 결제한 신청서", value = OrderApiExamples.CREATE_ALREADY_PAID),
+				@ExampleObject(name = "취소된 주문의 신청서", value = OrderApiExamples.CREATE_ORDER_CANCELED),
+				@ExampleObject(name = "기한 만료된 주문의 신청서", value = OrderApiExamples.PAY_DEADLINE_PASSED),
 				@ExampleObject(name = "접수 기간 아님", value = OrderApiExamples.NOT_ACCEPTING),
 				@ExampleObject(name = "요청 겹침", value = OrderApiExamples.CONFLICT),
 				@ExampleObject(name = "다른 신청서에 쓴 키", value = OrderApiExamples.KEY_REUSED)
