@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { setAccessToken } from '@/shared/api'
-import { server } from '@/shared/testing'
+import { currentSearch, resetNavigationMock, server } from '@/shared/testing'
 
 import { ADMIN_MEMBER_ERRORS } from '../model/admin-members-api'
 import { AdminMembersPage } from './AdminMembersPage'
@@ -70,12 +70,127 @@ describe('AdminMembersPage 탭', () => {
       expect(screen.getByRole('button', { name: /고액 충전 확인/ })).toHaveTextContent('7'),
     )
   })
+})
 
-  it('전체 회원 탭에는 회원 목록이 보인다', () => {
+describe('AdminMembersPage 전체 회원 (닉네임 찾기)', () => {
+  const SEARCH = '*/api/v1/member/admin/members'
+  const found = (
+    id: number,
+    nickname: string,
+    deposit: number | null,
+    activeTickets: number | null,
+  ) => ({
+    id,
+    nickname,
+    joinedAt: '2025-03-02T09:00:00',
+    deposit,
+    activeTickets,
+  })
+
+  async function search(text: string) {
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: '닉네임으로 찾기' }), `${text}{Enter}`)
+  }
+
+  it('찾기 전에는 요청하지 않고 닉네임으로 찾으라고 안내한다', async () => {
+    let called = false
+    server.use(
+      http.get(SEARCH, () => {
+        called = true
+        return ok([])
+      }),
+    )
     renderPage()
 
-    expect(screen.getByRole('table', { name: '전체 회원' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: '닉네임·주문번호로 찾기' })).toBeInTheDocument()
+    expect(screen.getByText('닉네임으로 찾아 주세요')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: '전체 회원' })).not.toBeInTheDocument()
+    expect(called).toBe(false)
+  })
+
+  it('앞뒤 공백을 지운 닉네임으로 찾고 결과를 형식에 맞춰 보인다 (못 물은 값은 –)', async () => {
+    let nickname: string | null = null
+    server.use(
+      http.get(SEARCH, ({ request }) => {
+        nickname = new URL(request.url).searchParams.get('nickname')
+        return ok([found(2041, '달리는곰', 45000, 2), found(3318, '달리는곰2', null, null)])
+      }),
+    )
+    renderPage()
+    await search('  달리는곰 ')
+
+    const table = await screen.findByRole('table', { name: '전체 회원' })
+    expect(nickname).toBe('달리는곰')
+    expect(currentSearch()).toContain('q=')
+    const rows = within(table).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('달리는곰')
+    expect(rows[1]).toHaveTextContent('2041')
+    expect(rows[1]).toHaveTextContent('2025. 3. 2')
+    expect(rows[1]).toHaveTextContent('₩45,000')
+    expect(rows[1]).toHaveTextContent('2장')
+    expect(rows[2]).toHaveTextContent('–')
+    expect(within(table).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('공백만 입력하면 찾지 않는다', async () => {
+    let called = false
+    server.use(
+      http.get(SEARCH, () => {
+        called = true
+        return ok([])
+      }),
+    )
+    renderPage()
+    await search('   ')
+
+    expect(screen.getByText('닉네임으로 찾아 주세요')).toBeInTheDocument()
+    expect(called).toBe(false)
+  })
+
+  it('주소의 ?q=가 공백뿐이면 찾지 않는다', () => {
+    let called = false
+    server.use(
+      http.get(SEARCH, () => {
+        called = true
+        return ok([])
+      }),
+    )
+    resetNavigationMock('q=%20%20')
+    renderPage()
+
+    expect(screen.getByText('닉네임으로 찾아 주세요')).toBeInTheDocument()
+    expect(called).toBe(false)
+  })
+
+  it('찾은 회원이 없으면 입력한 닉네임과 함께 알린다', async () => {
+    server.use(http.get(SEARCH, () => ok([])))
+    renderPage()
+    await search('달리는곰3')
+
+    expect(await screen.findByText('「달리는곰3」으로 찾은 회원이 없어요')).toBeInTheDocument()
+  })
+
+  it('불러오지 못하면 다시 시도할 수 있다', async () => {
+    let fail = true
+    server.use(
+      http.get(SEARCH, () =>
+        fail ? errorResponse(500, 'INTERNAL_ERROR') : ok([found(1, '곰', 0, 0)]),
+      ),
+    )
+    renderPage()
+    await search('곰')
+
+    expect(await screen.findByText('회원을 불러오지 못했어요')).toBeInTheDocument()
+    fail = false
+    await userEvent.setup().click(screen.getByRole('button', { name: '다시 시도하기' }))
+    expect(await screen.findByRole('table', { name: '전체 회원' })).toBeInTheDocument()
+  })
+
+  it('403 MEMBER_NOT_ADMIN이면 관리자만 이용할 수 있다고 알린다', async () => {
+    server.use(http.get(SEARCH, () => errorResponse(403, 'MEMBER_NOT_ADMIN')))
+    renderPage()
+    await search('곰')
+
+    expect(await screen.findByText(ADMIN_MEMBER_ERRORS.notAdmin)).toBeInTheDocument()
   })
 })
 
