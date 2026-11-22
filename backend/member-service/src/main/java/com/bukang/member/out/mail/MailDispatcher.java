@@ -47,6 +47,7 @@ public class MailDispatcher {
 		}
 		try {
 			mailSender.send(mail);
+			log.info("메일을 보냈습니다: {}", mail);
 		} catch (RuntimeException e) {
 			if (retry >= retryDelays.size()) {
 				log.warn("메일을 {}번 다시 보냈지만 실패했습니다: {}", retry, mail, e);
