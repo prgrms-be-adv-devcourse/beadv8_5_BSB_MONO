@@ -126,6 +126,26 @@ export const getGetStatus1MockHandler = (overrideResponse?: unknown | ((info: Pa
       })
   }, options)
 }
+
+export const getReleaseActiveMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/v1/queue/races/:raceId/racecourses/:raceCourseId/active', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
+
+export const getReleasePartyActiveMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/v1/queue/parties/races/:raceId/racecourses/:raceCourseId/active', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangQueueAPIMock = () => [
   getResendMockHandler(),
   getCompleteMockHandler(),
@@ -136,5 +156,7 @@ export const getBukangQueueAPIMock = () => [
   getListMockHandler(),
   getGetStatusMockHandler(),
   getFindEntryMockHandler(),
-  getGetStatus1MockHandler()
+  getGetStatus1MockHandler(),
+  getReleaseActiveMockHandler(),
+  getReleasePartyActiveMockHandler()
 ]
