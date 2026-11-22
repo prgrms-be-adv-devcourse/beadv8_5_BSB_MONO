@@ -109,7 +109,7 @@ export function AdminBannersPage() {
             {
               key: 'move',
               header: '순서 바꾸기',
-              width: 'w-28',
+              width: 'w-24',
               render: (r) => {
                 const i = ids.indexOf(r.raceId)
                 return (
@@ -189,7 +189,7 @@ function AddBody({
     .filter((c) => c.title.includes(keyword))
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <TextField
         type="search"
         aria-label="대회 이름"
