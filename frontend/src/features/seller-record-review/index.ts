@@ -1,6 +1,7 @@
 export {
   raceRecordCertsQueryOptions,
   recordCertDetailQueryOptions,
+  recordCertReviewCountQueryOptions,
   useApproveRecordCert,
   useDenyRecordCert,
 } from './api/seller-record-cert-api'
