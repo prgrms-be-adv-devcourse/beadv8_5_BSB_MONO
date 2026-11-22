@@ -20,6 +20,7 @@ import com.bukang.common.shared.member.event.MemberJoinedEvent;
 import com.bukang.common.shared.member.event.MemberModifiedEvent;
 import com.bukang.common.shared.member.event.MemberWithdrawnEvent;
 import com.bukang.common.shared.recordcert.event.RecordCertCheckRequestedEvent;
+import com.bukang.common.shared.seller.event.SellerAccountRegisteredEvent;
 import com.bukang.common.shared.seller.event.SellerChangedEvent;
 import com.bukang.member.crew.domain.Crew;
 import com.bukang.member.domain.Member;
@@ -102,6 +103,11 @@ public class MemberOutboxAppendUseCase {
 	// file 인박스는 행마다 정해지는 message-id 헤더로 중복을 거른다. key = 기록증 ID
 	public void appendRecordCertFileLink(long recordCertId, FileLinkRequestedEvent event) {
 		append(KafkaTopics.RACE_FILE_LINK_REQUESTED, RECORD_CERT, recordCertId, UUID.randomUUID().toString(), event);
+	}
+
+	// 정산 계좌 등록됨 (CRU-80). 계좌 저장과 같은 트랜잭션에서 직접 부른다. 본문에 이벤트 ID 칸이 없어 새로 만든다. key = 판매자 ID
+	public void appendSellerAccountRegistered(SellerAccountRegisteredEvent event) {
+		append(KafkaTopics.SELLER_ACCOUNT_REGISTERED, SELLER, event.sellerId(), UUID.randomUUID().toString(), event);
 	}
 
 	// 이벤트 ID가 비면(받는 쪽용 옛 생성자) 받는 쪽이 중복을 거르지 못하므로 막는다. 예외로 회원 데이터도 롤백된다

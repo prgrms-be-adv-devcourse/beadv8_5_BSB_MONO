@@ -8,6 +8,7 @@ export {
   raceCoverQueryOptions,
   raceListQueryOptions,
   raceQueryOptions,
+  raceRecommendationsQueryOptions,
   RaceSort,
   raceSuggestionsQueryOptions,
   regionRacesQueryOptions,
@@ -62,6 +63,7 @@ export type {
 } from './model/types'
 export { RaceCard, type RaceCardProps } from './ui/RaceCard'
 export { RacePoster, type RacePosterProps } from './ui/RacePoster'
+export { RaceRecommendSection } from './ui/RaceRecommendSection'
 export { RaceTicketCard, type RaceTicketCardProps } from './ui/RaceTicketCard'
 export {
   adminRacesQueryOptions,

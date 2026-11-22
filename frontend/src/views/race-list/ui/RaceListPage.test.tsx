@@ -316,4 +316,84 @@ describe('RaceListPage', () => {
 
     expect(await screen.findByRole('button', { name: '제주 트레일' })).toBeInTheDocument()
   })
+
+  describe('AI 추천 (검색어)', () => {
+    const recommended = { ...base, raceId: 7, title: '한강 야간 달리기' }
+    const useRecommendations = (respond: () => Response) => {
+      const keywords: (string | null)[] = []
+      server.use(
+        // 검색 결과는 어떤 검색어에도 한 건을 준다 (추천과 상관없이 목록이 그대로인지 보려고)
+        http.get('*/api/v1/product/races', () =>
+          HttpResponse.json({
+            status: 200,
+            message: '대회 목록을 조회했습니다.',
+            data: { races: [soon], page: 0, size: 20, totalElements: 1, totalPages: 1 },
+          }),
+        ),
+        http.get('*/api/v1/product/races/recommendations', ({ request }) => {
+          keywords.push(new URL(request.url).searchParams.get('keyword'))
+          return respond()
+        }),
+      )
+      return keywords
+    }
+    const ok = (races: unknown[]) => () =>
+      HttpResponse.json({ status: 200, message: 'AI 추천 대회를 조회했습니다.', data: races })
+
+    it('검색어를 보내면 검색 결과 위에 AI 추천 줄을 보여 준다', async () => {
+      const keywords = useRecommendations(ok([recommended]))
+      const user = userEvent.setup()
+      renderPage()
+      await user.type(screen.getByRole('textbox', { name: '대회 찾기' }), '밤에 강변 달리기{Enter}')
+
+      const section = await screen.findByRole('region', { name: 'AI 추천' })
+      expect(within(section).getByRole('link', { name: /한강 야간 달리기/ })).toHaveAttribute(
+        'href',
+        '/races/7',
+      )
+      expect(keywords.at(-1)).toBe('밤에 강변 달리기')
+      expect(await screen.findByText(/^대회 \d+$/)).toBeInTheDocument()
+    })
+
+    it('추천이 비어 있으면 영역을 숨기고 검색 결과는 그대로 둔다', async () => {
+      const keywords = useRecommendations(ok([]))
+      const user = userEvent.setup()
+      renderPage()
+      await user.type(screen.getByRole('textbox', { name: '대회 찾기' }), '밤에 강변 달리기{Enter}')
+
+      await vi.waitFor(() => expect(keywords).toHaveLength(1))
+      expect(await screen.findByText(/^대회 \d+$/)).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'AI 추천' })).not.toBeInTheDocument()
+    })
+
+    it('추천 API가 실패하면 영역을 숨기고 검색 결과는 그대로 둔다', async () => {
+      const keywords = useRecommendations(() => HttpResponse.error())
+      const user = userEvent.setup()
+      renderPage()
+      await user.type(screen.getByRole('textbox', { name: '대회 찾기' }), '밤에 강변 달리기{Enter}')
+
+      await vi.waitFor(() => expect(keywords).toHaveLength(1))
+      expect(await screen.findByText(/^대회 \d+$/)).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'AI 추천' })).not.toBeInTheDocument()
+    })
+
+    it('검색어가 없으면 추천 API를 부르지 않는다', async () => {
+      const keywords = useRecommendations(ok([recommended]))
+      renderPage()
+
+      expect(await screen.findByText(/^대회 \d+$/)).toBeInTheDocument()
+      expect(keywords).toHaveLength(0)
+      expect(screen.queryByRole('region', { name: 'AI 추천' })).not.toBeInTheDocument()
+    })
+
+    it('검색어가 2글자보다 짧으면 부르지 않는다', async () => {
+      const keywords = useRecommendations(ok([recommended]))
+      const user = userEvent.setup()
+      renderPage()
+      await user.type(screen.getByRole('textbox', { name: '대회 찾기' }), '한{Enter}')
+
+      expect(await screen.findByText(/^대회 \d+$/)).toBeInTheDocument()
+      expect(keywords).toHaveLength(0)
+    })
+  })
 })

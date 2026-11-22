@@ -502,4 +502,35 @@ describe('RaceDetailPage v3 배치', () => {
     expect(screen.getByText(RACE_DETAIL.seller.businessNo)).toBeInTheDocument()
     expect(screen.getByText(RACE_DETAIL.seller.mailOrderNo)).toBeInTheDocument()
   })
+
+  it('상세 정보 이미지는 고정 비율로 자르지 않고, 여러 장은 간격 없이 이어 붙인다', () => {
+    renderPage({ race: { ...RACE_DETAIL, images: ['/a.png', '/b.png', '/c.png'] } })
+    const images = screen.getAllByRole('img', { name: /상세 정보 이미지/ })
+    images.forEach((img) => {
+      expect(img).toHaveClass('h-auto', 'w-full', 'block')
+      expect(img).not.toHaveClass('object-cover')
+      expect(img.parentElement).not.toHaveClass('h-112')
+    })
+    const wrapper = images[0].parentElement as HTMLElement
+    expect(images.every((img) => img.parentElement === wrapper)).toBe(true)
+    expect(wrapper).toHaveClass('flex-col', 'overflow-hidden', 'rounded-md')
+    expect(wrapper.className).not.toMatch(/\bgap-/)
+  })
+})
+
+describe('RaceDetailPage 파티 인원', () => {
+  const withCrew = (crew: NonNullable<RaceDetail['crew']>): RaceDetail => ({ ...RACE_DETAIL, crew })
+
+  it('최대 인원이 없으면 「4명 이상」으로 보여 준다', () => {
+    clearAccessToken()
+    renderPage({ race: withCrew({ minCount: 4 }) })
+    expect(screen.getByText('4명 이상')).toBeInTheDocument()
+    expect(screen.queryByText(/4명 ~ 4명/)).not.toBeInTheDocument()
+  })
+
+  it('최대 인원이 있으면 범위로 보여 준다', () => {
+    clearAccessToken()
+    renderPage({ race: withCrew({ minCount: 4, maxCount: 10 }) })
+    expect(screen.getByText('4명 ~ 10명')).toBeInTheDocument()
+  })
 })

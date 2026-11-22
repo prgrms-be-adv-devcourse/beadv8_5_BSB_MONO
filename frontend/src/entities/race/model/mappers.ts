@@ -180,6 +180,7 @@ export function toRaceDetail(
     heroTags: names.map((n) => `#${n}`).join('  '),
     status,
     phase: applicationPhase(race, now),
+    individualOpenAt: openAt ?? undefined,
     startsAt: race.raceDate ? `${formatRaceDateTime(race.raceDate)} 출발` : '',
     raceDate: race.raceDate ?? undefined,
     place: [race.location, names.join(' / ')].filter(Boolean).join(' · '),

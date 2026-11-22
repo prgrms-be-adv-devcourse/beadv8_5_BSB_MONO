@@ -207,3 +207,23 @@ export function similarRacesQueryOptions(raceId: string) {
     staleTime: 5 * 60 * 1000,
   })
 }
+
+/**
+ * 검색어 AI 추천 대회 (뜻이 비슷한 대회, 최대 6개). 백엔드 `GET /races/recommendations`가 아직 명세(openapi)에 없어 직접 부른다.
+ * 서버가 2글자보다 짧은 검색어에는 빈 목록을 주므로 그때는 부르지 않는다. 보조 기능이라 실패하거나 비어 있으면 화면에서 영역을 숨긴다.
+ */
+export function raceRecommendationsQueryOptions(keyword: string) {
+  const trimmed = keyword.trim()
+  return queryOptions({
+    queryKey: ['race', 'recommendations', trimmed],
+    queryFn: async () =>
+      unwrapData(
+        await customFetch<RsData<productModel.RaceSummaryDto[]>>(
+          `/api/v1/product/races/recommendations?keyword=${encodeURIComponent(trimmed)}`,
+        ),
+      ) ?? [],
+    enabled: trimmed.length >= 2,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
+}
