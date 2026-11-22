@@ -1,7 +1,8 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 
 import { CONSOLE_BOX, ConsoleCard } from '@/widgets/console-page'
@@ -27,15 +28,22 @@ import {
 } from '@/shared/ui'
 
 import {
+  applyImageChange,
+  coverUrl,
+  hasImageChange,
+  initialImageChange,
+} from '../model/race-image-change'
+import {
   saleChangeSchema,
   toSaleChangeValues,
   toUpdateRequest,
   type SaleChangeValues,
 } from '../model/sale-change-form'
+import { RaceImagesCard } from './RaceImagesCard'
 
 const n = formatNumber
 
-// 피그마 V4 · 판매자 · 판매 중 변경: 정원 늘리기 표, 환불 기한
+// 피그마 V4 · 판매자 · 대회 수정 / 판매 중 변경: 일정이 아닌 칸(정원 늘리기 표, 이미지). 일정은 일정 변경 화면이 맡는다
 export function SaleChangeCard({ row }: { row: SellerRaceRow }) {
   const edit = useQuery(raceForEditQueryOptions(row.id))
   if (edit.isPending) {
@@ -75,21 +83,24 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
   })
   const detail = edit.race.courses ?? []
   const watched = useWatch({ control, name: 'courses' })
+  const [images, setImages] = useState(() => initialImageChange(edit))
+  // 새 사진을 올린 뒤 대회 전체를 PUT 한다. 사진 업로드 실패도 같은 오류 문구로 보여 준다
+  const save = useMutation({
+    mutationFn: async (values: SaleChangeValues) =>
+      update.mutateAsync(await applyImageChange(toUpdateRequest(edit, values), images)),
+    onSuccess: () => toast({ message: '변경을 저장했어요', tone: 'success' }),
+  })
 
   return (
     <form
       noValidate
       className="flex flex-col gap-6"
-      onSubmit={handleSubmit((values) =>
-        update.mutate(toUpdateRequest(edit, values), {
-          onSuccess: () => toast({ message: '변경을 저장했어요', tone: 'success' }),
-        }),
-      )}
+      onSubmit={handleSubmit((values) => save.mutate(values))}
     >
       <Alert
         className={CONSOLE_BOX}
         title="구매자에게 유리할 때만 바꿀 수 있어요"
-        description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기 · 환불 기한 늦추기만 돼요."
+        description="판매가 시작되면 참가비는 바꿀 수 없고, 정원 늘리기만 돼요."
       />
       <ConsoleCard title="정원 늘리기">
         <table aria-label="정원 늘리기" className="w-full table-fixed border-collapse">
@@ -111,7 +122,8 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
             {edit.request.courses.map((course, i) => {
               const info = detail[i]
               const quota = watched?.[i]?.individualQuota ?? ''
-              const total = (course.crewQuota ?? 0) + (/^\d+$/.test(quota) ? Number(quota) : 0)
+              const crew = course.crewQuota ?? 0
+              const total = crew + (/^\d+$/.test(quota) ? Number(quota) : 0)
               return (
                 <tr key={course.courseId ?? i}>
                   <TableCell className="text-body1-medium">{course.name}</TableCell>
@@ -157,29 +169,30 @@ function SaleChangeForm({ edit, row }: { edit: RaceForEdit; row: SellerRaceRow }
           <p className="text-caption-regular text-text-tertiary">참가비는 바꿀 수 없어요</p>
         )}
       </ConsoleCard>
-      <ConsoleCard title="환불 기한" className="max-w-140">
-        <TextField
-          label="환불 기한"
-          disabled={!editable}
-          helper={started ? '판매가 시작돼 늦추기만 할 수 있어요' : '이 날짜(23:59)까지 전액 환불'}
-          error={errors.refundDeadline?.message}
-          {...register('refundDeadline')}
-        />
-      </ConsoleCard>
+      <RaceImagesCard
+        cover={coverUrl(edit)}
+        value={images}
+        onChange={setImages}
+        disabled={!editable || save.isPending}
+      />
       {!editable && (
         <p className="text-body2-regular text-text-tertiary">
           판매가 끝났거나 취소된 대회는 바꿀 수 없어요.
         </p>
       )}
-      {update.isError && (
+      {save.isError && (
         <Alert
           tone="danger"
           title="변경을 저장하지 못했어요"
-          description={errorMessage(update.error)}
+          description={errorMessage(save.error)}
         />
       )}
       <div className="flex justify-end">
-        <Button type="submit" disabled={!editable || !isDirty} loading={update.isPending}>
+        <Button
+          type="submit"
+          disabled={!editable || (!isDirty && !hasImageChange(images))}
+          loading={save.isPending}
+        >
           저장하기
         </Button>
       </div>

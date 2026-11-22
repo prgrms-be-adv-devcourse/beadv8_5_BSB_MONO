@@ -5,16 +5,21 @@ import java.time.format.DateTimeFormatter;
 
 import org.springframework.stereotype.Service;
 
+import com.bukang.common.shared.seller.domain.SellerType;
 import com.bukang.member.domain.Member;
 import com.bukang.member.domain.PayoutAccountHolderType;
+import com.bukang.member.domain.Seller;
 import com.bukang.member.domain.VerifiedPayoutAccount;
 import com.bukang.member.domain.exception.MemberNotFoundException;
+import com.bukang.member.domain.exception.SellerAccountHolderTypeInvalidException;
 import com.bukang.member.domain.exception.SellerAccountNotVerifiedException;
 import com.bukang.member.domain.exception.SellerAccountVerifyTooManyRequestsException;
 import com.bukang.member.domain.exception.SellerAccountVerifyUnavailableException;
 import com.bukang.member.domain.exception.SellerAlreadyAppliedException;
 import com.bukang.member.domain.exception.SellerIdentityReverifyRequiredException;
+import com.bukang.member.domain.exception.SellerNotFoundException;
 import com.bukang.member.dto.SellerApplyRequestDto;
+import com.bukang.member.dto.SellerPayoutAccountModifyRequestDto;
 import com.bukang.member.out.MemberRepository;
 import com.bukang.member.out.SellerRepository;
 import com.bukang.member.out.payoutaccount.PayoutAccountInquiry;
@@ -24,7 +29,7 @@ import com.bukang.member.out.payoutaccount.PayoutAccountVerifyLimiter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 판매자 신청의 정산 계좌가 신청자의 것인지 확인한다 (BUK-50)
+ * 판매자 신청·정산 계좌 수정의 계좌가 본인 것인지 확인한다 (BUK-50, CRU-80)
  * DB 트랜잭션 밖에서 부른다. 오픈뱅킹을 기다리는 동안 회원 행 락을 쥐지 않게 하려는 것이다
  * 신청할 수 없는 회원은 오픈뱅킹을 부르기 전에 막아, 조회 횟수를 쓰지 않게 한다. 저장할 때 락을 잡고 한 번 더 확인한다
  */
@@ -44,7 +49,30 @@ public class PayoutAccountVerifyUseCase {
 		if (sellerRepository.existsByMemberIdAndStatusIn(memberId, SellerApplyUseCase.ACTIVE_STATUSES)) {
 			throw new SellerAlreadyAppliedException("이미 심사 중이거나 승인된 판매자 신청이 있습니다.");
 		}
-		boolean business = request.getAccountHolderType() == PayoutAccountHolderType.BUSINESS;
+		return check(member, request.getBankCode(), request.getAccountNumber(), request.getAccountHolderType(),
+			request.getBusinessNumber(), request.getBusinessName(), now);
+	}
+
+	// 승인된 판매자가 계좌를 등록·수정할 때 같은 확인을 거친다 (CRU-80). 사업자 명의는 판매자 행의 사업자등록번호로 묻는다
+	public VerifiedPayoutAccount verifyForChange(long memberId, SellerPayoutAccountModifyRequestDto request,
+		LocalDateTime now) {
+		Member member = memberRepository.findActiveById(memberId)
+			.orElseThrow(MemberNotFoundException::new);
+		Seller seller = sellerRepository.findFirstByMemberIdOrderByIdDesc(memberId)
+			.orElseThrow(() -> new SellerNotFoundException("판매자 신청 내역이 없습니다."));
+		seller.requireApproved();
+		if (request.getAccountHolderType() == PayoutAccountHolderType.BUSINESS
+			&& seller.getSellerType() != SellerType.BUSINESS) {
+			throw new SellerAccountHolderTypeInvalidException();
+		}
+		return check(member, request.getBankCode(), request.getAccountNumber(), request.getAccountHolderType(),
+			seller.getBusinessNumber(), seller.getBusinessName(), now);
+	}
+
+	private VerifiedPayoutAccount check(Member member, String bankCode, String accountNumber,
+		PayoutAccountHolderType holderType, String businessNumber, String businessName, LocalDateTime now) {
+		long memberId = member.getId();
+		boolean business = holderType == PayoutAccountHolderType.BUSINESS;
 		// 해시가 없으면 이름·생년월일을 본인인증 없이 바꿀 수 있던 때의 값일 수 있다. 은행에 묻기 전에 막아 횟수도 쓰지 않는다
 		if (!business && member.getNameBirthHash() == null) {
 			throw new SellerIdentityReverifyRequiredException();
@@ -53,15 +81,15 @@ public class PayoutAccountVerifyUseCase {
 			throw new SellerAccountVerifyTooManyRequestsException();
 		}
 
-		// 사업자 명의는 신청서의 사업자등록번호로, 본인 명의는 본인인증 생년월일로 묻는다. 신청자가 남의 계좌를 넣지 못한다
+		// 사업자 명의는 사업자등록번호로, 본인 명의는 본인인증 생년월일로 묻는다. 신청자가 남의 계좌를 넣지 못한다
 		String holderName;
 		try {
 			holderName = verifier.verify(new PayoutAccountInquiry(
-				request.getBankCode(),
-				request.getAccountNumber(),
-				request.getAccountHolderType(),
-				business ? request.getBusinessNumber().replace("-", "") : member.getBirthDate().format(BIRTH_DATE),
-				business ? request.getBusinessName() : member.getName()
+				bankCode,
+				accountNumber,
+				holderType,
+				business ? businessNumber.replace("-", "") : member.getBirthDate().format(BIRTH_DATE),
+				business ? businessName : member.getName()
 			));
 		} catch (SellerAccountVerifyUnavailableException exception) {
 			// 은행 답을 받지 못했으니 예금주 정보도 새지 않았다. 장애로 하루 횟수를 다 쓰지 않게 돌려준다
@@ -71,8 +99,7 @@ public class PayoutAccountVerifyUseCase {
 		if (!business && !sameName(holderName, member.getName())) {
 			throw new SellerAccountNotVerifiedException();
 		}
-		return new VerifiedPayoutAccount(request.getBankCode(), request.getAccountNumber(), holderName,
-			request.getAccountHolderType(), now);
+		return new VerifiedPayoutAccount(bankCode, accountNumber, holderName, holderType, now);
 	}
 
 	// 은행마다 예금주 이름의 띄어쓰기가 달라 공백을 빼고 비교한다

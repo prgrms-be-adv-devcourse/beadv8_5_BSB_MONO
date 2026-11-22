@@ -15,10 +15,14 @@ import type {
 
 import type {
   RsDataListPayoutDto,
+  RsDataListPayoutTaxInvoiceDto,
   RsDataListSellerPayoutHoldDto,
+  RsDataListSellerRecoveryDto,
   RsDataPayoutAdminClaimsDto,
+  RsDataPayoutAdminPayoutsDto,
   RsDataPayoutClaimDto,
   RsDataPayoutCreateFailuresDto,
+  RsDataPayoutDto,
   RsDataPayoutHoldDto,
   RsDataPayoutItemPageDto,
   RsDataPayoutSummaryDto
@@ -39,9 +43,17 @@ export const getItemsResponseMock = (): RsDataPayoutItemPageDto => ({"status":20
 
 export const getHoldsResponseMock = (): RsDataListSellerPayoutHoldDto => ({"status":200,"message":"지급보류 내역을 조회했습니다.","data":[{"id":1,"holdCode":"HD-20261012-0001","payoutId":1,"payoutCode":"ST-20260926-0001","raceId":10,"raceName":"2026 한강 나이트런","payoutAmount":94500,"reasonType":"정산_계좌_미등록","reason":"정산 계좌 등록 요청 중","status":"지급보류","heldAt":"2026-10-12T10:00:00","releasedAt":null}]})
 
+export const getClaimsResponseMock = (): RsDataListSellerRecoveryDto => ({"status":200,"message":"회수 내역을 조회했습니다.","data":[{"id":1,"claimCode":"RC-20261103-02C4","raceId":10,"raceName":"2026 한강 나이트런","payoutCode":"ST-20261101-5C9A","amount":60000,"reasonType":"일정_변경","status":"회수_요청","requestedAt":"2026-11-01T09:00:00","completedAt":null,"virtualBankName":"국민은행","virtualAccountNumber":"X6000123456789","dueDate":"2026-12-02"}]})
+
+export const getTaxInvoicesResponseMock = (): RsDataListPayoutTaxInvoiceDto => ({"status":200,"message":"세금계산서를 조회했습니다.","data":[{"id":1,"sellerId":3,"supplyMonth":"2026-10","totalAmount":8250,"supplyAmount":7500,"taxAmount":750,"status":"발행_완료","approvalNumber":"20261101-41000000-01234567","businessName":"크루런 스포츠","businessNumber":"123-45-67890","representativeName":"김러너","issuedAt":"2026-11-01T05:00:02","failReason":null}]})
+
+export const getFindPayoutResponseMock = (): RsDataPayoutDto => ({"status":200,"message":"정산 내역을 조회했습니다.","data":{"id":2,"payoutCode":"ST-20260926-0002","raceId":10,"raceName":"2026 한강 나이트런","payoutStage":"최종_정산","payoutMonth":"2026-09","salesAmount":100000,"refundAmount":0,"feeAmount":5500,"advanceDeductionAmount":40000,"payoutAmount":54500,"status":"지급_예정","settledAt":"2026-09-26T03:00:00","scheduledPayDate":"2026-10-20","paidAt":null}})
+
 export const getCreateFailuresResponseMock = (): RsDataPayoutCreateFailuresDto => ({"status":200,"message":"이상 감지 기록을 조회했습니다.","data":{"mismatchCount":2,"autoFilledCount":1,"orderLookupFailureCount":1,"records":{"content":[{"id":3,"recordedAt":"2026-11-06T03:00:12","runDate":"2026-11-06","payoutStage":"최종_정산","sellerId":1,"raceId":10,"raceCourseId":4,"payoutTargetDate":"2026-11-05","failureType":"대사_불일치","actionTaken":"지급보류","note":"더 들어감 2장 (코스 4: 2장)","soldCount":310,"settledCount":312,"holdCode":"HD-20261106-0D44"}],"page":0,"size":50,"totalElements":1,"totalPages":1}}})
 
 export const getAdminClaimsResponseMock = (): RsDataPayoutAdminClaimsDto => ({"status":200,"message":"청구 목록을 조회했습니다.","data":{"summary":{"claimingCount":1,"claimingAmount":105500,"confirmedThisMonthCount":1},"claims":{"content":[{"id":2,"claimCode":"RC-20261215-0002","sellerId":1,"raceId":7,"amount":105500,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"청구_중","confirmedBy":null,"confirmedAt":null,"virtualBankName":"국민은행","virtualAccountNumber":"12345678901234"},{"id":1,"claimCode":"RC-20261215-0001","sellerId":3,"raceId":7,"amount":50000,"startDate":"2026-12-14","dueDate":"2027-01-13","status":"입금_확인","confirmedBy":99,"confirmedAt":"2026-12-20T10:00:00","virtualBankName":"국민은행","virtualAccountNumber":"98765432109876"}],"page":0,"size":50,"totalElements":2,"totalPages":1}}})
+
+export const getPayouts1ResponseMock = (): RsDataPayoutAdminPayoutsDto => ({"status":200,"message":"정산 목록을 조회했습니다.","data":{"payDate":"2026-11-20","summary":[{"status":"지급_예정","count":1,"payoutAmount":860000},{"status":"지급보류","count":1,"payoutAmount":2400000}],"payouts":{"content":[{"payout":{"id":7,"payoutCode":"ST-20261018-0007","raceId":10,"raceName":"2026 한강 나이트런","payoutStage":"최종_정산","payoutMonth":"2026-10","salesAmount":2540000,"refundAmount":0,"feeAmount":140000,"advanceDeductionAmount":0,"payoutAmount":2400000,"status":"지급보류","settledAt":"2026-10-18T03:00:00","scheduledPayDate":"2026-11-20","paidAt":null},"sellerId":1,"holds":[{"id":2,"holdCode":"HD-20261025-0C13","payoutId":7,"reasonType":"대회_취소_처리","reason":null,"status":"지급보류","heldBy":99,"heldAt":"2026-10-25T10:12:00","releasedBy":null,"releasedAt":null}]}],"page":0,"size":50,"totalElements":1,"totalPages":1}}})
 
 
 export const getHoldMockHandler = (overrideResponse?: RsDataPayoutHoldDto | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<RsDataPayoutHoldDto> | RsDataPayoutHoldDto), options?: RequestHandlerOptions) => {
@@ -148,21 +160,37 @@ export const getHoldsMockHandler = (overrideResponse?: RsDataListSellerPayoutHol
   }, options)
 }
 
-export const getClaimsMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+export const getClaimsMockHandler = (overrideResponse?: RsDataListSellerRecoveryDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListSellerRecoveryDto> | RsDataListSellerRecoveryDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/payout/seller/claims', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
-    return new HttpResponse(null,
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getClaimsResponseMock(),
       { status: 200
       })
   }, options)
 }
 
-export const getFindPayoutMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
-  return http.get('*/api/v1/payout/payouts', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+export const getTaxInvoicesMockHandler = (overrideResponse?: RsDataListPayoutTaxInvoiceDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListPayoutTaxInvoiceDto> | RsDataListPayoutTaxInvoiceDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/seller/tax-invoices', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
-    return new HttpResponse(null,
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getTaxInvoicesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindPayoutMockHandler = (overrideResponse?: RsDataPayoutDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutDto> | RsDataPayoutDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/payouts', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindPayoutResponseMock(),
       { status: 200
       })
   }, options)
@@ -191,6 +219,18 @@ export const getAdminClaimsMockHandler = (overrideResponse?: RsDataPayoutAdminCl
       })
   }, options)
 }
+
+export const getPayouts1MockHandler = (overrideResponse?: RsDataPayoutAdminPayoutsDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataPayoutAdminPayoutsDto> | RsDataPayoutAdminPayoutsDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/payout/admin/payouts', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getPayouts1ResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBukangPayoutAPIMock = () => [
   getHoldMockHandler(),
   getReleaseMockHandler(),
@@ -202,7 +242,9 @@ export const getBukangPayoutAPIMock = () => [
   getItemsMockHandler(),
   getHoldsMockHandler(),
   getClaimsMockHandler(),
+  getTaxInvoicesMockHandler(),
   getFindPayoutMockHandler(),
   getCreateFailuresMockHandler(),
-  getAdminClaimsMockHandler()
+  getAdminClaimsMockHandler(),
+  getPayouts1MockHandler()
 ]

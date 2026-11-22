@@ -259,7 +259,10 @@ export function AiChat({
           {turns.map((turn) => {
             if (turn.role === 'user') {
               return (
-                <p key={turn.id} className="self-end text-body1-regular text-text-primary">
+                <p
+                  key={turn.id}
+                  className="rounded-2xl max-w-[80%] self-end bg-bg-inverse px-4 py-3 text-body1-regular whitespace-pre-wrap text-text-inverse"
+                >
                   {turn.text}
                 </p>
               )

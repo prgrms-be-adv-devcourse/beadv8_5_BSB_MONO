@@ -110,10 +110,6 @@ final class OrderApiExamples {
 		{ "status": 401, "code": "LOGIN_REQUIRED", "message": "로그인이 필요합니다.", "data": null }
 		""";
 
-	static final String NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_PARTICIPATION_FORBIDDEN", "message": "본인의 참가 신청만 결제할 수 있습니다.", "data": null }
-		""";
-
 	static final String QUEUE_NOT_ADMITTED = """
 		{ "status": 403, "code": "ORDER_QUEUE_NOT_ADMITTED", "message": "대기열에서 입장한 뒤 결제할 수 있습니다.", "data": null }
 		""";
@@ -132,7 +128,16 @@ final class OrderApiExamples {
 
 	static final String NOT_PAYABLE = """
 		{ "status": 409, "code": "ORDER_PARTICIPATION_NOT_PAYABLE",
-			"message": "결제를 시작할 수 없는 신청입니다(현재 상태: 결제 대기).", "data": null }
+			"message": "결제를 시작할 수 없는 신청입니다(현재 상태: 미결제 해제).", "data": null }
+		""";
+
+	// 다른 키로 같은 신청서를 다시 보냈는데 그 주문이 이미 끝났다 (CRU-151). 결제 전이면 200으로 그 주문을 돌려준다
+	static final String CREATE_ALREADY_PAID = """
+		{ "status": 409, "code": "ORDER_NOT_PAYABLE", "message": "이미 결제한 신청서입니다.", "data": null }
+		""";
+
+	static final String CREATE_ORDER_CANCELED = """
+		{ "status": 409, "code": "ORDER_NOT_PAYABLE", "message": "취소된 주문입니다.", "data": null }
 		""";
 
 	static final String PARTY_NOT_PAYABLE = """
@@ -270,10 +275,6 @@ final class OrderApiExamples {
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "한 번에 100개까지 조회할 수 있습니다.", "data": null }
 		""";
 
-	static final String VIEW_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 볼 수 있습니다.", "data": null }
-		""";
-
 	static final String PAY_INVALID_KIT_OPTION_ID = """
 		{ "status": 400, "code": "INVALID_REQUEST", "message": "키트 옵션 ID가 올바르지 않습니다.", "data": null }
 		""";
@@ -351,10 +352,6 @@ final class OrderApiExamples {
 			"message": "결제를 확인하고 있습니다. 잠시 뒤 주문 상세에서 결과를 확인해주세요.",
 			"data": { "id": 1, "orderNo": "OD-20261012-0001", "status": "PAYING", "paidAt": null }
 		}
-		""";
-
-	static final String PAY_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 결제할 수 있습니다.", "data": null }
 		""";
 
 	static final String INSUFFICIENT_BALANCE = """
@@ -448,10 +445,6 @@ final class OrderApiExamples {
 		}
 		""";
 
-	static final String CANCEL_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 취소할 수 있습니다.", "data": null }
-		""";
-
 	static final String ORDER_ITEM_NOT_FOUND = """
 		{ "status": 404, "code": "ORDER_ITEM_NOT_FOUND", "message": "주문에 없는 상품입니다.", "data": null }
 		""";
@@ -537,10 +530,6 @@ final class OrderApiExamples {
 				"kitTrackingUrl": null
 			}
 		}
-		""";
-
-	static final String KIT_RECEIPT_NOT_OWNER = """
-		{ "status": 403, "code": "ORDER_FORBIDDEN", "message": "본인의 주문만 수령 확인할 수 있습니다.", "data": null }
 		""";
 
 	static final String KIT_NOT_SHIPPED = """

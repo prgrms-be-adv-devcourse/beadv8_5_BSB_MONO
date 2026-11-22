@@ -63,7 +63,7 @@ public class HttpMemberNicknamesAdapter implements MemberNicknamesPort {
 			.filter(row -> row.memberId() != null && row.nickname() != null)
 			.toList();
 		if (rows.size() < data.size()) {
-			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}, data={}", joined, data);
+			log.warn("회원 서비스의 닉네임 응답에 빈 줄이 있어 건너뜁니다. ids={}", joined);
 		}
 		return rows;
 	}

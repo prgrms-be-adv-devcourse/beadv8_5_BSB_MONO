@@ -352,6 +352,11 @@ export interface RaceSummaryDto {
   applicationCloseAt?: string;
   minPrice?: number;
   courses?: RaceSummaryCourseDto[];
+  /**
+     * 대표 이미지 보기 주소(30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null
+     * @nullable
+     */
+  imageUrl?: string | null;
 }
 
 export interface RacePageDto {
@@ -583,6 +588,72 @@ export interface KitOptionGroupDto {
 export interface KitOptionListDto {
   raceId: number;
   kitOptions: KitOptionGroupDto[];
+}
+
+export type HomeBannerAdminDtoSaleStatus = typeof HomeBannerAdminDtoSaleStatus[keyof typeof HomeBannerAdminDtoSaleStatus];
+
+
+export const HomeBannerAdminDtoSaleStatus = {
+  SCHEDULED: 'SCHEDULED',
+  ON_SALE: 'ON_SALE',
+  STOPPED: 'STOPPED',
+  CLOSED: 'CLOSED',
+  CANCELED: 'CANCELED',
+} as const;
+
+/**
+ * 홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null
+ * @nullable
+ */
+export type HomeBannerAdminDtoHiddenReason = typeof HomeBannerAdminDtoHiddenReason[keyof typeof HomeBannerAdminDtoHiddenReason] | null;
+
+
+export const HomeBannerAdminDtoHiddenReason = {
+  CANCELED: 'CANCELED',
+  CLOSED: 'CLOSED',
+  STOPPED: 'STOPPED',
+  APPLICATION_CLOSED: 'APPLICATION_CLOSED',
+} as const;
+
+export interface HomeBannerAdminDto {
+  raceId: number;
+  title: string;
+  saleStatus: HomeBannerAdminDtoSaleStatus;
+  applicationCloseAt: string;
+  /** 홈에 보이는 순서 (0부터) */
+  displayOrder: number;
+  /** 지금 홈에 보이는지 */
+  visible: boolean;
+  /**
+     * 홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null
+     * @nullable
+     */
+  hiddenReason: HomeBannerAdminDtoHiddenReason;
+  /**
+     * 이유의 화면 이름(대회 취소 / 판매 종료 / 판매 중지 / 접수 마감). 보이면 null
+     * @nullable
+     */
+  hiddenReasonLabel: string | null;
+}
+
+export interface HomeBannerReplaceRequestDto {
+  /**
+     * 배너로 고른 대회 ID. 보낸 순서가 홈에 보이는 순서다(최대 5개, 중복 없음). []이면 배너를 모두 비운다
+     * @maxItems 5
+     */
+  raceIds: number[];
+}
+
+export interface RsDataListRaceSummaryDto {
+  status?: number;
+  message?: string;
+  data?: RaceSummaryDto[];
+}
+
+export interface RsDataListHomeBannerAdminDto {
+  status?: number;
+  message?: string;
+  data?: HomeBannerAdminDto[];
 }
 
 export interface RsDataRaceDetailDto {

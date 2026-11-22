@@ -210,13 +210,14 @@ describe('RaceDetailPage 신청하기', () => {
 })
 
 describe('RaceDetailPage 공유 · 일정', () => {
-  it('공유 아이콘을 누르면 카카오톡 · 링크 복사 · 다른 앱 시트가 열린다', async () => {
+  it('공유 아이콘을 누르면 링크 복사 버튼만 있는 시트가 열린다', async () => {
     renderPage()
     await userEvent.setup().click(screen.getByRole('button', { name: '공유하기' }))
 
     const sheet = await screen.findByRole('dialog')
-    for (const name of ['카카오톡', '링크 복사', '다른 앱']) {
-      expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: '링크 복사' })).toBeInTheDocument()
+    for (const name of ['카카오톡', '다른 앱']) {
+      expect(within(sheet).queryByRole('button', { name })).not.toBeInTheDocument()
     }
   })
 
@@ -249,6 +250,8 @@ describe('RaceDetailPage 공유 · 일정', () => {
     )
 
     expect(await screen.findByText('링크를 복사했어요')).toBeInTheDocument()
+    // 시안 「링크 복사 완료」: 알림이 떠도 시트는 열려 있다
+    expect(screen.getByRole('dialog', { name: '대회 공유하기' })).toHaveAttribute('data-open')
     expect(writeText).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`/races/${RACE_DETAIL.id}$`)),
     )
@@ -277,6 +280,19 @@ describe('RaceDetailPage 비슷한 대회 (M02-6)', () => {
 
     expect(await screen.findByRole('heading', { name: '비슷한 대회' })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /추천 \d/ })).toHaveLength(3)
+  })
+
+  it('추천 대회의 imageUrl이 있으면 사진을 보여 주고, null이면 사진 없이 그린다', async () => {
+    similar([
+      { ...base, raceId: 101, title: '추천 사진', imageUrl: '/mock/races/101.webp' },
+      { ...base, raceId: 102, title: '추천 기본', imageUrl: null },
+    ])
+    renderPage()
+
+    const withImage = await screen.findByRole('link', { name: /추천 사진/ })
+    const withoutImage = screen.getByRole('link', { name: /추천 기본/ })
+    expect(withImage.querySelector('img')).not.toBeNull()
+    expect(withoutImage.querySelector('img')).toBeNull()
   })
 
   it('추천이 없으면 영역을 숨긴다', async () => {
@@ -498,5 +514,36 @@ describe('RaceDetailPage v3 배치', () => {
     expect(screen.getByText(RACE_DETAIL.seller.name)).toBeInTheDocument()
     expect(screen.getByText(RACE_DETAIL.seller.businessNo)).toBeInTheDocument()
     expect(screen.getByText(RACE_DETAIL.seller.mailOrderNo)).toBeInTheDocument()
+  })
+
+  it('상세 정보 이미지는 고정 비율로 자르지 않고, 여러 장은 간격 없이 이어 붙인다', () => {
+    renderPage({ race: { ...RACE_DETAIL, images: ['/a.png', '/b.png', '/c.png'] } })
+    const images = screen.getAllByRole('img', { name: /상세 정보 이미지/ })
+    images.forEach((img) => {
+      expect(img).toHaveClass('h-auto', 'w-full', 'block')
+      expect(img).not.toHaveClass('object-cover')
+      expect(img.parentElement).not.toHaveClass('h-112')
+    })
+    const wrapper = images[0].parentElement as HTMLElement
+    expect(images.every((img) => img.parentElement === wrapper)).toBe(true)
+    expect(wrapper).toHaveClass('flex-col', 'overflow-hidden', 'rounded-md')
+    expect(wrapper.className).not.toMatch(/\bgap-/)
+  })
+})
+
+describe('RaceDetailPage 파티 인원', () => {
+  const withCrew = (crew: NonNullable<RaceDetail['crew']>): RaceDetail => ({ ...RACE_DETAIL, crew })
+
+  it('최대 인원이 없으면 「4명 이상」으로 보여 준다', () => {
+    clearAccessToken()
+    renderPage({ race: withCrew({ minCount: 4 }) })
+    expect(screen.getByText('4명 이상')).toBeInTheDocument()
+    expect(screen.queryByText(/4명 ~ 4명/)).not.toBeInTheDocument()
+  })
+
+  it('최대 인원이 있으면 범위로 보여 준다', () => {
+    clearAccessToken()
+    renderPage({ race: withCrew({ minCount: 4, maxCount: 10 }) })
+    expect(screen.getByText('4명 ~ 10명')).toBeInTheDocument()
   })
 })

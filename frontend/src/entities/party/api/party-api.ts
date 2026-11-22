@@ -51,6 +51,8 @@ export type PartyPreview = Pick<
 > & {
   leaderNickname: string
   joinLinkAlive: boolean
+  // 옛 서버 응답에는 없을 수 있다 (CRU-114 배포 전)
+  crewMember?: boolean
 }
 
 export type PartyRaceStatus = {

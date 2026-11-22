@@ -109,9 +109,11 @@ export const partyHandlers = [
         memberCount: 3,
         joinTokenExpiresAt: '2026-01-01T00:00:00',
         joinLinkAlive: joinToken !== 'expired',
+        crewMember: true,
       })
     }
     if (joinToken === 'notfound') return fail(...(failure as [number, string, string]))
+    // 링크를 열 때부터 크루원이 아닌 경우 (합류 요청에서 403을 받는 notmember와 구분)
     return ok({
       id: 1,
       crewId: 7,
@@ -122,6 +124,7 @@ export const partyHandlers = [
       memberCount: 3,
       joinTokenExpiresAt: FAR,
       joinLinkAlive: true,
+      crewMember: joinToken !== 'notcrew',
     })
   }),
   http.post('*/api/v1/order/parties/join', async ({ request }) => {

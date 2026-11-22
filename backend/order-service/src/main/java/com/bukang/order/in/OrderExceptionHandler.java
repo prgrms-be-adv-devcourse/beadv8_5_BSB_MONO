@@ -27,6 +27,9 @@ import com.bukang.order.dto.KitOptionSoldOutDto;
 import com.bukang.order.dto.PartyConflictDto;
 import com.bukang.order.dto.PartyCrewSeatShortageDto;
 
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * 주문 서비스 전용 요청 예외 처리
  * 처리하지 않으면 /error로 넘어가 공통 응답 형식(RsData)이 아닌 기본 에러 응답이 나간다.
@@ -34,6 +37,7 @@ import com.bukang.order.dto.PartyCrewSeatShortageDto;
  * 여기서 정한 400 응답이 먼저 쓰이도록 순서를 가장 앞에 둔다.
  * 회원 ID 헤더 오류(LoginRequiredException 등 BusinessException)는 여기서 받지 않으므로 GlobalExceptionHandler가 응답한다
  */
+@Slf4j
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 public class OrderExceptionHandler {
@@ -45,8 +49,10 @@ public class OrderExceptionHandler {
 	// 예치금 부족: 공통 처리와 같은 형식에 부족 금액(data.shortage)을 더한다
 	@ExceptionHandler(InsufficientBalanceException.class)
 	public ResponseEntity<RsData<InsufficientBalanceDto>> insufficientBalanceException(
-		InsufficientBalanceException exception
+		InsufficientBalanceException exception,
+		HttpServletRequest request
 	) {
+		logHandled(request, exception.getStatus(), exception.getCode(), exception.getMessage());
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
@@ -55,7 +61,9 @@ public class OrderExceptionHandler {
 
 	// 키트 옵션 품절: 공통 처리와 같은 형식에 팔린 옵션(data.soldOut)을 더한다
 	@ExceptionHandler(KitOptionSoldOutException.class)
-	public ResponseEntity<RsData<KitOptionSoldOutDto>> kitOptionSoldOutException(KitOptionSoldOutException exception) {
+	public ResponseEntity<RsData<KitOptionSoldOutDto>> kitOptionSoldOutException(KitOptionSoldOutException exception,
+		HttpServletRequest request) {
+		logHandled(request, exception.getStatus(), exception.getCode(), exception.getMessage());
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
@@ -65,8 +73,10 @@ public class OrderExceptionHandler {
 	// 개인 신청이 있어 파티를 만들거나 합류할 수 없음: 남은 개인 신청서 ID(data.participationId)를 더한다 (BUK-36)
 	@ExceptionHandler(IndividualParticipationExistsException.class)
 	public ResponseEntity<RsData<IndividualParticipationExistsDto>> individualParticipationExistsException(
-		IndividualParticipationExistsException exception
+		IndividualParticipationExistsException exception,
+		HttpServletRequest request
 	) {
+		logHandled(request, exception.getStatus(), exception.getCode(), exception.getMessage());
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
@@ -76,8 +86,10 @@ public class OrderExceptionHandler {
 	// 크루가 파티 만들기 제한 중: 끝나는 시각(data.endAt)을 더한다 (BUK-190)
 	@ExceptionHandler(CrewPartyRestrictedException.class)
 	public ResponseEntity<RsData<CrewPartyRestrictedDto>> crewPartyRestrictedException(
-		CrewPartyRestrictedException exception
+		CrewPartyRestrictedException exception,
+		HttpServletRequest request
 	) {
+		logHandled(request, exception.getStatus(), exception.getCode(), exception.getMessage());
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
@@ -86,7 +98,9 @@ public class OrderExceptionHandler {
 
 	// 파티 거절: 파티 번호·상태(data.partyId, data.partyStatus)를 더한다. 담을 값이 없으면 data는 null (BUK-36)
 	@ExceptionHandler(PartyConflictException.class)
-	public ResponseEntity<RsData<PartyConflictDto>> partyConflictException(PartyConflictException exception) {
+	public ResponseEntity<RsData<PartyConflictDto>> partyConflictException(PartyConflictException exception,
+		HttpServletRequest request) {
+		logHandled(request, exception.getStatus(), exception.getCode(), exception.getMessage());
 		PartyConflictDto data = exception.hasData()
 			? new PartyConflictDto(exception.getPartyId(), exception.getPartyStatus())
 			: null;
@@ -98,8 +112,10 @@ public class OrderExceptionHandler {
 	// 파티 신청 때 크루 자리가 모자람: 모자란 종목·필요한 수·남은 수를 더한다 (BUK-37)
 	@ExceptionHandler(PartyCrewSeatShortageException.class)
 	public ResponseEntity<RsData<PartyCrewSeatShortageDto>> partyCrewSeatShortageException(
-		PartyCrewSeatShortageException exception
+		PartyCrewSeatShortageException exception,
+		HttpServletRequest request
 	) {
+		logHandled(request, exception.getStatus(), exception.getCode(), exception.getMessage());
 		return ResponseEntity
 			.status(exception.getStatus())
 			.body(RsData.of(exception.getStatus(), exception.getCode(), exception.getMessage(),
@@ -109,7 +125,10 @@ public class OrderExceptionHandler {
 
 	// 필수 요청 헤더(예: 중복 요청 방지 키)가 없으면 잘못된 요청이다. 회원 ID 헤더는 common의 @LoginMemberId가 처리한다
 	@ExceptionHandler(MissingRequestHeaderException.class)
-	public ResponseEntity<RsData<Void>> missingRequestHeaderException(MissingRequestHeaderException exception) {
+	public ResponseEntity<RsData<Void>> missingRequestHeaderException(MissingRequestHeaderException exception,
+		HttpServletRequest request) {
+		logHandled(request, HttpStatus.BAD_REQUEST, INVALID_REQUEST,
+			"필수 요청 헤더(%s)가 없습니다.".formatted(exception.getHeaderName()));
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST,
@@ -119,11 +138,13 @@ public class OrderExceptionHandler {
 	// 컨트롤러 파라미터에 직접 붙인 검증(예: 경로 변수 @Positive) 실패. 첫 번째 오류 메시지를 응답한다
 	// 이런 검증이 있는 메서드는 @Valid 요청 본문 오류도 이 예외로 오므로 같은 형식으로 맞춘다
 	@ExceptionHandler(HandlerMethodValidationException.class)
-	public ResponseEntity<RsData<Void>> handlerMethodValidationException(HandlerMethodValidationException exception) {
+	public ResponseEntity<RsData<Void>> handlerMethodValidationException(HandlerMethodValidationException exception,
+		HttpServletRequest request) {
 		String message = exception.getAllErrors().stream()
 			.findFirst()
 			.map(MessageSourceResolvable::getDefaultMessage)
 			.orElse("요청 값이 올바르지 않습니다.");
+		logHandled(request, HttpStatus.BAD_REQUEST, INVALID_REQUEST, message);
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST, message, null));
@@ -132,8 +153,11 @@ public class OrderExceptionHandler {
 	// 필수 쿼리 파라미터 누락. 헤더 누락처럼 이름을 넣어 어떤 값이 빠졌는지 알 수 있게 한다
 	@ExceptionHandler(MissingServletRequestParameterException.class)
 	public ResponseEntity<RsData<Void>> missingServletRequestParameterException(
-		MissingServletRequestParameterException exception
+		MissingServletRequestParameterException exception,
+		HttpServletRequest request
 	) {
+		logHandled(request, HttpStatus.BAD_REQUEST, INVALID_REQUEST,
+			"필수 요청 값(%s)이 없습니다.".formatted(exception.getParameterName()));
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST,
@@ -143,8 +167,10 @@ public class OrderExceptionHandler {
 	// 경로 변수·헤더·쿼리 파라미터의 숫자 형식 오류 (예: 회원 ID에 문자)
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<RsData<Void>> methodArgumentTypeMismatchException(
-		MethodArgumentTypeMismatchException exception
+		MethodArgumentTypeMismatchException exception,
+		HttpServletRequest request
 	) {
+		logHandled(request, HttpStatus.BAD_REQUEST, INVALID_REQUEST, "요청 값의 형식이 올바르지 않습니다.");
 		return ResponseEntity
 			.status(HttpStatus.BAD_REQUEST)
 			.body(RsData.of(HttpStatus.BAD_REQUEST, INVALID_REQUEST, "요청 값의 형식이 올바르지 않습니다.", null));
@@ -154,9 +180,19 @@ public class OrderExceptionHandler {
 	// 결제·취소는 외부 호출 뒤 결과 조회에서 날 수도 있어(돈은 빠지고 결제 중으로 남음) "실패"가 아니라 "확인 못 함"으로 알린다.
 	// 다시 눌러도 결제 중이면 202라 두 번 빠지지 않는다
 	@ExceptionHandler(CannotCreateTransactionException.class)
-	public ResponseEntity<RsData<Void>> cannotCreateTransactionException(CannotCreateTransactionException exception) {
+	public ResponseEntity<RsData<Void>> cannotCreateTransactionException(CannotCreateTransactionException exception,
+		HttpServletRequest request) {
+		// 결제는 외부 호출 뒤 결과 조회에서도 날 수 있어 돈이 빠졌는지 모를 수 있다. 원인을 찾도록 스택까지 남긴다
+		log.error("DB 연결을 받지 못했습니다. {} {}", request.getMethod(), request.getRequestURI(), exception);
 		return ResponseEntity
 			.status(HttpStatus.SERVICE_UNAVAILABLE)
 			.body(RsData.of(HttpStatus.SERVICE_UNAVAILABLE, DB_BUSY, DB_BUSY_MESSAGE, null));
+	}
+
+	// 응답만 하면 서버에서 원인을 찾을 수 없다. common GlobalExceptionHandler.logBadRequest와 같은 형식으로 한 줄 남긴다
+	// 4xx는 같은 사람이 고쳐 다시 보내므로 info이고 스택은 넣지 않는다. 입력값(이름·휴대폰 번호·주소)은 넣지 않는다
+	private static void logHandled(HttpServletRequest request, HttpStatus status, String code, String message) {
+		log.info("{} {} {} code={}, message={}", status.value(), request.getMethod(), request.getRequestURI(),
+			code, message);
 	}
 }

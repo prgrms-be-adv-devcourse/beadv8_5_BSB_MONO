@@ -105,6 +105,9 @@ public class ProductOutboxKafkaRelayUseCase {
 			return true;
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
+			// 앱 종료 등으로 기다리다 끊겼다. 실패 횟수가 오르므로 이유를 남긴다
+			log.warn("아웃박스 메시지를 보내다 중단되었습니다. id={}, topic={}, key={}",
+				event.getId(), event.getEventType(), event.getMessageKey(), exception);
 			return false;
 		} catch (ExecutionException | TimeoutException | RuntimeException exception) {
 			// 브로커에 연결하지 못하면 send()가 기다리다(max.block.ms, 기본 60초) 예외를 던진다

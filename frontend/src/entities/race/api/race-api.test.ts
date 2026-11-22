@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { server } from '@/shared/testing'
 
-import { fetchRaceDetail, raceCoverQueryOptions } from './race-api'
+import { fetchRaceDetail, fetchRacePage, raceCoverQueryOptions } from './race-api'
 
 describe('fetchRaceDetail', () => {
   it('상품 API의 대회와 파일 API의 대회 대표 이미지를 합친다', async () => {
@@ -61,5 +61,34 @@ describe('raceCoverQueryOptions', () => {
     server.use(http.get('*/api/v1/file/files', () => HttpResponse.error()))
     const { queryFn } = raceCoverQueryOptions(2)
     await expect((queryFn as () => Promise<string | null>)()).resolves.toBeNull()
+  })
+})
+
+describe('fetchRacePage', () => {
+  it('목록 한 번 요청으로 받은 imageUrl을 그대로 주고, 파일 서비스는 부르지 않는다', async () => {
+    const fileRequests: string[] = []
+    server.use(
+      http.get('*/api/v1/product/races', () =>
+        HttpResponse.json({
+          status: 200,
+          message: 'ok',
+          data: {
+            races: [
+              { raceId: 7, title: '대회 7', imageUrl: '/seven.webp' },
+              { raceId: 8, title: '대회 8', imageUrl: null },
+            ],
+            page: 0,
+            size: 20,
+          },
+        }),
+      ),
+      http.get('*/api/v1/file/files', ({ request }) => {
+        fileRequests.push(request.url)
+        return HttpResponse.json({ status: 200, message: 'ok', data: [] })
+      }),
+    )
+    const { races } = await fetchRacePage({ page: 0, size: 20 })
+    expect(races?.map((r) => r.imageUrl)).toEqual(['/seven.webp', null])
+    expect(fileRequests).toEqual([])
   })
 })

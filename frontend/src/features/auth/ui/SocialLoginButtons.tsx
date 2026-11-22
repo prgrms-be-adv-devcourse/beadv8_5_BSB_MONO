@@ -16,16 +16,17 @@ import {
 // 앱 검수가 가이드 색을 보므로 디자인 토큰 대신 가이드 값을 쓴다.
 const STYLE: Record<SocialProviderId, string> = {
   kakao: 'bg-[#FEE500]',
-  google: 'border border-[#747775] bg-white',
+  google: 'border border-[#747775] bg-[#ffffff]',
 }
 
 // 피그마 v2 로그인: 지름 40 원형 아이콘 버튼 (카카오 말풍선, 구글 G)
 const MARK: Record<SocialProviderId, ReactNode> = {
   kakao: (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
+    <svg viewBox="0 0 20 20" className="size-5" aria-hidden>
       <path
-        fill="#191919"
-        d="M12 3C6.48 3 2 6.58 2 10.99c0 2.85 1.86 5.35 4.67 6.77l-.95 3.48c-.08.3.26.54.52.37l4.15-2.76c.53.07 1.07.11 1.61.11 5.52 0 10-3.58 10-7.97C22 6.58 17.52 3 12 3z"
+        fill="#000000"
+        transform="translate(1.111 1.667)"
+        d="M8.889 0C3.978 0 0 3.133 0 7c0 2.489 1.656 4.667 4.144 5.9l-1.055 3.867c-.089.333.289.6.578.411l4.589-3.044c.211.022.422.033.633.033 4.911 0 8.889-3.133 8.889-7C17.778 3.3 13.8 0 8.889 0z"
       />
     </svg>
   ),

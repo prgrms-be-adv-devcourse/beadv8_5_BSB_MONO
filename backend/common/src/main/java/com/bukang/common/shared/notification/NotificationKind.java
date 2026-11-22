@@ -29,6 +29,8 @@ public enum NotificationKind {
 	KIT_SHIPMENT_REQUIRED,
 	// 정산이 보류됐다. 판매자에게 보류 사유를 확인해 달라고 한다 (정산)
 	PAYOUT_HELD,
+	// 상계로도 못 갚은 돈을 보내 달라고 판매자에게 청구한다. 입금 확인 전까지 매일 한 번 (정산, CRU-94)
+	PAYOUT_CLAIM_REQUESTED,
 	// 회원이 대회에 문의를 남겼다. 그 대회 판매자에게 알린다 (문의, BUK-136)
 	INQUIRY_RECEIVED,
 	// 문의에 답변이 달렸다. 문의한 회원에게 알린다 (문의, BUK-136)

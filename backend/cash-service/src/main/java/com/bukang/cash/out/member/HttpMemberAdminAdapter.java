@@ -56,7 +56,7 @@ public class HttpMemberAdminAdapter implements MemberAdminPort {
 			throw new MemberServiceUnavailableException();
 		}
 		if (response == null || response.data() == null || response.data().admin() == null) {
-			log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}, response={}", memberId, response);
+			log.error("회원 서비스의 관리자 여부 응답에 값이 없습니다. memberId={}", memberId);
 			throw new MemberServiceUnavailableException();
 		}
 		return response.data().admin();

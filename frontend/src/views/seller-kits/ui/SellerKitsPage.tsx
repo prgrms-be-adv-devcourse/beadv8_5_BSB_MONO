@@ -38,13 +38,16 @@ import {
 } from '@/shared/ui'
 
 import {
+  CARRIERS,
   missingTracking,
   rowKey,
   shipFormSchema,
+  TAB_LABEL,
   TRACKING_NOTICE,
   trackingOnly,
   type ShipFormValues,
 } from '../model/ship-form'
+import { KitOrderDetail } from './KitOrderDetail'
 
 type Kit = orderModel.SellerKitDto
 
@@ -54,16 +57,7 @@ type NextStatus = Exclude<KitStatus, 'PREPARING'>
 const ALL = ''
 // 탭: 송장 입력 대기(배송 준비) · 배송 중 · 배송 완료. 탭 이름 옆에 건수를 붙인다.
 // 환불 기한 전 · 취소 탭은 목록 API가 없어 두지 않는다(환불 기한 전은 건수만 글자로 보여 준다)
-const TAB_LABEL: Record<KitStatus, string> = {
-  PREPARING: '송장 입력 대기',
-  SHIPPING: '배송 중',
-  DELIVERED: '배송 완료',
-}
 const TAB_VALUES: string[] = [...KIT_FLOW]
-const CARRIERS = ['CJ대한통운', '롯데택배', '한진택배', '우체국택배'].map((c) => ({
-  value: c,
-  label: c,
-}))
 
 /** 한 쪽에 보여 줄 줄 수. 목록은 한 번에 받아 화면 안에서 나눈다 */
 const PAGE_ROWS = 10
@@ -117,6 +111,8 @@ export function SellerKitsPage() {
   const summary = useSellerKitSummary(filters.raceId)
 
   const [checked, setChecked] = useState<number[]>([])
+  // 줄을 눌러 연 주문 상세 창
+  const [openId, setOpenId] = useState<number | null>(null)
   // 바꿀 단계는 주소의 탭에서 정한다(?status=로 바로 들어와도 맞는다)
   const next: NextStatus = url.status === 'SHIPPING' ? 'DELIVERED' : 'SHIPPING'
   // 송장 입력 대기 줄마다 넣는 택배사 · 송장 번호
@@ -153,6 +149,7 @@ export function SellerKitsPage() {
   const changeFilter = (patch: { race?: string; status?: string; page?: string }) => {
     setUrl({ page: '1', ...patch })
     setChecked([])
+    setOpenId(null)
     setResult(null)
   }
 
@@ -189,6 +186,10 @@ export function SellerKitsPage() {
       shipForm.resetField(`tracking.${rowKey(kitId(kit))}`, { defaultValue: '' })
     }
   }
+
+  const openKit = all.find((kit) => kitId(kit) === openId)
+  // 연 주문이 목록에서 빠지면(다른 곳에서 먼저 보냄 등) 창을 닫은 것으로 친다. 다시 보여도 저절로 열리지 않게
+  if (openId !== null && kits.data && !openKit) setOpenId(null)
 
   const orderNoOf = (id: number) => all.find((kit) => kitId(kit) === id)?.orderNo ?? String(id)
 
@@ -317,7 +318,16 @@ export function SellerKitsPage() {
                 const id = kitId(kit)
                 const editable = preparing && kit.kitDeliveryStatus === 'PREPARING'
                 return (
-                  <tr key={id} className="h-14 border-b border-border-default last:border-b-0">
+                  <tr
+                    key={id}
+                    // 줄 어디를 눌러도 상세 창을 연다. 줄 안의 고르기 · 입력 칸을 누른 것은 빼고
+                    onClick={(event) => {
+                      if (!(event.target as HTMLElement).closest('button, input, label, [role]')) {
+                        setOpenId(id)
+                      }
+                    }}
+                    className="h-14 cursor-pointer border-b border-border-default last:border-b-0 hover:bg-bg-subtle"
+                  >
                     <td className="px-3">
                       <Checkbox
                         aria-label={`${kit.orderNo} 고르기`}
@@ -325,7 +335,17 @@ export function SellerKitsPage() {
                         onCheckedChange={(on) => toggle(id, on)}
                       />
                     </td>
-                    <td className="truncate px-3">{kit.orderNo}</td>
+                    <td className="truncate px-3">
+                      {/* 키보드로도 열 수 있게 주문번호를 버튼으로 둔다 */}
+                      <button
+                        type="button"
+                        aria-label={`${kit.orderNo} 주문 상세`}
+                        onClick={() => setOpenId(id)}
+                        className={cn('max-w-full truncate rounded-sm text-left', FOCUS_RING)}
+                      >
+                        {kit.orderNo}
+                      </button>
+                    </td>
                     {/* 참가자 이름은 Clarity 화면 녹화에서 가린다 */}
                     <td className="truncate px-3" data-clarity-mask="true">
                       {kit.participantName}
@@ -419,6 +439,17 @@ export function SellerKitsPage() {
           </nav>
         )}
       </section>
+
+      <KitOrderDetail
+        kit={openKit}
+        raceTitle={raceTitle(openKit?.raceId)}
+        kitOption={openKit ? kitOption(openKit) : ''}
+        onClose={() => setOpenId(null)}
+        onDone={() => {
+          setOpenId(null)
+          setResult({ done: 1, failures: [] })
+        }}
+      />
     </ConsolePage>
   )
 }

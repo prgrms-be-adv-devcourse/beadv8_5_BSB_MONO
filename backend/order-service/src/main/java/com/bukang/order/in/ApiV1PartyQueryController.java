@@ -55,10 +55,7 @@ public class ApiV1PartyQueryController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "이 파티의 파티원이 아님 (나간 사람 포함)",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PartyApiExamples.NOT_MEMBER))),
-		@ApiResponse(responseCode = "404", description = "없는 파티",
+		@ApiResponse(responseCode = "404", description = "없는 파티 (파티원이 아니어도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.PARTY_NOT_FOUND))),
 		@ApiResponse(responseCode = "503", description = "회원 서비스(닉네임)에 연결하지 못함",
@@ -101,9 +98,10 @@ public class ApiV1PartyQueryController {
 
 	@PostMapping("/preview")
 	@Operation(operationId = "previewParty", summary = "참가 링크로 파티 미리 보기",
-		description = "참가 링크를 연 순간 부른다(시안 08 합류 확인 위쪽). 로그인한 누구나 볼 수 있고 크루원 확인은 합류 때 한다. "
-			+ "토큰이 없거나 다시 만든 옛 토큰이면 404다. 그 밖에는 200에 파티 상태와 링크가 살아 있는지를 준다. "
-			+ "status가 RECRUITING이 아니면 「모집 끝남」, joinLinkAlive=false면 「링크 끝남」 화면으로 보낸다. "
+		description = "참가 링크를 연 순간 부른다(시안 08 합류 확인 위쪽). 로그인한 누구나 볼 수 있다. "
+			+ "토큰이 없거나 다시 만든 옛 토큰이면 404다. 그 밖에는 200에 파티 상태, 링크가 살아 있는지, 크루원인지를 준다. "
+			+ "status가 RECRUITING이 아니면 「모집 끝남」, joinLinkAlive=false면 「링크 끝남」, "
+			+ "crewMember=false면 참가자 정보를 받기 전에 「크루원만 합류할 수 있어요」 화면으로 보낸다(합류 때 다시 확인한다). "
 			+ "토큰은 주소에 남지 않게 본문으로 받는다. 파티원 명단·참가자 정보는 주지 않는다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "조회 성공 (링크가 끝났거나 모집이 끝나도 200)",
@@ -119,7 +117,7 @@ public class ApiV1PartyQueryController {
 		@ApiResponse(responseCode = "404", description = "참가 링크가 없음 (다시 만든 옛 링크 포함)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.JOIN_LINK_NOT_FOUND))),
-		@ApiResponse(responseCode = "503", description = "회원 서비스(닉네임)에 연결하지 못함",
+		@ApiResponse(responseCode = "503", description = "회원 서비스에 크루원인지 묻지 못함 (닉네임만 못 받으면 「크루원」으로 200)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.MEMBER_SERVICE_UNAVAILABLE)))
 	})
@@ -128,7 +126,7 @@ public class ApiV1PartyQueryController {
 		@Valid @RequestBody PartyPreviewRequestDto request
 	) {
 		return ResponseEntity.ok().body(RsData.of(HttpStatus.OK, "참가 링크의 파티를 조회했습니다.",
-			partyQueryFacade.preview(request.joinToken(), LocalDateTime.now())));
+			partyQueryFacade.preview(request.joinToken(), memberId, LocalDateTime.now())));
 	}
 
 	@GetMapping("/crews/{crewId}/active")
@@ -144,10 +142,7 @@ public class ApiV1PartyQueryController {
 		@ApiResponse(responseCode = "401", description = "회원 ID 헤더 없음",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.LOGIN_REQUIRED))),
-		@ApiResponse(responseCode = "403", description = "이 크루의 크루원이 아님",
-			content = @Content(schema = @Schema(implementation = RsData.class),
-				examples = @ExampleObject(value = PartyApiExamples.CREW_MEMBER_REQUIRED))),
-		@ApiResponse(responseCode = "404", description = "없는 크루",
+		@ApiResponse(responseCode = "404", description = "없는 크루 (크루원이 아니어도 같은 404)",
 			content = @Content(schema = @Schema(implementation = RsData.class),
 				examples = @ExampleObject(value = PartyApiExamples.CREW_NOT_FOUND))),
 		@ApiResponse(responseCode = "503", description = "회원 서비스(크루·닉네임)에 연결하지 못함",

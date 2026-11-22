@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.out.OrderOutboxKafkaEventRepository;
 import com.bukang.order.out.ParticipationRepository;
 import com.bukang.order.out.PartyMemberRepository;
@@ -124,7 +126,7 @@ class ApiV1PartyQueryTest {
 	}
 
 	@Test
-	@DisplayName("파티원이 아니거나 나간 사람은 상세를 볼 수 없고(403), 없는 파티는 404")
+	@DisplayName("파티원이 아니거나 나간 사람은 상세를 볼 수 없고, 없는 파티와 같은 404다")
 	void detailForbidden() throws Exception {
 		String token = create(LEADER, COURSE);
 		long partyId = partyId();
@@ -132,11 +134,16 @@ class ApiV1PartyQueryTest {
 		mockMvc.perform(post(BASE_URL + "/" + partyId + "/leave").header("X-Member-Id", MEMBER))
 			.andExpect(status().isOk());
 
-		detail(OTHER, partyId).andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_MEMBER"));
-		detail(MEMBER, partyId).andExpect(status().isForbidden());
-		detail(LEADER, partyId + 999).andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"));
+		String othersBody = detail(OTHER, partyId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String leftBody = detail(MEMBER, partyId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = detail(LEADER, partyId + 999).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 파티와 없는 파티를 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
+		assertThat(leftBody).isEqualTo(missingBody);
 		detail(LEADER, partyId).andExpect(jsonPath("$.data.memberCount").value(1));
 	}
 
@@ -207,6 +214,39 @@ class ApiV1PartyQueryTest {
 	}
 
 	@Test
+	@DisplayName("링크 미리 보기는 크루원 여부를 준다. 크루원이 아니거나 크루가 없어도 200에 false (CRU-114)")
+	void previewCrewMember() throws Exception {
+		String token = create(LEADER, COURSE);
+
+		preview(OTHER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.crewMember").value(true));
+
+		crewPort.notCrewMember(OTHER);
+		preview(OTHER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.crewMember").value(false));
+
+		crewPort.missingCrew(CREW_ID);
+		preview(LEADER, token)
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.crewMember").value(false));
+	}
+
+	@Test
+	@DisplayName("크루원인지 묻지 못하면 미리 보기도 503. 모르는 채로 true·false를 주지 않는다 (CRU-114)")
+	void previewCrewUnavailable() throws Exception {
+		String token = create(LEADER, COURSE);
+		crewPort.beforeNextLookup(() -> {
+			throw new ExternalServiceUnavailableException("회원 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.");
+		});
+
+		preview(OTHER, token)
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value(ExternalServiceUnavailableException.CODE));
+	}
+
+	@Test
 	@DisplayName("링크를 다시 만들면 옛 토큰 미리 보기는 404")
 	void previewOldToken() throws Exception {
 		String token = create(LEADER, COURSE);
@@ -217,7 +257,7 @@ class ApiV1PartyQueryTest {
 	}
 
 	@Test
-	@DisplayName("크루 홈: 크루원에게 모집 중·결제 진행 중 파티를 모두 준다. 크루원이 아니면 403, 없는 크루는 404")
+	@DisplayName("크루 홈: 크루원에게 모집 중·결제 진행 중 파티를 모두 준다. 크루원이 아니면 없는 크루와 같은 404")
 	void crewActive() throws Exception {
 		create(LEADER, COURSE);
 		long recruiting = partyId();
@@ -236,14 +276,18 @@ class ApiV1PartyQueryTest {
 		crewActive(LEADER).andExpect(jsonPath("$.data[0].myParty").value(true));
 
 		crewPort.missingCrew(CREW_ID + 1);
-		mockMvc.perform(get(BASE_URL + "/crews/" + (CREW_ID + 1) + "/active").header("X-Member-Id", MEMBER))
+		String missingBody = mockMvc.perform(get(BASE_URL + "/crews/" + (CREW_ID + 1) + "/active")
+				.header("X-Member-Id", MEMBER))
 			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("ORDER_CREW_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_CREW_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
 
+		// 크루원이 아니면 없는 크루와 같은 404다. 크루가 있는지 알리지 않는다 (CRU-92)
 		crewPort.notCrewMember(MEMBER);
-		crewActive(MEMBER)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value("ORDER_CREW_MEMBER_REQUIRED"));
+		String notMemberBody = crewActive(MEMBER)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(notMemberBody).isEqualTo(missingBody);
 	}
 
 	@Test

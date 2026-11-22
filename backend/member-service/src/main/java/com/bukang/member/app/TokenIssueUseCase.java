@@ -29,7 +29,7 @@ public class TokenIssueUseCase {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final Clock clock;
 
-	// 로그인마다 새 family를 만든다. 이후 재발급(회전)은 이 family를 이어받고, 다른 기기에서 다시 로그인하면 family가 바뀐다
+	// 로그인마다 새 family를 만든다. 이후 재발급(회전)은 이 family를 이어받고, 다른 기기의 로그인은 별도 family라 서로 영향이 없다
 	// family는 로그인부터 최대 기간(30일)까지만 이어 갈 수 있어, 첫 토큰의 만료도 그 상한을 넘지 않는다
 	public AuthTokens issue(long memberId) {
 		Instant now = clock.instant();

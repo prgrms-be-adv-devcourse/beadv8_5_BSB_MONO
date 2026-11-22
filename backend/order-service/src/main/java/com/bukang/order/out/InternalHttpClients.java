@@ -14,16 +14,6 @@ public final class InternalHttpClients {
 	private InternalHttpClients() {
 	}
 
-	// 상대 오류 본문을 로그에 남길 최대 길이. dev 오류 응답은 스택 트레이스를 통째로 담아 한 줄이 수십 줄이 된다
-	public static final int LOGGED_BODY_LIMIT = 300;
-
-	public static String abbreviate(String body) {
-		if (body == null || body.length() <= LOGGED_BODY_LIMIT) {
-			return body;
-		}
-		return body.substring(0, LOGGED_BODY_LIMIT) + "…(" + body.length() + "자)";
-	}
-
 	public static RestClient create(String baseUrl, Duration timeout) {
 		HttpClient httpClient = HttpClient.newBuilder()
 			.version(HttpClient.Version.HTTP_1_1)

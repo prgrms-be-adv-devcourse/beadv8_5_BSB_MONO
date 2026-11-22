@@ -41,4 +41,14 @@ describe('isProtectedPath', () => {
   it('탈퇴 완료 화면은 로그아웃 상태로 열린다', () => {
     expect(isProtectedPath('/me/withdraw/done')).toBe(false)
   })
+
+  // 로그인 화면 하단 「고객센터」가 가는 곳. 로그인을 요구하면 눌러도 로그인 화면으로 되돌아가 깜빡이기만 한다 (CRU-19).
+  it('고객센터 화면은 로그아웃 상태로 열린다', () => {
+    expect(isProtectedPath('/me/support')).toBe(false)
+  })
+
+  it('고객센터 안의 문의 쓰기·내 문의는 로그인이 필요하다', () => {
+    expect(isProtectedPath('/me/inquiries/new')).toBe(true)
+    expect(isProtectedPath('/me/inquiries')).toBe(true)
+  })
 })

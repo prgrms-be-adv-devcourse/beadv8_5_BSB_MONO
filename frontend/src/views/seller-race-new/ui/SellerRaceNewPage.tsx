@@ -1,25 +1,33 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
+import { format, isAfter, isBefore, parseISO, startOfToday } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form'
 
 import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { AddressSearch } from '@/features/address-search'
-import { parseRaceDateInput } from '@/entities/race'
-import { ApiError } from '@/shared/api'
+import {
+  earliestRaceAt,
+  earliestRefundDay,
+  parseRaceDateInput,
+  RaceScheduleFields,
+} from '@/entities/race'
+import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { DateTimeField } from '@/shared/date-picker'
 import { formatNumber, type SellerRaceFormEntry } from '@/shared/lib'
 import {
   Alert,
   Button,
   DataTable,
+  Dialog,
   digitsOnly,
   ImageCropDialog,
   ImageListDialog,
   ImageUpload,
+  RequiredMark,
+  Select,
   Textarea,
   TextField,
   useImageList,
@@ -27,32 +35,40 @@ import {
   type UploadImage,
 } from '@/shared/ui'
 
+import { kitItemOf } from '../model/kit-items'
+import { clearRaceDraft, loadRaceDraft, saveRaceDraft } from '../model/race-draft'
 import {
   ADULT_MIN_AGE,
   createRaceFormSchema,
   earliestSaleOpenDate,
   MAX_INTRO_IMAGES,
+  NO_LIMIT_MIN_AGE,
+  parseDateTimeInput,
   RACE_FORM_DEFAULTS,
   RACE_FORM_ERRORS,
-  type RaceCourseInput,
   type RaceFormValues,
 } from '../model/race-form'
+import { useLeaveGuard } from '../model/use-leave-guard'
 import { errorSections, useRaceFormTracking } from '../model/use-race-form-tracking'
 import { KitOptionsNotSavedError, useRegisterRace } from '../model/use-register-race'
 import { CourseAddDialog } from './CourseAddDialog'
+import { KitAddDialog } from './KitAddDialog'
+import { SellerPendingNotice } from './SellerPendingNotice'
 
 const FORM_ID = 'seller-race-new'
 
 // 오늘은 쓸 때마다 계산한다. 화면을 연 채 자정을 넘겨도 어제를 오늘로 쓰지 않는다
-// 지난 날은 대회 날짜·접수 기간·환불 기한으로 고를 수 없다
+// 지난 날은 대회 날짜·환불 기한으로 고를 수 없다
 const isPast = (date: Date) => isBefore(date, startOfToday())
-// 접수 시작(판매 시작일)은 오늘로부터 이틀 뒤부터
+// 판매 시작(크루 예매 시작 · 일반 판매 시작)은 오늘로부터 이틀 뒤부터
 const isBeforeSaleOpen = (date: Date) => isBefore(date, earliestSaleOpenDate(startOfToday()))
 const raceFormResolver: Resolver<RaceFormValues> = (...args) =>
   zodResolver(createRaceFormSchema({ today: startOfToday() }))(...args)
 
-// 대회 날짜와 순서를 비교하는 칸들. 한 칸이 바뀌면 다 쓴 나머지 칸도 다시 검사한다
-const ORDERED_FIELDS = ['individualOpenAt', 'applicationCloseAt', 'refundDeadline'] as const
+const AGE_ITEMS = [
+  { value: String(NO_LIMIT_MIN_AGE) as '14', label: `만 ${NO_LIMIT_MIN_AGE}세 이상` },
+  { value: String(ADULT_MIN_AGE) as '19', label: `만 ${ADULT_MIN_AGE}세 이상` },
+]
 
 /** 'yyyy-MM-dd' 글자의 날짜 (날짜를 아직 안 골랐으면 undefined) */
 function dayOf(text: string): Date | undefined {
@@ -60,22 +76,53 @@ function dayOf(text: string): Date | undefined {
   return day ? parseISO(day) : undefined
 }
 
-// 종목 표의 한 줄 (TODO(PRO-144): 키트 칸 나누기)
-function courseRow(course: RaceCourseInput, id: string, index: number) {
-  return {
-    id,
-    index,
-    course: course.name,
-    price: `${formatNumber(course.price)}원`,
-    capacity: `${formatNumber(course.crewQuota + course.individualQuota)}명`,
-    age: course.minAge >= ADULT_MIN_AGE ? '성인만' : '',
-    kit: course.kitIncluded ? '포함' : '없음',
-  }
-}
+const finite = (value: number) => (Number.isFinite(value) ? value : 0)
 
 // 피그마 V2 · S02 대회 등록 (+ S02-1~3 이미지 올리기 · 자르기 창, S02-4 등록 완료)
 // 사진은 고를 때는 브라우저 안 주소로 미리 보여 주고, 등록하기를 누를 때 파일 서비스로 올린다.
+type FormProps = {
+  entry: SellerRaceFormEntry
+  /** 로그인한 판매자. 알면 작성 내용을 이 회원 몫으로 저장한다 */
+  memberId: number | undefined
+  /** 저장해 둔 작성 내용. 있으면 이어 쓴다 */
+  initialValues: RaceFormValues | undefined
+}
+
+/** 날짜 · 시각 칸의 처음 값 (이어 쓸 때 칸에 보여 줄 값) */
+function dateTimeOf(text: string): Date | undefined {
+  const value = parseDateTimeInput(text)
+  return value ? parseISO(value.replace(' ', 'T')) : undefined
+}
+
+// 대회 등록. 판매자가 누구인지 안 뒤에 저장된 작성 내용이 있으면 불러와 이어 쓰게 한다.
+// 대회 수정 화면은 이 컴포넌트를 쓰지 않는다 (수정은 서버 값이 원본이라 임시 저장과 섞지 않는다)
 export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceFormEntry }) {
+  const me = memberApi.useFindMe({ query: { select: unwrapData } })
+  // 사용자 활동 추적(use-race-form-tracking)과 같은 조회 설정을 써 캐시를 나눠 쓴다
+  const seller = memberApi.useFindMine({ query: { select: unwrapData, retry: false } })
+  const memberId = me.data?.id
+  // 판매자가 누구인지 안 순간 저장된 작성 내용을 한 번 읽는다. 칸에 값을 넣어 다시 그리려고 폼을 새로 만든다(날짜 칸은 처음 값만 읽는다)
+  const [loadedFor, setLoadedFor] = useState<number>()
+  const [restored, setRestored] = useState<RaceFormValues>()
+  if (memberId !== undefined && memberId !== loadedFor) {
+    setLoadedFor(memberId)
+    setRestored(loadRaceDraft(memberId) ?? undefined)
+  }
+  // 심사 중이면 등록해도 서버가 막으므로 폼 대신 안내를 보여 준다. 그 밖의 경우는 서버가 거절 이유를 알려 준다
+  // shortcut: 판매자 정보를 받는 동안은 폼을 그려서, 심사 중인 판매자에게 폼이 잠깐 보이고 등록 시작이 한 번 집계된다. 기존 테스트가 폼을 바로 찾으므로 그대로 둔다
+  if (seller.data?.status === 'PENDING') return <SellerPendingNotice />
+  return (
+    <SellerRaceForm
+      key={restored ? 'restored' : 'new'}
+      entry={entry}
+      memberId={memberId}
+      initialValues={restored}
+    />
+  )
+}
+
+function SellerRaceForm({ entry, memberId, initialValues }: FormProps) {
+  const initial = initialValues ?? RACE_FORM_DEFAULTS
   const router = useRouter()
   const registerRace = useRegisterRace()
   const tracking = useRaceFormTracking(entry)
@@ -85,34 +132,75 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
     handleSubmit,
     setValue,
     trigger,
-    formState: { errors, isSubmitted },
+    clearErrors,
+    formState: { errors, isSubmitted, isDirty },
   } = useForm<RaceFormValues>({
     resolver: raceFormResolver,
     mode: 'onTouched',
-    defaultValues: RACE_FORM_DEFAULTS,
+    defaultValues: initial,
   })
   // 종목 표의 줄 키는 useFieldArray의 id다. 이름이 같은 종목도 따로 지울 수 있다
   const courseFields = useFieldArray({ control, name: 'courses' })
   const kitFields = useFieldArray({ control, name: 'kitOptions' })
   const [courseOpen, setCourseOpen] = useState(false)
+  const [kitOpen, setKitOpen] = useState(false)
+  const kitOptions = useWatch({ control, name: 'kitOptions' })
   const [searching, setSearching] = useState(false)
   const location = useWatch({ control, name: 'location' })
+  const crewOpen = useWatch({ control, name: 'crewOpen' })
+  const courses = useWatch({ control, name: 'courses' })
   // 시·도 · 시·군·구는 주소 검색 결과로만 채운다. 검색을 못 불러오면 둘 다, 시·군·구가 없는 곳(세종)이면 시·군·구만 직접 쓴다
-  const [manualRegion, setManualRegion] = useState({ sido: false, sigungu: false })
+  const [manualRegion, setManualRegion] = useState({
+    sido: false,
+    sigungu: initial.location !== '' && initial.regionSigungu === '',
+  })
   const schedule = useWatch({
     control,
-    name: ['raceDate', 'individualOpenAt', 'applicationCloseAt', 'refundDeadline'],
+    name: [
+      'raceDate',
+      'raceTime',
+      'crewSaleStartAt',
+      'crewSaleEndAt',
+      'individualOpenAt',
+      'applicationCloseAt',
+      'refundDeadline',
+    ],
   })
-  const [raceDateText] = schedule
-  const raceDay = dayOf(raceDateText)
-  // 순서 오류는 서로 다른 칸을 비교해서 생긴다. 대회 날짜를 나중에 바꿔도 접수 · 환불 칸 오류가 다시 계산되도록,
-  // 일정 칸 중 하나가 바뀌면 날짜를 고른 칸을 모두 다시 검사한다(등록하기를 누르기 전에도 칸 아래에 보인다)
+  const raceDay = dayOf(schedule[0])
+  // 대회 날짜는 접수 마감 3주 뒤 날부터 고를 수 있다 (같은 날은 시각까지 맞아야 해서 검사에서 본다)
+  const closeText = parseDateTimeInput(schedule[5])
+  // 환불 기한은 접수 마감 다음 날부터 고를 수 있다
+  const minRefundDay = closeText ? parseISO(earliestRefundDay(closeText)) : new Date(0)
+  const minRaceDay = closeText ? parseISO(earliestRaceAt(closeText).slice(0, 10)) : new Date(0)
+  // 순서 오류는 서로 다른 칸을 비교해서 생긴다. 대회 날짜를 나중에 바꿔도 오류가 다시 계산되도록,
+  // 일정 칸 중 하나가 바뀌면 다 쓴 칸을 모두 다시 검사한다(등록하기를 누르기 전에도 칸 아래에 보인다)
   const scheduleKey = schedule.join('|')
   useEffect(() => {
-    const [, ...ordered] = scheduleKey.split('|')
-    const ready = ORDERED_FIELDS.filter((_, i) => parseRaceDateInput(ordered[i]) !== null)
-    if (ready.length > 0) void trigger([...ready])
-  }, [scheduleKey, trigger])
+    const [raceDateText, , crewStart, crewEnd, open, close, refund] = scheduleKey.split('|')
+    const dateTimes: [keyof RaceFormValues, string][] = [
+      ['individualOpenAt', open],
+      ['applicationCloseAt', close],
+    ]
+    if (crewOpen) dateTimes.push(['crewSaleStartAt', crewStart], ['crewSaleEndAt', crewEnd])
+    const ready = dateTimes.filter(([, text]) => parseDateTimeInput(text) !== null).map(([n]) => n)
+    if (parseRaceDateInput(refund) !== null) ready.push('refundDeadline')
+    // 대회 일시는 접수 마감 3주 뒤부터라, 접수 마감이 바뀌면 대회 날짜 오류도 다시 본다
+    if (parseRaceDateInput(raceDateText) !== null) ready.push('raceDate')
+    if (ready.length > 0) void trigger(ready)
+  }, [scheduleKey, crewOpen, trigger])
+
+  function openCrew() {
+    setValue('crewOpen', true, { shouldDirty: true })
+  }
+  // 닫으면 크루 예매 날짜와 크루 정원을 비운다. 날짜 칸은 닫으면 사라져 다시 열면 빈 칸으로 시작하므로 값도 같이 비운다
+  function closeCrew() {
+    setValue('crewOpen', false, { shouldDirty: true })
+    setValue('crewSaleStartAt', '')
+    setValue('crewSaleEndAt', '')
+    setValue('crewMaxCount', '')
+    clearErrors(['crewSaleStartAt', 'crewSaleEndAt', 'crewMaxCount'])
+    courseFields.fields.forEach((_, i) => setValue(`courses.${i}.crewQuota`, 0))
+  }
   const [cover, setCover] = useState<ImageUploadValue[]>([])
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverError, setCoverError] = useState<string>()
@@ -159,8 +247,46 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
       ? `소개 이미지는 ${MAX_INTRO_IMAGES}장까지 올릴 수 있어요.`
       : undefined
 
+  // 종목 표 안에서 바로 쓰는 정원 칸 (숫자만, 비우면 숫자를 쓰라는 안내)
+  const quotaColumn = (key: 'crewQuota' | 'individualQuota', header: string) => ({
+    key,
+    header,
+    align: 'right' as const,
+    render: (r: { index: number; course: { name: string } }) => (
+      <TextField
+        compact
+        aria-label={`${r.course.name} ${header}`}
+        inputMode="numeric"
+        filter={digitsOnly}
+        error={errors.courses?.[r.index]?.[key]?.message}
+        {...register(`courses.${r.index}.${key}`, { valueAsNumber: true })}
+      />
+    ),
+  })
+
   // 등록에 성공해 화면을 옮기는 동안에도 잠가 두 번 등록하지 않는다
   const locked = registerRace.isPending || registerRace.isSuccess
+
+  // 작성 중인 값을 이 판매자 몫으로 저장한다. 이어 쓰는 중이거나 바뀐 것이 있을 때만 쓰고,
+  // 처음 상태로 되돌렸으면 저장해 둔 것을 지운다. 등록하는 동안과 뒤에는 쓰지 않는다
+  const draftValues = useWatch({ control })
+  // 저장한 시각은 제목 옆에 「자동 저장됨 · 10:42」로 보여 준다 (피그마 대회 등록)
+  const [savedAt, setSavedAt] = useState<Date>()
+  useEffect(() => {
+    if (memberId === undefined || locked) return
+    if (isDirty || initialValues) {
+      saveRaceDraft(memberId, draftValues as RaceFormValues)
+      // 저장한 일을 화면에 알리는 것이 목적이라 effect 안의 setState가 맞다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedAt(new Date())
+    } else {
+      clearRaceDraft(memberId)
+      setSavedAt(undefined)
+    }
+  }, [memberId, locked, isDirty, initialValues, draftValues])
+
+  // 수정한 내용이 있으면 화면을 떠나기 전에 확인한다 (이미지는 올리기 전 파일이라 저장은 못 하지만 수정으로 센다)
+  const guard = useLeaveGuard((isDirty || cover.length > 0 || intro.length > 0) && !locked)
   const submit = handleSubmit(
     (values) => {
       if (locked) return
@@ -179,6 +305,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         {
           onSuccess: (saved) => {
             registered(saved.raceId, values.courses.length)
+            if (memberId !== undefined) clearRaceDraft(memberId)
             router.replace(`/seller/races?registered=${saved.raceId}`)
           },
         },
@@ -209,11 +336,22 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
   return (
     <ConsolePage
       title="대회 등록"
+      titleAside={savedAt ? `자동 저장됨 · ${format(savedAt, 'HH:mm')}` : undefined}
       actions={
         <>
-          <Button variant="secondary" disabled>
-            미리보기
-          </Button>
+          {/* 꺼진 버튼은 마우스 이벤트를 받지 않아, 감싼 span의 :hover로 말풍선을 띄운다 */}
+          <span className="group relative inline-flex">
+            <Button variant="secondary" disabled aria-describedby="race-preview-reason">
+              미리보기
+            </Button>
+            <span
+              id="race-preview-reason"
+              role="tooltip"
+              className="pointer-events-none absolute top-full right-0 z-10 mt-2 hidden w-max rounded-md bg-bg-inverse px-3 py-2 text-caption-regular text-text-inverse shadow-md group-hover:block"
+            >
+              미리보기는 아직 준비 중이에요
+            </span>
+          </span>
           <Button type="submit" form={FORM_ID} loading={locked}>
             등록하기
           </Button>
@@ -228,42 +366,75 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             description={registerErrorMessage(registerRace.error)}
           />
         )}
-        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 gap-6">
           <ConsoleCard title="기본 정보">
             <div className="flex flex-col gap-4">
               <TextField
-                label="대회 이름"
+                label={
+                  <>
+                    대회 이름
+                    <RequiredMark />
+                  </>
+                }
                 placeholder="2026 용감한 쿠키RUN in 서울"
                 error={errors.title?.message}
                 {...register('title')}
               />
-              <Controller
-                control={control}
-                name="raceDate"
-                render={({ field }) => (
-                  <DateTimeField
-                    mode="single"
-                    withTime={false}
-                    label="대회 날짜"
-                    error={errors.raceDate?.message}
-                    isDateDisabled={isPast}
-                    startMonth={startOfToday()}
-                    onValueChange={field.onChange}
-                  />
-                )}
-              />
+              <div className="flex gap-4">
+                <Controller
+                  control={control}
+                  name="raceDate"
+                  render={({ field }) => (
+                    <DateTimeField
+                      mode="single"
+                      withTime={false}
+                      defaultValue={dayOf(initial.raceDate)}
+                      label="대회 날짜"
+                      required
+                      error={errors.raceDate?.message}
+                      isDateDisabled={(date) => isPast(date) || isBefore(date, minRaceDay)}
+                      startMonth={startOfToday()}
+                      onValueChange={field.onChange}
+                    />
+                  )}
+                />
+                <TextField
+                  label={
+                    <>
+                      출발 시각
+                      <RequiredMark />
+                    </>
+                  }
+                  placeholder="08:00"
+                  inputMode="numeric"
+                  maxLength={5}
+                  filter={(value) => value.replace(/[^\d:]/g, '')}
+                  filterMessage="숫자와 : 만 입력할 수 있어요"
+                  error={errors.raceTime?.message}
+                  className="flex-1"
+                  {...register('raceTime')}
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               {manualRegion.sido ? (
                 <TextField
-                  label="장소"
+                  label={
+                    <>
+                      장소
+                      <RequiredMark />
+                    </>
+                  }
                   placeholder="서울숲 일대"
                   error={errors.location?.message}
                   {...register('location')}
                 />
               ) : (
                 <>
-                  <span className="text-body2-medium">장소</span>
+                  <span className="text-body2-medium">
+                    장소
+                    <RequiredMark />
+                  </span>
                   {location && (
                     <div className="flex items-center justify-between gap-4">
                       <p className="text-body2-regular">{location}</p>
@@ -331,43 +502,54 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
           </ConsoleCard>
 
           <ConsoleCard title="판매 일정">
-            <div className="flex flex-col gap-4">
-              {/* 시작은 개인 예매 오픈(그날 00:00), 끝은 접수 마감(그날 23:59:59)으로 보낸다 */}
-              <DateTimeField
-                mode="range"
-                withTime={false}
-                label="접수 기간"
-                helper="마감일 23:59까지 받아요 · 오늘로부터 이틀 뒤부터 · 대회 전날까지"
-                error={errors.individualOpenAt?.message ?? errors.applicationCloseAt?.message}
-                isDateDisabled={(date) =>
-                  isBeforeSaleOpen(date) || (raceDay !== undefined && !isBefore(date, raceDay))
-                }
-                startMonth={startOfToday()}
-                onValueChange={(range) => {
-                  setValue('individualOpenAt', range.from, {
-                    shouldValidate: isSubmitted,
-                  })
-                  setValue('applicationCloseAt', range.to, {
-                    shouldValidate: isSubmitted,
-                  })
-                }}
-              />
-              <TextField
-                label="참가 가능 나이"
-                defaultValue="종목마다 성인만 받을지 정해요"
-                helper="대회 당일 만 나이 · 성인은 만 19세 이상"
-                readOnly
-              />
-            </div>
+            <RaceScheduleFields
+              crewOpen={crewOpen}
+              onCrewOpenChange={(open) => (open ? openCrew() : closeCrew())}
+              onChange={(name, value) => setValue(name, value, { shouldDirty: true })}
+              defaults={{
+                crewSaleStartAt: dateTimeOf(initial.crewSaleStartAt),
+                crewSaleEndAt: dateTimeOf(initial.crewSaleEndAt),
+                individualOpenAt: dateTimeOf(initial.individualOpenAt),
+                applicationCloseAt: dateTimeOf(initial.applicationCloseAt),
+              }}
+              crewExtra={
+                <TextField
+                  label="크루 최대 인원"
+                  helper="비우면 인원 제한이 없어요"
+                  inputMode="numeric"
+                  filter={digitsOnly}
+                  trailing="명"
+                  error={errors.crewMaxCount?.message}
+                  className="w-1/2 pr-2"
+                  {...register('crewMaxCount')}
+                />
+              }
+              errors={{
+                crewSaleStartAt: errors.crewSaleStartAt?.message,
+                crewSaleEndAt: errors.crewSaleEndAt?.message,
+                individualOpenAt: errors.individualOpenAt?.message,
+                applicationCloseAt: errors.applicationCloseAt?.message,
+              }}
+              isDateDisabled={(name, date) =>
+                isBeforeSaleOpen(date) ||
+                ((name === 'individualOpenAt' || name === 'applicationCloseAt') &&
+                  raceDay !== undefined &&
+                  isAfter(date, raceDay))
+              }
+            />
           </ConsoleCard>
         </div>
 
-        <div className="max-lg:grid-cols-1 grid grid-cols-2 items-start gap-6">
+        <div className="max-lg:grid-cols-1 grid grid-cols-2 gap-6">
           <ConsoleCard title="이미지">
             <div className="flex flex-col gap-4">
               <ImageUpload
-                label="대표 이미지 (필수 · 1장)"
-                helper="정사각(1:1) 1125×1125px 권장 · 대회 목록과 대회 상세 맨 위에 보여요"
+                label={
+                  <>
+                    대표 이미지
+                    <RequiredMark />
+                  </>
+                }
                 value={cover}
                 error={coverError}
                 onOpen={() => {
@@ -386,8 +568,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               />
               <ImageUpload
                 type="multiple"
-                label="소개 이미지 (여러 장)"
-                helper="코스 · 타임테이블 · 기념품 사이즈표를 넣어 주세요"
+                label="소개 이미지"
                 value={intro}
                 error={introError}
                 onOpen={() => openList()}
@@ -408,11 +589,15 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                   <DateTimeField
                     mode="single"
                     withTime={false}
+                    defaultValue={dayOf(initial.refundDeadline)}
                     label="환불 기한"
-                    helper="이 날짜(23:59)까지 취소하면 전액 환불, 그 뒤 개인 사정 환불은 안 돼요. 결제 전에 구매자에게 보여 줘요."
+                    required
+                    helper="이 날 23:59까지 취소하면 전액 환불돼요"
                     error={errors.refundDeadline?.message}
                     isDateDisabled={(date) =>
-                      isPast(date) || (raceDay !== undefined && isAfter(date, raceDay))
+                      isPast(date) ||
+                      isBefore(date, minRefundDay) ||
+                      (raceDay !== undefined && isAfter(date, raceDay))
                     }
                     startMonth={startOfToday()}
                     onValueChange={field.onChange}
@@ -422,21 +607,14 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
             </ConsoleCard>
 
             <ConsoleCard
+              className="flex-1"
               title="키트"
               aside={
-                <Button
-                  variant="secondary"
-                  size="s"
-                  onClick={() => kitFields.append({ name: '', value: '', stock: '' })}
-                >
+                <Button variant="secondary" size="s" onClick={() => setKitOpen(true)}>
                   옵션 추가
                 </Button>
               }
             >
-              <p className="text-caption-regular text-text-tertiary">
-                키트는 배송으로만 보내요. 환불 기한이 지난 뒤, 참가 신청 때 받은 주소로 보내요.
-                사이즈는 옵션마다 신청 때 받아요.
-              </p>
               <DataTable
                 label="키트 옵션"
                 rows={kitFields.fields.map((f, index) => ({ id: f.id, index }))}
@@ -498,9 +676,6 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                   },
                 ]}
               />
-              <p className="text-caption-regular text-text-tertiary">
-                판매가 시작되면 옵션을 바꿀 수 없고 준비 수량만 늘릴 수 있어요.
-              </p>
             </ConsoleCard>
           </div>
         </div>
@@ -515,14 +690,66 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
         >
           <DataTable
             label="종목 · 참가권"
-            rows={courseFields.fields.map((f, i) => courseRow(f, f.id, i))}
+            rows={courseFields.fields.map((f, index) => ({
+              id: f.id,
+              index,
+              course: courses[index] ?? f,
+            }))}
             rowKey={(r) => r.id}
             columns={[
-              { key: 'course', header: '종목', render: (r) => r.course },
-              { key: 'price', header: '참가비', align: 'right', render: (r) => r.price },
-              { key: 'capacity', header: '모집 정원', align: 'right', render: (r) => r.capacity },
-              { key: 'age', header: '참가 나이 (최소 ~ 최대)', render: (r) => r.age },
-              { key: 'kit', header: '키트 (참가권 포함)', render: (r) => r.kit },
+              { key: 'course', header: '종목', render: (r) => r.course.name },
+              {
+                key: 'distance',
+                header: '거리',
+                align: 'right',
+                render: (r) => `${r.course.distanceKm}km`,
+              },
+              {
+                key: 'price',
+                header: '참가비',
+                align: 'right',
+                render: (r) => `${formatNumber(r.course.price)}원`,
+              },
+              // 크루 선예매를 열 때만 크루 정원을 받는다. 정원은 표 안에서 바로 입력한다
+              ...(crewOpen ? [quotaColumn('crewQuota', '크루 정원')] : []),
+              quotaColumn('individualQuota', '일반 정원'),
+              {
+                key: 'total',
+                header: '총 정원',
+                align: 'right',
+                render: (r) => {
+                  const crew = crewOpen ? finite(r.course.crewQuota) : 0
+                  return (
+                    <span className="text-body2-bold">
+                      {formatNumber(crew + finite(r.course.individualQuota))}명
+                    </span>
+                  )
+                },
+              },
+              {
+                key: 'age',
+                header: '최소 나이',
+                render: (r) => (
+                  <Controller
+                    control={control}
+                    name={`courses.${r.index}.minAge`}
+                    render={({ field }) => (
+                      <Select
+                        compact
+                        aria-label={`${r.course.name} 최소 나이`}
+                        items={AGE_ITEMS}
+                        value={String(field.value) as '14' | '19'}
+                        onValueChange={(next) => next && field.onChange(Number(next))}
+                      />
+                    )}
+                  />
+                ),
+              },
+              {
+                key: 'kit',
+                header: '키트',
+                render: (r) => (r.course.kitIncluded ? '포함' : '없음'),
+              },
               {
                 key: 'remove',
                 header: '',
@@ -532,7 +759,7 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
                     variant="secondary"
                     size="s"
                     className="text-text-danger"
-                    aria-label={`${r.course} 종목 삭제`}
+                    aria-label={`${r.course.name} 종목 삭제`}
                     onClick={() => courseFields.remove(r.index)}
                   >
                     삭제
@@ -541,14 +768,39 @@ export function SellerRaceNewPage({ entry = 'direct' }: { entry?: SellerRaceForm
               },
             ]}
           />
-          {errors.courses?.message && (
-            <p className="text-body2-regular text-text-danger">{errors.courses.message}</p>
+          {/* 종목 줄에 입력칸이 있으면 종목 목록 전체 오류는 root에 담긴다 */}
+          {(errors.courses?.message ?? errors.courses?.root?.message) && (
+            <p className="text-body2-regular text-text-danger">
+              {errors.courses.message ?? errors.courses.root?.message}
+            </p>
           )}
         </ConsoleCard>
       </form>
 
+      <Dialog
+        open={guard.leaving}
+        onOpenChange={(open) => !open && guard.stay()}
+        title="대회 등록을 멈출까요?"
+        body={
+          <p className="text-center">
+            작성한 내용은 자동으로 저장돼 있어요.
+            <br />
+            나중에 이어서 쓸 수 있어요.
+          </p>
+        }
+        cancelLabel="계속 쓰기"
+        confirmLabel="나가기"
+        onConfirm={guard.leave}
+      />
+      <KitAddDialog
+        open={kitOpen}
+        onOpenChange={setKitOpen}
+        added={kitOptions.flatMap((option) => kitItemOf(option.name) ?? [])}
+        onAdd={(options) => kitFields.append(options)}
+      />
       <CourseAddDialog
         open={courseOpen}
+        crewOpen={crewOpen}
         onOpenChange={setCourseOpen}
         onAdd={(course) => courseFields.append(course)}
       />

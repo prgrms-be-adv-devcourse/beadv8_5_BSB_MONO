@@ -1,5 +1,6 @@
 export {
   DEFAULT_RACE_SORT,
+  fetchHomeBanners,
   fetchRaceDetail,
   fetchRacePage,
   RACE_PAGE_SIZE,
@@ -7,8 +8,10 @@ export {
   raceCoverQueryOptions,
   raceListQueryOptions,
   raceQueryOptions,
+  raceRecommendationsQueryOptions,
   RaceSort,
   raceSuggestionsQueryOptions,
+  regionRacesQueryOptions,
   similarRacesQueryOptions,
   type RaceSearchFilters,
 } from './api/race-api'
@@ -20,8 +23,43 @@ export {
   parseKstDateTime,
   parseRaceDateInput,
 } from './lib/race-date'
+export {
+  checkRefundAfterClose,
+  checkScheduleOrder,
+  crewCloseAt,
+  earliestRaceAt,
+  earliestRefundDay,
+  earliestSaleOpenDate,
+  fromLocalDateTime,
+  parseDateTimeInput,
+  raceAfterCloseMessage,
+  refundAfterCloseMessage,
+  SALE_OPEN_MIN_DAYS,
+  saleOpenTooEarlyMessage,
+  SCHEDULE_ERRORS,
+  TIME_INPUT,
+  toLocalDateTime,
+  type ScheduleInput,
+} from './lib/race-schedule'
+export {
+  SCHEDULE_CHANGE_ERRORS,
+  scheduleChangeSchema,
+  scheduleLocks,
+  toScheduleChangeValues,
+  toScheduleRequest,
+  type ScheduleChangeField,
+  type ScheduleChangeValues,
+} from './lib/schedule-change'
 export { raceJsonLd, serializeJsonLd } from './lib/race-json-ld'
-export { RACE_BANNERS, RACE_DETAIL, type RaceBanner } from './model/fixtures'
+export { RACE_DETAIL } from './model/fixtures'
+export {
+  toBannerCandidate,
+  toHomeBanner,
+  toHomeBannerRow,
+  type BannerCandidate,
+  type HomeBanner,
+  type HomeBannerRow,
+} from './model/home-banner'
 export { applicationPhase, toClosingSoonCard, toRaceListItem } from './model/mappers'
 export type {
   ApplicationPhase,
@@ -33,8 +71,10 @@ export type {
 } from './model/types'
 export { RaceCard, type RaceCardProps } from './ui/RaceCard'
 export { RacePoster, type RacePosterProps } from './ui/RacePoster'
+export { RaceRecommendSection } from './ui/RaceRecommendSection'
 export { RaceTicketCard, type RaceTicketCardProps } from './ui/RaceTicketCard'
 export {
+  adminHomeBannersQueryOptions,
   adminRacesQueryOptions,
   fetchRaceForEdit,
   myRacesQueryOptions,
@@ -53,4 +93,9 @@ export {
   type SellerRaceRow,
   type SellerSaleStatus,
 } from './model/seller-race'
+export {
+  RaceScheduleFields,
+  type RaceScheduleFieldsProps,
+  type ScheduleField,
+} from './ui/RaceScheduleFields'
 export { SaleRateBar } from './ui/SaleRateBar'

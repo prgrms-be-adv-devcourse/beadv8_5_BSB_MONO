@@ -25,7 +25,6 @@ import com.bukang.order.domain.ShipmentStatus;
 import com.bukang.order.domain.ShipmentTrackingEvent;
 import com.bukang.order.domain.exception.KitNotShippableException;
 import com.bukang.order.domain.exception.KitShippingInfoInvalidException;
-import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.domain.exception.OrderNotFoundException;
 import com.bukang.order.domain.exception.RaceCourseNotFoundException;
@@ -140,7 +139,7 @@ public class KitDeliveryUseCase {
 			Order order = orderRepository.findByIdForUpdate(orderId)
 				.orElseThrow(() -> new OrderNotFoundException("존재하지 않는 주문입니다."));
 			if (!order.isOwnedBy(memberId)) {
-				throw new OrderAccessDeniedException("본인의 주문만 수령 확인할 수 있습니다.");
+				throw new OrderNotFoundException("존재하지 않는 주문입니다.");
 			}
 			OrderItem item = order.findItem(orderItemId);
 			order.confirmKitReceipt(item, now);
@@ -212,9 +211,10 @@ public class KitDeliveryUseCase {
 			.orElseThrow(() -> new OrderItemNotFoundException("주문에 없는 상품입니다."));
 	}
 
+	// 남의 대회 참가권은 없는 주문 상품과 같은 404다. 다른 판매자의 주문 상품 ID가 있는지 알리지 않는다 (CRU-92)
 	private OrderItem checkSeller(OrderItem item, long sellerId) {
 		if (!item.isSoldBy(sellerId)) {
-			throw new OrderAccessDeniedException("본인 대회의 참가권만 배송 처리할 수 있습니다.");
+			throw new OrderItemNotFoundException("주문에 없는 상품입니다.");
 		}
 		return item;
 	}

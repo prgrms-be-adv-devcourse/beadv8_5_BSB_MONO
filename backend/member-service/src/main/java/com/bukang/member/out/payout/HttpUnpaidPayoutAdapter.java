@@ -40,7 +40,7 @@ public class HttpUnpaidPayoutAdapter implements UnpaidPayoutPort {
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().hasUnpaid() == null) {
-			log.error("정산 서비스의 지급 안 된 정산금 응답에 값이 없습니다. sellerId={}, response={}", sellerId, response);
+			log.error("정산 서비스의 지급 안 된 정산금 응답에 값이 없습니다. sellerId={}", sellerId);
 			throw new WithdrawCheckFailedException(UNAVAILABLE_MESSAGE);
 		}
 		return response.data().hasUnpaid();

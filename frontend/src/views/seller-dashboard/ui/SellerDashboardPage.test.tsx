@@ -53,6 +53,36 @@ describe('SellerDashboardPage', () => {
     expect(hold).toHaveAttribute('href', '/seller/settlements')
   })
 
+  it('심사 필요 기록증이 있으면 건수를 보여 주고 대회 관리로 보낸다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/review-count', () =>
+        HttpResponse.json({ status: 200, message: 'ok', data: { waitingCount: 3 } }),
+      ),
+    )
+    renderPage()
+
+    const todo = await card('처리할 일')
+    const cert = await within(todo).findByRole('link', { name: /기록증 심사\s*3건\s*대회 관리/ })
+    expect(cert).toHaveAttribute('href', '/seller/races')
+  })
+
+  it('기록증 건수를 불러오지 못해도 다른 줄은 그대로 보이고, 기록증 줄은 건수 대신 - 를 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/member/seller/record-certs/review-count', () =>
+        HttpResponse.json({ status: 503, message: '잠시 뒤', data: null }, { status: 503 }),
+      ),
+    )
+    renderPage()
+
+    const todo = await card('처리할 일')
+    expect(await within(todo).findByRole('link', { name: /기록증 심사 -/ })).toBeInTheDocument()
+    expect(
+      await within(todo).findByRole('link', { name: /송장 입력 대기 2건/ }),
+    ).toBeInTheDocument()
+    expect(within(todo).getByRole('link', { name: /지급보류 1건/ })).toBeInTheDocument()
+    expect(within(todo).queryByText('처리할 일이 없어요')).not.toBeInTheDocument()
+  })
+
   it('0건인 줄은 숨긴다', async () => {
     server.use(
       http.get('*/api/v1/payout/seller/summary', () =>
@@ -117,7 +147,7 @@ describe('SellerDashboardPage', () => {
     expect(screen.getByText('승인된 판매자만 볼 수 있습니다.')).toBeInTheDocument()
   })
 
-  it('처리할 일 제목 옆에 합계를 보여 주고, 줄마다 이동할 메뉴 이름을 보여 준다', async () => {
+  it('처리할 일 제목 옆에는 합계를 두지 않고(줄마다 건수가 있다), 줄마다 이동할 메뉴 이름을 보여 준다', async () => {
     renderPage()
 
     const todo = await card('처리할 일')
@@ -125,7 +155,7 @@ describe('SellerDashboardPage', () => {
       await within(todo).findByRole('link', { name: /송장 입력 대기\s*2건\s*키트 배송/ }),
     ).toBeInTheDocument()
     expect(within(todo).getByRole('link', { name: /지급보류\s*1건\s*정산/ })).toBeInTheDocument()
-    expect(todo).toHaveTextContent(/처리할 일\s*\d+/)
+    expect(todo).not.toHaveTextContent(/처리할 일\s*\d/)
   })
 
   it('제목 아래 기준일과 대회별 판매의 대회 관리 버튼은 두지 않는다', async () => {

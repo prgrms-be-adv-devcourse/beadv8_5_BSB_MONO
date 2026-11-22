@@ -24,6 +24,7 @@ public class StubOpsPort implements OpsPort {
 	public long waitingInquiries;
 	public long adminWaitingInquiries;
 	public List<LocalDateTime> pendingRequestedAts = List.of();
+	public long waitingRecordCertReviews;
 	// holds를 부른 기간들 (시작 날, 끝 날)
 	public final List<LocalDate[]> holdsCalls = new ArrayList<>();
 	public boolean unavailable;
@@ -45,6 +46,7 @@ public class StubOpsPort implements OpsPort {
 		waitingInquiries = 0;
 		adminWaitingInquiries = 0;
 		pendingRequestedAts = List.of();
+		waitingRecordCertReviews = 0;
 		unavailable = false;
 		inquiry = null;
 		inquiryScreen = null;
@@ -102,6 +104,12 @@ public class StubOpsPort implements OpsPort {
 	public List<LocalDateTime> pendingSellerRequestedAts(long memberId) {
 		called(memberId);
 		return pendingRequestedAts;
+	}
+
+	@Override
+	public long waitingRecordCertReviewCount(long memberId) {
+		called(memberId);
+		return waitingRecordCertReviews;
 	}
 
 	@Override

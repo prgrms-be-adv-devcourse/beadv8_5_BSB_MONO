@@ -6,10 +6,13 @@ import { ConsoleCard, ConsolePage } from '@/widgets/console-page'
 import { loginHref, useAuthStatus } from '@/features/auth'
 import { formatSellerDate, SELLER_STATUS, SELLER_TYPE_LABEL } from '@/entities/member'
 import { ApiError, memberApi, unwrapData, type memberModel } from '@/shared/api'
+import { formatPhoneNumber } from '@/shared/lib'
 import { Alert, buttonClassName, EmptyState, Skeleton } from '@/shared/ui'
 
-// 피그마 판매자 센터 · S06-5 판매자 정보 (정산 계좌는 API가 없어 준비 중 안내)
-// 판매자 정보는 내 신청 조회(GET /api/v1/member/sellers/me)로 보여 준다. 바꾸려면 관리자 재확인이 필요해 보기 전용이다.
+import { PayoutAccountCard } from './PayoutAccountCard'
+
+// 피그마 판매자 센터 · S06-5 판매자 정보. 정산 계좌는 승인된 판매자가 바로 보고 등록·수정한다(PayoutAccountCard)
+// 판매자 정보는 내 신청 조회(GET /api/v1/member/sellers/me)로 보여 주며 보기 전용이다.
 export function SellerSettingsPage() {
   const auth = useAuthStatus()
   const mine = memberApi.useFindMine({
@@ -54,18 +57,7 @@ export function SellerSettingsPage() {
           <Skeleton className="h-70 w-full" />
         )}
 
-        {mine.data && (
-          <>
-            {/* TODO(api): cash 서비스의 판매자 정산 계좌 API가 생기면 S11-1(계좌 입력 · 저장)로 바꾼다 */}
-            <ConsoleCard title="정산 계좌">
-              <Alert
-                tone="warning"
-                title="정산 계좌 등록은 준비 중이에요"
-                description="등록 기능이 열리면 여기에서 등록할 수 있어요. 등록 전까지는 정산금 지급이 보류돼요."
-              />
-            </ConsoleCard>
-          </>
-        )}
+        {mine.data && <PayoutAccountCard seller={mine.data} />}
       </div>
     </ConsolePage>
   )
@@ -74,6 +66,8 @@ export function SellerSettingsPage() {
 function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
   const status = SELLER_STATUS[seller.status]
   const business = seller.sellerType === 'BUSINESS'
+  // 연락처 · 가입일은 회원 정보(GET /api/v1/member/members/me)에 있다. 판매자 신청 응답에는 없다
+  const me = memberApi.useFindMe({ query: { select: unwrapData } }).data
   const fields: [string, string][] = [
     ['판매자 종류', SELLER_TYPE_LABEL[seller.sellerType]],
     ...(business
@@ -83,9 +77,13 @@ function SellerInfoCard({ seller }: { seller: memberModel.SellerDto }) {
           ['대표자', seller.representativeName],
         ] as [string, string][])
       : ([['성명', seller.representativeName]] as [string, string][])),
-    seller.status === 'APPROVED' && seller.reviewedAt
-      ? ['승인일', formatSellerDate(seller.reviewedAt)]
-      : ['신청일', formatSellerDate(seller.requestedAt)],
+    ['휴대전화', me?.phone ? formatPhoneNumber(me.phone) : '-'],
+    ['이메일', me?.email ?? '-'],
+    ['가입일', me?.createDate ? formatSellerDate(me.createDate) : '-'],
+    ['신청일', formatSellerDate(seller.requestedAt)],
+    ...(seller.status === 'APPROVED' && seller.reviewedAt
+      ? ([['승인일', formatSellerDate(seller.reviewedAt)]] as [string, string][])
+      : []),
   ]
 
   return (

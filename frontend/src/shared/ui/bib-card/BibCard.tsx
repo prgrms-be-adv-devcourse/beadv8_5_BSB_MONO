@@ -14,6 +14,8 @@ export type BibCardProps = {
   unit?: ReactNode
   title: ReactNode
   meta?: ReactNode
+  /** 본문 맨 아래 줄(예: 결제하기 버튼) */
+  footer?: ReactNode
   /** crew에서 제목 아래 진행 막대(ProgressBar S) */
   progress?: ReactNode
   /** 띠에 깔 대회 이미지(Image=On). 어두운 그라데이션을 덮어 흰 글자를 읽기 쉽게 한다. */
@@ -47,6 +49,7 @@ export function BibCard({
   unit,
   title,
   meta,
+  footer,
   progress,
   image,
   imagePosition,
@@ -89,6 +92,7 @@ export function BibCard({
         <p className="text-body1-bold text-text-primary">{title}</p>
         {progress}
         {meta && <p className="text-body2-regular text-text-secondary">{meta}</p>}
+        {footer}
       </div>
     </article>
   )

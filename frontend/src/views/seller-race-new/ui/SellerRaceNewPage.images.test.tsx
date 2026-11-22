@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { completePostcode, installPostcodeFake, server } from '@/shared/testing'
 import { ToastProvider, type ImageItem } from '@/shared/ui'
 
+import { raceDraftKey } from '../model/race-draft'
 import { SellerRaceNewPage } from './SellerRaceNewPage'
 
 // 화면이 '오늘'을 불러올 때 읽으므로 가져오기 전에 날짜를 고정한다 (지난 날은 고를 수 없다)
@@ -87,6 +88,7 @@ let revoked: string[] = []
 
 beforeEach(() => {
   installPostcodeFake()
+  localStorage.clear()
   push.mockClear()
   replace.mockClear()
   created = []
@@ -125,6 +127,12 @@ function renderPage() {
   )
 }
 
+async function pickDateTime(label: string, day: number, time: string) {
+  await pickDates(label, [day])
+  const group = screen.getByRole('group', { name: label })
+  await userEvent.type(within(group).getByRole('textbox', { name: `${label} 시간` }), time)
+}
+
 async function pickDates(label: string, days: number[]) {
   const group = screen.getByRole('group', { name: label })
   await userEvent.click(within(group).getAllByRole('button')[0])
@@ -134,15 +142,28 @@ async function pickDates(label: string, days: number[]) {
   await userEvent.click(screen.getByRole('button', { name: '선택 완료' }))
 }
 
+async function addTenK() {
+  await userEvent.click(screen.getByRole('button', { name: '종목 추가' }))
+  const dialog = await screen.findByRole('alertdialog', { name: '종목 추가' })
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '종목 이름' }), '10K')
+  await userEvent.click(within(dialog).getByRole('combobox', { name: '종목 구분' }))
+  await userEvent.click(await screen.findByRole('option', { name: /^10K \(/ }))
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '참가비' }), '45000')
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '일반 정원' }), '2000')
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '제한 시간' }), '90')
+  await userEvent.click(within(dialog).getByRole('button', { name: '추가하기' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+}
+
 async function applyCover() {
-  const zone = screen.queryByRole('button', { name: '대표 이미지 (필수 · 1장)' })
+  const zone = screen.queryByRole('button', { name: '대표 이미지' })
   await userEvent.click(zone ?? screen.getByRole('button', { name: '바꾸기' }))
   await userEvent.click(screen.getByRole('button', { name: '자르기 적용' }))
 }
 
 async function addIntro() {
   await userEvent.click(
-    screen.queryByRole('button', { name: '소개 이미지 (여러 장)' }) ??
+    screen.queryByRole('button', { name: '소개 이미지' }) ??
       screen.getByRole('button', { name: '추가 · 편집' }),
   )
   await userEvent.click(screen.getByRole('button', { name: '사진 추가' }))
@@ -225,9 +246,12 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
     await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
     completePostcode()
-    await pickDates('대회 날짜', [25])
-    await pickDates('접수 기간', [3, 24])
+    await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
+    await pickDates('대회 날짜', [28])
+    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDateTime('접수 마감', 5, '23:59')
     await pickDates('환불 기한', [20])
+    await addTenK()
     await applyCover()
 
     const button = screen.getByRole('button', { name: '등록하기' })
@@ -240,5 +264,53 @@ describe('SellerRaceNewPage 두 번 제출', () => {
     fireEvent.submit(document.getElementById('seller-race-new') as HTMLFormElement)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(registered).toBe(1)
+    // 폼을 끝까지 채우는 긴 시나리오라 CI에서 기본 5초를 넘길 수 있다
+  }, 20_000)
+})
+
+describe('SellerRaceNewPage 자동 저장 표시', () => {
+  it('작성 내용을 저장하면 제목 옆에 「자동 저장됨 · 시각」을 보여 준다', async () => {
+    server.use(
+      http.get('*/api/v1/member/members/me', () =>
+        HttpResponse.json({ status: 200, message: '', data: { id: 7 } }),
+      ),
+    )
+    renderPage()
+    expect(screen.queryByText(/자동 저장됨/)).not.toBeInTheDocument()
+    await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
+    expect(await screen.findByText(/^자동 저장됨 · \d{2}:\d{2}$/)).toBeInTheDocument()
+  })
+})
+
+describe('SellerRaceNewPage 임시 저장 지우기', () => {
+  it('등록에 성공하면 저장해 둔 작성 내용을 지운다', async () => {
+    server.use(
+      http.get('*/api/v1/member/members/me', () =>
+        HttpResponse.json({ status: 200, message: '', data: { id: 7 } }),
+      ),
+      http.post('*/api/v1/product/races', () =>
+        HttpResponse.json(
+          { status: 201, message: '대회를 등록했습니다.', data: { raceId: 9 } },
+          { status: 201 },
+        ),
+      ),
+    )
+    renderPage()
+    await userEvent.type(screen.getByRole('textbox', { name: '대회 이름' }), '가을 마라톤')
+    await waitFor(() => expect(localStorage.getItem(raceDraftKey(7))).toContain('가을 마라톤'))
+
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }))
+    completePostcode()
+    await userEvent.type(screen.getByRole('textbox', { name: '출발 시각' }), '08:00')
+    await pickDates('대회 날짜', [28])
+    await pickDateTime('일반 판매 시작', 3, '10:00')
+    await pickDateTime('접수 마감', 5, '23:59')
+    await pickDates('환불 기한', [20])
+    await addTenK()
+    await applyCover()
+    await userEvent.click(screen.getByRole('button', { name: '등록하기' }))
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/seller/races?registered=9'))
+    expect(localStorage.getItem(raceDraftKey(7))).toBeNull()
   })
 })

@@ -9,11 +9,13 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.bukang.product.config.RaceRecommendProperties;
 import com.bukang.product.domain.Race;
 import com.bukang.product.dto.RaceSummaryDto;
 import com.bukang.product.out.RaceRepository;
 import com.bukang.product.out.RaceSearchRepository;
 import com.bukang.product.out.RaceSearchRepository.MatchedRace;
+import com.bukang.product.out.file.RaceThumbnailPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
  * - 검색어 추천: 검색어를 임베딩해 그 벡터와 비슷한 대회 ("밤에 강변 달리기" → 야간 한강 대회)
  * - 비슷한 대회: 보고 있는 대회의 벡터와 비슷한 대회 (그 대회는 뺀다)
  * 판매 예정·판매 중이고 접수 마감 전인 대회만 권한다 (판매 중지는 목록과 달리 뺀다, RaceSearchRepository.recommend).
+ * 덜 비슷한 대회를 거르는 기준값은 검색어와 비슷한 대회가 따로다 (검색어 점수가 더 낮게 나온다, RaceRecommendProperties).
  * 추천은 보조 기능이라 실패해도 오류로 돌려주지 않는다. 임베딩 API·ES가 실패하면 빈 목록을 돌려줘 화면이 AI 영역만 숨긴다.
  * 트랜잭션 밖에서 돈다 (ProductFacade). 임베딩 API를 기다리는 동안 DB 연결을 잡지 않게 하기 위해서다.
  */
@@ -38,6 +41,8 @@ public class RaceRecommendUseCase {
 	private final RaceTextEmbedder raceTextEmbedder;
 	private final RaceSearchRepository raceSearchRepository;
 	private final RaceRepository raceRepository;
+	private final RaceRecommendProperties properties;
+	private final RaceThumbnailPort raceThumbnailPort;
 
 	// 검색어와 뜻이 비슷한 대회. 검색어가 너무 짧거나 추천하지 못하면 빈 목록
 	public List<RaceSummaryDto> recommendByKeyword(String keyword) {
@@ -47,7 +52,8 @@ public class RaceRecommendUseCase {
 		}
 		try {
 			float[] vector = raceTextEmbedder.embed(text);
-			return toSummaries(raceSearchRepository.recommend(vector, null, LocalDateTime.now(), RECOMMEND_SIZE));
+			return toSummaries(raceSearchRepository.recommend(vector, null, properties.keywordMinSimilarity(),
+				LocalDateTime.now(), RECOMMEND_SIZE));
 		} catch (RuntimeException exception) {
 			// 검색어는 로그에 남기지 않는다 (사용자가 입력한 글)
 			log.warn("검색어로 AI 추천을 하지 못해 빈 목록을 돌려줍니다. 원인={}", exception.toString());
@@ -63,8 +69,8 @@ public class RaceRecommendUseCase {
 			if (vector.isEmpty()) {
 				return List.of();
 			}
-			return toSummaries(raceSearchRepository.recommend(vector.get(), raceId, LocalDateTime.now(),
-				RECOMMEND_SIZE));
+			return toSummaries(raceSearchRepository.recommend(vector.get(), raceId, properties.similarMinSimilarity(),
+				LocalDateTime.now(), RECOMMEND_SIZE));
 		} catch (RuntimeException exception) {
 			log.warn("비슷한 대회를 찾지 못해 빈 목록을 돌려줍니다. raceId={}, 원인={}", raceId, exception.toString());
 			return List.of();
@@ -80,9 +86,12 @@ public class RaceRecommendUseCase {
 		List<Long> raceIds = matched.stream().map(MatchedRace::raceId).toList();
 		Map<Long, Race> racesById = raceRepository.findAllWithCoursesByIdIn(raceIds).stream()
 			.collect(Collectors.toMap(Race::getId, Function.identity()));
+		// 대표 이미지 주소는 파일 서비스에서 한 번에 받는다. 받지 못한 대회는 null(색 포스터)이다 (CRU-141)
+		Map<Long, String> imageUrls = raceThumbnailPort.findThumbnailUrls(raceIds);
 		return matched.stream()
 			.filter(race -> racesById.containsKey(race.raceId()))
-			.map(race -> RaceSummaryDto.from(racesById.get(race.raceId()), race.minPrice()))
+			.map(race -> RaceSummaryDto.from(racesById.get(race.raceId()), race.minPrice(),
+				imageUrls.get(race.raceId())))
 			.toList();
 	}
 }

@@ -1,5 +1,6 @@
 package com.bukang.order.in;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -7,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,6 +26,7 @@ import com.bukang.common.global.rsdata.RsData;
 import com.bukang.common.shared.member.web.LoginMemberId;
 import com.bukang.common.shared.member.web.LoginMemberIdArgumentResolver;
 import com.bukang.common.shared.member.web.MemberIdHeader;
+import com.bukang.order.domain.exception.InsufficientBalanceException;
 
 /**
  * 주문 서비스의 모든 API가 따르는 요청 헤더 규칙을 확인한다.
@@ -29,6 +34,7 @@ import com.bukang.common.shared.member.web.MemberIdHeader;
  * 회원 ID 헤더는 common의 리졸버와 GlobalExceptionHandler가 처리하므로, 실제 서비스처럼 셋을 함께 붙인다.
  * 컨트롤러는 켜지 않는 프로파일에서만 빈이 되므로 다른 테스트의 컨텍스트에는 이 경로가 생기지 않는다.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class OrderExceptionHandlerTest {
 	private MockMvc mockMvc;
 
@@ -101,6 +107,34 @@ class OrderExceptionHandlerTest {
 			.andExpect(jsonPath("$.message").value(OrderExceptionHandler.DB_BUSY_MESSAGE));
 	}
 
+	@Test
+	@DisplayName("전용 처리기가 받는 도메인 예외(409)도 메서드·경로·코드를 info로 남긴다")
+	void logsDomainConflict(CapturedOutput output) throws Exception {
+		mockMvc.perform(get("/test/balance").header("X-Member-Id", "7"))
+			.andExpect(status().isConflict());
+
+		assertThat(output).contains("409 GET /test/balance code=" + InsufficientBalanceException.CODE);
+	}
+
+	@Test
+	@DisplayName("필수 헤더가 없는 400은 메서드·경로·코드를 info로 남긴다")
+	void logsBadRequest(CapturedOutput output) throws Exception {
+		mockMvc.perform(get("/test/idempotent").header("X-Member-Id", "7"))
+			.andExpect(status().isBadRequest());
+
+		assertThat(output).contains("400 GET /test/idempotent code=INVALID_REQUEST");
+	}
+
+	@Test
+	@DisplayName("DB 연결 대기 실패(503)는 error로 원인 스택까지 남긴다")
+	void logsDbBusyWithStack(CapturedOutput output) throws Exception {
+		mockMvc.perform(get("/test/db-busy").header("X-Member-Id", "7"))
+			.andExpect(status().isServiceUnavailable());
+
+		assertThat(output).contains("ERROR").contains("DB 연결을 받지 못했습니다. GET /test/db-busy")
+			.contains("CannotCreateTransactionException");
+	}
+
 	// standalone MockMvc는 @Controller가 붙은 클래스만 핸들러로 인식한다
 	// 앱 전체 테스트(OrderExceptionHandlerIntegrationTest)에서만 쓰도록, 켜지 않는 프로파일에서만 빈이 되게 한다
 	@RestController
@@ -125,6 +159,11 @@ class OrderExceptionHandlerTest {
 			@RequestParam("keyword") String keyword
 		) {
 			return RsData.of(HttpStatus.OK, "요청을 받았습니다.", keyword);
+		}
+
+		@GetMapping("/test/balance")
+		RsData<Void> balance(@LoginMemberId long memberId) {
+			throw new InsufficientBalanceException(1000);
 		}
 
 		@GetMapping("/test/db-busy")

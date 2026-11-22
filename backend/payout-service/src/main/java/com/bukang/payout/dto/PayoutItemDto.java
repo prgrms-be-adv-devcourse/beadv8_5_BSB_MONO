@@ -7,7 +7,6 @@ import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutItem;
 import com.bukang.payout.domain.PayoutRecordType;
 import com.bukang.payout.domain.PayoutStatus;
-import com.bukang.payout.domain.TwoStagePayoutCalculator;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -42,7 +41,7 @@ public class PayoutItemDto {
 			item.getRecordType(),
 			item.getAmount(),
 			item.getFeeRate(),
-			TwoStagePayoutCalculator.rate(item.getAmount(), item.getFeeRate()),
+			item.feeAmount(),
 			item.getPayoutCreateDate(),
 			payout.getId(),
 			payout.getPayoutCode(),

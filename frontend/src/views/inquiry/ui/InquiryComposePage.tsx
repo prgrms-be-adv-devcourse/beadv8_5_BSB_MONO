@@ -48,13 +48,15 @@ function TicketOption({
 }) {
   const raceDate = useRaceDate(ticket.raceId)
   const now = useNow()
-  const done = ticket.paying
-    ? '결제 확인 중'
-    : ticket.itemStatus === 'CANCELED'
-      ? '취소'
-      : raceDate && now && raceDate.slice(0, 10) < today(now)
-        ? '참가 완료'
-        : '신청 완료'
+  const done = ticket.dueAt
+    ? '결제 대기'
+    : ticket.paying
+      ? '결제 확인 중'
+      : ticket.itemStatus === 'CANCELED'
+        ? '취소'
+        : raceDate && now && raceDate.slice(0, 10) < today(now)
+          ? '참가 완료'
+          : '신청 완료'
   return (
     <button
       type="button"

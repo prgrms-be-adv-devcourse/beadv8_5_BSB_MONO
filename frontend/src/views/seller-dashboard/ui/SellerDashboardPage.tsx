@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 import { ConsoleCard, ConsoleLoading, ConsoleOffline, ConsolePage } from '@/widgets/console-page'
+import { recordCertReviewCountQueryOptions } from '@/features/seller-record-review'
 import { useManageInquiries } from '@/entities/inquiry'
 import {
   myRacesQueryOptions,
@@ -93,35 +94,26 @@ function DashboardBody() {
   )
 }
 
-// 처리할 일: 송장 입력 대기 · 답변 대기 문의 · 지급보류. 0건인 줄은 숨긴다
+// 처리할 일: 송장 입력 대기 · 답변 대기 문의 · 기록증 심사 · 지급보류. 0건인 줄은 숨긴다
 function TodoCard() {
   const kits = useSellerKitSummary()
   const summary = payoutApi.useSummary({ query: { select: unwrapData } })
   const inquiries = useManageInquiries('seller', { status: 'WAITING' })
   const shippable = kits.data && shippableCount(kits.data)
   const waiting = inquiries.data?.waitingCount
+  const certs = useQuery(recordCertReviewCountQueryOptions())
+  const reviewing = certs.data?.waitingCount
   const held = summary.data?.heldCount
   const total =
-    shippable === undefined || waiting === undefined || held === undefined
+    shippable === undefined ||
+    waiting === undefined ||
+    reviewing === undefined ||
+    held === undefined
       ? undefined
-      : shippable + waiting + held
+      : shippable + waiting + reviewing + held
 
   return (
-    <ConsoleCard
-      title={
-        <>
-          <span className="flex items-center gap-2">
-            처리할 일
-            {total !== undefined && (
-              <span className="font-display text-number-s text-text-secondary">
-                {formatNumber(total)}
-              </span>
-            )}
-          </span>
-        </>
-      }
-      className={CARD}
-    >
+    <ConsoleCard title="처리할 일" className={CARD}>
       {total === 0 ? (
         <p className="py-2 text-body2-regular text-text-secondary">처리할 일이 없어요</p>
       ) : (
@@ -142,6 +134,16 @@ function TodoCard() {
               name="답변 대기 문의"
               count={countLabel(waiting, inquiries.isError)}
               menu="문의"
+            />
+          )}
+          {/* 심사 화면은 대회마다 있어, 건수는 전체로 보여 주고 대회 관리로 보낸다 */}
+          {(reviewing === undefined || reviewing > 0) && (
+            <TodoRow
+              href="/seller/races"
+              icon="FileText"
+              name="기록증 심사"
+              count={countLabel(reviewing, isFailing(certs))}
+              menu="대회 관리"
             />
           )}
           {(held === undefined || held > 0) && (

@@ -1,7 +1,6 @@
 'use client'
 
-import { Menu } from '@base-ui/react/menu'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -24,14 +23,8 @@ import {
   type PartyDetail,
   type PartyMember,
 } from '@/entities/party'
-import {
-  ApiError,
-  memberApi,
-  orderApi,
-  productApi,
-  unwrapData,
-  useIdempotencyKey,
-} from '@/shared/api'
+import { raceQueryOptions } from '@/entities/race'
+import { ApiError, memberApi, orderApi, unwrapData, useIdempotencyKey } from '@/shared/api'
 import { cn, formatNumber, useNow } from '@/shared/lib'
 import {
   Avatar,
@@ -39,9 +32,6 @@ import {
   Button,
   buttonClassName,
   Dialog,
-  FOCUS_RING,
-  Icon,
-  IconButton,
   Skeleton,
   useToast,
   type BadgeTone,
@@ -79,25 +69,15 @@ function memberBadge(
 export function PartyDetailPage({ partyId }: { partyId: number }) {
   const party = usePartyDetail(partyId)
   const data = party.data
-  // 머리글 ⋮ 메뉴가 여는 파티 나가기 확인 창. 확인 창은 본문이 그린다
-  const [leaveOpen, setLeaveOpen] = useState(false)
 
   return (
     <>
-      <AppHeader
-        type="sub"
-        title="파티 상세"
-        action={
-          data?.status === 'RECRUITING' ? (
-            <PartyMoreMenu onLeave={() => setLeaveOpen(true)} />
-          ) : undefined
-        }
-      />
+      <AppHeader type="sub" title="파티 상세" />
       <main className="flex flex-1 flex-col bg-bg-surface">
         {party.isPending ? (
           <PartyDetailSkeleton />
         ) : data ? (
-          <PartyDetailBody party={data} leaveOpen={leaveOpen} onLeaveOpenChange={setLeaveOpen} />
+          <PartyDetailBody party={data} />
         ) : (
           <PartyLoadError onRetry={() => void party.refetch()} />
         )}
@@ -106,21 +86,13 @@ export function PartyDetailPage({ partyId }: { partyId: number }) {
   )
 }
 
-function PartyDetailBody({
-  party,
-  leaveOpen,
-  onLeaveOpenChange,
-}: {
-  party: PartyDetail
-  leaveOpen: boolean
-  onLeaveOpenChange: (open: boolean) => void
-}) {
+function PartyDetailBody({ party }: { party: PartyDetail }) {
   const router = useRouter()
   const toast = useToast()
   const queryClient = useQueryClient()
   const raceStatus = useMyRaceStatus(party.raceId)
   const me = memberApi.useFindMe({ query: { select: unwrapData } })
-  const race = productApi.useFindRace(party.raceId, { query: { select: unwrapData } })
+  const race = useQuery(raceQueryOptions(party.raceId))
   const crew = memberApi.useFindCrew(party.crewId, { query: { select: unwrapData } })
   const regenerate = useRegenerateJoinLink()
   const leave = useLeaveParty()
@@ -130,6 +102,7 @@ function PartyDetailBody({
   const [friendLink, setFriendLink] = useState<{ url: string; joinToken: string }>()
   const orderKey = useIdempotencyKey()
   const [confirm, setConfirm] = useState<'regenerate' | null>(null)
+  const [leaveOpen, setLeaveOpen] = useState(false)
 
   const isLeader = raceStatus.data?.role === 'LEADER'
   const recruiting = party.status === 'RECRUITING'
@@ -385,6 +358,16 @@ function PartyDetailBody({
             </li>
           ))}
         </ul>
+        {recruiting && (
+          <Button
+            variant="secondary"
+            size="l"
+            className="text-text-danger"
+            onClick={() => setLeaveOpen(true)}
+          >
+            파티 나가기
+          </Button>
+        )}
       </section>
       {recruiting && isLeader && (
         <BottomCta
@@ -425,7 +408,7 @@ function PartyDetailBody({
       />
       <Dialog
         open={leaveOpen}
-        onOpenChange={onLeaveOpenChange}
+        onOpenChange={setLeaveOpen}
         type="danger"
         title={leaveCopy.title}
         body={leaveCopy.body}
@@ -434,7 +417,7 @@ function PartyDetailBody({
           leave.mutate(party.id, {
             onSuccess: () => router.replace(`/crews/${party.crewId}` as Route),
             onError: (error) => {
-              onLeaveOpenChange(false)
+              setLeaveOpen(false)
               toastError(error)
             },
           })
@@ -442,29 +425,6 @@ function PartyDetailBody({
         confirming={leave.isPending}
       />
     </>
-  )
-}
-
-// 시안 · 파티 상세 ⋮ 메뉴. 모집 중에만 열 수 있고, 지금은 파티 나가기 하나다. Esc · 바깥 누름으로 닫힌다.
-function PartyMoreMenu({ onLeave }: { onLeave: () => void }) {
-  return (
-    <Menu.Root>
-      <Menu.Trigger render={<IconButton aria-label="더보기" />}>
-        <Icon name="MoreVertical" />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner align="end" sideOffset={-4} className="z-50 outline-none">
-          <Menu.Popup className="w-40 rounded-md bg-bg-surface py-2 shadow-md outline-none">
-            <Menu.Item
-              onClick={onLeave}
-              className={`flex w-full cursor-pointer items-center px-4 py-3 text-body1-medium text-text-danger data-highlighted:bg-bg-subtle ${FOCUS_RING}`}
-            >
-              파티 나가기
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
   )
 }
 

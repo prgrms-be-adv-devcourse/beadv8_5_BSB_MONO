@@ -15,6 +15,8 @@ import type {
 
 import type {
   RsDataKitOptionListDto,
+  RsDataListHomeBannerAdminDto,
+  RsDataListRaceSummaryDto,
   RsDataListSellerRaceDto,
   RsDataRaceDetailDto,
   RsDataRacePageDto,
@@ -22,6 +24,12 @@ import type {
   RsDataRaceSuggestionDto
 } from './product.schemas';
 
+
+export const getFindHomeBannersResponseMock = (): RsDataListRaceSummaryDto => ({"status":200,"message":"홈 배너를 조회했습니다.","data":[{"raceId":1,"title":"2026 용감한 쿠키RUN in 서울","location":"서울숲 일대","regionSido":"서울특별시","regionSigungu":"성동구","raceDate":"2026-12-06T08:00:00","saleStatus":"ON_SALE","saleOpenDate":"2026-11-20","crewSaleStartAt":null,"crewSaleEndAt":null,"individualOpenAt":"2026-11-20T09:00:00","applicationCloseAt":"2026-11-27T18:00:00","minPrice":35000,"courses":[{"raceCourseId":1,"name":"10K","courseType":"KM_10","distanceKm":10,"price":45000,"status":"OPEN"}],"imageUrl":null}]})
+
+export const getFindAdminHomeBannersResponseMock = (): RsDataListHomeBannerAdminDto => ({"status":200,"message":"홈 배너 목록을 조회했습니다.","data":[{"raceId":3,"title":"2026 용감한 쿠키RUN in 서울","saleStatus":"ON_SALE","applicationCloseAt":"2026-12-13T18:00:00","displayOrder":0,"visible":true,"hiddenReason":null,"hiddenReasonLabel":null},{"raceId":1,"title":"2026 한강 나이트 런","saleStatus":"STOPPED","applicationCloseAt":"2026-12-10T18:00:00","displayOrder":1,"visible":false,"hiddenReason":"STOPPED","hiddenReasonLabel":"판매 중지"}]})
+
+export const getReplaceAdminHomeBannersResponseMock = (): RsDataListHomeBannerAdminDto => ({"status":200,"message":"홈 배너를 저장했습니다.","data":[{"raceId":3,"title":"2026 용감한 쿠키RUN in 서울","saleStatus":"ON_SALE","applicationCloseAt":"2026-12-13T18:00:00","displayOrder":0,"visible":true,"hiddenReason":null,"hiddenReasonLabel":null}]})
 
 export const getFindRaceResponseMock = (): RsDataRaceDetailDto => ({"status":200,"message":"대회를 조회했습니다.","data":{"raceId":1,"title":"2026 용감한 쿠키RUN in 서울","description":"서울숲에서 달리는 가을 러닝 대회","location":"서울숲 일대","regionSido":"서울특별시","regionSigungu":"성동구","raceDate":"2026-11-01T08:00:00","saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","crewSaleStartAt":null,"crewSaleEndAt":null,"individualOpenAt":"2026-10-20T09:00:00","applicationCloseAt":"2026-10-31T18:00:00","refundDeadline":"2026-10-31","refundPolicy":"환불 기한까지 취소하면 전액 환불됩니다.","crewMinCount":5,"crewMaxCount":null,"scheduleChangedAt":null,"seller":{"sellerId":7001,"sellerType":"BUSINESS","businessName":"(주)쿠키런","businessNumber":"123-45-67890","representativeName":"김대표"},"courses":[{"raceCourseId":1,"name":"10K","courseType":"KM_10","surface":"ROAD","distanceKm":10,"timeLimitMinutes":90,"minAge":14,"maxAge":70,"price":45000,"kitIncluded":true,"kitPrice":0,"status":"OPEN","crewQuota":0,"individualQuota":600,"crewRemaining":0,"individualRemaining":580}]}})
 
@@ -57,6 +65,42 @@ export const getStopByAdminResponseMock = (): RsDataRaceSaveDto => ({"status":20
 
 export const getResumeByAdminResponseMock = (): RsDataRaceSaveDto => ({"status":200,"message":"대회 판매를 다시 열었습니다.","data":{"raceId":1,"saleStatus":"ON_SALE","saleOpenDate":"2026-10-20","courseIds":[1]}})
 
+
+export const getFindHomeBannersMockHandler = (overrideResponse?: RsDataListRaceSummaryDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListRaceSummaryDto> | RsDataListRaceSummaryDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/product/banners', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindHomeBannersResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getFindAdminHomeBannersMockHandler = (overrideResponse?: RsDataListHomeBannerAdminDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataListHomeBannerAdminDto> | RsDataListHomeBannerAdminDto), options?: RequestHandlerOptions) => {
+  return http.get('*/api/v1/product/admin/banners', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getFindAdminHomeBannersResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getReplaceAdminHomeBannersMockHandler = (overrideResponse?: RsDataListHomeBannerAdminDto | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<RsDataListHomeBannerAdminDto> | RsDataListHomeBannerAdminDto), options?: RequestHandlerOptions) => {
+  return http.put('*/api/v1/product/admin/banners', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getReplaceAdminHomeBannersResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 
 export const getFindRaceMockHandler = (overrideResponse?: RsDataRaceDetailDto | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RsDataRaceDetailDto> | RsDataRaceDetailDto), options?: RequestHandlerOptions) => {
   return http.get('*/api/v1/product/races/:raceId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
@@ -352,6 +396,9 @@ export const getResumeByAdminMockHandler = (overrideResponse?: RsDataRaceSaveDto
   }, options)
 }
 export const getBukangProductAPIMock = () => [
+  getFindHomeBannersMockHandler(),
+  getFindAdminHomeBannersMockHandler(),
+  getReplaceAdminHomeBannersMockHandler(),
   getFindRaceMockHandler(),
   getUpdateMockHandler(),
   getFindKitOptionsMockHandler(),

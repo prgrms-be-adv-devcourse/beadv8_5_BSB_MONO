@@ -69,8 +69,8 @@ public class HttpQueueAdmissionAdapter implements QueueAdmissionPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().admitted() == null) {
-			log.error("대기열 입장 확인 응답에 값이 없습니다. memberId={}, raceCourseId={}, response={}",
-				memberId, raceCourseId, response);
+			log.error("대기열 입장 확인 응답에 값이 없습니다. memberId={}, raceCourseId={}",
+				memberId, raceCourseId);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		Admission admission = response.data();

@@ -89,9 +89,6 @@ public class RaceSearchRepository {
 	private static final int KNN_DOCUMENTS_PER_RACE = 5;
 	// KNN이 후보로 살펴볼 최소 문서 수 (많을수록 정확하고 느리다)
 	private static final int KNN_MIN_CANDIDATES = 100;
-	// 이 값보다 덜 비슷한 대회는 추천하지 않는다 (코사인 유사도, -1~1). 관계없는 대회가 억지로 채워지지 않게 한다
-	// 모델마다 값의 범위가 달라(Ollama nomic-embed-text, OpenAI text-embedding-3-small) 실제 데이터로 보며 고친다
-	private static final float MIN_SIMILARITY = 0.5f;
 
 	private final ElasticsearchOperations elasticsearchOperations;
 	// ES 9.x는 검색 결과의 _source에서 벡터를 뺀다. 벡터를 받으려면 요청에 exclude_vectors=false를 넣어야 하는데
@@ -155,7 +152,9 @@ public class RaceSearchRepository {
 	// 벡터가 비슷한 대회를 비슷한 순서로 size개까지 찾는다 (AI 추천, BUK-162)
 	// 판매 예정·판매 중이고 접수 마감 전인 대회만 찾는다(KNN filter: 거른 뒤에 비슷한 것을 찾아 size개를 채운다)
 	// excludeRaceId가 있으면 그 대회는 뺀다 (비슷한 대회에서 보고 있는 대회 빼기). 카드의 최저가는 대회에서 가장 싼 종목의 값
-	public List<MatchedRace> recommend(float[] vector, Long excludeRaceId, LocalDateTime now, int size) {
+	// minSimilarity보다 덜 비슷한 대회는 찾지 않는다 (코사인 유사도, 검색어·비슷한 대회마다 다르다: RaceRecommendProperties)
+	public List<MatchedRace> recommend(float[] vector, Long excludeRaceId, float minSimilarity, LocalDateTime now,
+		int size) {
 		int nearestDocuments = size * KNN_DOCUMENTS_PER_RACE;
 		List<Float> queryVector = new ArrayList<>(vector.length);
 		for (float value : vector) {
@@ -165,7 +164,7 @@ public class RaceSearchRepository {
 			.queryVector(queryVector)
 			.k(nearestDocuments)
 			.numCandidates(Math.max(nearestDocuments * 2, KNN_MIN_CANDIDATES))
-			.similarity(MIN_SIMILARITY)
+			.similarity(minSimilarity)
 			.filter(recommendFilter(excludeRaceId, now)));
 		NativeQuery query = NativeQuery.builder()
 			.withKnnSearches(knn)

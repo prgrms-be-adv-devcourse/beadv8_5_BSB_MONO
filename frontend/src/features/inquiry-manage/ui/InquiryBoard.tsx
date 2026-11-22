@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 
@@ -108,7 +109,7 @@ export function InquiryBoard({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-1 flex-col gap-6">
       <div className="flex gap-2">
         <Chip selected={filter === 'WAITING'} onClick={() => setFilter('WAITING')}>
           답변 대기{managed.data ? ` ${managed.data.waitingCount}` : ''}
@@ -127,83 +128,87 @@ export function InquiryBoard({
           </Chip>
         )}
       </div>
-      <div className="flex items-start gap-6">
-        <section
-          aria-label="문의 목록"
-          className="w-90 shrink-0 rounded-md bg-bg-surface p-2 inset-ring inset-ring-border-default"
-        >
-          {items === undefined ? (
-            <div role="status" aria-label="불러오는 중" className="flex flex-col gap-2">
-              {Array.from({ length: 4 }, (_, i) => (
-                <Skeleton key={i} shape="rect" className="h-24" />
-              ))}
-            </div>
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={null}
-              title={
-                sent
-                  ? '보낸 문의가 없어요'
-                  : filter === 'WAITING'
-                    ? '답변을 기다리는 문의가 없어요'
-                    : '문의가 없어요'
-              }
-            />
-          ) : (
-            <ul className="flex flex-col">
-              {items.map((inquiry) => (
-                <li key={inquiry.id}>
-                  <button
-                    type="button"
-                    aria-pressed={inquiry.id === selectedId}
-                    onClick={() => {
-                      setPicked(inquiry.id)
-                      // 거르기 탭(?filter=)이 상세 주소로 옮겨도 남게 한다
-                      router.replace(
-                        `/${role}/inquiries/${inquiry.id}${filter === 'WAITING' ? '' : `?filter=${filter}`}`,
-                      )
-                    }}
-                    className={cn(
-                      'flex w-full flex-col items-start gap-1 rounded-lg p-3 text-left',
-                      inquiry.id === selectedId && 'inset-ring-2 inset-ring-text-primary',
-                      FOCUS_RING,
-                    )}
-                  >
-                    <span className="flex w-full items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-caption-regular text-text-tertiary">
-                        <Who inquiry={inquiry} />
+      {items?.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyState
+            illustration={<Image src="/brand/mascot-default.svg" alt="" width={96} height={96} />}
+            title={
+              sent
+                ? '보낸 문의가 없어요'
+                : filter === 'WAITING'
+                  ? '답변을 기다리는 문의가 없어요'
+                  : '문의가 없어요'
+            }
+          />
+        </div>
+      ) : (
+        <div className="flex items-start gap-6">
+          <section
+            aria-label="문의 목록"
+            className="w-90 shrink-0 rounded-md bg-bg-surface p-2 inset-ring inset-ring-border-default"
+          >
+            {items === undefined ? (
+              <div role="status" aria-label="불러오는 중" className="flex flex-col gap-2">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Skeleton key={i} shape="rect" className="h-24" />
+                ))}
+              </div>
+            ) : (
+              <ul className="flex flex-col">
+                {items.map((inquiry) => (
+                  <li key={inquiry.id}>
+                    <button
+                      type="button"
+                      aria-pressed={inquiry.id === selectedId}
+                      onClick={() => {
+                        setPicked(inquiry.id)
+                        // 거르기 탭(?filter=)이 상세 주소로 옮겨도 남게 한다
+                        router.replace(
+                          `/${role}/inquiries/${inquiry.id}${filter === 'WAITING' ? '' : `?filter=${filter}`}`,
+                        )
+                      }}
+                      className={cn(
+                        'flex w-full flex-col items-start gap-1 rounded-lg p-3 text-left',
+                        inquiry.id === selectedId && 'bg-bg-subtle',
+                        FOCUS_RING,
+                      )}
+                    >
+                      <span className="flex w-full items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-caption-regular text-text-tertiary">
+                          <Who inquiry={inquiry} />
+                        </span>
+                        <span className="shrink-0 text-caption-regular text-text-tertiary">
+                          {slashDate(inquiry.createDate)}
+                        </span>
                       </span>
-                      <span className="shrink-0 text-caption-regular text-text-tertiary">
-                        {slashDate(inquiry.createDate)}
+                      <span className="w-full truncate text-body1-medium">{inquiry.title}</span>
+                      <span className="text-caption-regular text-text-tertiary">
+                        {TYPE_LABEL[inquiry.type]}
                       </span>
-                    </span>
-                    <span className="w-full truncate text-body1-medium">{inquiry.title}</span>
-                    <span className="text-caption-regular text-text-tertiary">
-                      {TYPE_LABEL[inquiry.type]}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section aria-label="문의 상세" className="min-w-0 flex-1">
-          {selectedId !== null && (
-            <Detail
-              key={selectedId}
-              role={role}
-              id={selectedId}
-              sent={sent}
-              renderAnswer={renderAnswer}
-              onSent={() => {
-                // 답변을 보내면 답변 완료 목록으로 옮겨 가고, 방금 답한 문의가 그대로 열려 있다
-                setPicked(selectedId)
-                setFilter('ANSWERED')
-              }}
-            />
-          )}
-        </section>
-      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section aria-label="문의 상세" className="min-w-0 flex-1">
+            {selectedId !== null && (
+              <Detail
+                key={selectedId}
+                role={role}
+                id={selectedId}
+                sent={sent}
+                renderAnswer={renderAnswer}
+                onSent={() => {
+                  // 답변을 보내면 답변 완료 목록으로 옮겨 가고, 방금 답한 문의가 그대로 열려 있다
+                  setPicked(selectedId)
+                  setFilter('ANSWERED')
+                }}
+              />
+            )}
+          </section>
+        </div>
+      )}
     </div>
   )
 }

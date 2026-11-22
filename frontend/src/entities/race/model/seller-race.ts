@@ -20,10 +20,10 @@ export const SELLER_SALE_STATUS: Record<SellerSaleStatus, SellerRaceBadge> = {
   CANCELED: { label: '취소됨', tone: 'danger' },
 }
 
-/** 상태는 칩 대신 14 Medium 글자로 쓴다. 판매 중은 파랑, 취소됨은 빨강, 그 밖은 보조 글자색 */
+/** 상태는 칩 대신 글자로 쓴다. 판매 중만 16 Medium 검정, 취소됨은 빨강, 그 밖은 보조 글자색 */
 export const SELLER_SALE_STATUS_TEXT: Record<SellerSaleStatus, string> = {
   SCHEDULED: 'text-text-primary',
-  ON_SALE: 'text-text-primary',
+  ON_SALE: 'text-body1-medium text-text-primary',
   STOPPED: 'text-text-secondary',
   CLOSED: 'text-text-secondary',
   CANCELED: 'text-text-danger',
@@ -153,7 +153,7 @@ export function toRaceEditRequest(
     applicationCloseAt: race.applicationCloseAt ?? '',
     refundDeadline: race.refundDeadline ?? '',
     refundPolicy: race.refundPolicy ?? undefined,
-    crewMinCount: race.crewMinCount ?? 5,
+    crewMinCount: race.crewMinCount ?? 4,
     crewMaxCount: race.crewMaxCount ?? undefined,
     images: toImageRequests(raceFiles, RACE_IMAGE_TYPES),
     courses: (race.courses ?? []).map((course) => ({

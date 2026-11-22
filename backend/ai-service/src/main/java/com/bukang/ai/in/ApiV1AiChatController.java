@@ -49,10 +49,14 @@ public class ApiV1AiChatController {
 			+ "질문과 답은 대화 기록에 남는다. "
 			+ "운영 숫자는 화면 종류에 맞는 조회 도구로 가져오고, 부른 도구대로 출처(sources: 기준 화면, 조회 시각 asOf, 버튼 글, 프론트 경로)를 붙인다. "
 			+ "조회에 실패한 출처는 asOf가 null이고, 버튼이 없는 화면은 buttonLabel·path가 null이다. "
-			+ "목록이 필요한 답은 list(rows, moreCount)를 함께 주고 아니면 null이다.")
+			+ "목록이 필요한 답은 list(rows, moreCount)를 함께 주고 아니면 null이다. "
+			+ "환불·취소 같은 정책 질문은 정책 안내 도구로 답하고, 출처 screen에 정책 이름이 오며 buttonLabel·path는 null이다.")
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "답변 성공",
-			content = @Content(examples = @ExampleObject(value = AiApiExamples.CHAT_SUCCESS))),
+			content = @Content(examples = {
+				@ExampleObject(name = "숫자 조회", value = AiApiExamples.CHAT_SUCCESS),
+				@ExampleObject(name = "정책 안내", value = AiApiExamples.CHAT_SUCCESS_POLICY)
+			})),
 		@ApiResponse(responseCode = "400", description = "질문이 비었거나 1,000자 초과, 회원 ID가 0 이하이거나 숫자가 아님",
 			content = @Content(schema = @Schema(implementation = RsData.class), examples = {
 				@ExampleObject(name = "입력값 오류", value = AiApiExamples.INVALID_BODY),
@@ -116,7 +120,7 @@ public class ApiV1AiChatController {
 		description = "그 화면의 역할(승인된 판매자·관리자)을 확인한 뒤, 대시보드 「크루런 AI 브리핑」 카드에 넣을 한 문장 요약(headline), "
 			+ "기준 시각 문구(basis), 먼저 할 일(todos), 지표(metrics)를 돌려준다. "
 			+ "모델을 부르지 않고 조회한 숫자로 정해진 문장을 만든다. "
-			+ "판매자는 보낼 키트·다음 정산·지급보류, 관리자는 판매자 승인 대기·답변 대기 문의를 본다. "
+			+ "판매자는 보낼 키트·다음 정산·지급보류·심사할 기록증(1건 이상일 때만), 관리자는 판매자 승인 대기·답변 대기 문의를 본다. "
 			+ "조회 하나가 실패해도 200이고, 그 할 일은 description에 「불러오지 못했어요」, 그 지표는 value가 「-」다. "
 			+ "할 일이 없으면 todos가 빈 목록이다. noteTone은 없으면 응답에 없다.")
 	@ApiResponses({

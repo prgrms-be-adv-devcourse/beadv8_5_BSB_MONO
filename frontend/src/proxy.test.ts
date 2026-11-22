@@ -41,6 +41,18 @@ describe('proxy (가짜 응답 모드)', () => {
     expect(redirectOf(proxy(request('/races/1')))).toBeNull()
     expect(redirectOf(proxy(request('/seller')))).toBeNull()
   })
+
+  it('비로그인으로 고객센터(/me/support)를 열면 로그인 화면으로 보내지 않는다', () => {
+    vi.stubEnv('API_MOCKING', 'on')
+    expect(redirectOf(proxy(request('/me/support')))).toBeNull()
+  })
+
+  it('고객센터 안의 문의 쓰기는 돌아올 경로를 붙여 로그인 화면으로 보낸다', () => {
+    vi.stubEnv('API_MOCKING', 'on')
+    expect(redirectOf(proxy(request('/me/inquiries/new')))).toBe(
+      `http://localhost/login?next=${encodeURIComponent('/me/inquiries/new')}`,
+    )
+  })
 })
 
 describe('proxy (실제 API 모드)', () => {

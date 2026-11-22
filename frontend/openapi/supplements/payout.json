@@ -77,6 +77,44 @@
           "$ref": "#/components/schemas/PayoutCreateFailuresDto"
         }
       }
+    },
+    "payouts_1": {
+      "200": {
+        "wrapper": "RsDataPayoutAdminPayoutsDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutAdminPayoutsDto"
+        }
+      }
+    },
+    "findPayout": {
+      "200": {
+        "wrapper": "RsDataPayoutDto",
+        "data": {
+          "$ref": "#/components/schemas/PayoutDto"
+        }
+      }
+    },
+    "claims": {
+      "200": {
+        "wrapper": "RsDataListSellerRecoveryDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SellerRecoveryDto"
+          }
+        }
+      }
+    },
+    "taxInvoices": {
+      "200": {
+        "wrapper": "RsDataListPayoutTaxInvoiceDto",
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutTaxInvoiceDto"
+          }
+        }
+      }
     }
   },
   "schemas": {
@@ -777,6 +815,269 @@
         "autoFilledCount",
         "orderLookupFailureCount",
         "records"
+      ]
+    },
+    "PayoutStatusSummaryDto": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/components/schemas/PayoutStatus"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "payoutAmount": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "status",
+        "count",
+        "payoutAmount"
+      ]
+    },
+    "PayoutAdminPayoutDto": {
+      "type": "object",
+      "properties": {
+        "payout": {
+          "$ref": "#/components/schemas/PayoutDto"
+        },
+        "sellerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "holds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutHoldDto"
+          }
+        }
+      },
+      "required": [
+        "payout",
+        "sellerId",
+        "holds"
+      ]
+    },
+    "PayoutAdminPayoutPageDto": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutAdminPayoutDto"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalPages": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "content",
+        "page",
+        "size",
+        "totalElements",
+        "totalPages"
+      ]
+    },
+    "PayoutAdminPayoutsDto": {
+      "type": "object",
+      "properties": {
+        "payDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "summary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/PayoutStatusSummaryDto"
+          }
+        },
+        "payouts": {
+          "$ref": "#/components/schemas/PayoutAdminPayoutPageDto"
+        }
+      },
+      "required": [
+        "payDate",
+        "summary",
+        "payouts"
+      ]
+    },
+    "PayoutRecoveryReason": {
+      "type": "string",
+      "enum": [
+        "대회_취소",
+        "일정_변경"
+      ],
+      "description": "회수 사유 (대회_취소: 대회 취소, 일정_변경: 일정 변경 · 구매자 취소)"
+    },
+    "PayoutRecoveryStatus": {
+      "type": "string",
+      "enum": [
+        "회수_요청",
+        "회수_완료",
+        "회수_취소"
+      ],
+      "description": "회수 상태 (회수_요청: 입금 기다리는 중, 회수_완료: 입금 확인, 회수_취소: 대회 취소로 되돌림)"
+    },
+    "SellerRecoveryDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "claimCode": {
+          "type": "string"
+        },
+        "raceId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "raceName": {
+          "type": "string",
+          "nullable": true,
+          "description": "그 대회의 정산 내역이 없으면 null"
+        },
+        "payoutCode": {
+          "type": "string",
+          "nullable": true
+        },
+        "amount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "reasonType": {
+          "$ref": "#/components/schemas/PayoutRecoveryReason"
+        },
+        "status": {
+          "$ref": "#/components/schemas/PayoutRecoveryStatus"
+        },
+        "requestedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "virtualBankName": {
+          "type": "string",
+          "nullable": true,
+          "description": "청구 전용 가상계좌 은행. 발급 전이면 null"
+        },
+        "virtualAccountNumber": {
+          "type": "string",
+          "nullable": true,
+          "description": "청구 전용 가상계좌 번호. 발급 전이면 null"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "입금 기한. 가상계좌 유효기간(90일)과 다르다"
+        }
+      },
+      "required": [
+        "id",
+        "claimCode",
+        "raceId",
+        "amount",
+        "reasonType",
+        "status",
+        "requestedAt",
+        "dueDate"
+      ]
+    },
+    "PayoutTaxInvoiceStatus": {
+      "type": "string",
+      "enum": [
+        "발행_완료",
+        "발행_실패"
+      ],
+      "description": "세금계산서 상태 (발행_실패면 다음 배치가 다시 발행)"
+    },
+    "PayoutTaxInvoiceDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "sellerId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "supplyMonth": {
+          "type": "string",
+          "description": "공급 월 (yyyy-MM)"
+        },
+        "totalAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "supplyAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "taxAmount": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "$ref": "#/components/schemas/PayoutTaxInvoiceStatus"
+        },
+        "approvalNumber": {
+          "type": "string",
+          "nullable": true,
+          "description": "발행 실패면 null"
+        },
+        "businessName": {
+          "type": "string",
+          "nullable": true
+        },
+        "businessNumber": {
+          "type": "string",
+          "nullable": true
+        },
+        "representativeName": {
+          "type": "string",
+          "nullable": true
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "failReason": {
+          "type": "string",
+          "nullable": true,
+          "description": "마지막 실패 사유. 발행 완료면 null"
+        }
+      },
+      "required": [
+        "id",
+        "sellerId",
+        "supplyMonth",
+        "totalAmount",
+        "supplyAmount",
+        "taxAmount",
+        "status"
       ]
     }
   }

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.shared.file.domain.FileType;
 import com.bukang.common.shared.file.event.FileLinkRequestedEvent;
 import com.bukang.common.shared.kafka.dlt.DltKafkaEventDto;
 import com.bukang.common.shared.kafka.dlt.DltKafkaEventStatus;
@@ -26,6 +27,7 @@ import com.bukang.file.dto.FileLinkRequestDto;
 import com.bukang.file.dto.FileUploadDto;
 import com.bukang.file.dto.FileUploadRequestDto;
 import com.bukang.file.dto.FileUploaderDto;
+import com.bukang.file.dto.RefThumbnailDto;
 import com.bukang.file.out.StoredFileRepository;
 import com.bukang.file.out.storage.FileStorage;
 import com.bukang.file.out.storage.PresignedUpload;
@@ -171,6 +173,19 @@ public class FileFacade {
 		return toDto(file);
 	}
 
+	// 내부 API: 여러 대상의 대표 이미지 보기 주소 (대회 목록 카드, CRU-141). 대표 이미지는 대상마다 1장이다
+	// 대표 이미지가 없거나 업로드 확인 전인 대상은 빠진다 (부른 쪽이 기본 그림을 보여 준다)
+	public List<RefThumbnailDto> findThumbnails(String refType, List<Long> refIds) {
+		if (refIds.isEmpty()) {
+			return List.of();
+		}
+		return storedFileRepository.findAllByRefTypeAndRefIdInAndFileTypeAndStatus(refType, refIds,
+				FileType.THUMBNAIL, FileStatus.ACTIVE).stream()
+			.filter(StoredFile::hasConfirmedObject)
+			.map(file -> new RefThumbnailDto(file.getRefId(), fileStorage.presignGet(file.getS3Key())))
+			.toList();
+	}
+
 	// 내부 API: 소유 · 판매자 확인은 부른 서비스(member)가 이미 했으므로 여기서는 보지 않는다
 	public FileDto findForView(long fileId) {
 		return toDto(findAlive(fileId));
@@ -199,7 +214,7 @@ public class FileFacade {
 		try {
 			failedKeys = fileStorage.deleteAll(List.of(key));
 		} catch (RuntimeException exception) {
-			log.warn("S3 객체 삭제 요청이 실패했습니다. key={}, cause={}", key, exception.toString());
+			log.warn("S3 객체 삭제 요청이 실패했습니다. key={}", key, exception);
 			throw new FileDeleteFailedException();
 		}
 		if (!failedKeys.isEmpty()) {

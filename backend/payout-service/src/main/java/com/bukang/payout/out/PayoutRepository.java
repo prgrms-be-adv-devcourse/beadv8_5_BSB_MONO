@@ -19,14 +19,47 @@ import com.bukang.payout.dto.PayoutStatusSummaryDto;
 
 import jakarta.persistence.LockModeType;
 
-public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert {
-	// 최종 대사: 정산 내역들의 판매 줄을 엔티티가 아닌 값으로 읽는다 (BUK-252). 같은 참가권의 판매 줄은 유일 제약으로 하나다
+public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutItemBatchInsert,
+	PayoutSaleLineStream {
+	// 최종 대사: 판매 줄을 (코스, 금액)으로 묶어 센다. 판매 가격과 다른 묶음이 있을 때만 그 줄을 읽는다 (CRU-57)
+	@Query("""
+		select new com.bukang.payout.out.SaleLineGroup(i.raceCourseId, i.amount, count(i))
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+		group by i.raceCourseId, i.amount
+		""")
+	List<SaleLineGroup> summarizeSaleLines(Collection<Payout> payouts);
+
+	// 최종 대사: 어긋난 참가권의 판매 줄만 값으로 읽는다. ID가 많으면 부르는 쪽이 나눠 부른다
 	@Query("""
 		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
 		from PayoutItem i
 		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.orderItemId in :orderItemIds
 		""")
-	List<SaleLine> findSaleLines(Collection<Payout> payouts);
+	List<SaleLine> findSaleLines(Collection<Payout> payouts, Collection<Long> orderItemIds);
+
+	// 최종 대사: 한 (코스, 금액) 묶음의 판매 줄. 코스 없는 줄은 = null로 고를 수 없어 따로 묻는다
+	default List<SaleLine> findSaleLines(Collection<Payout> payouts, Long raceCourseId, long amount) {
+		return raceCourseId == null ? findSaleLinesWithoutCourse(payouts, amount)
+			: findSaleLinesOfCourse(payouts, raceCourseId, amount);
+	}
+
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.raceCourseId = :raceCourseId and i.amount = :amount
+		""")
+	List<SaleLine> findSaleLinesOfCourse(Collection<Payout> payouts, long raceCourseId, long amount);
+
+	@Query("""
+		select new com.bukang.payout.out.SaleLine(i.orderItemId, i.amount, i.raceCourseId, i.payout.id)
+		from PayoutItem i
+		where i.payout in :payouts and i.recordType = com.bukang.payout.domain.PayoutRecordType.판매
+			and i.raceCourseId is null and i.amount = :amount
+		""")
+	List<SaleLine> findSaleLinesWithoutCourse(Collection<Payout> payouts, long amount);
 
 	// 최종 정산 생성: 이미 만든 정산 내역인지 확인한다. 유일 조건 (seller_id, race_id, payout_month, payout_stage)과 같은 키다
 	boolean existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(long sellerId, long raceId, String payoutMonth,
@@ -36,6 +69,12 @@ public interface PayoutRepository extends JpaRepository<Payout, Long>, PayoutIte
 	// 1차는 정산 월과 상관없이 하나만 만든다 (환불 마감일이 다음 달로 늦춰지면 정산 월이 바뀐다, PRO-232)
 	// 최종이 먼저 생겼으면 1차를 만들지 않는다
 	boolean existsBySellerIdAndRaceIdAndPayoutStage(long sellerId, long raceId, PayoutStage payoutStage);
+
+	// 정산 생성: 판매 값을 받기 전에 대회 단위로 먼저 본다 (CRU-117). 위 두 확인에서 판매자 조건만 뺀 것이다
+	// 상태는 보지 않으므로 대회 취소로 닫힌 정산도 '있음'이다 (위 두 확인과 같다)
+	boolean existsByRaceIdAndPayoutMonthAndPayoutStage(long raceId, String payoutMonth, PayoutStage payoutStage);
+
+	boolean existsByRaceIdAndPayoutStage(long raceId, PayoutStage payoutStage);
 
 	// 판매자 탈퇴 제한: 아직 받지 않은 정산(정산 예정 · 지급보류 · 지급 중)이 있는지 본다. 지급 완료 · 취소는 뺀다
 	boolean existsBySellerIdAndStatusIn(long sellerId, Collection<PayoutStatus> statuses);

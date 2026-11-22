@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { productMock } from '@/shared/testing'
 
-import { toAdminRaceRow, toRaceEditRequest } from './seller-race'
+import { SELLER_SALE_STATUS_TEXT, toAdminRaceRow, toRaceEditRequest } from './seller-race'
 
 const race = productMock.getFindAdminRacesResponseMock().data![0]
 
@@ -50,5 +50,22 @@ describe('toRaceEditRequest 종목 나이', () => {
       { minAge: 14, maxAge: undefined },
       { minAge: 14, maxAge: undefined },
     ])
+  })
+})
+
+describe('toRaceEditRequest 크루 인원', () => {
+  it('크루 최소 인원이 없으면 등록 화면과 같은 4명으로 보내고, 있으면 그대로 보낸다', () => {
+    expect(toRaceEditRequest({ ...race, crewMinCount: undefined }, [], {}).crewMinCount).toBe(4)
+    expect(toRaceEditRequest({ ...race, crewMinCount: 6 }, [], {}).crewMinCount).toBe(6)
+  })
+})
+
+// 시안(대회 상세): 판매 중만 16 Medium 검정, 판매 예정·종료·중지는 12 보조색
+describe('SELLER_SALE_STATUS_TEXT', () => {
+  it('판매 중만 16 굵게 검정이다', () => {
+    expect(SELLER_SALE_STATUS_TEXT.ON_SALE).toMatch(/text-body1-medium/)
+    expect(SELLER_SALE_STATUS_TEXT.ON_SALE).toMatch(/text-text-primary/)
+    expect(SELLER_SALE_STATUS_TEXT.SCHEDULED).toBe('text-text-primary')
+    expect(SELLER_SALE_STATUS_TEXT.STOPPED).not.toMatch(/body1/)
   })
 })

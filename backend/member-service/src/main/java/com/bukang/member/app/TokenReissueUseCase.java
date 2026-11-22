@@ -44,7 +44,7 @@ public class TokenReissueUseCase {
 		long memberId = claims.memberId();
 		Instant now = clock.instant();
 
-		Instant familyExpiresAt = refreshTokenRepository.findFamilyExpiresAt(memberId)
+		Instant familyExpiresAt = refreshTokenRepository.findFamilyExpiresAt(memberId, claims.familyId())
 			.orElseThrow(() -> new InvalidRefreshTokenException(INVALID_MESSAGE));
 		Instant newExpiresAt = earlier(now.plus(jwtProperties.refreshTokenExpiration()), familyExpiresAt);
 		if (!newExpiresAt.isAfter(now)) {
@@ -63,11 +63,11 @@ public class TokenReissueUseCase {
 			case GRACE -> regraceToken(memberId, claims.familyId(), result);
 			case THEFT -> {
 				// 토큰 값은 로그에 남기지 않는다
-				log.warn("이미 쓴 Refresh Token이 다시 들어와 family를 끊었습니다. 탈취가 의심됩니다. memberId={}", memberId);
+				log.warn("이미 쓴 Refresh Token이 다시 들어와 그 로그인만 끊었습니다. 탈취가 의심됩니다. memberId={}", memberId);
 				throw new InvalidRefreshTokenException(INVALID_MESSAGE);
 			}
-			// STALE: 다른 기기에서 새로 로그인했다. MISSING: 로그아웃, 탈취 처리, TTL 만료
-			case STALE, MISSING -> throw new InvalidRefreshTokenException(INVALID_MESSAGE);
+			// MISSING: 로그아웃, 탈취 처리, TTL 만료, 탈퇴
+			case MISSING -> throw new InvalidRefreshTokenException(INVALID_MESSAGE);
 		};
 
 		Instant refreshExpiresAt = jwtProvider.parse(issuedRefreshToken, TokenType.REFRESH).expiresAt();

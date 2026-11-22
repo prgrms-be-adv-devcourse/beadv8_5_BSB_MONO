@@ -1,6 +1,8 @@
 package com.bukang.ai.in;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,17 +19,22 @@ import com.bukang.ai.out.ops.OpsPort;
 import com.bukang.ai.support.AiTestBase;
 import com.bukang.common.shared.member.web.MemberIdHeader;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 // 도구가 화면별로 붙는지, 부른 도구대로 출처·목록이 응답에 붙는지 확인한다. 모델 대역이 도구를 대신 고른다
 class ApiV1AiChatToolTest extends AiTestBase {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private static final List<String> SELLER_TOOLS =
-		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales");
-	private static final List<String> ADMIN_TOOLS = List.of("adminWaitingInquiries", "adminPendingSellers");
+		List.of("sellerKitsWaitingForTracking", "sellerNextPayout", "sellerPayoutHoldReasons", "sellerMonthlySales",
+			"sellerRecordCertReviewsWaiting", "crewrunPolicy");
+	// 정책 답을 흐리는 말 (다윗님 11/20 「확실하게 대답」). 규칙에 원래 있는 조건(「며칠 걸릴 수 있다」)은 여기에 넣지 않는다
+	private static final String HEDGE = "로 보여|자세한 (건|내용은) 확인|변경될 수 있|바뀔 수 있|잠정|확정 전";
+	private static final List<String> ADMIN_TOOLS =
+		List.of("adminWaitingInquiries", "adminPendingSellers", "crewrunPolicy");
 
 	@Test
-	@DisplayName("판매자 화면에는 판매자 도구만, 관리자 화면에는 관리자 도구만 모델에 보인다 (둘 다인 회원도)")
+	@DisplayName("판매자 화면에는 판매자 도구만, 관리자 화면에는 관리자 도구만 모델에 보인다 (둘 다인 회원도). 정책 도구는 둘 다")
 	void toolsByScreen() throws Exception {
 		chat("seller", SELLER_AND_ADMIN, "질문").andExpect(status().isOk());
 		assertThat(chatModel.lastToolNames()).containsExactlyInAnyOrderElementsOf(SELLER_TOOLS);
@@ -37,14 +44,98 @@ class ApiV1AiChatToolTest extends AiTestBase {
 	}
 
 	@Test
-	@DisplayName("도구는 인자를 받지 않는다 (모델이 회원 번호나 조회 대상을 정할 수 없다)")
+	@DisplayName("조회 도구는 인자를 받지 않는다 (모델이 회원 번호나 조회 대상을 정할 수 없다). 정책 도구만 정해진 주제 목록을 받는다")
 	void toolsTakeNoArguments() throws Exception {
 		for (String screen : List.of("seller", "admin")) {
 			chat(screen, SELLER_AND_ADMIN, "질문").andExpect(status().isOk());
-			for (String schema : chatModel.lastToolInputSchemas()) {
-				assertThat(objectMapper.readTree(schema).path("properties").isEmpty()).as(schema).isTrue();
+			List<String> names = chatModel.lastToolNames();
+			List<String> schemas = chatModel.lastToolInputSchemas();
+			for (int i = 0; i < names.size(); i++) {
+				JsonNode properties = objectMapper.readTree(schemas.get(i)).path("properties");
+				if (names.get(i).equals("crewrunPolicy")) {
+					assertThat(properties.size()).isEqualTo(1);
+					// 주제는 정책 목록(InquiryPolicy) 13개 이름 중에서만 고른다
+					assertThat(properties.path("topics").path("items").path("enum").size()).isEqualTo(13);
+				} else {
+					assertThat(properties.isEmpty()).as(schemas.get(i)).isTrue();
+				}
 			}
 		}
+	}
+
+	@Test
+	@DisplayName("정책 질문에는 정책 도구가 고른 주제의 규칙만 모델에 가고, 답·출처에 「잠정」이 없다 (판매자·관리자 둘 다)")
+	void policy() throws Exception {
+		for (String screen : List.of("seller", "admin")) {
+			chatModel.reset();
+			chatModel.callTool("crewrunPolicy", "{\"topics\":[\"RACE_CANCEL\",\"KIT_RETURN\"]}");
+
+			chat(screen, SELLER_AND_ADMIN, "대회가 취소되면 환불은 어떻게 돼요?")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.sources.length()").value(2))
+				.andExpect(jsonPath("$.data.sources[0].screen").value("정책 5장 2차 2-3·2-5 대회 취소"))
+				.andExpect(jsonPath("$.data.sources[0].asOf").isNotEmpty())
+				.andExpect(jsonPath("$.data.sources[0].path").value((Object)null))
+				.andExpect(jsonPath("$.data.sources[1].screen").value("정책 5장 3-1 키트 반품"))
+				.andExpect(jsonPath("$.data.answer", not(containsString("잠정"))));
+
+			assertThat(chatModel.toolResults()).singleElement().asString()
+				.contains("관리자가 승인하면 참가자 공지와 전액 환불").contains("단순 변심 반품")
+				.contains("확정 규칙이다");
+			// 답하는 법(howToAnswer)은 흐리는 말을 예로 들어 금지하므로 빼고, 모델이 옮겨 쓸 정책 이름·규칙만 본다
+			assertThat(chatModel.toolResults().getFirst().replaceAll("\"howToAnswer\":\"[^\"]*\",?", ""))
+				.doesNotContainPattern(HEDGE)
+				.doesNotContain("잠정").doesNotContain("충전");
+			assertThat(opsPort.calledMemberIds).isEmpty();
+		}
+	}
+
+	@Test
+	@DisplayName("모델이 목록에 없는 주제를 보내도 503이 아니고, 오류가 도구 결과로 모델에 돌아가며 정책 출처는 붙지 않는다")
+	void policyUnknownTopic() throws Exception {
+		chatModel.callTool("crewrunPolicy", "{\"topics\":[\"POINT\"]}");
+
+		chat("seller", SELLER, "포인트 적립 정책은요?")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sources").isEmpty());
+
+		assertThat(chatModel.toolResults()).singleElement().asString().doesNotContain("policies");
+	}
+
+	@Test
+	@DisplayName("정책 도구는 주제를 3개까지만 넘긴다 (다른 상황 규칙이 섞이지 않게)")
+	void policyTopicLimit() throws Exception {
+		chatModel.callTool("crewrunPolicy",
+			"{\"topics\":[\"REFUND_DEADLINE\",\"RACE_CANCEL\",\"KIT_RETURN\",\"CHARGE\"]}");
+
+		chat("seller", SELLER, "정책 다 알려줘")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sources.length()").value(3));
+
+		assertThat(chatModel.toolResults()).singleElement().asString().doesNotContain("충전");
+	}
+
+	@Test
+	@DisplayName("정책 도구를 불렀어도 맞는 규칙이 없어 「조회할 수 없어요」로 답하면 정책 출처를 붙이지 않는다")
+	void policyNotAnswered() throws Exception {
+		chatModel.callTool("crewrunPolicy", "{\"topics\":[\"REFUND_DEADLINE\"]}");
+		chatModel.answerWith("아직 크루런 AI로는 조회할 수 없어요. 해당 화면에서 확인해 주세요.");
+
+		chat("seller", SELLER, "판매 수수료는 몇 퍼센트야?")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sources").isEmpty());
+	}
+
+	@Test
+	@DisplayName("정책 도구가 주제를 고르지 못하면 지어내지 말고 「조회할 수 없어요」로 답하라는 결과가 가고 출처는 붙지 않는다")
+	void policyNoTopic() throws Exception {
+		chatModel.callTool("crewrunPolicy", "{\"topics\":[]}");
+
+		chat("seller", SELLER, "포인트 적립 정책은요?")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sources").isEmpty());
+
+		assertThat(chatModel.toolResults()).singleElement().asString().contains("아직 크루런 AI로는 조회할 수 없어요");
 	}
 
 	@Test

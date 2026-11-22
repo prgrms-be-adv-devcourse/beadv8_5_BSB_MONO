@@ -20,7 +20,7 @@ export function TableHeaderCell({
     <th
       scope="col"
       className={cn(
-        'h-10 max-w-0 truncate border-b border-border-default bg-bg-surface px-3 text-caption-medium text-text-secondary',
+        'h-11 max-w-0 truncate border-b border-border-default bg-bg-surface px-3 text-caption-medium text-text-secondary',
         ALIGN[align],
         className,
       )}
@@ -29,7 +29,7 @@ export function TableHeaderCell({
   )
 }
 
-// 표의 내용 칸. 높이 56, 넘치는 글자는 말줄임(…). 판매자·관리자 표는 align="center"가 기본이다.
+// 표의 내용 칸. 높이 56(시안 기본, 64는 DataTable rowHeight="lg"), 넘치는 글자는 말줄임(…). 판매자·관리자 표는 align="center"가 기본이다.
 export function TableCell({
   align = 'left',
   className,

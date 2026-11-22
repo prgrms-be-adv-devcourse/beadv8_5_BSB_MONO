@@ -214,7 +214,7 @@ class ApiV1RaceOpenSaleTest extends ProductIntegrationTest {
 		return race()
 			.individualOpenAt(now.plusDays(2))
 			.applicationCloseAt(now.plusDays(10))
-			.raceDate(now.plusDays(15));
+			.raceDate(now.plusDays(31));
 	}
 
 	private RaceChangedEvent lastRaceChanged() {

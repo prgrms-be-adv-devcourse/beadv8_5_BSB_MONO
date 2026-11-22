@@ -15,6 +15,8 @@ public enum AiSource {
 	SELLER_PAYOUT("정산 · 정산 요약", "정산으로 가기", "/seller/settlements"),
 	SELLER_HOLDS("정산 · 지급보류 내역", "지급보류 내역 보기", "/seller/settlements?tab=holds"),
 	SELLER_SALES("주문 · 참가자", "주문 · 참가자로 가기", "/seller/sales"),
+	// 판매자 기록증 심사 화면은 프론트 라우트가 아직 없어 버튼을 붙이지 않는다
+	SELLER_RECORD_CERTS("기록증 심사 · 심사 대기", null, null),
 	// 관리자 문의 화면은 프론트 라우트가 아직 없어 버튼을 붙이지 않는다
 	ADMIN_INQUIRIES("문의 관리 · 답변 대기", null, null),
 	ADMIN_SELLERS("판매자 승인 · 승인 대기", "판매자 승인으로 가기", "/admin/sellers");

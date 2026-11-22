@@ -14,10 +14,11 @@ import org.springframework.stereotype.Repository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 회원별 Refresh Token 기록 저장소 (Redis Hash).
- * 회원당 한 family만 보관하므로, 다시 로그인하면 이전 family는 덮어써진다.
+ * 로그인(family)마다 하나씩 두는 Refresh Token 기록 저장소 (Redis Hash).
+ * 한 회원이 여러 기기에서 동시에 로그인할 수 있고, 로그인끼리는 서로의 기록을 건드리지 않는다.
+ * 회원의 로그인 목록은 Sorted Set(점수 = family 최종 만료)에 따로 두어, 탈퇴·비밀번호 재설정 때 KEYS·SCAN 없이 모든 기록을 찾아 지운다.
  *
- * <p>Hash 칸: familyId, currentJti, currentExpiresAt(초), previousJti, rotatedAt(초), familyExpiresAt(초).
+ * <p>Hash 칸: currentJti, currentExpiresAt(초), previousJti, rotatedAt(초), familyExpiresAt(초).
  * 키 TTL은 지금 토큰의 만료 시각이라, 그동안 재발급이 없으면 기록이 저절로 사라진다.
  * 토큰 원문은 저장하지 않는다.
  * 확인하고 바꾸는 일은 src/main/resources/redis/의 Lua 스크립트가 Redis 안에서 한 번에 한다.
@@ -29,21 +30,37 @@ public class RefreshTokenRepository {
 	@SuppressWarnings("rawtypes")
 	private static final RedisScript<List> ROTATE = script("refresh-token-rotate.lua", List.class);
 	private static final RedisScript<Long> DELETE_FAMILY = script("refresh-token-delete-family.lua", Long.class);
+	private static final RedisScript<Long> DELETE_ALL = script("refresh-token-delete-all.lua", Long.class);
 
 	private static final String FAMILY_EXPIRES_AT = "familyExpiresAt";
 
 	private final StringRedisTemplate redisTemplate;
 
-	// 키 형식: members:{회원 ID}:refreshToken (.claude/rules/redis-key-convention.md)
-	static String key(long memberId) {
+	// 키 형식은 .claude/rules/redis-key-convention.md를 따른다. 키 이름은 아래 세 메서드에서만 만든다
+	// family 기록: members:{회원 ID}:refreshTokens:{familyId}
+	static String familyKey(long memberId, String familyId) {
+		return familyKeyPrefix(memberId) + familyId;
+	}
+
+	static String familyKeyPrefix(long memberId) {
+		return "members:" + memberId + ":refreshTokens:";
+	}
+
+	// 회원의 family 목록(Sorted Set): members:{회원 ID}:refreshTokenFamilies
+	static String familiesKey(long memberId) {
+		return "members:" + memberId + ":refreshTokenFamilies";
+	}
+
+	// 배포 전 회원당 하나였던 키. 읽지 않고 삭제만 한다
+	static String legacyKey(long memberId) {
 		return "members:" + memberId + ":refreshToken";
 	}
 
 	/**
-	 * 로그인: 새 family 기록을 만든다. 이전 family가 있으면 덮어쓴다.
+	 * 로그인: 새 family 기록을 만들고 회원의 family 목록에 넣는다. 다른 기기의 family는 그대로 둔다.
 	 */
 	public void create(long memberId, NewFamily family) {
-		redisTemplate.execute(CREATE, List.of(key(memberId)),
+		redisTemplate.execute(CREATE, List.of(familyKey(memberId, family.familyId()), familiesKey(memberId)),
 			family.familyId(),
 			family.jti(),
 			seconds(family.issuedAt()),
@@ -56,7 +73,8 @@ public class RefreshTokenRepository {
 	 * 새 토큰의 jti와 만료 시각만 넘긴다. 토큰 원문은 Redis에 가지 않는다.
 	 */
 	public RotationResult rotate(long memberId, Rotation rotation) {
-		List<?> result = redisTemplate.execute(ROTATE, List.of(key(memberId)),
+		List<?> result = redisTemplate.execute(ROTATE,
+			List.of(familyKey(memberId, rotation.familyId()), familiesKey(memberId)),
 			rotation.familyId(),
 			rotation.presentedJti(),
 			rotation.newJti(),
@@ -72,29 +90,31 @@ public class RefreshTokenRepository {
 	}
 
 	/**
-	 * 로그아웃: familyId가 지금 family일 때만 기록을 지운다.
+	 * 로그아웃: 그 family의 기록만 지운다. 같은 회원의 다른 기기 family는 남는다.
 	 *
-	 * @return 지웠으면 true
+	 * @return 기록을 지웠으면 true, 이미 없었으면 false
 	 */
-	public boolean deleteIfFamily(long memberId, String familyId) {
-		Long deleted = redisTemplate.execute(DELETE_FAMILY, List.of(key(memberId)), familyId);
+	public boolean deleteFamily(long memberId, String familyId) {
+		Long deleted = redisTemplate.execute(DELETE_FAMILY,
+			List.of(familyKey(memberId, familyId), familiesKey(memberId)), familyId);
 		return deleted != null && deleted > 0;
 	}
 
 	/**
-	 * 회원 탈퇴: 그 회원의 Refresh Token 기록을 family와 상관없이 지운다 (BE-022 결정 6).
-	 * 회원당 키가 하나라 키를 지우면 모든 기기의 재발급이 막힌다.
+	 * 회원 탈퇴·비밀번호 재설정: 그 회원의 모든 family 기록, family 목록, 배포 전 옛 키를 지운다 (BE-022 결정 6).
+	 * 모든 기기의 재발급이 막힌다.
 	 */
 	public void deleteAll(long memberId) {
-		redisTemplate.delete(key(memberId));
+		redisTemplate.execute(DELETE_ALL, List.of(familiesKey(memberId), legacyKey(memberId)),
+			familyKeyPrefix(memberId));
 	}
 
 	/**
 	 * 회전할 새 토큰의 만료를 30일 상한에서 자르려고 family 최종 만료를 읽는다.
 	 * family마다 한 번 정해지고 바뀌지 않으므로 판정(rotate)과 따로 읽어도 된다.
 	 */
-	public Optional<Instant> findFamilyExpiresAt(long memberId) {
-		Object value = redisTemplate.opsForHash().get(key(memberId), FAMILY_EXPIRES_AT);
+	public Optional<Instant> findFamilyExpiresAt(long memberId, String familyId) {
+		Object value = redisTemplate.opsForHash().get(familyKey(memberId, familyId), FAMILY_EXPIRES_AT);
 		return Optional.ofNullable(value).map(v -> Instant.ofEpochSecond(Long.parseLong((String)v)));
 	}
 

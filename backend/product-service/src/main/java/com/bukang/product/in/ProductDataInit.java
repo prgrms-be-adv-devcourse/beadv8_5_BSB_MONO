@@ -146,15 +146,16 @@ public class ProductDataInit {
 			return;
 		}
 
-		// 개인 예매 오픈 10시, 대회는 오픈 4주 뒤 아침 8시, 접수 마감은 대회 5일 전 18시, 환불 기준일은 접수 마감일
+		// 개인 예매 오픈 10시, 대회는 오픈 4주 뒤 아침 8시, 접수 마감은 대회 22일 전 18시, 환불 기준일은 접수 마감일 다음 날
+		// 대회 일시는 접수 마감 일시로부터 3주 뒤부터라(CRU-131) 마감을 대회 3주 전(08시)보다 앞으로 둔다
 		LocalDateTime individualOpenAt = LocalDate.now().plusDays(openAfterDays).atTime(10, 0);
 		LocalDateTime raceDate = individualOpenAt.toLocalDate().plusWeeks(4).atTime(8, 0);
-		LocalDateTime applicationCloseAt = raceDate.toLocalDate().minusDays(5).atTime(18, 0);
+		LocalDateTime applicationCloseAt = raceDate.toLocalDate().minusDays(22).atTime(18, 0);
 		// 크루 예매 없이 개인 예매만 한다 (크루 예매 일시 null). 크루 최소 인원은 크루 예매가 없어도 4 이상이어야 한다
 		// 중복 방지 키는 매번 새로 만든다 (같은 대회를 두 번 만들지 않는 일은 위의 이름 검사가 한다)
 		RaceSaveDto saved = productFacade.registerRace(SELLER_MEMBER_ID, UUID.randomUUID().toString(),
 			new RaceSaveRequestDto(title, "대기열 복제본 확인용 더미 대회", location, regionSido, regionSigungu, raceDate,
-				null, null, individualOpenAt, applicationCloseAt, applicationCloseAt.toLocalDate(),
+				null, null, individualOpenAt, applicationCloseAt, applicationCloseAt.toLocalDate().plusDays(1),
 				"환불 기한까지 취소하면 전액 환불됩니다.", 5, null, List.of(course),
 				List.of(new RaceImageRequestDto(DUMMY_THUMBNAIL_FILE_ID, FileType.THUMBNAIL, 0)))).race();
 		log.info("더미 대회 생성: raceId={}, title={}, individualOpenAt={}", saved.getRaceId(), title, individualOpenAt);

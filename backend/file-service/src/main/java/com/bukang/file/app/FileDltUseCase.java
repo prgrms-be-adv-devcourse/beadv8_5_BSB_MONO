@@ -79,11 +79,19 @@ public class FileDltUseCase {
 				event.getMessageId())).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
-			throw new DltKafkaResendException(event.serviceName(), event.getId(), exception);
+			throw resendFailed(event, topic, exception);
 		} catch (ExecutionException | TimeoutException | RuntimeException exception) {
-			throw new DltKafkaResendException(event.serviceName(), event.getId(), exception);
+			throw resendFailed(event, topic, exception);
 		}
 		log.info("DLT 메시지를 다시 보냈습니다. id={}, topic={}, messageId={}", event.getId(), topic, event.getMessageId());
+	}
+
+	// 다시 보내기 실패는 503으로만 응답되고 공통 예외 처리는 400만 로그를 남기므로, Kafka 실패 원인(스택)을 여기서 남긴다
+	// 행은 처리 실패로 되돌아가 다시 부르면 되므로 warn으로 둔다 (DLT에 떨어진 메시지 자체는 DLT 리스너가 error로 남긴다)
+	private DltKafkaResendException resendFailed(FileDltKafkaEvent event, String topic, Exception exception) {
+		log.warn("DLT 메시지를 다시 보내지 못했습니다. id={}, topic={}, messageId={}", event.getId(), topic, event.getMessageId(),
+			exception);
+		return new DltKafkaResendException(event.serviceName(), event.getId(), exception);
 	}
 
 	// 다시 보내기 3단계(보내지 못했을 때): 다시 보냄 → 처리 실패

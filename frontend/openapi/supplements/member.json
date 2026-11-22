@@ -227,6 +227,22 @@
           "$ref": "#/components/schemas/MemberLoginResponseDto"
         }
       }
+    },
+    "findMyPayoutAccount": {
+      "200": {
+        "wrapper": "RsDataMyPayoutAccountDto",
+        "data": {
+          "$ref": "#/components/schemas/MyPayoutAccountDto"
+        }
+      }
+    },
+    "modifyMyPayoutAccount": {
+      "200": {
+        "wrapper": "RsDataMyPayoutAccountDto",
+        "data": {
+          "$ref": "#/components/schemas/MyPayoutAccountDto"
+        }
+      }
     }
   },
   "schemas": {

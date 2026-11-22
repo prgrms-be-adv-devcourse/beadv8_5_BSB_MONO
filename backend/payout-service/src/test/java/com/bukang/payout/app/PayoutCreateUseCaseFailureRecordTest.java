@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -371,6 +372,8 @@ class PayoutCreateUseCaseFailureRecordTest {
 		// 다른 서버가 이 실행의 존재 확인과 저장 사이에 먼저 저장했다. 처음 확인만 '없음'으로 답한다
 		payoutRepository.save(Payout.finalStage(1, 10, "대회 10", RACE_DATE, NOW, new BusinessDayCalendar()));
 		PayoutRepository racing = mock(PayoutRepository.class, delegatesTo(payoutRepository));
+		// 판매 값을 받기 전의 대회 단위 확인(CRU-117)도 다른 서버가 저장하기 전이라 '없음'으로 답한다
+		doReturn(false).when(racing).existsByRaceIdAndPayoutMonthAndPayoutStage(10, "2026-11", PayoutStage.최종_정산);
 		AtomicBoolean checked = new AtomicBoolean(false);
 		doAnswer(invocation -> checked.getAndSet(true))
 			.when(racing).existsBySellerIdAndRaceIdAndPayoutMonthAndPayoutStage(1, 10, "2026-11", PayoutStage.최종_정산);

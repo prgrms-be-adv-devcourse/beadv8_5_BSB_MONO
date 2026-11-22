@@ -20,6 +20,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 	boolean existsByBuyerIdAndIdempotencyKey(long buyerId, String idempotencyKey);
 
+	// 이 신청서로 만든 주문. 신청서 하나에 주문 상품은 하나라(uk_order_item_participation) 주문도 하나다 (CRU-151)
+	@Query("select i.order from OrderItem i where i.participationId = :participationId")
+	Optional<Order> findByParticipationId(@Param("participationId") long participationId);
+
 	// 결제·취소·만료 정리가 같은 주문에 동시에 들어오면 한 요청씩 처리한다
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select o from Order o where o.id = :id")

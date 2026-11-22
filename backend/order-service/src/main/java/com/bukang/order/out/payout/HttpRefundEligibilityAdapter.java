@@ -48,7 +48,7 @@ public class HttpRefundEligibilityAdapter implements RefundEligibilityPort {
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		if (response == null || response.data() == null || response.data().refundable() == null) {
-			log.error("정산 서비스의 환불 가능 여부 응답에 값이 없습니다. raceDate={}, response={}", raceDate, response);
+			log.error("정산 서비스의 환불 가능 여부 응답에 값이 없습니다. raceDate={}", raceDate);
 			throw new ExternalServiceUnavailableException(UNAVAILABLE_MESSAGE);
 		}
 		return response.data().refundable();

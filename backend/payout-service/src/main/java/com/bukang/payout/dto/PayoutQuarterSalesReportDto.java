@@ -3,9 +3,6 @@ package com.bukang.payout.dto;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.bukang.payout.domain.PayoutTaxQuarter;
-import com.bukang.payout.out.PayoutItemRepository.SellerSales;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -30,15 +27,6 @@ public record PayoutQuarterSalesReportDto(
 	long totalAmount,
 	List<SellerSalesDto> sellers
 ) {
-	public static PayoutQuarterSalesReportDto of(PayoutTaxQuarter quarter, List<SellerSales> sales) {
-		List<SellerSalesDto> sellers = sales.stream()
-			.map(sale -> new SellerSalesDto(sale.sellerId(), sale.salesCount(), sale.salesAmount()))
-			.toList();
-		return new PayoutQuarterSalesReportDto(quarter.year(), quarter.quarter(), quarter.from(), quarter.to(),
-			quarter.dueDate(), sellers.stream().mapToLong(SellerSalesDto::salesCount).sum(),
-			sellers.stream().mapToLong(SellerSalesDto::salesAmount).sum(), sellers);
-	}
-
 	@Schema(description = "판매자 한 명의 분기 판매")
 	public record SellerSalesDto(
 		@Schema(description = "판매자 ID", example = "3")

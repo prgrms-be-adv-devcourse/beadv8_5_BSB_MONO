@@ -24,6 +24,7 @@ import com.bukang.product.domain.HoldReleaseReason;
 import com.bukang.product.domain.ProductDltKafkaEvent;
 import com.bukang.product.domain.RaceSyncType;
 import com.bukang.product.domain.exception.ProductAdminForbiddenException;
+import com.bukang.product.dto.AdminBannerDto;
 import com.bukang.product.dto.CrewHoldRequestDto;
 import com.bukang.product.dto.CrewHoldResultDto;
 import com.bukang.product.dto.CrewLowPaymentDto;
@@ -84,6 +85,7 @@ public class ProductFacade {
 	private final RaceSyncFailureUseCase raceSyncFailureUseCase;
 	private final ProductInboxUseCase productInboxUseCase;
 	private final ProductDltUseCase productDltUseCase;
+	private final HomeBannerUseCase homeBannerUseCase;
 	private final MemberAdminPort memberAdminPort;
 
 	// Kafka로 받은 회원 가입·수정 메시지. 인박스에 남긴 뒤 회원 복제본에 덮어쓰고, 이미 처리한 메시지면 건너뛴다
@@ -228,6 +230,27 @@ public class ProductFacade {
 		return changeSaleStatus(raceId, () -> raceSaleStopUseCase.resumeByAdmin(raceId, LocalDateTime.now()));
 	}
 
+	// 관리자 홈 배너 (CRU-147). 관리자 대회 관리와 같이 회원 서비스에 관리자인지 먼저 묻는다(DB 트랜잭션 밖)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public List<AdminBannerDto> findAdminBanners(long adminMemberId) {
+		requireAdmin(adminMemberId);
+		return transactionTemplate.execute(status -> homeBannerUseCase.findForAdmin(LocalDateTime.now()));
+	}
+
+	// 목록 전체를 한 트랜잭션에서 바꾼다. 하나라도 막히면 아무것도 바뀌지 않는다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public List<AdminBannerDto> saveAdminBanners(long adminMemberId, List<Long> raceIds) {
+		requireAdmin(adminMemberId);
+		return transactionTemplate.execute(status ->
+			homeBannerUseCase.replace(raceIds, adminMemberId, LocalDateTime.now()));
+	}
+
+	// 홈 배너 (CRU-147). 대표 이미지 주소를 파일 서비스에 묻는 동안 DB 연결을 잡지 않게 트랜잭션 밖에서 돈다
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
+	public List<RaceSummaryDto> findBanners() {
+		return homeBannerUseCase.findVisibleRaces(LocalDateTime.now());
+	}
+
 	// 회원 서비스가 답하지 않으면 MemberAdminPort가 503을 던진다 (관리자로도, 관리자가 아닌 것으로도 보지 않는다)
 	private void requireAdmin(long memberId) {
 		if (!memberAdminPort.isAdmin(memberId)) {
@@ -316,6 +339,8 @@ public class ProductFacade {
 		productDltUseCase.completeByResend(messageId, now);
 	}
 
+	// 공개 대회 목록. 대표 이미지 주소를 파일 서비스에 묻는 동안 DB 연결을 잡지 않게 트랜잭션 밖에서 돈다 (CRU-141)
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public RacePageDto searchRaces(RaceSearchCondition condition, int page, int size) {
 		return raceSearchUseCase.search(condition, page, size);
 	}

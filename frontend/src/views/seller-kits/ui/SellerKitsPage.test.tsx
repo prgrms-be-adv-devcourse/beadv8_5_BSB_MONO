@@ -31,7 +31,7 @@ describe('SellerKitsPage', () => {
     expect(screen.getByText('티셔츠 M')).toBeInTheDocument()
     await tabCount('송장 입력 대기', '3')
     await tabCount('배송 중', '1')
-    await tabCount('배송 완료', '1')
+    await tabCount('배송 완료', '2')
     expect(await screen.findByText('환불 기한 전 1건')).toBeInTheDocument()
   })
 
@@ -97,7 +97,7 @@ describe('SellerKitsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /건 배송 완료로 바꾸기/ }))
 
     expect(await screen.findByText('1건을 배송 완료로 바꿨어요')).toBeInTheDocument()
-    await tabCount('배송 완료', '2')
+    await tabCount('배송 완료', '3')
     await tabCount('배송 중', '0')
   })
 

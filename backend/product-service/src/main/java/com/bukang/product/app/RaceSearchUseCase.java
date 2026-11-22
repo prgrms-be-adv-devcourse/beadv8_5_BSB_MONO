@@ -24,6 +24,7 @@ import com.bukang.product.out.RaceRepository;
 import com.bukang.product.out.RaceSearchRepository;
 import com.bukang.product.out.RaceSearchRepository.MatchedRace;
 import com.bukang.product.out.RaceSearchRepository.RaceSearchResult;
+import com.bukang.product.out.file.RaceThumbnailPort;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,6 +44,7 @@ public class RaceSearchUseCase {
 
 	private final RaceSearchRepository raceSearchRepository;
 	private final RaceRepository raceRepository;
+	private final RaceThumbnailPort raceThumbnailPort;
 
 	public RacePageDto search(RaceSearchCondition condition, int page, int size) {
 		// page + 1을 int로 먼저 더하면 page가 int 최댓값일 때 음수로 넘치므로 long으로 바꾼 뒤 더한다
@@ -51,13 +53,17 @@ public class RaceSearchUseCase {
 		}
 		RaceSearchResult result = raceSearchRepository.search(condition, LocalDateTime.now(), page, size);
 		// 남은 자리처럼 자주 바뀌는 값은 검색 문서에 없으므로 DB에서 읽는다. 순서는 검색 결과 순서를 따른다
+		// 트랜잭션 밖에서 돌므로(ProductFacade) 카드의 종목을 지연 로딩하지 않게 함께 읽는다
 		List<Long> raceIds = result.races().stream().map(MatchedRace::raceId).toList();
-		Map<Long, Race> racesById = raceRepository.findAllById(raceIds).stream()
+		Map<Long, Race> racesById = raceRepository.findAllWithCoursesByIdIn(raceIds).stream()
 			.collect(Collectors.toMap(Race::getId, Function.identity()));
+		// 대표 이미지 주소는 파일 서비스에서 한 번에 받는다. 받지 못한 대회는 null(색 포스터)이다 (CRU-141)
+		Map<Long, String> imageUrls = raceThumbnailPort.findThumbnailUrls(raceIds);
 		// 카드의 최저가는 조건에 맞은 종목 중 가장 싼 값이다 (검색 문서에서 받은 값)
 		List<RaceSummaryDto> races = result.races().stream()
 			.filter(matched -> racesById.containsKey(matched.raceId()))
-			.map(matched -> RaceSummaryDto.from(racesById.get(matched.raceId()), matched.minPrice()))
+			.map(matched -> RaceSummaryDto.from(racesById.get(matched.raceId()), matched.minPrice(),
+				imageUrls.get(matched.raceId())))
 			.toList();
 		return RacePageDto.of(races, page, size, result.totalRaces());
 	}

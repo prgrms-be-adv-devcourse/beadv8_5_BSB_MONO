@@ -23,9 +23,11 @@ import com.bukang.member.out.product.SellerRacePort;
 import com.bukang.member.recordcert.out.CourseRulePort;
 import com.bukang.member.recordcert.out.FileDeletePort;
 import com.bukang.member.recordcert.out.FileUploaderPort;
+import com.bukang.member.recordcert.out.FileViewUrlPort;
 import com.bukang.member.recordcert.out.HttpCourseRuleAdapter;
 import com.bukang.member.recordcert.out.HttpFileDeleteAdapter;
 import com.bukang.member.recordcert.out.HttpFileUploaderAdapter;
+import com.bukang.member.recordcert.out.HttpFileViewUrlAdapter;
 import com.bukang.member.recordcert.out.HttpTicketAdapter;
 import com.bukang.member.recordcert.out.TicketPort;
 
@@ -116,6 +118,15 @@ public class InternalClientConfig {
 		@Value("${member.clients.timeout}") Duration timeout
 	) {
 		return new HttpCourseRuleAdapter(InternalHttpClients.create(baseUrl, timeout));
+	}
+
+	// 판매자 심사 상세의 기록증 사진 보기 주소 (BUK-276). 실패하면 상세가 503
+	@Bean
+	public FileViewUrlPort fileViewUrlPort(
+		@Value("${member.clients.file.base-url}") String baseUrl,
+		@Value("${member.clients.timeout}") Duration timeout
+	) {
+		return new HttpFileViewUrlAdapter(InternalHttpClients.create(baseUrl, timeout));
 	}
 
 	@Bean

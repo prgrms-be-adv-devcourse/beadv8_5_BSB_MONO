@@ -5,16 +5,16 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearAccessToken } from '@/shared/api'
-import { orderMock, server } from '@/shared/testing'
+import { orderMock, resetNavigationMock, server } from '@/shared/testing'
 
 import { MyTicketsPage } from './MyTicketsPage'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
-  usePathname: () => '/tickets',
-}))
+vi.mock('next/navigation', async () =>
+  (await import('@/shared/testing')).navigationMock('/tickets'),
+)
 
 beforeEach(() => {
+  resetNavigationMock()
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-10-15T12:00:00+09:00'))
 })
@@ -33,7 +33,7 @@ function renderPage() {
 }
 
 describe('MyTicketsPage', () => {
-  it('결제한 주문의 주문 상품을 대회 이름 · 참가자 · 환불 안내와 함께 참가 예정에 보여 준다', async () => {
+  it('결제한 주문의 주문 상품을 대회 이름 · 참가자 · 환불 안내와 함께 다가오는 대회 탭에 보여 준다', async () => {
     const detailIds: string[] = []
     server.use(
       http.get('*/api/v1/order/orders/:orderId', ({ params }) => {
@@ -45,7 +45,7 @@ describe('MyTicketsPage', () => {
 
     expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
     expect(screen.getByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '참가 예정 1' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^다가오는 대회\s*1$/ })).toBeInTheDocument()
     expect(
       screen.getByText('11/1 (일) · 10/31 (토)까지 취소하면 50,000원 전액 환불'),
     ).toBeInTheDocument()
@@ -57,7 +57,7 @@ describe('MyTicketsPage', () => {
     expect(detailIds).toEqual(['1'])
   })
 
-  it('결제 확인 중인 주문은 참가 예정에 「결제 확인 중」 배지로 보여 주고 환불 안내는 붙이지 않는다', async () => {
+  it('결제 확인 중인 주문은 다가오는 대회 탭에 「결제 확인 중」 배지로 보여 주고 환불 안내는 붙이지 않는다', async () => {
     server.use(
       http.get('*/api/v1/order/orders', () =>
         HttpResponse.json({
@@ -87,9 +87,59 @@ describe('MyTicketsPage', () => {
     renderPage()
 
     expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '참가 예정 1' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^다가오는 대회\s*1$/ })).toBeInTheDocument()
     expect(screen.getByText('결제 확인 중')).toBeInTheDocument()
     expect(screen.queryByText(/전액 환불/)).not.toBeInTheDocument()
+  })
+
+  it('결제 기한 전인 결제 대기 주문은 다가오는 대회 탭에 기한과 결제하기 버튼을 달고 보이고, 기한이 지난 주문은 숨긴다', async () => {
+    const detailIds: string[] = []
+    server.use(
+      http.get('*/api/v1/order/orders', () =>
+        HttpResponse.json({
+          status: 200,
+          message: '주문 내역을 조회했습니다.',
+          data: {
+            orders: [
+              { id: 3, status: 'CREATED', paymentDueAt: '2026-10-15T12:30:00' },
+              { id: 4, status: 'CREATED', paymentDueAt: '2026-10-15T11:00:00' },
+              { id: 1, status: 'PAID' },
+            ],
+            page: 0,
+            size: 100,
+            totalElements: 3,
+            totalPages: 1,
+          },
+        }),
+      ),
+      http.get('*/api/v1/order/orders/:orderId', ({ params }) => {
+        detailIds.push(String(params.orderId))
+        const example = orderMock.getFindById1ResponseMock()
+        if (params.orderId !== '3') return HttpResponse.json(example)
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            id: 3,
+            orderNo: 'OD-20261015-0003',
+            status: 'CREATED',
+            paymentDueAt: '2026-10-15T12:30:00',
+            items: example.data?.items?.map((item) => ({ ...item, id: 5, status: 'ORDERED' })),
+          },
+        })
+      }),
+    )
+    renderPage()
+
+    const pay = await screen.findByRole('link', { name: '결제하기' })
+    expect(pay).toHaveAttribute('href', '/checkout?orderId=3')
+    expect(screen.getByText('결제 대기')).toBeInTheDocument()
+    expect(screen.getByText('결제 기한 10/15 (목) 12:30')).toBeInTheDocument()
+    // 결제 대기 카드 + 결제 완료 카드
+    expect(screen.getByRole('tab', { name: /^다가오는 대회\s*2$/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: '결제하기' })).toHaveLength(1)
+    // 기한이 지난 주문은 상세도 부르지 않는다
+    expect(detailIds.sort()).toEqual(['1', '3'])
   })
 
   it('결제 확인 중 참가권이 있으면 다시 조회해 결과가 나오면 참가 확정으로 바꾼다', async () => {
@@ -189,5 +239,68 @@ describe('MyTicketsPage', () => {
     await user.click(await screen.findByRole('button', { name: '다시 불러오기' }))
 
     await vi.waitFor(() => expect(calls).toBe(2))
+  })
+
+  // 대회일이 남았어도 취소한 참가권은 지난 대회 쪽이다(ticketStatus가 canceled면 past)
+  function canceledOrder() {
+    return [
+      http.get('*/api/v1/order/orders/1', () => {
+        const example = orderMock.getFindById1ResponseMock()
+        return HttpResponse.json({
+          ...example,
+          data: {
+            ...example.data,
+            items: example.data?.items?.map((item) => ({ ...item, status: 'CANCELED' })),
+          },
+        })
+      }),
+    ]
+  }
+
+  it('처음에는 다가오는 대회 탭이 선택되고 탭마다 개수가 붙는다', async () => {
+    renderPage()
+
+    expect(await screen.findByRole('tab', { name: /^다가오는 대회\s*1$/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('tab', { name: /^지난 대회\s*0$/ })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    )
+  })
+
+  it('지난 대회 탭을 누르면 취소한 참가권만 보이고 다가오는 대회 참가권은 가려진다', async () => {
+    server.use(...canceledOrder())
+    const user = userEvent.setup({ advanceTimers: () => {} })
+    renderPage()
+
+    // 취소한 참가권은 대회일이 남았어도 지난 대회에 들어간다
+    expect(await screen.findByRole('tab', { name: /^지난 대회\s*1$/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^다가오는 대회\s*0$/ })).toBeInTheDocument()
+    expect(screen.queryByText('김러너 · 10K')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /^지난 대회\s*1$/ }))
+
+    expect(await screen.findByText('김러너 · 10K')).toBeInTheDocument()
+    expect(screen.getByText(/참가 취소/)).toBeInTheDocument()
+  })
+
+  it('다가오는 대회가 없으면 그 탭 안에 빈 화면을 보여 주고 탭은 그대로 둔다', async () => {
+    server.use(...canceledOrder())
+    renderPage()
+
+    expect(await screen.findByText('다가오는 대회가 없어요')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^지난 대회\s*1$/ })).toBeInTheDocument()
+  })
+
+  it('지난 대회가 없는 탭을 열면 그 탭 안에 빈 화면을 보여 준다', async () => {
+    const user = userEvent.setup({ advanceTimers: () => {} })
+    renderPage()
+
+    await user.click(await screen.findByRole('tab', { name: /^지난 대회\s*0$/ }))
+
+    expect(await screen.findByText('지난 대회가 없어요')).toBeInTheDocument()
+    expect(screen.queryByText('김러너 · 10K')).not.toBeInTheDocument()
   })
 })

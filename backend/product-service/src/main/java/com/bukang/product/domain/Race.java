@@ -60,6 +60,11 @@ public class Race extends BaseIdAndTime {
 	private static final int SALE_OPEN_MIN_DAYS = 2;
 	// 응답 메시지에 보여 주는 날짜 형식 (예: 10월 16일)
 	private static final DateTimeFormatter MESSAGE_DATE = DateTimeFormatter.ofPattern("M월 d일");
+	// 응답 메시지에 보여 주는 일시 형식 (예: 2027년 2월 14일 09:00)
+	private static final DateTimeFormatter MESSAGE_DATE_TIME = DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH:mm");
+	// 대회 일시는 접수 마감(개인 예매 마감) 일시로부터 이만큼 뒤부터 정할 수 있다 (CRU-131)
+	// 키트에 배번호가 들어 있고 키트는 2주 안에 보내도록 권고하므로, 마감 뒤 키트를 준비하고 보낼 기간을 둔다
+	private static final int RACE_AFTER_CLOSE_WEEKS = 3;
 	// AI 추천 벡터를 만들 글(embeddingText)의 칸 구분자와, 글에 넣을 소개의 최대 글자 수
 	private static final String EMBEDDING_TEXT_SEPARATOR = " | ";
 	private static final int EMBEDDING_DESCRIPTION_MAX_LENGTH = 500;
@@ -147,6 +152,8 @@ public class Race extends BaseIdAndTime {
 		this.idempotencyKey = idempotencyKey;
 		apply(request);
 		checkSaleOpenDate(saleOpenDate, now, sameDaySaleEnabled ? 0 : SALE_OPEN_MIN_DAYS);
+		checkRaceDateAfterClose(raceDate, applicationCloseAt);
+		checkRefundDeadlineAfterClose(refundDeadline, applicationCloseAt);
 		// 판매 시작일이 이미 됐으면 판매 중, 아니면 판매 예정이다 (상태 배치 RaceSaleStatusScheduler와 같은 기준)
 		// 평소에는 판매 시작일이 이틀 뒤부터라 늘 판매 예정이고, 판매 시작일 0시에 상태 배치가 판매 중으로 바꾼다
 		// 당일 판매를 켜고 오늘 판매 시작으로 등록하면 배치를 기다리지 않고 판매 중으로 저장한다
@@ -176,6 +183,16 @@ public class Race extends BaseIdAndTime {
 		checkScheduleChange("크루 예매 마감", crewSaleEndAt, request.getCrewSaleEndAt(), now);
 		checkScheduleChange("개인 예매 오픈", individualOpenAt, request.getIndividualOpenAt(), now);
 		checkScheduleChange("접수 마감", applicationCloseAt, request.getApplicationCloseAt(), now);
+		// 대회 일시나 접수 마감을 바꿀 때만 3주 간격을 본다
+		// 규칙 전(CRU-131)에 등록해 간격이 짧은 대회도 이 두 일정을 그대로 두면 다른 칸을 고칠 수 있다
+		if (!request.getRaceDate().equals(raceDate) || !request.getApplicationCloseAt().equals(applicationCloseAt)) {
+			checkRaceDateAfterClose(request.getRaceDate(), request.getApplicationCloseAt());
+		}
+		// 환불 기준일도 환불 기준일이나 접수 마감을 바꿀 때만 본다 (규칙 전에 등록한 대회를 위해, 위와 같은 이유)
+		if (!request.getRefundDeadline().equals(refundDeadline)
+			|| !request.getApplicationCloseAt().equals(applicationCloseAt)) {
+			checkRefundDeadlineAfterClose(request.getRefundDeadline(), request.getApplicationCloseAt());
+		}
 		// 판매 시작 뒤 대회 일시(앞당기기·늦추기 모두)나 장소가 바뀌면 일정·장소 변경 안내 일시를 기록한다
 		// 이날부터 7일 동안은 환불 기준일과 상관없이 전액 환불된다 (ERD schedule_changed_at, 환불 판정은 주문 쪽)
 		// 장소도 참가 여부를 다시 생각하게 하는 변경이라 대회 일시와 같은 기준으로 환불한다
@@ -202,6 +219,28 @@ public class Race extends BaseIdAndTime {
 			String from = minDays == 0 ? "오늘" : "오늘로부터 이틀 뒤";
 			throw new InvalidRaceException(("판매 시작일은 %s(%s)부터 정할 수 있습니다. "
 				+ "크루 예매 시작·개인 예매 오픈 일시를 확인해주세요.").formatted(from, earliest.format(MESSAGE_DATE)));
+		}
+	}
+
+	// 대회 일시는 접수 마감 일시로부터 3주 뒤부터 정할 수 있다 (딱 3주 뒤도 된다)
+	//   예: 접수 마감 1/24 09:00 → 대회 일시 2/14 09:00부터
+	private static void checkRaceDateAfterClose(LocalDateTime raceDate, LocalDateTime applicationCloseAt) {
+		LocalDateTime earliest = applicationCloseAt.plusWeeks(RACE_AFTER_CLOSE_WEEKS);
+		if (raceDate.isBefore(earliest)) {
+			throw new InvalidRaceException("대회 일시는 접수 마감 일시로부터 %d주 뒤(%s)부터 정할 수 있습니다."
+				.formatted(RACE_AFTER_CLOSE_WEEKS, earliest.format(MESSAGE_DATE_TIME)));
+		}
+	}
+
+	// 환불 기준일은 접수 마감(개인 예매 마감) 날짜 다음 날부터 정할 수 있다 (CRU-131). 대회 날짜까지인지는 RaceRequestValidator가 본다
+	// 환불 기준일이 접수 마감보다 이르면, 그 뒤에 산 사람은 사자마자 환불받을 수 없다
+	//   예: 접수 마감 1/24 09:00 → 환불 기준일 1/25부터
+	// 키트는 환불 기준일이 지나야 보낼 수 있고 2주 안 발송은 권고라, 대회 날짜 쪽 한계는 따로 두지 않는다
+	private static void checkRefundDeadlineAfterClose(LocalDate refundDeadline, LocalDateTime applicationCloseAt) {
+		LocalDate earliest = applicationCloseAt.toLocalDate().plusDays(1);
+		if (refundDeadline.isBefore(earliest)) {
+			throw new InvalidRaceException("환불 기준일은 접수 마감일 다음 날(%s)부터 정할 수 있습니다."
+				.formatted(earliest.format(MESSAGE_DATE)));
 		}
 	}
 
@@ -362,6 +401,35 @@ public class Race extends BaseIdAndTime {
 		if (isSaleEnded(now)) {
 			throw new RaceChangeNotAllowedException("판매가 끝난 대회는 키트 옵션을 바꿀 수 없습니다.");
 		}
+	}
+
+	// 홈 배너로 고를 수 있는지 (CRU-147): 취소된 대회와 판매가 끝난 대회는 다시 보일 일이 없어 막는다
+	// 판매 중지·접수 마감 대회는 고를 수 있고, 홈에는 보이지 않는다 (bannerHiddenReason)
+	public void checkBannerSelectable(LocalDateTime now) {
+		if (saleStatus == RaceSaleStatus.CANCELED) {
+			throw new RaceChangeNotAllowedException("취소된 대회는 배너로 고를 수 없습니다.");
+		}
+		if (isSaleEnded(now)) {
+			throw new RaceChangeNotAllowedException("판매가 끝난 대회는 배너로 고를 수 없습니다.");
+		}
+	}
+
+	// 배너로 고른 대회가 홈에 보이지 않는 이유 (CRU-147). 보이면 null
+	// 이유가 여러 개면 되돌릴 수 없는 것부터 하나만 준다: 취소 → 판매 종료 → 판매 중지 → 접수 마감
+	public BannerHiddenReason bannerHiddenReason(LocalDateTime now) {
+		if (saleStatus == RaceSaleStatus.CANCELED) {
+			return BannerHiddenReason.CANCELED;
+		}
+		if (isSaleEnded(now)) {
+			return BannerHiddenReason.CLOSED;
+		}
+		if (saleStatus == RaceSaleStatus.STOPPED) {
+			return BannerHiddenReason.STOPPED;
+		}
+		if (!now.isBefore(applicationCloseAt)) {
+			return BannerHiddenReason.APPLICATION_CLOSED;
+		}
+		return null;
 	}
 
 	// 판매자가 판매를 멈춘 대회인지. 자리 확보가 기간 문구보다 먼저 판매 중지 문구로 거절할 때 쓴다

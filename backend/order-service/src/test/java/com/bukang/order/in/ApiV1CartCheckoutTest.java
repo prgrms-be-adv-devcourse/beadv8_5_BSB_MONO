@@ -316,17 +316,19 @@ class ApiV1CartCheckoutTest {
 	}
 
 	@Test
-	@DisplayName("다른 키로 이미 주문한 신청서를 다시 보내면 그 항목만 FAILED이고 자리는 다시 잡지 않는다")
+	@DisplayName("다른 키로 이미 주문한 신청서를 다시 보내면 그 항목은 처음 주문(EXISTING)이고 자리는 다시 잡지 않는다 (CRU-151)")
 	void checkoutAlreadyOrderedWithOtherKey() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
 		long participationId = apply(MEMBER_ID, COURSE_ID);
-		checkout(MEMBER_ID, newKey(), participationId).andExpect(status().isOk());
+		String first = checkout(MEMBER_ID, newKey(), participationId).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		long orderId = JsonPath.<Number>read(first, "$.data.results[0].order.id").longValue();
 
 		checkout(MEMBER_ID, newKey(), participationId)
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.message").value("주문한 참가권이 없습니다. 항목별 결과를 확인해주세요."))
-			.andExpect(jsonPath("$.data.orderedCount").value(0))
-			.andExpect(jsonPath("$.data.results[0].outcome").value("FAILED"));
+			.andExpect(jsonPath("$.data.orderedCount").value(1))
+			.andExpect(jsonPath("$.data.results[0].outcome").value("EXISTING"))
+			.andExpect(jsonPath("$.data.results[0].order.id").value(orderId));
 
 		assertThat(orderRepository.count()).isEqualTo(1);
 		assertThat(seatHoldPort.holdCalls()).isEqualTo(1);
@@ -346,19 +348,21 @@ class ApiV1CartCheckoutTest {
 	}
 
 	@Test
-	@DisplayName("다른 회원의 참가 신청이면 403, 없는 참가 신청이면 404이고 자리를 잡지 않는다")
+	@DisplayName("다른 회원의 참가 신청과 없는 참가 신청은 같은 404이고 자리를 잡지 않는다")
 	void checkoutNotOwnerOrMissing() throws Exception {
 		addToCart(MEMBER_ID, COURSE_ID);
 		long others = apply(OTHER_MEMBER_ID, OTHER_COURSE_ID);
 
-		checkout(MEMBER_ID, newKey(), others)
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.message").value("본인의 참가 신청만 결제할 수 있습니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_FORBIDDEN"));
-		checkout(MEMBER_ID, newKey(), 999999L)
+		String othersBody = checkout(MEMBER_ID, newKey(), others)
+			.andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = checkout(MEMBER_ID, newKey(), 999999L)
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("존재하지 않는 참가 신청입니다."))
-			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"));
+			.andExpect(jsonPath("$.code").value("ORDER_PARTICIPATION_NOT_FOUND"))
+			.andReturn().getResponse().getContentAsString();
+		// 남의 것과 없는 것을 응답으로 구분할 수 없다 (CRU-91)
+		assertThat(othersBody).isEqualTo(missingBody);
 
 		assertThat(seatHoldPort.holdCalls()).isZero();
 		assertThat(orderRepository.count()).isZero();

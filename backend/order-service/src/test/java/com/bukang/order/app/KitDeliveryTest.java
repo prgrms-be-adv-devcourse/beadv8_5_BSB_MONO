@@ -64,7 +64,6 @@ import com.bukang.order.domain.Shipment;
 import com.bukang.order.domain.ShipmentStatus;
 import com.bukang.order.domain.exception.KitNotShippableException;
 import com.bukang.order.domain.exception.KitShippingInfoInvalidException;
-import com.bukang.order.domain.exception.OrderAccessDeniedException;
 import com.bukang.order.domain.exception.OrderItemNotFoundException;
 import com.bukang.order.dto.KitTrackingDto;
 import com.bukang.order.dto.OrderItemDto;
@@ -529,7 +528,8 @@ class KitDeliveryTest {
 			.hasMessage("아직 발송하지 않은 키트입니다.");
 		kitDeliveryUseCase.ship(SELLER_ID, itemId, CARRIER_ID, TRACKING_NUMBER, LocalDateTime.now());
 		assertThatThrownBy(() -> kitDeliveryUseCase.completeDelivery(OTHER_SELLER_ID, itemId, LocalDateTime.now()))
-			.isInstanceOf(OrderAccessDeniedException.class);
+			.isInstanceOf(OrderItemNotFoundException.class)
+			.hasMessage("주문에 없는 상품입니다.");
 		kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now());
 		assertThatThrownBy(() -> kitDeliveryUseCase.completeDelivery(SELLER_ID, itemId, LocalDateTime.now()))
 			.isInstanceOf(KitNotShippableException.class)
@@ -633,7 +633,12 @@ class KitDeliveryTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("아직 발송하지 않은 키트입니다."));
 		ship(itemId);
-		confirmReceipt(MEMBER_ID + 1, orderId, itemId).andExpect(status().isForbidden());
+		// 남의 주문은 없는 주문과 같은 404다 (CRU-91)
+		String othersBody = confirmReceipt(MEMBER_ID + 1, orderId, itemId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		String missingBody = confirmReceipt(MEMBER_ID + 1, 999999, itemId).andExpect(status().isNotFound())
+			.andReturn().getResponse().getContentAsString();
+		assertThat(othersBody).isEqualTo(missingBody);
 		findOrder(orderId).andExpect(jsonPath("$.data.items[0].kitReceivedAt").isEmpty());
 
 		confirmReceipt(MEMBER_ID, orderId, itemId)
@@ -764,16 +769,18 @@ class KitDeliveryTest {
 	}
 
 	@Test
-	@DisplayName("다른 판매자의 참가권은 403, 없는 주문 상품은 404, 이미 발송한 키트는 409다")
+	@DisplayName("다른 판매자의 참가권과 없는 주문 상품은 같은 404, 이미 발송한 키트는 409다")
 	void shipRejected() throws Exception {
 		raceCoursePort.put(courseWithRefundDeadline(LocalDate.now().minusDays(1)));
 		long itemId = itemIdOf(paidOrder());
 
 		assertThatThrownBy(() -> kitDeliveryUseCase.ship(OTHER_SELLER_ID, itemId, CARRIER_ID, TRACKING_NUMBER,
 			LocalDateTime.now()))
-			.isInstanceOf(OrderAccessDeniedException.class);
+			.isInstanceOf(OrderItemNotFoundException.class)
+			.hasMessage("주문에 없는 상품입니다.");
 		assertThatThrownBy(() -> ship(999_999))
-			.isInstanceOf(OrderItemNotFoundException.class);
+			.isInstanceOf(OrderItemNotFoundException.class)
+			.hasMessage("주문에 없는 상품입니다.");
 
 		ship(itemId);
 		assertThatThrownBy(() -> ship(itemId))

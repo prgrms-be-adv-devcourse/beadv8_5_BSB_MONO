@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:smoke": "playwright test -c playwright.smoke.config.ts",
+    "test:record-cert": "playwright test -c playwright.record-cert.config.ts",
     "api:generate": "node -e \"require('fs').rmSync('src/shared/api/generated',{recursive:true,force:true})\" && orval",
     "api:pull": "node scripts/pull-openapi.mjs",
     "tokens": "node scripts/generate-tokens/index.mjs",

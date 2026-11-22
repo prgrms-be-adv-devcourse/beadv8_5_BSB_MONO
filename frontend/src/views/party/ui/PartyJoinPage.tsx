@@ -1,6 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -15,7 +16,8 @@ import {
   usePartyPreview,
   type PartyFailure,
 } from '@/entities/party'
-import { ApiError, memberApi, productApi, unwrapData } from '@/shared/api'
+import { raceQueryOptions } from '@/entities/race'
+import { ApiError, memberApi, unwrapData } from '@/shared/api'
 import { formatNumber } from '@/shared/lib'
 import { Alert, BottomCta, Button, Skeleton } from '@/shared/ui'
 
@@ -39,8 +41,9 @@ export function PartyJoinPage({ token }: { token: string }) {
   const preview = usePartyPreview(token)
   const join = useJoinParty()
   const data = preview.data
-  const race = productApi.useFindRace(data?.raceId ?? 0, {
-    query: { enabled: data !== undefined, select: unwrapData },
+  const race = useQuery({
+    ...raceQueryOptions(data?.raceId ?? 0),
+    enabled: data !== undefined,
   })
   const crew = memberApi.useFindCrew(data?.crewId ?? 0, {
     query: { enabled: data !== undefined, select: unwrapData, retry: false },
@@ -85,6 +88,7 @@ export function PartyJoinPage({ token }: { token: string }) {
   const failure: PartyFailure | undefined =
     blocked ??
     (preview.error ? partyFailureOf(preview.error) : undefined) ??
+    (data && data.crewMember === false ? 'NOT_CREW_MEMBER' : undefined) ??
     (data && !data.joinLinkAlive ? 'LINK_EXPIRED' : undefined) ??
     (data && data.status !== 'RECRUITING' ? 'NOT_RECRUITING' : undefined)
 

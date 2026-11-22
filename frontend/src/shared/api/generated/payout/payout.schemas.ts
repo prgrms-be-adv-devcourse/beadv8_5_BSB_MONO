@@ -312,6 +312,126 @@ export interface PayoutCreateFailuresDto {
   records: PayoutCreateFailurePageDto;
 }
 
+export interface PayoutStatusSummaryDto {
+  status: PayoutStatus;
+  count: number;
+  payoutAmount: number;
+}
+
+export interface PayoutAdminPayoutDto {
+  payout: PayoutDto;
+  sellerId: number;
+  holds: PayoutHoldDto[];
+}
+
+export interface PayoutAdminPayoutPageDto {
+  content: PayoutAdminPayoutDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PayoutAdminPayoutsDto {
+  payDate: string;
+  summary: PayoutStatusSummaryDto[];
+  payouts: PayoutAdminPayoutPageDto;
+}
+
+/**
+ * 회수 사유 (대회_취소: 대회 취소, 일정_변경: 일정 변경 · 구매자 취소)
+ */
+export type PayoutRecoveryReason = typeof PayoutRecoveryReason[keyof typeof PayoutRecoveryReason];
+
+
+export const PayoutRecoveryReason = {
+  대회_취소: '대회_취소',
+  일정_변경: '일정_변경',
+} as const;
+
+/**
+ * 회수 상태 (회수_요청: 입금 기다리는 중, 회수_완료: 입금 확인, 회수_취소: 대회 취소로 되돌림)
+ */
+export type PayoutRecoveryStatus = typeof PayoutRecoveryStatus[keyof typeof PayoutRecoveryStatus];
+
+
+export const PayoutRecoveryStatus = {
+  회수_요청: '회수_요청',
+  회수_완료: '회수_완료',
+  회수_취소: '회수_취소',
+} as const;
+
+export interface SellerRecoveryDto {
+  id: number;
+  claimCode: string;
+  raceId: number;
+  /**
+     * 그 대회의 정산 내역이 없으면 null
+     * @nullable
+     */
+  raceName?: string | null;
+  /** @nullable */
+  payoutCode?: string | null;
+  amount: number;
+  reasonType: PayoutRecoveryReason;
+  status: PayoutRecoveryStatus;
+  requestedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+  /**
+     * 청구 전용 가상계좌 은행. 발급 전이면 null
+     * @nullable
+     */
+  virtualBankName?: string | null;
+  /**
+     * 청구 전용 가상계좌 번호. 발급 전이면 null
+     * @nullable
+     */
+  virtualAccountNumber?: string | null;
+  /** 입금 기한. 가상계좌 유효기간(90일)과 다르다 */
+  dueDate: string;
+}
+
+/**
+ * 세금계산서 상태 (발행_실패면 다음 배치가 다시 발행)
+ */
+export type PayoutTaxInvoiceStatus = typeof PayoutTaxInvoiceStatus[keyof typeof PayoutTaxInvoiceStatus];
+
+
+export const PayoutTaxInvoiceStatus = {
+  발행_완료: '발행_완료',
+  발행_실패: '발행_실패',
+} as const;
+
+export interface PayoutTaxInvoiceDto {
+  id: number;
+  sellerId: number;
+  /** 공급 월 (yyyy-MM) */
+  supplyMonth: string;
+  totalAmount: number;
+  supplyAmount: number;
+  taxAmount: number;
+  status: PayoutTaxInvoiceStatus;
+  /**
+     * 발행 실패면 null
+     * @nullable
+     */
+  approvalNumber?: string | null;
+  /** @nullable */
+  businessName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  issuedAt?: string | null;
+  /**
+     * 마지막 실패 사유. 발행 완료면 null
+     * @nullable
+     */
+  failReason?: string | null;
+}
+
 export interface RsDataPayoutHoldDto {
   status?: number;
   message?: string;
@@ -348,6 +468,24 @@ export interface RsDataListSellerPayoutHoldDto {
   data?: SellerPayoutHoldDto[];
 }
 
+export interface RsDataListSellerRecoveryDto {
+  status?: number;
+  message?: string;
+  data?: SellerRecoveryDto[];
+}
+
+export interface RsDataListPayoutTaxInvoiceDto {
+  status?: number;
+  message?: string;
+  data?: PayoutTaxInvoiceDto[];
+}
+
+export interface RsDataPayoutDto {
+  status?: number;
+  message?: string;
+  data?: PayoutDto;
+}
+
 export interface RsDataPayoutCreateFailuresDto {
   status?: number;
   message?: string;
@@ -358,6 +496,12 @@ export interface RsDataPayoutAdminClaimsDto {
   status?: number;
   message?: string;
   data?: PayoutAdminClaimsDto;
+}
+
+export interface RsDataPayoutAdminPayoutsDto {
+  status?: number;
+  message?: string;
+  data?: PayoutAdminPayoutsDto;
 }
 
 export type RefundEligibilityParams = {
@@ -495,4 +639,23 @@ export const AdminClaimsStatus = {
   청구_중: '청구_중',
   입금_확인: '입금_확인',
 } as const;
+
+export type Payouts1Params = {
+/**
+ * 지급 예정일 (yyyy-MM-dd, 없으면 오늘보다 뒤인 가장 가까운 20일)
+ */
+payDate?: string;
+/**
+ * 정산 상태 (없으면 그날의 모든 상태)
+ */
+status?: PayoutStatus;
+/**
+ * 페이지 번호 (0부터)
+ */
+page?: number;
+/**
+ * 페이지 크기 (1 ~ 100)
+ */
+size?: number;
+};
 

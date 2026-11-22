@@ -1,7 +1,6 @@
 package com.bukang.payout.app;
 
 import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toSet;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,7 +27,7 @@ import com.bukang.payout.out.PayoutRepository;
 import com.bukang.payout.out.RacePort;
 import com.bukang.payout.out.RaceSchedule;
 import com.bukang.payout.out.SellerAccountPort;
-import com.bukang.payout.out.SoldEntry;
+import com.bukang.payout.out.SoldCourses;
 import com.bukang.payout.out.SoldEntryPort;
 import com.bukang.payout.out.SoldSummary;
 import com.bukang.payout.out.SoldSummaryPort;
@@ -107,6 +106,10 @@ public class PayoutCreateUseCase {
 			return counts;
 		}
 		for (RaceSchedule race : races) {
+			if (firstSettled(race.raceId())) {
+				counts.skip();
+				continue;
+			}
 			List<SoldSummary> summaries;
 			try {
 				summaries = soldSummaryPort.summarizeSold(race.raceId());
@@ -172,6 +175,40 @@ public class PayoutCreateUseCase {
 			PayoutStage.일차_정산));
 	}
 
+	// 판매 집계를 받기 전에 대회 단위로 먼저 본다. 이미 정산한 대회를 7일 동안 매일 받아서 버리지 않는다 (CRU-117)
+	// 조건은 createFirstIfAbsent의 두 확인에서 판매자만 뺀 것이다: 1차가 있거나(월은 보지 않음), 최종이 먼저 만들어졌으면 건너뛴다
+	// shortcut: 대회의 판매자가 1명이라는 전제(11/20 확정). 판매자가 여럿이 되면 대회 단위 확인이 일부 판매자의 정산을 빠뜨린다. 그때는 판매자 × 대회 확인으로 되돌린다
+	private boolean firstSettled(long raceId) {
+		if (settledBeforeFetch(() -> payoutRepository.existsByRaceIdAndPayoutStage(raceId, PayoutStage.일차_정산))) {
+			return true;
+		}
+		if (settledBeforeFetch(() -> payoutRepository.existsByRaceIdAndPayoutStage(raceId, PayoutStage.최종_정산))) {
+			log.warn("최종 정산이 이미 있어 1차 정산을 만들지 않습니다. raceId={}", raceId);
+			return true;
+		}
+		return false;
+	}
+
+	// 참가권 목록을 받기 전에 대회 단위로 먼저 본다 (CRU-117). 조건은 finalExists에서 판매자만 뺀 것이다 (정산 월까지 본다)
+	// 취소 중 참가권으로 미룬 대회는 정산 내역이 없어 '없음'이 나오므로 다음 실행이 다시 받는다 (BUK-52)
+	// shortcut: 대회의 판매자가 1명이라는 전제(11/20 확정). 판매자가 여럿이 되면 대회 단위 확인이 일부 판매자의 정산을 빠뜨린다. 그때는 판매자 × 대회 확인으로 되돌린다
+	private boolean finalSettled(RaceSchedule race) {
+		String payoutMonth = YearMonth.from(race.raceDate()).toString();
+		return settledBeforeFetch(() -> payoutRepository.existsByRaceIdAndPayoutMonthAndPayoutStage(race.raceId(),
+			payoutMonth, PayoutStage.최종_정산));
+	}
+
+	// 대회 단위 확인이 실패하면 '없음'으로 보고 판매 값을 받는다. 여기서는 실패 기록에 넣을 판매자를 모르고,
+	// 뒤의 판매자 × 대회 확인이 같은 실패를 '정산_조회_실패'로 남긴다. 예외를 밖으로 던지면 반복이 끊긴다
+	private static boolean settledBeforeFetch(BooleanSupplier existsQuery) {
+		try {
+			return existsQuery.getAsBoolean();
+		} catch (RuntimeException exception) {
+			log.warn("대회 단위로 정산 내역이 있는지 확인하지 못해 판매 값을 받아 판매자 × 대회로 다시 확인합니다.", exception);
+			return false;
+		}
+	}
+
 	private static List<CourseSale> toCourseSales(List<SoldSummary> courses) {
 		return courses.stream()
 			.map(course -> new CourseSale(course.raceCourseId(), course.priceSum(), course.entryCount()))
@@ -193,15 +230,19 @@ public class PayoutCreateUseCase {
 			return counts;
 		}
 		for (RaceSchedule race : races) {
-			List<SoldEntry> entries;
+			if (finalSettled(race)) {
+				counts.skip();
+				continue;
+			}
+			SoldCourses entries;
 			try {
-				entries = soldEntryPort.findSoldEntries(race.raceId());
+				// 참가권 목록으로 풀지 않고 코스 묶음 그대로 받는다. 정산 줄을 만들 때 한 장씩 꺼낸다
+				entries = soldEntryPort.findSoldCourses(race.raceId());
 			} catch (RuntimeException exception) {
 				counts.failOrderLookup(PayoutStage.최종_정산, race.raceId(), race.raceDate(), exception);
 				continue;
 			}
-			entries.stream()
-				.collect(groupingBy(SoldEntry::sellerId))
+			entries.bySeller()
 				.forEach((sellerId, sellerEntries) -> createFinalPayout(new SellerRace(sellerId, race.raceId()),
 					sellerEntries, race, counts, now));
 		}
@@ -210,7 +251,7 @@ public class PayoutCreateUseCase {
 
 	// 최종 정산 내역 하나를 만든다. 이 정산 내역만 실패로 남기고 다음 정산 내역을 계속 만든다
 	// 참가권의 대회일이 상품의 대회일과 다르면 만들지 않는다. 실패한 정산 내역과 그 항목 · 보류는 함께 롤백된다
-	private void createFinalPayout(SellerRace key, List<SoldEntry> entries, RaceSchedule race, Counts counts,
+	private void createFinalPayout(SellerRace key, SoldCourses entries, RaceSchedule race, Counts counts,
 		LocalDateTime now) {
 		try {
 			createFinalIfAbsent(key, entries, race, counts, now);
@@ -225,7 +266,7 @@ public class PayoutCreateUseCase {
 
 	// 이미 만든 정산 내역은 건너뛴다 (되돌아보기로 매일 같은 대회를 다시 보므로 대부분 여기서 걸린다)
 	// 확인과 저장 사이에 다른 인스턴스가 먼저 저장하면 DB 유일 제약이 막고, 이미 있음으로 센다 (PRO-120)
-	private void createFinalIfAbsent(SellerRace key, List<SoldEntry> entries, RaceSchedule race, Counts counts,
+	private void createFinalIfAbsent(SellerRace key, SoldCourses entries, RaceSchedule race, Counts counts,
 		LocalDateTime now) {
 		checkRaceDate(key, entries, race);
 		if (finalExists(key, race.raceDate())) {
@@ -234,7 +275,7 @@ public class PayoutCreateUseCase {
 		}
 		// 취소 중 참가권은 판매로 세어져 최종 정산에 들어가는데, 나중에 환불이 끝나면 회수가 거부된다. 그래서 만들지 않고 미룬다
 		// 7일 되돌아보기가 다음 실행에서 다시 본다 (BUK-52)
-		if (entries.stream().anyMatch(SoldEntry::blocksFinalPayout)) {
+		if (entries.blockingCount() > 0) {
 			counts.deferFinal(key, entries, race.raceDate());
 			return;
 		}
@@ -311,8 +352,8 @@ public class PayoutCreateUseCase {
 
 	// 참가권에 복사된 대회일이 상품의 대회일과 다르면 주문 쪽 데이터가 어긋난 것이므로
 	// 어느 날로 정산할지 고르지 않고 실패로 남긴다 (일정 변경 반영은 PRO-115)
-	private void checkRaceDate(SellerRace key, List<SoldEntry> entries, RaceSchedule race) {
-		Set<LocalDate> raceDates = entries.stream().map(SoldEntry::raceDate).collect(toSet());
+	private void checkRaceDate(SellerRace key, SoldCourses entries, RaceSchedule race) {
+		Set<LocalDate> raceDates = entries.raceDates();
 		if (!raceDates.equals(Set.of(race.raceDate()))) {
 			throw new PayoutRaceDateMismatchException(key.raceId(), race.raceDate(), raceDates);
 		}
@@ -373,19 +414,19 @@ public class PayoutCreateUseCase {
 			recordSellerRaceFailure(PayoutStage.일차_정산, key, refundDeadline, exception);
 		}
 
-		private void failFinalSellerRace(SellerRace key, List<SoldEntry> entries, LocalDate raceDate,
+		private void failFinalSellerRace(SellerRace key, SoldCourses entries, LocalDate raceDate,
 			RuntimeException exception) {
 			failed++;
 			log.error("정산 내역을 만들지 못했습니다. sellerId={}, raceId={}, 참가권 {}장",
-				key.sellerId(), key.raceId(), entries.size(), exception);
+				key.sellerId(), key.raceId(), entries.entryCount(), exception);
 			recordSellerRaceFailure(PayoutStage.최종_정산, key, raceDate, exception);
 		}
 
 		// 최종 정산 미룸은 실패가 아니라 실패로 세지 않는다. 실행마다 기록표에 한 줄 남겨 며칠째 미뤄지는지 보이게 한다 (BUK-52)
-		private void deferFinal(SellerRace key, List<SoldEntry> entries, LocalDate raceDate) {
-			long blocking = entries.stream().filter(SoldEntry::blocksFinalPayout).count();
+		private void deferFinal(SellerRace key, SoldCourses entries, LocalDate raceDate) {
+			long blocking = entries.blockingCount();
 			log.warn("최종 정산을 미룹니다. 취소 중이거나 상태를 모르는 참가권이 있습니다. sellerId={}, raceId={}, 참가권 {}장 중 {}장",
-				key.sellerId(), key.raceId(), entries.size(), blocking);
+				key.sellerId(), key.raceId(), entries.entryCount(), blocking);
 			payoutCreateFailureUseCase.record(PayoutCreateFailure.sellerRace(PayoutStage.최종_정산, key.sellerId(),
 				key.raceId(), raceDate, PayoutCreateFailureType.취소_중이라_미룸, null, today));
 		}

@@ -6,6 +6,7 @@ import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaEmbeddingOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,8 +16,10 @@ import com.bukang.product.domain.document.EmbeddingVector;
  * AI 추천 임베딩 설정 (BUK-162)
  * - 어느 회사 모델을 쓸지는 yaml의 spring.ai.model.embedding으로 고른다 (prod=openai, dev·test=ollama)
  * - 벡터 차원의 원본은 검색 문서의 dense_vector 칸과 같은 EmbeddingVector.DIMENSIONS 하나다. yaml에는 적지 않는다
+ * - 추천 기준값(RaceRecommendProperties)도 여기서 빈으로 등록한다
  */
 @Configuration
+@EnableConfigurationProperties(RaceRecommendProperties.class)
 public class AiConfig {
 	// 임베딩을 부를 때마다 넘기는 옵션 (차원 = EmbeddingVector.DIMENSIONS)
 	// OpenAI 빈은 Spring AI가 yaml만 보고 만들어 상수를 모르므로, 부를 때 차원을 넘긴다 (모델 기본값 1536이 나오지 않게)

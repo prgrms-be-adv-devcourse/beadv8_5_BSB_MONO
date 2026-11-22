@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import com.bukang.common.global.exception.BusinessException;
 
 // 없는 파티이거나, 참가 링크가 없음(다시 만들어 옛 링크가 됨). 링크를 다시 받아야 한다
+// 파티원이 아닌 사람이 파티를 보거나 나가려 해도 이 404다. 남의 파티가 있는지 알려 주지 않는다 (CRU-91)
 public class PartyNotFoundException extends BusinessException {
 	public static final String CODE = "ORDER_PARTY_NOT_FOUND";
 

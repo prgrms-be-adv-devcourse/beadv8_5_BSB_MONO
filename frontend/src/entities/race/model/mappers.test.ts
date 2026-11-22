@@ -45,6 +45,8 @@ describe('대회 응답 → 화면 모양', () => {
 
   it('목록 응답에 imageUrl이 있을 때만 카드 이미지가 붙는다', () => {
     expect(toRaceListItem(summary).image).toBeUndefined()
+    expect(toRaceListItem({ ...summary, imageUrl: null }).image).toBeUndefined()
+    expect(toClosingSoonCard({ ...summary, imageUrl: null }).image).toBeUndefined()
     expect(toRaceListItem({ ...summary, imageUrl: '/mock/races/a.png' }).image).toBe(
       '/mock/races/a.png',
     )
@@ -120,5 +122,11 @@ describe('대회 응답 → 화면 모양', () => {
 
   it('상세: 이미지가 없으면 빈 목록(색 포스터)', () => {
     expect(toRaceDetail(detail).images).toEqual([])
+  })
+
+  it('상세: 개인 예매 오픈 일시를 그대로 넘긴다', () => {
+    expect(
+      toRaceDetail({ ...detail, individualOpenAt: '2026-10-20T09:00:00' }).individualOpenAt,
+    ).toBe('2026-10-20T09:00:00')
   })
 })

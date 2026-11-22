@@ -35,3 +35,21 @@ describe('Dialog', () => {
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['취소', '확인'])
   })
 })
+
+describe('Dialog 시안 값', () => {
+  it('두 버튼 사이 간격은 8이다', () => {
+    render(<Dialog {...open} title="나갈까요?" />)
+    expect(screen.getByRole('button', { name: '확인' }).parentElement?.className).toMatch(
+      /\bgap-2\b/,
+    )
+  })
+
+  it('width를 넘기면 창 폭에 쓰고, 안 넘기면 기본 폭을 쓴다', () => {
+    const { rerender } = render(<Dialog {...open} title="종목 추가" />)
+    expect(screen.getByRole('alertdialog').className).toMatch(/\bw-80\b/)
+    rerender(<Dialog {...open} title="종목 추가" widthClassName="tablet:w-140" />)
+    const popup = screen.getByRole('alertdialog')
+    expect(popup.className).toMatch(/\btablet:w-140\b/)
+    expect(popup.className).not.toMatch(/\btablet:w-100\b/)
+  })
+})

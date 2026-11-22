@@ -40,6 +40,11 @@ export async function fetchRacePage(params: productModel.SearchParams) {
   return unwrapData(await productApi.search(params))
 }
 
+/** 홈 배너: 관리자가 고른 순서대로, 홈에 보일 대회만 온다(대표 이미지 주소 포함). RSC(홈)에서 부른다 */
+export async function fetchHomeBanners() {
+  return unwrapData(await productApi.findHomeBanners())
+}
+
 function searchParams(filters: RaceSearchFilters, page: number): productModel.SearchParams {
   const keyword = filters.keyword?.trim()
   return {
@@ -65,6 +70,20 @@ export function raceListQueryOptions(filters: RaceSearchFilters) {
       const next = (last.page ?? 0) + 1
       return next < (last.totalPages ?? 0) ? next : undefined
     },
+  })
+}
+
+/** 카테고리 화면에서 지역마다 보여 주는 대회 (대회일 빠른 순 2개) */
+export function regionRacesQueryOptions(regionSido: string) {
+  const params: productModel.SearchParams = {
+    regionSido,
+    sort: RaceSort.RACE_DATE,
+    page: 0,
+    size: 2,
+  }
+  return queryOptions({
+    queryKey: productApi.getSearchQueryKey(params),
+    queryFn: () => fetchRacePage(params),
   })
 }
 
@@ -174,6 +193,26 @@ export function similarRacesQueryOptions(raceId: string) {
       )
       return (Array.isArray(data) ? data : (data?.races ?? [])).slice(0, 3)
     },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * 검색어 AI 추천 대회 (뜻이 비슷한 대회, 최대 6개). 백엔드 `GET /races/recommendations`가 아직 명세(openapi)에 없어 직접 부른다.
+ * 서버가 2글자보다 짧은 검색어에는 빈 목록을 주므로 그때는 부르지 않는다. 보조 기능이라 실패하거나 비어 있으면 화면에서 영역을 숨긴다.
+ */
+export function raceRecommendationsQueryOptions(keyword: string) {
+  const trimmed = keyword.trim()
+  return queryOptions({
+    queryKey: ['race', 'recommendations', trimmed],
+    queryFn: async () =>
+      unwrapData(
+        await customFetch<RsData<productModel.RaceSummaryDto[]>>(
+          `/api/v1/product/races/recommendations?keyword=${encodeURIComponent(trimmed)}`,
+        ),
+      ) ?? [],
+    enabled: trimmed.length >= 2,
     retry: false,
     staleTime: 5 * 60 * 1000,
   })

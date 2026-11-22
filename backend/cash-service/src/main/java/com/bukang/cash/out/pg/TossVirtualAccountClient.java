@@ -50,9 +50,8 @@ class TossVirtualAccountClient {
 				.retrieve()
 				.body(AccountResponse.class);
 		} catch (RestClientResponseException exception) {
-			log.error("Toss 가상계좌 발급이 거절됐습니다. orderId={}, status={}, code={}, body={}",
-				orderId, exception.getStatusCode(), TossErrorCodeReader.readCode(exception),
-				exception.getResponseBodyAsString());
+			log.error("Toss 가상계좌 발급이 거절됐습니다. orderId={}, status={}, code={}",
+				orderId, exception.getStatusCode(), TossErrorCodeReader.readCode(exception));
 			throw new VirtualAccountIssueFailedException("PG사가 가상계좌 발급을 거절했습니다.");
 		} catch (RestClientException exception) {
 			log.error("Toss 가상계좌 발급 서버에 연결하지 못했습니다. orderId={}", orderId, exception);
@@ -75,8 +74,8 @@ class TossVirtualAccountClient {
 			if (exception.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
 				return Optional.empty();
 			}
-			log.error("Toss 가상계좌 조회가 거절됐습니다. orderId={}, status={}, body={}",
-				orderId, exception.getStatusCode(), exception.getResponseBodyAsString());
+			log.error("Toss 가상계좌 조회가 거절됐습니다. orderId={}, status={}, code={}",
+				orderId, exception.getStatusCode(), TossErrorCodeReader.readCode(exception));
 			throw new VirtualAccountIssueFailedException("PG사에서 가상계좌를 확인하지 못했습니다.");
 		} catch (RestClientException exception) {
 			log.error("Toss 가상계좌 조회 서버에 연결하지 못했습니다. orderId={}", orderId, exception);

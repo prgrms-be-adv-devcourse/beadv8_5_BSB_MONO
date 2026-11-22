@@ -44,14 +44,14 @@ class TossPaymentCancelClient {
 				.body(CancelResponse.class);
 		} catch (RestClientResponseException exception) {
 			String pgCode = TossErrorCodeReader.readCode(exception);
-			log.error("Toss 결제 취소가 거절됐습니다. paymentKey={}, status={}, code={}, body={}",
-				paymentKey, exception.getStatusCode(), pgCode, exception.getResponseBodyAsString());
+			log.error("Toss 결제 취소가 거절됐습니다. idempotencyKey={}, status={}, code={}",
+				idempotencyKey, exception.getStatusCode(), pgCode);
 			// 5xx이거나 같은 중복 방지 키의 요청이 아직 처리 중이면 취소됐는지 알 수 없다
 			boolean resultUnknown = exception.getStatusCode().is5xxServerError()
 				|| IDEMPOTENT_REQUEST_PROCESSING.equals(pgCode);
 			throw new PaymentCancelFailedException("PG사가 결제 취소를 거절했습니다.", pgCode, resultUnknown);
 		} catch (RestClientException exception) {
-			log.error("Toss 결제 취소 서버에 연결하지 못했습니다. paymentKey={}", paymentKey, exception);
+			log.error("Toss 결제 취소 서버에 연결하지 못했습니다. idempotencyKey={}", idempotencyKey, exception);
 			// 응답 전에 끊겼으면 Toss가 이미 취소했을 수도 있다
 			throw new PaymentCancelFailedException("PG 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.", null, true);
 		}
@@ -65,7 +65,7 @@ class TossPaymentCancelClient {
 		if (lastCancel == null) {
 			// 응답은 200인데 cancels가 비어 있다 — Toss 쪽 계약 위반이다. 200이면 Toss는 취소를 받아 줬을 수 있어
 			// 실패로 보고 되돌리면 돈이 두 번 나갈 수 있으므로 결과 모름으로 둔다
-			log.error("Toss 결제 취소 응답이 비어 있습니다. paymentKey={}", paymentKey);
+			log.error("Toss 결제 취소 응답이 비어 있습니다. idempotencyKey={}", idempotencyKey);
 			throw new PaymentCancelFailedException("PG 서버 응답이 올바르지 않습니다.", null, true);
 		}
 

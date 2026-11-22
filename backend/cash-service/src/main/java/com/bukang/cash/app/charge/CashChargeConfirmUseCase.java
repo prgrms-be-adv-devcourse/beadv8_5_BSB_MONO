@@ -89,8 +89,7 @@ public class CashChargeConfirmUseCase {
 		} catch (RuntimeException e) {
 			// Toss 승인은 끝나 돈이 이미 빠진 뒤라, 이 트랜잭션이 DB 문제로 실패하면 충전 행이 IN_PROGRESS로 남는다.
 			// 대사 배치가 멈춘 건으로 보고 Toss 재조회로 맞추지만, 그 전에 확인할 수 있게 단서를 남긴다
-			log.error("Toss 승인 후 지갑 반영이 실패했습니다. 확인 필요. orderId={}, paymentKey={}, pgPaymentKey={}",
-				orderId, paymentKey, result.pgPaymentKey(), e);
+			log.error("Toss 승인 후 지갑 반영이 실패했습니다. 확인 필요. orderId={}", orderId, e);
 			throw e;
 		}
 	}

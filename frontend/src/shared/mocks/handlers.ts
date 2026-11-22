@@ -7,6 +7,7 @@ import {
   getFindByRefResponseMock,
 } from '@/shared/api/generated/file/file.msw'
 import {
+  getApplyResponseMock,
   getBukangMemberAPIMock,
   getLoginResponseMock,
   getReissueResponseMock,
@@ -44,6 +45,7 @@ import { aiHandlers } from './ai'
 import { boardHandlers } from './board'
 import { crewHandlers } from './crews'
 import { fileUploadHandlers } from './file-upload'
+import { homeBannerHandlers } from './home-banners'
 import { answerMockPass, readMockVerificationToken, type MockAnswer } from './identity-verification'
 import { inquiryHandlers } from './inquiry'
 import {
@@ -74,8 +76,9 @@ import {
   mockImageOfRace,
   searchMockRaces,
 } from './races'
-import { recordCertHandlers } from './record-certs'
+import { recordCertHandlers, sellerRecordCertHandlers } from './record-certs'
 import { resetMockKitsForTesting, sellerKitHandlers } from './seller-kits'
+import { sellerOrderHandlers } from './seller-orders'
 import { balanceCookieHeaders, payFromMockWallet, walletHandlers } from './wallet'
 
 /** 경로 변수(:raceId) 수. 적은 것부터 둬야 /races/suggestions가 /races/:raceId에 먼저 걸리지 않는다. */
@@ -229,11 +232,28 @@ const authHandlers = [
   ),
 ]
 
+function caseOf(referer: string | null) {
+  try {
+    return new URL(referer ?? '').searchParams.get('case')
+  } catch {
+    return null
+  }
+}
+
 /**
  * 내 정보 목. 방금 가입한 회원이면 가입 때 넣은 프로필을, 아니면 명세 예시(시연용 기존 회원 runner1)를 돌려준다.
  * 방금 가입한 회원이 정보를 고치면 쿠키의 프로필을 고쳐 다음 조회부터 그 값이 보인다.
  */
 const meHandlers = [
+  // 화면 주소에 ?case=pending을 붙이면 판매자 신청이 심사 중인 회원으로 답한다(판매자 권한 없음 · 심사 중 2070:59948)
+  http.get('*/api/v1/member/sellers/me', ({ request }) => {
+    if (caseOf(request.headers.get('referer')) !== 'pending') return undefined
+    return HttpResponse.json({
+      status: 200,
+      message: '판매자 신청을 조회했습니다.',
+      data: { ...getApplyResponseMock().data, status: 'PENDING' },
+    })
+  }),
   http.get('*/api/v1/member/members/me', ({ cookies }) => {
     const profile = freshMemberOf(cookies)
     if (!profile) return undefined
@@ -586,15 +606,34 @@ const raceHandlers = [
       },
     }
   }),
+  // 검색어 AI 추천: 진짜 서버는 뜻이 비슷한 대회 6개까지, 2글자보다 짧으면 빈 목록. 목은 글자가 들어간 대회로 흉내 낸다
+  http.get('*/api/v1/product/races/recommendations', ({ request }) => {
+    const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim()
+    const races = keyword.length < 2 ? [] : (searchMockRaces({ keyword, size: 6 }).races ?? [])
+    return HttpResponse.json({
+      status: 200,
+      message: 'AI 추천 대회를 조회했습니다.',
+      data: races.map(openedForMock),
+    })
+  }),
   getFindMyRacesMockHandler(),
-  // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다
+  // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다.
+  // 홈 배너 대회 추가 창에 고를 대회가 보이도록 접수 기간은 지금 기준으로 맞추고 이름은 가짜 대회 목록에서 가져온다
   getFindAdminRacesMockHandler(() => {
     const example = getFindAdminRacesResponseMock()
     const [race] = example.data ?? []
     const statuses = ['SCHEDULED', 'ON_SALE', 'STOPPED'] as const
+    const DAY = 24 * 60
     return {
       ...example,
-      data: statuses.map((saleStatus, i) => ({ ...race, raceId: i + 1, saleStatus })),
+      data: statuses.map((saleStatus, i) => ({
+        ...race,
+        raceId: i + 1,
+        title: findMockRace(i + 1)?.detail.title ?? race.title,
+        saleStatus,
+        individualOpenAt: kstMinutesFromNow(saleStatus === 'SCHEDULED' ? 5 * DAY : -DAY),
+        applicationCloseAt: kstMinutesFromNow(20 * DAY),
+      })),
     }
   }),
   // 가짜 대회 목록(races.ts)에 있는 대회만 열린다. 없는 번호는 진짜 서버처럼 404, 숫자가 아니면 400
@@ -798,12 +837,15 @@ export const handlers = [
   ...signupHandlers,
   ...fileUploadHandlers,
   ...recordCertHandlers,
+  ...sellerRecordCertHandlers,
   myOrdersHandler,
+  ...homeBannerHandlers,
   ...raceHandlers,
   ...queueHandlers,
   ...orderHandlers,
   ...walletHandlers,
   ...sellerKitHandlers,
+  ...sellerOrderHandlers,
   ...payoutHandlers,
   ...generatedHandlers,
 ]

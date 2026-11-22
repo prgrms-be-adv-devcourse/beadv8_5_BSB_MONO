@@ -7,12 +7,12 @@
       "race_nori_tokenizer": {
         "type": "nori_tokenizer",
         "decompound_mode": "mixed",
-        "user_dictionary_rules": ["키로", "풀코스", "하프마라톤", "트레일러닝", "트레일런", "울트라마라톤"]
+        "user_dictionary_rules": ["키로", "풀코스", "하프마라톤", "트레일러닝", "트레일런", "울트라마라톤", "대관령", "횡계", "한계령"]
       },
       "race_nori_discard_tokenizer": {
         "type": "nori_tokenizer",
         "decompound_mode": "discard",
-        "user_dictionary_rules": ["키로", "풀코스", "하프마라톤", "트레일러닝", "트레일런", "울트라마라톤"]
+        "user_dictionary_rules": ["키로", "풀코스", "하프마라톤", "트레일러닝", "트레일런", "울트라마라톤", "대관령", "횡계", "한계령"]
       }
     },
     "filter": {
