@@ -19,7 +19,7 @@ import {
   MAX_CHARGE,
   requestCharge,
 } from '@/features/deposit-charge'
-import { useQueueAdmission } from '@/features/queue-admission'
+import { useQueueAdmission, useReleaseAdmissionOnExit } from '@/features/queue-admission'
 import { partyKeys } from '@/entities/party'
 import {
   parseKstDateTime,
@@ -421,6 +421,15 @@ function OrderCheckout({
   })
 
   const status = order.data?.status
+  // 결제 화면을 벗어나면 입장을 푼다. 결제를 끝낸 주문은 주문 쪽이 맡으므로 풀지 않는다.
+  // 토스 결제창으로 떠나는 동안(charging)은 같은 입장으로 돌아와야 해서 pagehide에도 풀지 않는다.
+  const courseId = order.data?.items?.[0]?.raceCourseId
+  useReleaseAdmissionOnExit(
+    raceId !== undefined && courseId !== undefined && status !== 'PAID'
+      ? { line: 'individual', raceId, raceCourseId: courseId }
+      : undefined,
+    { keep: charging },
+  )
   // 결제 확인 중이던 주문이 결제 대기로 돌아오면 서버가 결제를 거절한 것이다 → 결제 실패(M07-3)
   const [prevStatus, setPrevStatus] = useState(status)
   if (status !== prevStatus) {

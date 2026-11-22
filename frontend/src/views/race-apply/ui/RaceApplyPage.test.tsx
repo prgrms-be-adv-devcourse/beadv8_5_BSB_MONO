@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   BookingFlowProvider,
@@ -971,5 +971,50 @@ describe('참가 신청 · 결제 대기 주문 이어 가기', () => {
     expect(applies).toHaveLength(0)
     expect(orders).toHaveLength(0)
     expect(readKitOptionIds(9)).toEqual([11, 22])
+  })
+})
+
+// 시안 대회 ID는 숫자가 아니라 해제 대상이 되지 않는다. 실제 대회는 숫자 ID다
+const NUMERIC_RACE = { ...RACE, id: '1' }
+
+describe('입장 해제', () => {
+  let released: string[]
+  beforeEach(() => {
+    released = []
+    server.use(
+      http.delete('*/api/v1/queue/races/:raceId/racecourses/:courseId/active', ({ params }) => {
+        released.push(`${params.raceId}/${params.courseId}`)
+        return HttpResponse.json({ status: 200, message: '', data: null })
+      }),
+    )
+    window.history.pushState({}, '', '/races/1/apply')
+  })
+  afterEach(() => {
+    window.history.pushState({}, '', '/races/1/apply')
+    cleanup()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('신청서에서 다른 화면으로 나가면 이 종목의 입장 해제를 부른다', async () => {
+    renderPage({}, { race: NUMERIC_RACE })
+    window.history.pushState({}, '', '/races/1')
+    cleanup()
+    await waitFor(() => expect(released).toEqual(['1/3']))
+  })
+
+  it('신청서에서 결제로 넘어갈 때는 해제하지 않는다', async () => {
+    renderPage({}, { race: NUMERIC_RACE })
+    window.history.pushState({}, '', '/checkout')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
+  })
+
+  it('시안 미리보기는 해제를 부르지 않는다', async () => {
+    renderPage({}, { race: NUMERIC_RACE, previewRemainingSeconds: 600 })
+    window.history.pushState({}, '', '/races/1')
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(released).toEqual([])
   })
 })

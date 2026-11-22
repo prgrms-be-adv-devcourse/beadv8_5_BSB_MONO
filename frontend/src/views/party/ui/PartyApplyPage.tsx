@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
+import { useReleaseAdmissionOnExit } from '@/features/queue-admission'
 import {
   isCrewSeatShortage,
   useApplyParty,
@@ -47,6 +48,8 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
   const register = useRegisterPartyQueue()
   const apply = useApplyParty()
   const [queued, setQueued] = useState(false)
+  // 파티 대기열에 들어간 적이 있음 (이미 입장해 있어 409를 받은 경우 포함). 신청이 끝나기 전에 화면을 벗어나면 입장을 푼다.
+  const [entered, setEntered] = useState(false)
   const [message, setMessage] = useState<string>()
   const [shortage, setShortage] = useState<Shortage>()
   const queue = usePartyQueueStatus(data?.raceId ?? 0, data?.raceCourseId ?? 0, queued && !shortage)
@@ -67,6 +70,12 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
     )
   }
 
+  useReleaseAdmissionOnExit(
+    data && entered && !apply.isSuccess
+      ? { line: 'party', raceId: data.raceId, raceCourseId: data.raceCourseId }
+      : undefined,
+  )
+
   const canEnter = queue.data?.canEnter === true
   useEffect(() => {
     if (!canEnter || applied.current) return
@@ -84,7 +93,16 @@ export function PartyApplyPage({ partyId }: { partyId: number }) {
     setMessage(undefined)
     register.mutate(
       { raceId: data.raceId, raceCourseId: data.raceCourseId },
-      { onSuccess: () => setQueued(true), onError: fail },
+      {
+        onSuccess: () => {
+          setEntered(true)
+          setQueued(true)
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.status === 409) setEntered(true)
+          fail(error)
+        },
+      },
     )
   }
 
