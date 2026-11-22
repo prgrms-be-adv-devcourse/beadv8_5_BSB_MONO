@@ -11,6 +11,8 @@ import {
   DEFAULT_RACE_SORT,
   raceListQueryOptions,
   RacePoster,
+  raceRecommendationsQueryOptions,
+  RaceRecommendSection,
   RaceSort,
   raceSuggestionsQueryOptions,
   toRaceListItem,
@@ -84,6 +86,8 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
     placeholderData: keepPreviousData,
   })
   const suggestions = useQuery(raceSuggestionsQueryOptions(keyword))
+  // 검색 결과와 별개로 뜻이 비슷한 대회를 권한다. 같은 디바운스 값(keyword)으로 불러 글자마다 요청하지 않는다
+  const recommendations = useQuery(raceRecommendationsQueryOptions(keyword))
 
   const loading = state === 'loading' || list.isPending
   const races = empty
@@ -236,6 +240,14 @@ export function RaceListPage({ state }: { state?: RaceListState }) {
               {now ? `${now.getMonth() + 1}월` : '이번 달'}
             </Chip>
           </div>
+        )}
+        {!focused && !empty && (
+          <RaceRecommendSection
+            title="AI 추천"
+            className="pt-4"
+            // 시안은 3줄이다. 서버는 6개까지 주지만 검색 결과가 밀려 내려가지 않게 앞의 3개만 보인다
+            races={(recommendations.data ?? []).slice(0, 3).map((race) => toRaceListItem(race))}
+          />
         )}
         {!focused && (loading || races.length > 0) && !listFailed && (
           <div className="mt-2 flex items-center justify-between pt-3">

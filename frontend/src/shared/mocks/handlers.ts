@@ -605,6 +605,16 @@ const raceHandlers = [
       },
     }
   }),
+  // 검색어 AI 추천: 진짜 서버는 뜻이 비슷한 대회 6개까지, 2글자보다 짧으면 빈 목록. 목은 글자가 들어간 대회로 흉내 낸다
+  http.get('*/api/v1/product/races/recommendations', ({ request }) => {
+    const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim()
+    const races = keyword.length < 2 ? [] : (searchMockRaces({ keyword, size: 6 }).races ?? [])
+    return HttpResponse.json({
+      status: 200,
+      message: 'AI 추천 대회를 조회했습니다.',
+      data: races.map(openedForMock),
+    })
+  }),
   getFindMyRacesMockHandler(),
   // 관리자 대회 목록: 상태마다 다른 버튼을 볼 수 있게 판매 예정 · 판매 중 · 판매 중지 대회를 하나씩 준다
   getFindAdminRacesMockHandler(() => {
