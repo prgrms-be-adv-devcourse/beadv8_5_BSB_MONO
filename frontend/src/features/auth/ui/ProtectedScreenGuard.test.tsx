@@ -59,6 +59,22 @@ describe('ProtectedScreenGuard', () => {
     },
   )
 
+  it('고객센터(/me/support)는 로그아웃 상태로도 내용을 그리고 로그인 화면으로 보내지 않는다', () => {
+    pathname = '/me/support'
+    clearAccessToken()
+    renderGuard()
+    expect(screen.getByText('회원 정보')).toBeInTheDocument()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  it('고객센터 안의 문의 쓰기는 비로그인이면 돌아올 경로를 붙여 로그인 화면으로 보낸다', () => {
+    pathname = '/me/inquiries/new'
+    window.history.replaceState(null, '', '/me/inquiries/new')
+    clearAccessToken()
+    renderGuard()
+    expect(replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent('/me/inquiries/new')}`)
+  })
+
   it('로그인했으면 내용을 그린다', () => {
     setAccessToken('token')
     renderGuard()
