@@ -403,6 +403,35 @@ public class Race extends BaseIdAndTime {
 		}
 	}
 
+	// 홈 배너로 고를 수 있는지 (CRU-147): 취소된 대회와 판매가 끝난 대회는 다시 보일 일이 없어 막는다
+	// 판매 중지·접수 마감 대회는 고를 수 있고, 홈에는 보이지 않는다 (bannerHiddenReason)
+	public void checkBannerSelectable(LocalDateTime now) {
+		if (saleStatus == RaceSaleStatus.CANCELED) {
+			throw new RaceChangeNotAllowedException("취소된 대회는 배너로 고를 수 없습니다.");
+		}
+		if (isSaleEnded(now)) {
+			throw new RaceChangeNotAllowedException("판매가 끝난 대회는 배너로 고를 수 없습니다.");
+		}
+	}
+
+	// 배너로 고른 대회가 홈에 보이지 않는 이유 (CRU-147). 보이면 null
+	// 이유가 여러 개면 되돌릴 수 없는 것부터 하나만 준다: 취소 → 판매 종료 → 판매 중지 → 접수 마감
+	public BannerHiddenReason bannerHiddenReason(LocalDateTime now) {
+		if (saleStatus == RaceSaleStatus.CANCELED) {
+			return BannerHiddenReason.CANCELED;
+		}
+		if (isSaleEnded(now)) {
+			return BannerHiddenReason.CLOSED;
+		}
+		if (saleStatus == RaceSaleStatus.STOPPED) {
+			return BannerHiddenReason.STOPPED;
+		}
+		if (!now.isBefore(applicationCloseAt)) {
+			return BannerHiddenReason.APPLICATION_CLOSED;
+		}
+		return null;
+	}
+
 	// 판매자가 판매를 멈춘 대회인지. 자리 확보가 기간 문구보다 먼저 판매 중지 문구로 거절할 때 쓴다
 	public boolean isStopped() {
 		return saleStatus == RaceSaleStatus.STOPPED;
