@@ -149,9 +149,10 @@ function TodoCard() {
             return (
               <TodoRow
                 key={race.raceId}
-                href={`/seller/races/${race.raceId}/record-certs`}
+                href={`/seller/races/${race.raceId}/record-certs` as Route}
                 icon="FileText"
-                name={title ? `기록증 심사 · ${title}` : '기록증 심사'}
+                // 내 대회 목록이 오기 전에도 줄마다 구분되게 대회 번호를 쓴다
+                name={`기록증 심사 · ${title ?? `대회 #${race.raceId}`}`}
                 count={countLabel(race.waitingCount, false)}
                 menu="기록증 심사"
               />
