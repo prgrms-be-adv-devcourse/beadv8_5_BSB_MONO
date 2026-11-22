@@ -161,6 +161,8 @@ describe('AdminSettlementsPage', () => {
     await user.click(screen.getByRole('button', { name: '보류 풀기' }))
 
     await waitFor(() => expect(released).toBe('2'))
+    // 풀고 나면 관리자 목록을 다시 불러온다
+    await waitFor(() => expect(urls.length).toBeGreaterThan(1))
   })
 
   describe('새 보류 걸기 · 정산 고르기', () => {
