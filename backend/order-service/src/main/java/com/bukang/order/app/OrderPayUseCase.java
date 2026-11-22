@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.bukang.common.global.eventpublisher.EventPublisher;
 import com.bukang.order.domain.Order;
 import com.bukang.order.domain.OrderStatus;
 import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
+import com.bukang.order.domain.event.QueueAdmissionUsedEvent;
 import com.bukang.order.domain.exception.ExternalServiceRejectedException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.InsufficientBalanceException;
@@ -72,6 +74,7 @@ public class OrderPayUseCase {
 	private final KitOptionPort kitOptionPort;
 	private final OrderQueryUseCase orderQueryUseCase;
 	private final OrderOutboxKafkaAppendUseCase orderOutboxKafkaAppendUseCase;
+	private final EventPublisher eventPublisher;
 
 	/**
 	 * 바깥 트랜잭션 없이 부른다. 상품 HTTP(종목·키트 옵션)·회원 HTTP(크루원 확인)와 판매 수 줄 만들기는 잠그기 전에 끝낸다
@@ -219,6 +222,11 @@ public class OrderPayUseCase {
 		// 키트가 있으면 이 때 참가 신청의 배송지로 발송 대기 배송을 만든다 (BUK-6)
 		order.markPaid(now, participation.getParticipant().getShippingAddress());
 		participation.markConfirmed(now);
+		// 개인 결제는 대기열 입장이 더 필요 없다. 커밋 뒤 푼다 (CRU-158). 파티원 결제는 대기열을 거치지 않는다
+		if (participation.getPartyId() == null) {
+			eventPublisher.publish(new QueueAdmissionUsedEvent(participation.getMemberId(), participation.getRaceId(),
+				participation.getRaceCourseId(), false));
+		}
 		logPayingTime(order, now, "확정");
 		return new Confirmed(OrderPayResult.paid(order.toDto()), null);
 	}

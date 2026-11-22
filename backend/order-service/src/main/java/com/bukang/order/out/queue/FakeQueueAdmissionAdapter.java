@@ -109,6 +109,17 @@ public class FakeQueueAdmissionAdapter implements QueueAdmissionPort {
 		}
 	}
 
+	// 기록을 지운다. 다음에 물으면 처음 입장으로 친다
+	@Override
+	public void releaseAdmission(long memberId, long raceId, long raceCourseId) {
+		admissionEndsAt.remove(new Admission(memberId, raceCourseId));
+	}
+
+	// 파티 입장은 기억하지 않으므로 풀 것이 없다
+	@Override
+	public void releasePartyAdmission(long leaderMemberId, long raceId, long raceCourseId) {
+	}
+
 	int size() {
 		return admissionEndsAt.size();
 	}
