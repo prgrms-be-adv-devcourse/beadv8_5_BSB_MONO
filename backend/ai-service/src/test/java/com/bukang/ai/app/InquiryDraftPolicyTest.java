@@ -85,6 +85,15 @@ class InquiryDraftPolicyTest {
 	}
 
 	@Test
+	@DisplayName("규칙 문장은 회원에게 그대로 옮겨지므로 「약속·보장하지 않는다」 같은 모델 지침을 담지 않는다 (CRU-152)")
+	void rulesHaveNoModelOnlyGuidance() {
+		assertThat(Arrays.stream(InquiryPolicy.values()).map(InquiryPolicy::getRules))
+			.allSatisfy(rules -> assertThat(rules).doesNotContain("약속하지 않", "보장하지 않", "단정하지 않", "다고 안내한다"));
+		assertThat(InquiryPolicy.KIT_OPTION.getRules())
+			.contains("결제 뒤 바꿀 수 없다", "환불 기한 안에 주문을 취소하고 다시 신청한다", "남아 있는 자리와 옵션 중에서 고를 수 있다");
+	}
+
+	@Test
 	@DisplayName("모든 정책은 실제 문의 종류에 붙고, 출처는 「정책 N장」 표기다")
 	void everyPolicyIsReachable() {
 		for (InquiryPolicy policy : InquiryPolicy.values()) {
@@ -144,6 +153,7 @@ class InquiryDraftPolicyTest {
 			.contains("참가권 취소 뜻으로 참가자 변경을")
 			.contains("회원에게 되묻지 않는다", "인사 뒤 2~4문장, 250자 안")
 			.contains("판매자가 확인한 뒤 다시 안내드릴게요.", "단정하지 않는다")
+			.contains("하지 않은 약속을 부정하는 문장", "면책 문구를 끝에 붙이지 않는다")
 			.contains("이 주문에 얼마가 언제 들어가는지, 이 주문을 취소할 수 있는지는 약속하지 않는다")
 			.doesNotContain("확인 후 안내해 드릴게요");
 	}
