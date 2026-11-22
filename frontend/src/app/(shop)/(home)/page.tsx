@@ -1,7 +1,7 @@
 import { HomePage } from '@/views/home'
 import {
   applicationPhase,
-  fetchRacePageWithCovers,
+  fetchRacePage,
   RACE_PAGE_SIZE,
   RaceSort,
   toClosingSoonCard,
@@ -18,7 +18,7 @@ export default async function Page({ searchParams }: PageProps<'/'>) {
   }
 
   // 마감 임박순 목록에는 아직 신청을 열지 않은 대회도 섞여 오므로, 한 페이지를 받아 지금 접수 중인 대회만 고른다
-  const closing = await fetchRacePageWithCovers({
+  const closing = await fetchRacePage({
     sort: RaceSort.DEADLINE,
     page: 0,
     size: RACE_PAGE_SIZE,
