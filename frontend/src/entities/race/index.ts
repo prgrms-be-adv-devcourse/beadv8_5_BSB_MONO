@@ -2,6 +2,7 @@ export {
   DEFAULT_RACE_SORT,
   fetchRaceDetail,
   fetchRacePage,
+  fetchRacePageWithCovers,
   RACE_PAGE_SIZE,
   raceDetailQueryOptions,
   raceCoverQueryOptions,
