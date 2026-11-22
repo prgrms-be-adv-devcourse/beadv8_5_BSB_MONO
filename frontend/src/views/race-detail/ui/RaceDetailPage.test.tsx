@@ -502,6 +502,20 @@ describe('RaceDetailPage v3 배치', () => {
     expect(screen.getByText(RACE_DETAIL.seller.businessNo)).toBeInTheDocument()
     expect(screen.getByText(RACE_DETAIL.seller.mailOrderNo)).toBeInTheDocument()
   })
+
+  it('상세 정보 이미지는 고정 비율로 자르지 않고, 여러 장은 간격 없이 이어 붙인다', () => {
+    renderPage({ race: { ...RACE_DETAIL, images: ['/a.png', '/b.png', '/c.png'] } })
+    const images = screen.getAllByRole('img', { name: /상세 정보 이미지/ })
+    images.forEach((img) => {
+      expect(img).toHaveClass('h-auto', 'w-full', 'block')
+      expect(img).not.toHaveClass('object-cover')
+      expect(img.parentElement).not.toHaveClass('h-112')
+    })
+    const wrapper = images[0].parentElement as HTMLElement
+    expect(images.every((img) => img.parentElement === wrapper)).toBe(true)
+    expect(wrapper).toHaveClass('flex-col', 'overflow-hidden', 'rounded-md')
+    expect(wrapper.className).not.toMatch(/\bgap-/)
+  })
 })
 
 describe('RaceDetailPage 파티 인원', () => {
