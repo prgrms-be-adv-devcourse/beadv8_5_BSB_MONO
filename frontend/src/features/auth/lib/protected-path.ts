@@ -21,8 +21,14 @@ const COMMUNITY_EDIT_PATH = /^\/community\/[^/]+\/edit(\/|$)/
 /** 탈퇴 완료 화면. 탈퇴하면 토큰을 비운 뒤 오므로 로그인을 요구하면 로그인 화면으로 밀려난다. */
 const WITHDRAW_DONE_PATH = '/me/withdraw/done'
 
+/**
+ * 고객센터. 로그인 화면 하단 링크가 가는 곳이라 로그아웃 상태로 열려야 한다. 개인 정보는 없고(정적 화면),
+ * 안의 문의 쓰기·내 문의(/me/inquiries)는 그대로 로그인이 필요하다.
+ */
+const SUPPORT_PATH = '/me/support'
+
 export function isProtectedPath(pathname: string): boolean {
-  if (pathname === WITHDRAW_DONE_PATH) return false
+  if (pathname === WITHDRAW_DONE_PATH || pathname === SUPPORT_PATH) return false
   return (
     APPLY_PATH.test(pathname) ||
     COMMUNITY_EDIT_PATH.test(pathname) ||
