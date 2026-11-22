@@ -27,6 +27,10 @@ class ChargeConfirmPermits {
 
 	<T> T run(Supplier<T> work) {
 		// 기다리면 그동안 쓰레드를 쥐므로 자리가 없으면 바로 거절한다
+		// shortcut: 같은 주문번호가 이미 처리 중인지 보기 전에 거절한다. 재요청이면 첫 요청이 승인돼도 이 응답은
+		// 429(「실패, 다시 결제」)다. 웹 화면은 확정을 한 번만 부르고 게이트웨이도 재시도하지 않아 지금은 생기기 어렵다.
+		// 확정을 다시 부르는 클라이언트가 생기면 자리 확인을 처리 중 선점 뒤, 토스 호출 바로 앞으로 옮긴다
+		// (docs/measurements/2026-11-20-예치금-부하-2차-전후.md 5장)
 		if (!permits.tryAcquire()) {
 			throw new ChargeBusyException();
 		}
