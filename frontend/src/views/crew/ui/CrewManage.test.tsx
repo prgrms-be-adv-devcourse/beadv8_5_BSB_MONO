@@ -591,7 +591,7 @@ describe('크루원 목록 줄 맞춤', () => {
       expect(name).toHaveClass('truncate')
       expect(name).toHaveAttribute('title', nickname)
       const row = name.closest('li')!
-      expect(row).toHaveTextContent(new RegExp(`${nickname}(크루장|운영진|크루원)`))
+      expect(row).toHaveTextContent(new RegExp(`${nickname}(· 나)?(크루장|운영진|크루원)`))
     }
   }
 

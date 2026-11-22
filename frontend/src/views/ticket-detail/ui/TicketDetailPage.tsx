@@ -33,6 +33,8 @@ export function TicketDetailPage({
   const cancel = useCancelTicket()
   const now = useNow()
   const [cancelOpen, setCancelOpen] = useState(confirmOpen)
+  // 취소가 끝나면 주문을 다시 받아 환불 가능 여부가 바뀐다. 확인 창 문구는 연 순간 값으로 고정한다
+  const [refundableAtOpen, setRefundableAtOpen] = useState<boolean>()
   const viewState = ticketViewState(data)
   const { ticket, order, participation, race, course, status } = data
 
@@ -148,7 +150,10 @@ export function TicketDetailPage({
             aside={
               <button
                 type="button"
-                onClick={() => setCancelOpen(true)}
+                onClick={() => {
+                  setRefundableAtOpen(refundable)
+                  setCancelOpen(true)
+                }}
                 className={buttonClassName({
                   variant: 'ghost',
                   size: 's',
@@ -192,7 +197,9 @@ export function TicketDetailPage({
         type="danger"
         title="참가를 취소할까요?"
         body={[
-          refundable ? `${amount}을 예치금으로 돌려받아요.` : '돌려받는 금액이 없어요.',
+          (refundableAtOpen ?? refundable)
+            ? `${amount}을 예치금으로 돌려받아요.`
+            : '돌려받는 금액이 없어요.',
           kitNote,
           '되돌릴 수 없어요.',
         ]
