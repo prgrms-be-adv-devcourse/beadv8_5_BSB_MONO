@@ -388,7 +388,9 @@ describe('충전 결과 화면 (토스 결제창에서 돌아옴)', () => {
         clientKey: undefined,
         origin: 'http://localhost',
         historyLength: 1,
+        historyLengthNow: () => 1,
         navigate,
+        goBack: vi.fn(),
       },
     )
     const back = new URL(navigate.mock.calls[0][0] as string).searchParams

@@ -1,35 +1,9 @@
 // 시안(피그마 세미프로젝트 페이지)의 예시 값을 그대로 옮긴 화면용 임시 데이터.
-// 홈·대회 찾기·대회 상세·참가 신청은 상품 API(PRO-148)를 쓴다. 남은 것은 API가 없는 배너와
+// 홈·대회 찾기·대회 상세·참가 신청은 상품 API(PRO-148)를 쓴다. 남은 것은
 // 장바구니·결제 완료 시안(PRO-150·151에서 지운다)이 쓰는 기본 대회뿐이다.
 
 import { MAIL_ORDER_NOTICE, refundRows } from './copy'
 import type { RaceDetail } from './types'
-
-export type RaceBanner = {
-  id: string
-  image: string
-  /** 글자가 박힌 배너 이미지는 글을 비운다 */
-  chip?: string
-  title?: string
-  description?: string
-}
-
-export const RACE_BANNERS: RaceBanner[] = [
-  {
-    id: 'cookierun',
-    image: '/mock/races/cookierun.webp',
-    chip: '이번 주 접수 마감',
-    title: '2026 용감한 쿠키RUN in 서울',
-    description: '10/31까지 · 5K · 10K · 서울숲 일대',
-  },
-  {
-    id: 'youth10k',
-    image: '/mock/races/youth10k.webp',
-    title: '긍정 하프 마라톤 YOUTH 10K',
-    description: '10/12 (월) 18:00 접수 마감',
-  },
-  { id: 'jtbc', image: '/mock/races/jtbc.webp' },
-]
 
 // 판매자가 올리는 자주 묻는 질문 예시. 정책(1인 1건, 양도 불가, 예치금 환불)과 맞춘다.
 const FAQ_ROWS = [

@@ -48,6 +48,7 @@ const MENU: Record<
       { href: '/admin/members', label: '회원 관리', icon: 'User', groupStart: true },
       { href: '/admin/sellers', label: '판매자 관리', icon: 'Users' },
       { href: '/admin/races', label: '대회 관리', icon: 'Calendar', groupStart: true },
+      { href: '/admin/banners', label: '홈 배너', icon: 'Image' },
       { href: '/admin/settlements', label: '정산 관리', icon: 'Inbox' },
       { href: '/admin/claims', label: '회수 관리', icon: 'Orders' },
       { href: '/admin/inquiries', label: '문의', icon: 'Help', groupStart: true },

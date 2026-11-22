@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { RACE_BANNERS, type RaceSummary } from '@/entities/race'
+import type { HomeBanner, RaceSummary } from '@/entities/race'
 import { clearAccessToken, setAccessToken } from '@/shared/api'
 import { server } from '@/shared/testing'
 
@@ -30,11 +30,37 @@ const RACE: RaceSummary = {
   price: '35,000원부터',
 }
 
-function renderHome(closingSoon: RaceSummary[] = []) {
+const BANNERS: HomeBanner[] = [
+  {
+    id: '1',
+    title: '2026 용감한 쿠키RUN in 서울',
+    image: '/mock/races/cookierun.webp',
+    posterLabel: '5K · 10K',
+    chip: '이번 주 접수 마감',
+    description: '11/27까지 · 5K · 10K · 서울숲 일대',
+  },
+  {
+    id: '2',
+    title: '2026 서울마라톤',
+    image: '/mock/races/seoul-international-marathon.webp',
+    posterLabel: '10K · 풀',
+    chip: '접수 중',
+    description: '12/10까지 · 10K · 풀 · 광화문광장',
+  },
+  {
+    id: '3',
+    title: '2026 한강 나이트런',
+    posterLabel: '10K · 하프',
+    chip: '접수 중',
+    description: '12/14까지 · 10K · 하프 · 여의도 한강공원',
+  },
+]
+
+function renderHome(closingSoon: RaceSummary[] = [], banners: HomeBanner[] = BANNERS) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <HomePage closingSoon={closingSoon} />
+      <HomePage closingSoon={closingSoon} banners={banners} />
     </QueryClientProvider>,
   )
 }
@@ -54,10 +80,9 @@ describe('HomePage', () => {
   it('배너 첫 장만 먼저 불러오고 나머지는 늦게 불러온다', () => {
     renderHome()
     const banner = screen.getByRole('region', { name: '접수 중인 대회' })
-    // 제목이 없는 배너는 alt가 비어 그림 역할로 잡히지 않아 태그로 찾는다
     const images = [...banner.querySelectorAll('img')]
-    expect(images).toHaveLength(RACE_BANNERS.length)
-    expect(images.length).toBeGreaterThan(1)
+    // 대표 이미지가 없는 3번째 대회는 사진 대신 색 포스터를 그린다
+    expect(images).toHaveLength(2)
 
     const [first, ...rest] = images
     // 첫 화면에서 가장 큰 요소(LCP)라 지연 로딩이면 늦게 그려진다
@@ -67,6 +92,31 @@ describe('HomePage', () => {
       expect(image).toHaveAttribute('loading', 'lazy')
       expect(image).not.toHaveAttribute('fetchpriority')
     }
+  })
+
+  it('배너에 관리자가 고른 대회의 상태 칩 · 이름 · 마감일 · 종목 · 장소를 순서대로 보여 준다', () => {
+    renderHome()
+    const banner = screen.getByRole('region', { name: '접수 중인 대회' })
+    const slides = within(banner).getAllByRole('group')
+    expect(slides).toHaveLength(3)
+    expect(within(slides[0]).getByText('이번 주 접수 마감')).toBeInTheDocument()
+    expect(within(slides[0]).getByText('2026 용감한 쿠키RUN in 서울')).toBeInTheDocument()
+    expect(within(slides[0]).getByText('11/27까지 · 5K · 10K · 서울숲 일대')).toBeInTheDocument()
+    expect(within(slides[2]).getByText('10K · 하프')).toBeInTheDocument()
+  })
+
+  it('배너 한 장은 그 대회 상세로 가는 링크다', () => {
+    renderHome()
+    const banner = screen.getByRole('region', { name: '접수 중인 대회' })
+    expect(within(banner).getByRole('link', { name: /2026 서울마라톤/ })).toHaveAttribute(
+      'href',
+      '/races/2',
+    )
+  })
+
+  it('배너로 고른 대회가 없으면 배너 영역을 그리지 않는다', () => {
+    renderHome([], [])
+    expect(screen.queryByRole('region', { name: '접수 중인 대회' })).not.toBeInTheDocument()
   })
 
   it('위쪽 탭과 바로가기 줄은 없다 (v3 홈)', () => {

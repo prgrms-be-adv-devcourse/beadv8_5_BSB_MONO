@@ -1,8 +1,8 @@
 export {
   DEFAULT_RACE_SORT,
+  fetchHomeBanners,
   fetchRaceDetail,
   fetchRacePage,
-  fetchRacePageWithCovers,
   RACE_PAGE_SIZE,
   raceDetailQueryOptions,
   raceCoverQueryOptions,
@@ -51,7 +51,15 @@ export {
   type ScheduleChangeValues,
 } from './lib/schedule-change'
 export { raceJsonLd, serializeJsonLd } from './lib/race-json-ld'
-export { RACE_BANNERS, RACE_DETAIL, type RaceBanner } from './model/fixtures'
+export { RACE_DETAIL } from './model/fixtures'
+export {
+  toBannerCandidate,
+  toHomeBanner,
+  toHomeBannerRow,
+  type BannerCandidate,
+  type HomeBanner,
+  type HomeBannerRow,
+} from './model/home-banner'
 export { applicationPhase, toClosingSoonCard, toRaceListItem } from './model/mappers'
 export type {
   ApplicationPhase,
@@ -66,6 +74,7 @@ export { RacePoster, type RacePosterProps } from './ui/RacePoster'
 export { RaceRecommendSection } from './ui/RaceRecommendSection'
 export { RaceTicketCard, type RaceTicketCardProps } from './ui/RaceTicketCard'
 export {
+  adminHomeBannersQueryOptions,
   adminRacesQueryOptions,
   fetchRaceForEdit,
   myRacesQueryOptions,

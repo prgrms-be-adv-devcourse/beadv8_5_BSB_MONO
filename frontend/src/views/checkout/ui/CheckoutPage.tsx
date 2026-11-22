@@ -7,7 +7,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 import { AppHeader } from '@/widgets/app-header'
-import { forgetKitOptionIds, readKitOptionIds, SAMPLE_PARTICIPANT } from '@/features/booking'
+import {
+  forgetKitOptionIds,
+  readKitOptionIds,
+  SAMPLE_PARTICIPANT,
+  saveKitOptionIds,
+} from '@/features/booking'
 import {
   chargeAmountFor,
   ChargeHeldAlert,
@@ -23,7 +28,7 @@ import {
   type RaceDetail,
 } from '@/entities/race'
 import { invalidateTicketQueries, orderQueryOptions } from '@/entities/ticket'
-import { orderApi, orderModel, unwrapData } from '@/shared/api'
+import { orderApi, orderModel, productApi, productModel, unwrapData } from '@/shared/api'
 import { formatNumber, orderTrackItems, useNow, useTrackOnce } from '@/shared/lib'
 import {
   Alert,
@@ -31,6 +36,7 @@ import {
   Button,
   buttonClassName,
   Checkbox,
+  Chip,
   EmptyState,
   Icon,
   Radio,
@@ -291,6 +297,30 @@ function OrderCheckout({
   const participation = orderApi.useFindById(participationId ?? 0, {
     query: { enabled: participationId !== undefined, select: unwrapData },
   })
+  // 키트 옵션은 이 화면에서 고른다. 개인 예매는 참가 신청에서 고른 값이 주문별로 남아 있어 미리 채워진다.
+  // 토스 충전으로 페이지를 떠났다 돌아와도 남도록 고를 때마다 같은 곳에 저장한다.
+  const kit = productApi.useFindKitOptions(raceId ?? 0, {
+    query: { enabled: raceId !== undefined, select: unwrapData },
+  })
+  const kitGroups = kit.data?.kitOptions ?? []
+  const [kitIds, setKitIds] = useState(() => readKitOptionIds(orderId))
+  // 서버가 키트 옵션 때문에 결제를 거절한 문구. 실패 화면으로 넘기지 않고 키트 칸에 보여 준다
+  const [kitError, setKitError] = useState<string | null>(null)
+  const pickedOf = (group: KitGroup) =>
+    group.values.find((v) => kitIds.includes(v.kitOptionId))?.kitOptionId
+  // 옵션이 있는 대회는 옵션 이름마다 하나씩 다 골라야 결제할 수 있다. 목록을 받는 중에도 막는다
+  // 조회가 실패했을 때도 막는다. 옵션을 모른 채 결제하면 서버가 매번 거절한다
+  const kitReady =
+    raceId === undefined || (kit.isSuccess && kitGroups.every((g) => pickedOf(g) !== undefined))
+  const pickKit = (group: KitGroup, kitOptionId: number) => {
+    const next = kitGroups.flatMap((g) => {
+      const id = g.name === group.name ? kitOptionId : pickedOf(g)
+      return id === undefined ? [] : [id]
+    })
+    setKitIds(next)
+    saveKitOptionIds(orderId, next)
+    setKitError(null)
+  }
   // 필수 동의는 결제 화면에 들어올 때마다 사용자가 직접 체크한다.
   const [agreed, setAgreed] = useState(false)
   const [failure, setFailure] = useState<PayFailure | null>(
@@ -334,7 +364,12 @@ function OrderCheckout({
   const pay = useMutation<orderModel.OrderDto, Error, { auto: boolean }>({
     // 참가 신청에서 고른 키트 옵션. 옵션이 있는 대회는 이름마다 하나씩 없으면 서버가 400으로 거절한다
     mutationFn: async () => {
-      const kitOptionIds = readKitOptionIds(orderId)
+      // 옵션이 있는 대회는 화면에 보이는 선택(옵션 이름마다 하나)만 보낸다. 저장값에 옛 옵션이 섞여도 막힌다.
+      // 목록을 아직 못 받았으면(충전 뒤 돌아오자마자) 저장해 둔 값을 보낸다
+      const kitOptionIds =
+        kitGroups.length > 0
+          ? kitGroups.flatMap((g) => pickedOf(g) ?? [])
+          : readKitOptionIds(orderId)
       return unwrapData(
         await orderApi.pay(orderId, kitOptionIds.length > 0 ? { kitOptionIds } : undefined),
       )
@@ -364,6 +399,10 @@ function OrderCheckout({
     },
     onError: (error, { auto }) => {
       const next = toPayFailure(error)
+      if (next.kind === 'kit') {
+        setKitError(next.message)
+        return
+      }
       if (next.kind === 'insufficient') {
         void deposit.refetch()
         if (!auto) charge(next.shortage)
@@ -396,7 +435,8 @@ function OrderCheckout({
   useTrackOnce('deposit_short', shortage > 0 ? { shortage } : null)
   // 충전하고 돌아왔으면 같은 주문으로 한 번 다시 결제한다. 기한이 지났으면 부르지 않고 시간 초과 화면을 보여 준다.
   const resumed = useRef(false)
-  const canResume = charged && status === 'CREATED' && remaining > 0 && failure === null
+  const canResume =
+    charged && status === 'CREATED' && remaining > 0 && failure === null && !kit.isLoading
   useEffect(() => {
     if (!canResume || resumed.current) return
     resumed.current = true
@@ -441,7 +481,7 @@ function OrderCheckout({
   const payment = balance === undefined ? undefined : splitPayment(amount, balance)
   const busy = pay.isPending || charging
   // 충전하고 돌아와 다시 결제하는 동안에는 동의를 다시 받지 않는다 (떠나기 전에 체크했다)
-  const ready = (agreed || charged) && !busy
+  const ready = (agreed || charged) && !busy && kitReady
 
   return (
     <CheckoutForm
@@ -464,7 +504,36 @@ function OrderCheckout({
       amount={amount}
       balance={balance}
       refundDeadline={race.data ? refundDeadlineOf(race.data) : undefined}
-      kitOption={kitOptionLabel(participation.data?.participant?.tshirtSize)}
+      kitOption={
+        kitGroups.length > 0
+          ? undefined
+          : kitOptionLabel(participation.data?.participant?.tshirtSize)
+      }
+      kitBlock={
+        kit.isError ? (
+          <Block title="키트 옵션">
+            <Alert tone="danger" title="키트 옵션을 불러오지 못했어요" />
+            <Button
+              size="s"
+              variant="secondary"
+              className="self-start"
+              disabled={kit.isFetching}
+              onClick={() => void kit.refetch()}
+            >
+              다시 시도하기
+            </Button>
+          </Block>
+        ) : (
+          kitGroups.length > 0 && (
+            <KitOptionBlock
+              groups={kitGroups}
+              pickedOf={pickedOf}
+              onPick={pickKit}
+              error={kitError}
+            />
+          )
+        )
+      }
       agreed={agreed || charged}
       onAgreedChange={setAgreed}
       notice={chargeHeld && <ChargeHeldAlert />}
@@ -571,6 +640,46 @@ function Block({
 
 const BOX = 'flex flex-col rounded-md border border-border-default bg-bg-surface'
 
+type KitGroup = productModel.KitOptionGroupDto
+
+// 피그마 V4 · M07-5 파티원 결제 · 키트 고르기. 칩 모양은 참가 신청 ② 키트 옵션과 같다.
+function KitOptionBlock({
+  groups,
+  pickedOf,
+  onPick,
+  error,
+}: {
+  groups: KitGroup[]
+  pickedOf: (group: KitGroup) => number | undefined
+  onPick: (group: KitGroup, kitOptionId: number) => void
+  /** 서버가 키트 옵션 때문에 결제를 거절한 문구 */
+  error: string | null
+}) {
+  return (
+    <Block title="키트 옵션">
+      {error && <Alert tone="danger" title={error} />}
+      <div className={`${BOX} gap-6 p-4`}>
+        {groups.map((group) => (
+          <fieldset key={group.name} className="flex flex-col gap-3">
+            <legend className="mb-3 text-body1-bold">{group.name}</legend>
+            <div className="flex flex-wrap gap-2">
+              {group.values.map((v) => (
+                <Chip
+                  key={v.kitOptionId}
+                  selected={pickedOf(group) === v.kitOptionId}
+                  onClick={() => onPick(group, v.kitOptionId)}
+                >
+                  {v.value}
+                </Chip>
+              ))}
+            </div>
+          </fieldset>
+        ))}
+      </div>
+    </Block>
+  )
+}
+
 function Row({ label, value, strong }: { label: string; value: ReactNode; strong?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2 text-body1-regular">
@@ -588,6 +697,7 @@ function CheckoutForm({
   shipTo,
   emergency,
   kitOption,
+  kitBlock,
   amount,
   balance,
   refundDeadline,
@@ -605,6 +715,8 @@ function CheckoutForm({
   shipTo?: string
   emergency?: string
   kitOption?: string
+  /** 키트 옵션을 고르는 칸. 옵션이 없는 대회는 그리지 않는다 */
+  kitBlock?: ReactNode
   amount: number
   /** 예치금 잔액. 불러오지 못하면 undefined */
   balance?: number
@@ -698,6 +810,8 @@ function CheckoutForm({
             </div>
           </div>
         </Block>
+
+        {kitBlock}
 
         <Block title="예치금">
           <div className={`${BOX} px-4 py-2`}>

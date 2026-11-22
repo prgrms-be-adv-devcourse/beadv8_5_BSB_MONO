@@ -8,6 +8,89 @@
 import * as zod from 'zod';
 
 /**
+ * 관리자가 고른 순서대로 지금 홈에 보일 대회만 준다(대회 목록 카드와 같은 모양). 접수 마감·판매 중지·판매 종료·대회 취소된 대회는 뺀다. 대표 이미지를 받지 못하면 imageUrl만 null이다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.
+ * @summary 홈 배너 대회 목록
+ */
+export const FindHomeBannersResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "raceId": zod.int().optional(),
+  "title": zod.string().optional(),
+  "location": zod.string().optional(),
+  "regionSido": zod.string().optional(),
+  "regionSigungu": zod.string().optional(),
+  "raceDate": zod.iso.datetime({"offset":true}).optional(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']).optional(),
+  "saleOpenDate": zod.iso.date().optional(),
+  "crewSaleStartAt": zod.iso.datetime({"offset":true}).nullish(),
+  "crewSaleEndAt": zod.iso.datetime({"offset":true}).nullish(),
+  "individualOpenAt": zod.iso.datetime({"offset":true}).optional(),
+  "applicationCloseAt": zod.iso.datetime({"offset":true}).optional(),
+  "minPrice": zod.int().optional(),
+  "courses": zod.array(zod.object({
+  "raceCourseId": zod.int().optional(),
+  "name": zod.string().optional(),
+  "courseType": zod.enum(['KM_5', 'KM_10', 'HALF', 'FULL', 'ULTRA']).optional(),
+  "distanceKm": zod.number().optional(),
+  "price": zod.int().optional(),
+  "status": zod.enum(['OPEN', 'SOLD_OUT']).optional(),
+  "individualRemaining": zod.int().optional()
+})).optional(),
+  "imageUrl": zod.string().nullish().describe('대표 이미지 보기 주소(30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null')
+})).optional()
+})
+
+
+/**
+ * 배너로 고른 대회를 순서대로 모두 준다. 홈에 안 보이는 대회는 이유(hiddenReason, hiddenReasonLabel)와 함께 온다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.
+ * @summary 관리자 홈 배너 목록
+ */
+export const FindAdminHomeBannersResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "raceId": zod.int(),
+  "title": zod.string(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "applicationCloseAt": zod.iso.datetime({"offset":true}),
+  "displayOrder": zod.int().describe('홈에 보이는 순서 (0부터)'),
+  "visible": zod.boolean().describe('지금 홈에 보이는지'),
+  "hiddenReason": zod.union([zod.literal('CANCELED'),zod.literal('CLOSED'),zod.literal('STOPPED'),zod.literal('APPLICATION_CLOSED'),zod.literal(null)]).nullable().describe('홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null'),
+  "hiddenReasonLabel": zod.string().nullable().describe('이유의 화면 이름(대회 취소 / 판매 종료 / 판매 중지 / 접수 마감). 보이면 null')
+})).optional()
+})
+
+
+/**
+ * 배너 목록 전체를 보낸 순서대로 바꾼다. 추가·빼기·순서 바꾸기 모두 이 API로 한다. 판매 중지·접수 마감 대회는 저장되지만 홈에는 안 보인다. 취소·판매 종료 대회는 보낸 목록 어디에 있든(이미 올라 있던 대회도) 409로 막힌다. 오류가 나면 아무것도 바뀌지 않는다. 백엔드 PR #781(CRU-147)과 같은 계약이다. 백엔드 명세를 받으면 이 항목을 지운다.
+ * @summary 관리자 홈 배너 저장
+ */
+export const replaceAdminHomeBannersBodyRaceIdsMax = 5;
+
+
+
+export const ReplaceAdminHomeBannersBody = zod.object({
+  "raceIds": zod.array(zod.int()).max(replaceAdminHomeBannersBodyRaceIdsMax).describe('배너로 고른 대회 ID. 보낸 순서가 홈에 보이는 순서다(최대 5개, 중복 없음). []이면 배너를 모두 비운다')
+})
+
+export const ReplaceAdminHomeBannersResponse = zod.object({
+  "status": zod.int().optional(),
+  "message": zod.string().optional(),
+  "data": zod.array(zod.object({
+  "raceId": zod.int(),
+  "title": zod.string(),
+  "saleStatus": zod.enum(['SCHEDULED', 'ON_SALE', 'STOPPED', 'CLOSED', 'CANCELED']),
+  "applicationCloseAt": zod.iso.datetime({"offset":true}),
+  "displayOrder": zod.int().describe('홈에 보이는 순서 (0부터)'),
+  "visible": zod.boolean().describe('지금 홈에 보이는지'),
+  "hiddenReason": zod.union([zod.literal('CANCELED'),zod.literal('CLOSED'),zod.literal('STOPPED'),zod.literal('APPLICATION_CLOSED'),zod.literal(null)]).nullable().describe('홈에 안 보이는 이유. 여러 개면 취소 → 판매 종료 → 판매 중지 → 접수 마감 순으로 하나. 보이면 null'),
+  "hiddenReasonLabel": zod.string().nullable().describe('이유의 화면 이름(대회 취소 / 판매 종료 / 판매 중지 / 접수 마감). 보이면 null')
+})).optional()
+})
+
+
+/**
  * 대회와 종목(남은 자리 포함), 판매자 정보를 돌려준다. 로그인하지 않아도 된다. 취소된 대회는 등록한 판매자만 볼 수 있고, 다른 사람에게는 없는 대회(404)로 보인다. 종목 이미지는 file-service에서 종목마다 받는다(GET /api/v1/file/files?refType=RaceCourse&refId=종목 ID). 판매 상태(saleStatus)와 판매 시작일(saleOpenDate)은 판매자 화면용이고, 구매자 화면의 예매 버튼은 크루 예매 기간·개인 예매 오픈·접수 마감 일시로 켠다.
  * @summary 대회 상세
  */
@@ -432,7 +515,8 @@ export const SearchResponse = zod.object({
   "price": zod.int().optional(),
   "status": zod.enum(['OPEN', 'SOLD_OUT']).optional(),
   "individualRemaining": zod.int().optional()
-})).optional()
+})).optional(),
+  "imageUrl": zod.string().nullish().describe('대표 이미지 보기 주소(30분 뒤 만료). 대표 이미지가 없거나 파일 서비스에서 받지 못하면 null')
 })).optional(),
   "page": zod.int().optional(),
   "size": zod.int().optional(),
