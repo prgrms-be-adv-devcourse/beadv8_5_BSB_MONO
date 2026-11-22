@@ -87,10 +87,9 @@ describe('SellerDashboardPage', () => {
     const rest = await within(todo).findByRole('link', { name: /기록증 심사 · 외 2개 대회\s*3건/ })
     expect(rest).toHaveAttribute('href', '/seller/races')
     // 내 대회 목록에 없는 대회는 이름 대신 대회 번호로 구분하고 그 대회의 심사 화면으로 보낸다
-    expect(within(todo).getByRole('link', { name: /기록증 심사 · 대회 #902\s*4건/ })).toHaveAttribute(
-      'href',
-      '/seller/races/902/record-certs',
-    )
+    expect(
+      within(todo).getByRole('link', { name: /기록증 심사 · 대회 #902\s*4건/ }),
+    ).toHaveAttribute('href', '/seller/races/902/record-certs')
     expect(within(todo).getAllByRole('link', { name: /기록증 심사/ })).toHaveLength(4)
   })
 
