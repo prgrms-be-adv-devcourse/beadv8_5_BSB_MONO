@@ -13,7 +13,11 @@ final class AdminMemberApiExamples {
 				},
 				{
 					"id": 3318, "nickname": "달리는곰2", "joinedAt": "2026-09-14T09:00:00",
-					"deposit": null, "activeTickets": 0
+					"deposit": 0, "activeTickets": 0
+				},
+				{
+					"id": 4120, "nickname": "달리는곰곰", "joinedAt": "2026-10-30T09:00:00",
+					"deposit": 0, "activeTickets": 0
 				}
 			]
 		}

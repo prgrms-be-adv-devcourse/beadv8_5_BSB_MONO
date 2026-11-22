@@ -95,6 +95,14 @@ class ApiV1AdminMemberSearchTest {
 	}
 
 	@Test
+	@DisplayName("헤더의 회원이 없으면 404다")
+	void unknownMemberIsNotFound() throws Exception {
+		find(adminId + 1000, "달리는")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("MEMBER_NOT_FOUND"));
+	}
+
+	@Test
 	@DisplayName("닉네임이 없거나 공백뿐이면 400이다")
 	void blankNicknameIsBadRequest() throws Exception {
 		mockMvc.perform(get(URL).header(MemberIdHeader.NAME, adminId))
