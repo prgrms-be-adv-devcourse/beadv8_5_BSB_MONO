@@ -39,7 +39,8 @@ public class PolicyTools {
 	// 다윗님 결정(11/20): 목록에 있는 규칙은 확정된 규칙처럼 단정해서 답한다
 	static final String HOW_TO_ANSWER = "rules는 지금 서비스가 따르는 확정 규칙이다. 규칙을 그대로 단정해서 말한다. "
 		+ "「~로 보여요」, 「자세한 건 확인해 주세요」, 「변경될 수 있어요」 같은 흐리는 말을 붙이지 않는다. 숫자는 rules에 있는 것만 쓴다. "
-		+ "rules의 「~한다」 문장을 그대로 옮기지 말고 「~해요」로 바꿔 쓴다.";
+		+ "rules의 「~한다」 문장을 그대로 옮기지 말고 「~해요」로 바꿔 쓴다. "
+		+ "「~는 약속하지 않아요」, 「~는 보장하지 않아요」 같은 부정 문장이나 면책 문구를 끝에 붙이지 않는다.";
 	private static final Pattern TENTATIVE = Pattern.compile("잠정|확정 전|확정되기 전|정해지지 않|회의에서|회의 후");
 	private static final Pattern SENTENCE_END = Pattern.compile("(?<=\\.) ");
 
