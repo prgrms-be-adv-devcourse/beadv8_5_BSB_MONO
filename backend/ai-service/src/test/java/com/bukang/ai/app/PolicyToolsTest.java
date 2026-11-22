@@ -25,6 +25,8 @@ class PolicyToolsTest {
 				.doesNotContainPattern("로 보여|자세한 (건|내용은) 확인|변경될 수 있|바뀔 수 있");
 		}
 		assertThat(PolicyTools.name(InquiryPolicy.KIT_RETURN)).isEqualTo("정책 5장 3-1 키트 반품");
+		// 「~는 약속하지 않아요」 같은 끝맺음이 붙지 않게 한다 (CRU-152)
+		assertThat(PolicyTools.HOW_TO_ANSWER).contains("면책 문구를 끝에 붙이지 않는다");
 	}
 
 	@Test
