@@ -27,7 +27,6 @@
 - [우리가 푼 문제](#우리가-푼-문제)
 - [팀](#팀)
 - [협업 방식](#협업-방식)
-- [프로젝트 자료](#프로젝트-자료)
 - [CI/CD](#cicd)
 - [향후 개선](#향후-개선)
 - [문서](#문서)
@@ -165,20 +164,6 @@ docker compose --profile app ps                # 서비스가 healthy면 http://
 - **커밋:** Conventional Commits를 따르고 commitlint가 검사합니다.
 - **PR:** 템플릿과 CI(백엔드 · 프론트엔드)를 통과해야 머지합니다.
 - **AI 협업:** 팀 컨벤션을 `.claude/rules`에 두어 Claude Code가 같은 규칙으로 작업합니다.
-
-## 프로젝트 자료
-
-| 자료 | 위치 |
-|---|---|
-| 기획서 | (채울 예정) · 기획 조사: [docs/ideation](docs/ideation) |
-| WBS | (채울 예정) |
-| 요구사항 명세서 | (채울 예정) · 기능 규칙: [docs/policy](docs/policy/README.md) |
-| 화면 기능 설계서 | (채울 예정) |
-| ERD | (전체 ERD 채울 예정) · 예치금: [docs/erd/cash.md](docs/erd/cash.md) |
-| 테이블 명세서 | (채울 예정) |
-| API 명세서 | (채울 예정) |
-| 테스트 결과서 | (채울 예정) · 부하 테스트: [docs/loadtest](docs/loadtest/README.md) |
-| 통합 테스트 결과서 | (채울 예정) |
 
 ## CI/CD
 
