@@ -246,7 +246,7 @@ public class PayoutClaimUseCase {
 
 	// 청구를 시작하는 날(상계 실패일). 아직 청구할 때가 아니면 빈 값
 	// - 최종 정산을 만들었으면 그날: 상계가 끝나 더는 금액이 바뀌지 않는다
-	// - 대회가 취소됐으면 취소일. 단 취소 다음 날 배치부터, 주문이 환불을 모두 끝냈다고 알린 뒤에만 만든다
+	// - 대회가 취소됐으면 취소일(대회 취소 회수가 없으면 환불 완료일). 단 그다음 날 배치부터, 주문이 환불을 모두 끝냈다고 알린 뒤에만 만든다
 	//   환불이 남았을 때 만들면 늦게 온 환불이 갚을 돈을 늘려 청구 금액과 달라진다 (PR #467 리뷰)
 	// shortcut: 환불 완료와 참가권 환불 알림은 토픽이 달라 순서가 보장되지 않는다. 참가권 알림이 DLT에 남은 채
 	// 환불 완료가 먼저 오면 청구 뒤에 회수가 늘 수 있다. 그때는 입금 확인이 거부하고 사람이 맞춘다 (checkReceivableMatches)
@@ -258,19 +258,21 @@ public class PayoutClaimUseCase {
 		}
 		// 1차가 지급 결과를 기다리는 동안에는 만들지 않는다. 거절되면 회수가 되돌아가 갚을 돈이 0이 되는데,
 		// 청구는 닫을 방법이 없어 받은 적 없는 돈을 갚으라는 알림이 계속 나간다 (PR #467 리뷰)
-		boolean ready = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
+		Optional<Payout> readyFirst = payoutRepository.findFirstBySellerIdAndRaceIdAndPayoutStageOrderByIdAsc(
 				target.sellerId(), target.raceId(), PayoutStage.일차_정산)
 			.filter(Payout::isRaceRefunded)
-			.filter(first -> !first.getStatus().isAwaitingPayResult())
-			.isPresent();
-		if (!ready) {
+			.filter(first -> !first.getStatus().isAwaitingPayResult());
+		if (readyFirst.isEmpty()) {
 			return Optional.empty();
 		}
-		return payoutRecoveryRepository.findFirstBySellerIdAndRaceIdAndReasonType(target.sellerId(),
+		// 취소 전에 일정 변경으로 모두 환불돼 대회 취소 회수가 없으면, 환불 완료일을 취소일로 본다.
+		// 대회 취소 회수로만 찾으면 남은 일정 변경 회수가 청구되지 않는다
+		LocalDate canceledDate = payoutRecoveryRepository.findFirstBySellerIdAndRaceIdAndReasonType(target.sellerId(),
 				target.raceId(), PayoutRecoveryReason.대회_취소)
 			.map(PayoutRecovery::getRequestedAt)
-			.map(LocalDateTime::toLocalDate)
-			.filter(canceledDate -> today.isAfter(canceledDate));
+			.orElse(readyFirst.get().getRaceRefundedAt())
+			.toLocalDate();
+		return Optional.of(canceledDate).filter(today::isAfter);
 	}
 
 	private record SellerRace(long sellerId, long raceId) {
