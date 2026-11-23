@@ -39,7 +39,7 @@ data:
 
   # QA용 테스트 회원 만들기(POST /api/v1/member/admin/test-members). 관리자가 본인인증 없이 qa-buyer-{번호}@crewrun.test 회원을 만든다
   # 화면 QA 데이터를 넣는 동안만 켠다. 위 테스트 계정 로그인이 켜져 있으면 누구나 관리자로 들어와 부를 수 있으니, QA가 끝나면 "false"로 바꿔 적용한다
-  TEST_MEMBER_ENABLED: "true"
+  TEST_MEMBER_ENABLED: "false"
 
   # 회원 메일·링크 (member)
   #   FRONT_PUBLIC_BASE_URL: 메일·카카오톡 버튼 링크의 앞부분(비밀번호 재설정, 광고 수신 거부, 크루 초대). 비면 링크가 열리지 않는다

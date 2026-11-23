@@ -129,4 +129,26 @@ class HttpQueueAdmissionAdapterTest {
 		assertThat(adapter.findAdmissionEndsAtOnPageOpen(MEMBER_ID, RACE_ID, RACE_COURSE_ID, NOW)).isEmpty();
 		server.verify();
 	}
+
+	@Test
+	@DisplayName("입장 해제는 대기열의 해제 API(DELETE)를 회원 ID 헤더로 부른다. 개인·파티 경로가 다르다 (CRU-158)")
+	void release() {
+		String releaseUrl = BASE_URL + "/api/v1/queue/races/1/racecourses/11/active";
+		String partyReleaseUrl = BASE_URL + "/api/v1/queue/parties/races/1/racecourses/11/active";
+		String released = "{ \"status\": 200, \"message\": \"입장을 해제했습니다.\", \"data\": null }";
+		server.expect(requestTo(releaseUrl)).andExpect(method(HttpMethod.DELETE))
+			.andExpect(header("X-Member-Id", String.valueOf(MEMBER_ID)))
+			.andRespond(withSuccess(released, MediaType.APPLICATION_JSON));
+		server.expect(requestTo(partyReleaseUrl)).andExpect(method(HttpMethod.DELETE))
+			.andExpect(header("X-Member-Id", String.valueOf(MEMBER_ID)))
+			.andRespond(withSuccess(released, MediaType.APPLICATION_JSON));
+		server.expect(requestTo(releaseUrl)).andRespond(withServerError());
+
+		adapter.releaseAdmission(MEMBER_ID, RACE_ID, RACE_COURSE_ID);
+		adapter.releasePartyAdmission(MEMBER_ID, RACE_ID, RACE_COURSE_ID);
+		// 실패는 부른 쪽(QueueAdmissionReleaseListener)이 로그로 남기도록 던진다
+		assertThatThrownBy(() -> adapter.releaseAdmission(MEMBER_ID, RACE_ID, RACE_COURSE_ID))
+			.isInstanceOf(RuntimeException.class);
+		server.verify();
+	}
 }

@@ -20,6 +20,7 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyMember;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.event.QueueAdmissionUsedEvent;
 import com.bukang.order.domain.exception.CrewNotFoundException;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
@@ -249,6 +250,8 @@ public class PartyApplyUseCase {
 		}
 		participations.forEach(participation -> participation.markApplied(dueAt));
 		party.startPayment(dueAt, now);
+		// 파티 입장은 신청에만 필요하다(파티원 결제는 대기열을 보지 않는다). 커밋 뒤 푼다 (CRU-158)
+		eventPublisher.publish(new QueueAdmissionUsedEvent(memberId, prepared.raceId(), prepared.raceCourseId(), true));
 		// 커밋된 뒤에만 나간다 (롤백되면 보내지 않는다). 잃어도 되는 메시지라 아웃박스 없이 보낸다 (11/04 결정)
 		members.forEach(member -> eventPublisher.publish(NotificationRequestedEvent.of(member.getMemberId(),
 			NotificationKind.PARTY_PAYMENT_REQUESTED, "파티 결제를 시작해 주세요",

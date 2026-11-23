@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -34,6 +35,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -45,6 +48,7 @@ import com.bukang.order.domain.Participation;
 import com.bukang.order.domain.ParticipationStatus;
 import com.bukang.order.domain.Party;
 import com.bukang.order.domain.PartyStatus;
+import com.bukang.order.domain.event.QueueAdmissionUsedEvent;
 import com.bukang.order.domain.exception.ExternalServiceUnavailableException;
 import com.bukang.order.domain.exception.ParticipationNotPayableException;
 import com.bukang.order.out.ParticipationRepository;
@@ -67,6 +71,7 @@ import com.jayway.jsonpath.JsonPath;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({StubRaceCoursePortConfig.class, StubCrewPortConfig.class, StubQueueAdmissionPortConfig.class})
+@RecordApplicationEvents
 class ApiV1PartyApplyTest {
 	private static final String BASE_URL = "/api/v1/order/parties";
 	private static final long LEADER = 1;
@@ -88,8 +93,13 @@ class ApiV1PartyApplyTest {
 	@Autowired
 	private ParticipationRepository participationRepository;
 
-	@Autowired
+	// 대기열 입장 해제(커밋 뒤 다른 쓰레드)를 확인하려고 감싼다
+	@MockitoSpyBean
 	private StubQueueAdmissionPort queueAdmissionPort;
+
+	// 이 테스트 쓰레드에서 발행한 이벤트 (MockMvc 요청도 같은 쓰레드)
+	@Autowired
+	private ApplicationEvents applicationEvents;
 
 	@Autowired
 	private StubRaceCoursePort raceCoursePort;
@@ -170,6 +180,9 @@ class ApiV1PartyApplyTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ORDER_PARTY_NOT_RECRUITING"));
 		verify(crewSeatHoldPort, times(1)).holdAll(eq(partyId), eq(CREW_ID), eq(RACE_ID), any(), any());
+		// 파티 입장은 신청에만 필요하다(파티원 결제는 대기열을 보지 않는다). 결제 기간을 열면 커밋 뒤 푼다 (CRU-158)
+		// 앞 테스트의 해제가 알림 전송에 밀려 늦게 닿을 수 있어 한 번 이상으로 본다
+		verify(queueAdmissionPort, timeout(3_000).atLeastOnce()).releasePartyAdmission(LEADER, RACE_ID, COURSE_ID);
 		// 결제 진행 중에는 합류·나가기도 막힌다
 		post(MEMBERS.getFirst(), partyId, "/leave").andExpect(status().isConflict());
 	}
@@ -187,6 +200,8 @@ class ApiV1PartyApplyTest {
 
 		apply(LEADER, partyId).andExpect(status().isServiceUnavailable());
 		assertThat(partyRepository.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.RECRUITING);
+		// 다시 신청하려면 파티 입장이 필요하므로 풀지 않는다 (해제 이벤트를 발행하지 않는다)
+		assertThat(applicationEvents.stream(QueueAdmissionUsedEvent.class)).isEmpty();
 
 		// 상품에 잡힌 자리 목록이 바뀌면 다시 신청할 수 없으므로 나가기·합류를 막는다
 		post(MEMBERS.getFirst(), partyId, "/leave")

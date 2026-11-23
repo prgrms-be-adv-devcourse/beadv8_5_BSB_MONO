@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
  * 입장 끝 시각은 대기열 시계의 admissionEndsAt 대신 남은 시간(remainingMillis)을 주문의 지금에 더해 센다
  * (두 서버의 시계·시간대가 달라도 결제 기한이 어긋나지 않는다)
  * 응답이 없거나 형식이 다르면 입장했는지 알 수 없으므로, "입장 전" 403이 아니라 503으로 다시 시도하게 한다
+ * 결제가 끝나면 입장 해제 API(DELETE .../active)를 부른다 (CRU-158)
  * 등록은 QueueClientConfig가 한다 (order.clients.queue.mode=http)
  */
 @Slf4j
@@ -30,6 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 public class HttpQueueAdmissionAdapter implements QueueAdmissionPort {
 	static final String PATH = "/internal/v1/queue/races/{raceId}/racecourses/{raceCourseId}";
 	static final String PARTY_PATH = "/internal/v1/queue/parties/races/{raceId}/racecourses/{raceCourseId}";
+	// 해제는 내부 API가 없어 프론트가 쓰는 공개 API를 게이트웨이 없이 직접 부른다 (호빈님 #623, 회원 ID 헤더는 주문이 넣는다)
+	static final String RELEASE_PATH = "/api/v1/queue/races/{raceId}/racecourses/{raceCourseId}/active";
+	static final String PARTY_RELEASE_PATH = "/api/v1/queue/parties/races/{raceId}/racecourses/{raceCourseId}/active";
 	static final String MEMBER_ID_HEADER = "X-Member-Id";
 	static final String UNAVAILABLE_MESSAGE = "대기열에 연결하지 못했습니다. 잠시 뒤 다시 시도해주세요.";
 	private static final ParameterizedTypeReference<RsData<Admission>> RESPONSE_TYPE =
@@ -85,6 +89,25 @@ public class HttpQueueAdmissionAdapter implements QueueAdmissionPort {
 		}
 		// DB가 마이크로초까지 저장하므로 잘라 둔다 (결제 기한으로 저장한 값과 비교가 어긋나지 않게)
 		return Optional.of(now.plus(admission.remainingMillis(), ChronoUnit.MILLIS).truncatedTo(ChronoUnit.MICROS));
+	}
+
+	@Override
+	public void releaseAdmission(long memberId, long raceId, long raceCourseId) {
+		release(RELEASE_PATH, memberId, raceId, raceCourseId);
+	}
+
+	@Override
+	public void releasePartyAdmission(long leaderMemberId, long raceId, long raceCourseId) {
+		release(PARTY_RELEASE_PATH, leaderMemberId, raceId, raceCourseId);
+	}
+
+	// 실패(연결 실패·4xx·5xx)는 RestClientException 그대로 던진다. 부른 쪽이 로그만 남긴다
+	private void release(String path, long memberId, long raceId, long raceCourseId) {
+		restClient.delete()
+			.uri(path, raceId, raceCourseId)
+			.header(MEMBER_ID_HEADER, String.valueOf(memberId))
+			.retrieve()
+			.toBodilessEntity();
 	}
 
 	// 대기열 응답의 data (queue QueueAdmissionDto). 판정에 쓰는 값만 받는다
