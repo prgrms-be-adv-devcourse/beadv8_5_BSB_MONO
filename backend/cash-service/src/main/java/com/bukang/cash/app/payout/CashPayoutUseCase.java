@@ -141,7 +141,7 @@ public class CashPayoutUseCase {
 		// 실패가 확정된 송금은 같은 행의 시도 횟수를 올려 새 송금 ID로 다시 보낸다 (완료된 송금은 정산 ID마다 하나뿐)
 		PayoutTransfer settlement = existingSettlement
 			.map(failed -> {
-				failed.retry();
+				failed.retry(settlementAmount);
 				return failed;
 			})
 			.orElseGet(() -> payoutTransferRepository.save(
@@ -177,8 +177,11 @@ public class CashPayoutUseCase {
 		long payoutId, long sellerId, long settlementAmount, long feeAmount,
 		Optional<PayoutTransfer> existingSettlement, Optional<PayoutTransfer> existingFee
 	) {
+		// 실패가 확정된 송금은 돈이 나가지 않았으니, 그 사이 상계로 대금이 바뀌었어도 새 금액으로 다시 보낸다.
+		// 정산 쪽은 409를 '예전 금액으로 이미 나갔다'로 받아 지급 불일치로 멈춘다
 		boolean settlementMismatch = existingSettlement
-			.map(stored -> stored.getSellerId() != sellerId || stored.getAmount() != settlementAmount)
+			.map(stored -> stored.getSellerId() != sellerId
+				|| (stored.getStatus() != PayoutTransferStatus.FAILED && stored.getAmount() != settlementAmount))
 			.orElse(false);
 		boolean feeMismatch = existingFee
 			.map(stored -> stored.getSellerId() != sellerId || stored.getAmount() != feeAmount)
