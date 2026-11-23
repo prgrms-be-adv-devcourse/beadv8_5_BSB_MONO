@@ -33,6 +33,8 @@ export const PAYOUT_STAGE: Record<payoutModel.PayoutStage, string> = {
 export const HOLD_STATUS: Record<payoutModel.PayoutHoldStatus, Label> = {
   지급보류: { label: '지급보류', tone: 'warning' },
   해제: { label: '해제', tone: 'neutral' },
+  // 대회 취소로 정산 내역을 닫으며 시스템이 닫은 보류. 빠지면 판매자 지급보류 탭 전체가 깨진다
+  취소: { label: '취소', tone: 'neutral' },
 }
 
 export const HOLD_REASON: Record<payoutModel.PayoutHoldReason, string> = {

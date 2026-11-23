@@ -11,6 +11,19 @@
 
 </div>
 
+## 목차
+
+- [주요 기능](#주요-기능)
+- [아키텍처](#아키텍처)
+- [기술 스택](#기술-스택)
+- [시작하기](#시작하기)
+- [우리가 푼 문제](#우리가-푼-문제)
+- [팀](#팀)
+- [협업 방식](#협업-방식)
+- [CI/CD](#cicd)
+- [향후 개선](#향후-개선)
+- [문서](#문서)
+
 ## 주요 기능
 
 **예매**
@@ -80,6 +93,11 @@ flowchart LR
 | 관측 | Prometheus, Grafana |
 | 테스트 | JUnit, Vitest, MSW, Playwright, Storybook, k6 |
 | 협업 | Linear, GitHub, Claude Code |
+
+![Java](https://img.shields.io/badge/Java_25-007396?logo=openjdk&logoColor=white) ![Spring Boot](https://img.shields.io/badge/Spring_Boot_4.1-6DB33F?logo=springboot&logoColor=white) ![Gradle](https://img.shields.io/badge/Gradle-02303A?logo=gradle&logoColor=white) ![Next.js](https://img.shields.io/badge/Next.js_16-000000?logo=nextdotjs&logoColor=white) ![React](https://img.shields.io/badge/React_19-61DAFB?logo=react&logoColor=black) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?logo=tailwindcss&logoColor=white) ![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?logo=reactquery&logoColor=white) ![Zustand](https://img.shields.io/badge/Zustand-443E38)
+![MySQL](https://img.shields.io/badge/MySQL_8.4-4479A1?logo=mysql&logoColor=white) ![Redis](https://img.shields.io/badge/Redis_8.2-DC382D?logo=redis&logoColor=white) ![Redpanda](https://img.shields.io/badge/Redpanda_(Kafka_호환)-E2403E?logo=apachekafka&logoColor=white) ![Elasticsearch](https://img.shields.io/badge/Elasticsearch_9.4-005571?logo=elasticsearch&logoColor=white)
+![AWS EC2](https://img.shields.io/badge/AWS_EC2-FF9900?logo=amazonec2&logoColor=white) ![k3s](https://img.shields.io/badge/k3s-FFC61C?logo=k3s&logoColor=black) ![Traefik](https://img.shields.io/badge/Traefik-24A1C1?logo=traefikproxy&logoColor=white) ![Nginx](https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=githubactions&logoColor=white) ![GHCR](https://img.shields.io/badge/GHCR-181717?logo=github&logoColor=white) ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=white) ![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=white)
+![JUnit5](https://img.shields.io/badge/JUnit5-25A162?logo=junit5&logoColor=white) ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=white) ![MSW](https://img.shields.io/badge/MSW-FF6A33) ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white) ![Storybook](https://img.shields.io/badge/Storybook-FF4785?logo=storybook&logoColor=white) ![k6](https://img.shields.io/badge/k6-7D64FF?logo=k6&logoColor=white) ![Linear](https://img.shields.io/badge/Linear-5E6AD2?logo=linear&logoColor=white) ![Claude Code](https://img.shields.io/badge/Claude_Code-D97757?logo=anthropic&logoColor=white)
 
 ## 시작하기
 
@@ -248,13 +266,13 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 
 ## 팀
 
-| GitHub | 맡은 일 |
-|---|---|
-| [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
-| [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
-| [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
-| [@ksoheee](https://github.com/ksoheee) | 예치금 |
-| [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
+| 사진 | GitHub | 맡은 일 |
+|---|---|---|
+| <img src="docs/assets/team/2.png" width="80"/> | [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
+| <img src="docs/assets/team/5.png" width="80"/> | [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
+| <img src="docs/assets/team/3.png" width="80"/> | [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
+| <img src="docs/assets/team/4.png" width="80"/> | [@ksoheee](https://github.com/ksoheee) | 예치금 |
+| <img src="docs/assets/team/1.png" width="80"/> | [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
 
 ## 협업 방식
 
@@ -262,6 +280,42 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 - **커밋:** Conventional Commits 형식으로 씁니다. 형식이 틀리면 commitlint가 커밋을 막습니다.
 - **PR:** 본문은 템플릿에 맞춰 씁니다. CI를 통과해야 머지할 수 있습니다.
 - **AI 협업:** 팀 규칙을 `.claude/rules`에 적어 두었습니다. Claude Code도 이 규칙을 읽고 작업합니다.
+
+## CI/CD
+
+| 워크플로 | 하는 일 |
+|---|---|
+| `backend-ci` · `frontend-ci` | PR마다 바뀐 쪽(백엔드·프론트엔드)의 빌드와 테스트를 돌립니다. |
+| `pr-rules` · `linear-sync` | PR 브랜치 이름·본문 양식을 검사하고, PR을 Linear 이슈에 붙입니다. |
+| `dev-main-sync` | 매일 05:00(KST) `dev`를 `main`으로 머지합니다. |
+| `k8s-cd` | `main`에 들어오면 운영에 배포합니다. |
+| `data-node-cd` | 데이터 EC2의 Compose 구성을 손으로 실행해 배포합니다. |
+
+`k8s-cd`는 아래 순서로 배포합니다.
+
+1. 직전 `main` 커밋 이후 소스가 바뀐 앱을 고릅니다.
+2. 바뀐 앱만 이미지를 빌드해 GHCR에 커밋 SHA 태그로 올립니다. 안 바뀐 앱은 태그만 새로 붙입니다.
+3. OIDC로 AWS에 들어가 SSM으로 메인 EC2의 배포 스크립트를 실행합니다. 키를 저장하지 않고, 22번 포트도 쓰지 않습니다.
+4. 바뀐 앱만 하나씩 교체합니다. 한꺼번에 바꾸면 메모리가 넘칩니다.
+5. 배포 뒤 스키마 드리프트를 검사합니다. 빈 MySQL에 Flyway를 돌린 결과와 운영 DB를 비교하고, 다르면 Slack으로 알립니다.
+
+되돌릴 때는 예전 `main` 커밋 SHA를 넣고 다시 실행하면, 빌드 없이 그 이미지로 배포합니다.
+
+## 향후 개선
+
+<details>
+<summary>향후 개선 계획</summary>
+
+| 개선 | 내용 |
+|---|---|
+| AI 폴백 모델 | 지금은 모델 하나만 씁니다. 모델이 응답하지 않을 때 다른 모델로 넘깁니다. (CRU-164) |
+| 회원 대회 추천 챗봇 | 지금 챗봇은 판매자·관리자용입니다. 회원에게 맞는 대회를 추천하는 챗봇을 더합니다. |
+| 정답 묶음 평가 | 질문과 기대 답을 묶어 두고, 챗봇 답의 품질을 고칠 때마다 자동으로 잽니다. |
+| 답 스트리밍 | 챗봇 답을 다 만든 뒤 보내지 않고, 쓰는 대로 화면에 흘려 보냅니다. |
+| 파티 대기열 입장권 | 파티로 신청할 때도 입장권(토큰)으로 대기열 차례를 확인합니다. |
+| 프로필 사진 변경 | 회원이 프로필 사진을 바꿀 수 있게 합니다. (CRU-163) |
+
+</details>
 
 ## 문서
 
