@@ -65,6 +65,21 @@ flowchart LR
 | 테스트 | JUnit, Vitest, MSW, Playwright, Storybook, k6 |
 | 협업 | Linear, GitHub, Claude Code |
 
+## 시작하기
+
+Docker Desktop만 있으면 전체 서비스를 한 번에 띄울 수 있습니다.
+
+```bash
+git clone https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO.git
+cd beadv8_5_BSB_MONO/backend
+cp .env.example .env                           # 값 채우기는 backend/README.md 참고
+docker compose --profile app up -d --build     # 인프라와 서비스 전체 실행
+docker compose --profile app ps                # 서비스가 healthy면 http://localhost 접속
+```
+
+- 로컬 확인은 Chrome으로 합니다. Safari는 `http://localhost`에서 로그인이 유지되지 않을 수 있습니다.
+- 코드를 고치며 개발하려면 [docs/SETUP.md](docs/SETUP.md)와 [backend/README.md](backend/README.md)를 봅니다.
+
 ## 우리가 푼 문제
 
 ### 1. 예매가 몰릴 때 어디서 막히는지 재기
