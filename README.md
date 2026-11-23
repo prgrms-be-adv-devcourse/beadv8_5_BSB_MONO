@@ -149,11 +149,10 @@ docker compose --profile app ps                # 서비스가 healthy면 http://
 
 ## 문서
 
-| 문서 | 내용 |
-|---|---|
-| [docs/SETUP.md](docs/SETUP.md) | 개발 환경 설정 (도구, 환경변수, MCP) |
-| [backend/README.md](backend/README.md) | 백엔드 실행, 컨테이너 구성 |
-| [docs/policy](docs/policy) | 서비스 정책 |
-| [docs/erd](docs/erd) | ERD |
-| [infra/README.md](infra/README.md) · [k8s/README.md](k8s/README.md) | 운영 서버, 배포 |
-| [docs/loadtest](docs/loadtest) | 부하 테스트 |
+내부 문서는 [docs/README.md](docs/README.md) 한 곳에 색인해 두었습니다.
+이 문서는 내용 없이 위치와 한 줄 설명만 담은 얇은 안내 문서입니다. 사람과 AI가 전체를 읽지 않고 필요한 문서만 골라 읽게 하려는 것입니다.
+
+- 로컬에서 띄우기: [docs/SETUP.md](docs/SETUP.md), [backend/README.md](backend/README.md)
+- 정책: [docs/policy](docs/policy)
+- 운영 서버와 배포: [infra/README.md](infra/README.md), [k8s/README.md](k8s/README.md)
+- 부하 테스트와 측정 결과: [docs/loadtest](docs/loadtest), [docs/measurements](docs/measurements)
