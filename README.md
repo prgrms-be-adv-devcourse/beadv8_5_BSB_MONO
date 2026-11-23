@@ -13,20 +13,29 @@
 
 </div>
 
-## 목차
+## 👥 팀
 
-- [주요 기능](#주요-기능)
-- [아키텍처](#아키텍처)
-- [기술 스택](#기술-스택)
-- [시작하기](#시작하기)
-- [우리가 푼 문제](#우리가-푼-문제)
-- [팀](#팀)
-- [협업 방식](#협업-방식)
-- [CI/CD](#cicd)
-- [향후 개선](#향후-개선)
-- [문서](#문서)
+| 사진 | GitHub | 맡은 일 |
+|---|---|---|
+| <img src="docs/assets/team/2.png" width="80"/> | [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
+| <img src="docs/assets/team/5.png" width="80"/> | [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
+| <img src="docs/assets/team/3.png" width="80"/> | [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
+| <img src="docs/assets/team/4.png" width="80"/> | [@ksoheee](https://github.com/ksoheee) | 예치금 |
+| <img src="docs/assets/team/1.png" width="80"/> | [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
 
-## 주요 기능
+## 📚 목차
+
+- [주요 기능](#-주요-기능)
+- [아키텍처](#-아키텍처)
+- [기술 스택](#-기술-스택)
+- [시작하기](#-시작하기)
+- [우리가 푼 문제](#-우리가-푼-문제)
+- [협업 방식](#-협업-방식)
+- [CI/CD](#-cicd)
+- [향후 개선](#-향후-개선)
+- [문서](#-문서)
+
+## ✨ 주요 기능
 
 **예매**
 
@@ -56,7 +65,7 @@
 - 판매자에게 오늘 할 일을 알려 줍니다.
 - 기록증 심사를 돕습니다.
 
-## 아키텍처
+## 🧱 아키텍처
 
 ```mermaid
 flowchart LR
@@ -84,7 +93,7 @@ flowchart LR
 - 배포할 때는 코드가 바뀐 서비스만 새로 빌드해 교체합니다.
 - 자세한 구성은 [infra/README.md](infra/README.md)와 [k8s/README.md](k8s/README.md)에 있습니다.
 
-## 기술 스택
+## 🧰 기술 스택
 
 | 분류 | 기술 |
 |---|---|
@@ -99,7 +108,7 @@ flowchart LR
 | **CI / CD** | ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=githubactions&logoColor=white) |
 | **협업 도구** | ![Git](https://img.shields.io/badge/Git-F05032?logo=git&logoColor=white) ![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white) ![Linear](https://img.shields.io/badge/Linear-5E6AD2?logo=linear&logoColor=white) ![Notion](https://img.shields.io/badge/Notion-000000?logo=notion&logoColor=white) ![Figma](https://img.shields.io/badge/Figma-F24E1E?logo=figma&logoColor=white) ![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white) ![Claude Code](https://img.shields.io/badge/Claude_Code-D97757?logo=anthropic&logoColor=white) |
 
-## 시작하기
+## 🚀 시작하기
 
 Docker Desktop을 설치한 뒤 아래 명령을 순서대로 실행합니다.
 
@@ -115,7 +124,7 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 - Safari에서는 로그인이 유지되지 않을 수 있습니다.
 - 코드를 고치며 개발하려면 [docs/SETUP.md](docs/SETUP.md)와 [backend/README.md](backend/README.md)를 봅니다.
 
-## 우리가 푼 문제
+## 🧩 우리가 푼 문제
 
 ### 1. 예매가 몰리면 어디가 먼저 막히는지 재기
 
@@ -264,24 +273,14 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 
 자세히: [PR 515](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/515), [PR 645](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/645)
 
-## 팀
-
-| 사진 | GitHub | 맡은 일 |
-|---|---|---|
-| <img src="docs/assets/team/2.png" width="80"/> | [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
-| <img src="docs/assets/team/5.png" width="80"/> | [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
-| <img src="docs/assets/team/3.png" width="80"/> | [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
-| <img src="docs/assets/team/4.png" width="80"/> | [@ksoheee](https://github.com/ksoheee) | 예치금 |
-| <img src="docs/assets/team/1.png" width="80"/> | [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
-
-## 협업 방식
+## 🤝 협업 방식
 
 - **이슈:** Linear에 이슈를 만들고 PR과 연결합니다. 규칙은 [docs/LINEAR.md](docs/LINEAR.md)에 있습니다.
 - **커밋:** Conventional Commits 형식으로 씁니다. 형식이 틀리면 commitlint가 커밋을 막습니다.
 - **PR:** 본문은 템플릿에 맞춰 씁니다. CI를 통과해야 머지할 수 있습니다.
 - **AI 협업:** 팀 규칙을 `.claude/rules`에 적어 두었습니다. Claude Code도 이 규칙을 읽고 작업합니다.
 
-## CI/CD
+## 🔄 CI/CD
 
 | 워크플로 | 하는 일 |
 |---|---|
@@ -301,7 +300,7 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 
 되돌릴 때는 예전 `main` 커밋 SHA를 넣고 다시 실행하면, 빌드 없이 그 이미지로 배포합니다.
 
-## 향후 개선
+## 🔭 향후 개선
 
 <details>
 <summary>향후 개선 계획</summary>
@@ -317,7 +316,7 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 
 </details>
 
-## 문서
+## 📄 문서
 
 - 문서 목록은 [docs/README.md](docs/README.md)에 모았습니다.
 - 이 파일에는 문서의 위치와 한 줄 설명만 있습니다.
