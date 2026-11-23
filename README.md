@@ -152,13 +152,13 @@ docker compose --profile app ps                # 서비스가 healthy면 http://
 
 ## 팀
 
-| GitHub | 맡은 일 |
-|---|---|
-| [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
-| [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
-| [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
-| [@ksoheee](https://github.com/ksoheee) | 예치금(캐시) |
-| [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
+| 사진 | GitHub | 맡은 일 |
+|---|---|---|
+| <img src="docs/assets/team/2.png" width="80"/> | [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
+| <img src="docs/assets/team/5.png" width="80"/> | [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
+| <img src="docs/assets/team/3.png" width="80"/> | [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
+| <img src="docs/assets/team/4.png" width="80"/> | [@ksoheee](https://github.com/ksoheee) | 예치금(캐시) |
+| <img src="docs/assets/team/1.png" width="80"/> | [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
 
 ## 협업 방식
 
