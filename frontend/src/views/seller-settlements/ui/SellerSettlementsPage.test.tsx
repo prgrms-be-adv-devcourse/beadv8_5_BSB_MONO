@@ -208,6 +208,32 @@ describe('SellerSettlementsPage', () => {
     expect(screen.getByText('10/12 (월)')).toBeInTheDocument()
   })
 
+  it('대회 취소로 닫힌 보류가 섞여도 지급보류 탭이 깨지지 않고 취소로 보여 준다', async () => {
+    const base = payoutMock.getHoldsResponseMock()
+    const [hold] = base.data!
+    server.use(
+      http.get('*/api/v1/payout/seller/holds', () =>
+        HttpResponse.json({
+          ...base,
+          data: [
+            hold,
+            {
+              ...hold,
+              id: 2,
+              holdCode: 'HD-20261012-0002',
+              reasonType: '대회_취소_처리',
+              status: '취소',
+            },
+          ],
+        }),
+      ),
+    )
+    renderPage('holds')
+
+    expect(await screen.findByText('HD-20261012-0002')).toBeInTheDocument()
+    expect(screen.getByText('취소')).toBeInTheDocument()
+  })
+
   it('조회가 400이면 서버 문구를 보여 준다', async () => {
     server.use(
       http.get('*/api/v1/payout/seller/holds', () =>

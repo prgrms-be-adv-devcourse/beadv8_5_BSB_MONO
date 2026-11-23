@@ -175,7 +175,7 @@ export const PayoutHoldReason = {
 } as const;
 
 /**
- * 지급보류 상태 (지급보류: 지급보류, 해제: 해제)
+ * 지급보류 상태 (지급보류: 지급보류, 해제: 해제, 취소: 대회 취소로 정산 내역을 닫으며 시스템이 닫은 보류)
  */
 export type PayoutHoldStatus = typeof PayoutHoldStatus[keyof typeof PayoutHoldStatus];
 
@@ -183,6 +183,7 @@ export type PayoutHoldStatus = typeof PayoutHoldStatus[keyof typeof PayoutHoldSt
 export const PayoutHoldStatus = {
   지급보류: '지급보류',
   해제: '해제',
+  취소: '취소',
 } as const;
 
 export interface SellerPayoutHoldDto {
