@@ -10,21 +10,13 @@
 대회 주최자는 참가권을 등록해 팔고, 러너는 크루와 함께 신청합니다.
 예매가 몰려도 줄을 세워 받고, 판매 대금은 대회 일정에 맞춰 두 번에 나눠 정산합니다.
 
-[서비스 바로가기](https://crewrun.duckdns.org) · [시연 영상](TODO) · [발표 자료](TODO)
+[서비스 바로가기](https://crewrun.duckdns.org)
+
+<!-- TODO: 시연 영상 · 발표 자료 링크 -->
 
 </div>
 
-## 핵심 화면
-
-<!-- TODO: 화면마다 GIF나 사진 1장 (docs/assets/) -->
-
-| 참가 신청 · 결제 | 크루 파티 |
-|---|---|
-| TODO | TODO |
-
-| 판매자 대시보드 | 정산 |
-|---|---|
-| TODO | TODO |
+<!-- TODO: "핵심 화면" 절. 참가 신청 · 결제, 크루 파티, 판매자 대시보드, 정산 화면을 GIF나 사진 1장씩 (docs/assets/) -->
 
 ## 주요 기능
 
@@ -75,50 +67,63 @@ flowchart LR
 
 ## 우리가 푼 문제
 
-<!-- TODO: 파트 담당자가 "문제 · 해결 · 수치" 3줄로 채웁니다. 아래 1번만 실측 수치입니다. -->
-
 ### 1. 예매가 몰릴 때 어디서 막히는지 재기
 
 - **문제:** 예매 오픈에 요청이 몰리면 어디가 먼저 막히는지 몰랐습니다.
-- **해결:** 운영 서버(2 vCPU · 7.6GB, k3s)에 대기열 → 주문 → 결제 흐름으로 부하를 주고 지표를 모았습니다.
+- **해결:** 운영 서버(2 vCPU · 7.6GB, k3s)에 대기열 → 주문 → 결제 흐름으로 부하를 주고 지표를 모았습니다. 게이트웨이가 CPU를 가장 많이 써서, nginx와 게이트웨이 사이 연결을 keep-alive로 다시 쓰게 했습니다.
 - **수치:** 병목은 조회 경로의 CPU였습니다. 조회는 약 100 RPS까지 안정적이었고 330 RPS에서 무너졌습니다. 예매 완결은 약 20 TPS였습니다. DB 커넥션풀과 메모리는 끝까지 여유가 있었고 OOM은 0건이었습니다.
-- 자세히: [docs/loadtest/main-scenario/README.md](docs/loadtest/main-scenario/README.md)
+- 자세히: [docs/loadtest/main-scenario/README.md](docs/loadtest/main-scenario/README.md), [PR 639](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/639)
 
-### 2. 대기열과 자리 확보 동시성
+### 2. 대기열로 줄 세우기
 
-- **문제:** TODO (queue · order 담당)
-- **해결:** TODO
-- **수치:** TODO
+- **문제:** 예매 요청이 상품 · 주문 서비스에 한꺼번에 몰리면 서비스가 버티지 못합니다.
+- **해결:** Redis ZSet 두 개(기다리는 줄, 입장한 줄)로 줄을 관리하고, 확인하고 넣는 일은 Lua로 한 번에 처리했습니다. 입장 판정은 상품 서비스를 부르지 않고 Kafka로 받은 대회 복제본으로 합니다.
+- **수치:** 3초마다 종목당 20명을 입장시킵니다(초당 약 6.7명). 입장한 사람은 10분 안에 결제합니다.
+- 자세히: [PR 146](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/146), [PR 624](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/624)
 
-### 3. 두 번에 나눠 주는 정산과 대사
+### 3. 결제가 몰려도 DB 연결이 바닥나지 않게 하기
 
-- **문제:** 대회 전에 환불이 생길 수 있어 판매 대금을 한 번에 지급할 수 없었습니다.
-- **해결:** 1차 정산과 최종 정산으로 나눠 지급하고, 지급 전에 대사로 주문 금액과 정산 금액을 맞췄습니다.
-- **수치:** TODO
+- **문제:** 결제 20건을 동시에 보내면 90%가 30초 뒤 실패했습니다. 결제 한 건이 DB 연결을 두 개 쥐고, 잠금을 건 채 다른 서비스를 HTTP로 부르고 있었습니다.
+- **해결:** 앞 조회에 읽기 전용 트랜잭션을 붙여 연결을 바로 돌려주고, HTTP 호출을 잠금 밖으로 뺐습니다. 예치금 결제 호출은 동시에 4개로 제한하고, 자리를 못 받으면 돈이 빠지기 전에 바로 거절합니다.
+- **수치:** 시제품 측정에서 「결제 확인 중」이 30~40초 이어지던 것이 실패 구간 약 20초, p95 1.4~2.2초로 줄었습니다.
+- 자세히: [PR 480](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/480), [PR 536](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/536)
 
-### 4. 결제 재진입 멱등 처리
+### 4. 결제 화면을 벗어나도 다시 결제하기
 
-- **문제:** TODO (cash · order 담당)
-- **해결:** TODO
-- **수치:** TODO
+- **문제:** 새로고침이나 뒤로 가기를 하면 새 멱등 키가 가서, 이미 만든 주문과 부딪혀 409가 났습니다.
+- **해결:** 신청서 하나에 주문은 하나이므로, 키가 달라도 그 신청서의 결제 전 주문을 찾아 돌려줍니다. 프론트는 고치지 않았습니다.
+- 자세히: [PR 789](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/789)
 
-### 5. 크루런 AI: 대시보드 브리핑과 기록증 심사
+### 5. 토스가 느려도 결제는 멈추지 않게 하기
 
-- **문제:** TODO (ai 담당)
-- **해결:** TODO
-- **수치:** TODO
+- **문제:** 토스 승인이 4초 걸리면 충전이 요청 쓰레드 200개를 다 차지해, 토스를 부르지 않는 결제까지 멈췄습니다.
+- **해결:** 충전 확정의 동시 개수를 100개로 제한하고, 넘치면 토스를 부르기 전에 429로 거절합니다.
+- **수치:** 토스 4초 · 충전 초당 50건에서 결제 p99가 5,282ms에서 175ms로 줄었습니다. 대가로 토스가 느릴 때는 충전의 절반 가까이를 거절합니다.
+- 자세히: [PR 688](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/688)
+
+### 6. 두 번에 나눠 주는 정산과 대사
+
+- **문제:** 대회 전에 환불이 생길 수 있어 판매 대금을 한 번에 지급할 수 없습니다. 또 참가권 20만 장으로 정산을 만들면 Full GC가 28번 돌았습니다.
+- **해결:** 1차 정산과 최종 정산으로 나눠 지급하고, 지급 전에 대사로 주문 판매와 정산 내역을 맞춥니다. 정산 줄은 1000개씩 저장하고, 대사는 참가권 ID를 비트맵으로 받아 XOR 한 번으로 비교합니다.
+- **수치:** 20만 장 기준으로 정산 생성이 30.9초에서 23.4초로 줄었고 Full GC는 28번에서 0번이 됐습니다. 판매 내역 응답 크기는 2.0MB에서 0.53MB로 줄었습니다.
+- 자세히: [PR 330](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/330), [PR 582](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/582), [PR 698](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/698)
+
+### 7. 크루런 AI: 대시보드 브리핑과 기록증 심사
+
+- **문제:** 판매자는 오늘 먼저 할 일을 여러 화면에서 찾아야 했고, 기록증은 한 장씩 눈으로 확인해야 했습니다.
+- **해결:** 브리핑은 모델을 부르지 않고 조회한 숫자로 문장을 만듭니다. 대시보드를 열 때마다 불리므로 빠르고, 숫자를 잘못 말할 위험이 없습니다. 기록증은 브라우저 OCR로 칸을 채우고, 서버가 Kafka로 받아 원본을 다시 읽어 판정합니다.
+- **수치:** AI 서비스의 메모리가 512Mi라 기록증은 한 번에 한 장씩 읽습니다.
+- 자세히: [PR 515](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/515), [PR 645](https://github.com/prgrms-be-adv-devcourse/beadv8_5_BSB_MONO/pull/645)
 
 ## 팀
 
-<!-- TODO: 이름 · 사진 · 맡은 일을 각자 확인합니다. 아래 "맡은 일"은 커밋 수로 짐작한 값입니다. -->
-
-| 이름 | GitHub | 맡은 일 |
-|---|---|---|
-| TODO | [@jieunsse](https://github.com/jieunsse) | 프론트엔드, member, gateway, board, inquiry |
-| TODO | [@Dawit-lee](https://github.com/Dawit-lee) | order, ai, notification |
-| TODO | [@bbangHo](https://github.com/bbangHo) | payout |
-| TODO | [@ksoheee](https://github.com/ksoheee) | cash |
-| TODO | [@khb3025](https://github.com/khb3025) | product, queue, file, 인프라(k3s · 배포) |
+| GitHub | 맡은 일 |
+|---|---|
+| [@jieunsse](https://github.com/jieunsse) | 프론트엔드, 회원, 게이트웨이, 게시판, 문의 |
+| [@Dawit-lee](https://github.com/Dawit-lee) | 주문 · 결제, 크루런 AI, 알림 |
+| [@bbangHo](https://github.com/bbangHo) | 정산, 기록증 심사 |
+| [@ksoheee](https://github.com/ksoheee) | 예치금(캐시) |
+| [@khb3025](https://github.com/khb3025) | 상품 · 검색, 대기열, 파일, 인프라(k3s · 배포) |
 
 ## 협업 방식
 
