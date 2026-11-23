@@ -155,6 +155,22 @@ class PayoutHoldConcurrencyTest {
 		assertThat(statusOf(payoutId)).isEqualTo(PayoutStatus.지급_예정);
 	}
 
+	@Test
+	@DisplayName("관리자가 보류 B를 푸는 동안 계좌 등록이 계좌 미등록 보류를 풀면, 남은 보류가 없으므로 지급 예정으로 돌아간다")
+	void adminReleaseAndAccountReleaseOverlapReturnsToScheduled() throws Exception {
+		long payoutId = savePayout();
+		hold(payoutId, PayoutHoldReason.정산_계좌_미등록);
+		long holdB = hold(payoutId, PayoutHoldReason.대사_불일치);
+
+		List<Throwable> errors = runOverlapped(
+			() -> holdUseCase.release(holdB, ADMIN_ID, LATER),
+			() -> holdUseCase.releaseAccountHolds(1, LATER));
+
+		assertThat(errors).isEmpty();
+		assertThat(activeHolds(payoutId)).isZero();
+		assertThat(statusOf(payoutId)).isEqualTo(PayoutStatus.지급_예정);
+	}
+
 	private static void sleep(long millis) {
 		try {
 			Thread.sleep(millis);

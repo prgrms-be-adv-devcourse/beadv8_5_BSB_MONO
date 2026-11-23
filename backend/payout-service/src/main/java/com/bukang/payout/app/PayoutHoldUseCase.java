@@ -14,6 +14,8 @@ import com.bukang.payout.domain.BusinessDayCalendar;
 import com.bukang.payout.domain.Payout;
 import com.bukang.payout.domain.PayoutHold;
 import com.bukang.payout.domain.PayoutHoldReason;
+import com.bukang.payout.domain.PayoutHoldStatus;
+import com.bukang.payout.domain.PayoutStatus;
 import com.bukang.payout.domain.exception.PayoutHoldNotFoundException;
 import com.bukang.payout.domain.exception.PayoutNotFoundException;
 import com.bukang.payout.dto.PayoutDto;
@@ -75,10 +77,19 @@ public class PayoutHoldUseCase {
 	 * 관리자 보류 · 다른 사유, 취소로 닫힌 정산은 건드리지 않는다. 지급보류인 것만 풀므로 같은 이벤트를 다시 받아도 안전하다
 	 * 지급 배치와 같은 정산 내역을 동시에 바꾸면 @Version으로 실패하고, 소비자가 메시지를 다시 처리해 따라잡는다
 	 */
-	@Transactional
+	// 관리자 해제(release)와 같이 정산 내역부터 잠그고 READ COMMITTED로 다시 읽는다. 잠그지 않으면 관리자가 다른 보류를
+	// 동시에 풀 때 둘 다 상대 보류가 남았다고 보고, 걸린 보류 없이 지급보류에 멈춘다
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	public void releaseAccountHolds(long sellerId, LocalDateTime now) {
-		for (PayoutHold hold : payoutHoldRepository.findReleasableAccountHolds(sellerId)) {
-			hold.getPayout().release(hold, PayoutHold.SYSTEM_MEMBER_ID, now, businessDayCalendar);
+		for (long holdId : payoutHoldRepository.findReleasableAccountHoldIds(sellerId)) {
+			Payout payout = payoutRepository.findByHoldIdForUpdate(holdId)
+				.orElseThrow(PayoutHoldNotFoundException::new);
+			PayoutHold hold = payoutHoldRepository.findById(holdId).orElseThrow(PayoutHoldNotFoundException::new);
+			// 잠금을 기다리는 사이 관리자가 이 보류를 풀었거나 정산 내역이 닫혔으면 건너뛴다
+			if (hold.getStatus() != PayoutHoldStatus.지급보류 || payout.getStatus() != PayoutStatus.지급보류) {
+				continue;
+			}
+			payout.release(hold, PayoutHold.SYSTEM_MEMBER_ID, now, businessDayCalendar);
 		}
 	}
 

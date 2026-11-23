@@ -56,12 +56,13 @@ public interface PayoutHoldRepository extends JpaRepository<PayoutHold, Long> {
 
 	// 판매자가 정산 계좌를 등록하면 풀 자동 보류: 계좌 미등록으로 걸려 아직 지급보류인 것
 	// 취소로 닫힌 정산의 보류는 지급보류가 아니라 빠진다. 지급보류인 것만 풀어 같은 이벤트를 다시 받아도 안전하다
+	// ID만 읽는다. 엔티티를 미리 읽어 두면 정산 내역을 잠근 뒤에도 잠그기 전의 값을 쓴다 (BUK-242와 같은 이유)
 	@Query("""
-		select h from PayoutHold h join fetch h.payout p
+		select h.id from PayoutHold h join h.payout p
 		where p.sellerId = :sellerId
 			and h.reasonType = com.bukang.payout.domain.PayoutHoldReason.정산_계좌_미등록
 			and h.status = com.bukang.payout.domain.PayoutHoldStatus.지급보류
 			and p.status = com.bukang.payout.domain.PayoutStatus.지급보류
 		""")
-	List<PayoutHold> findReleasableAccountHolds(long sellerId);
+	List<Long> findReleasableAccountHoldIds(long sellerId);
 }
