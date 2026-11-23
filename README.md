@@ -7,6 +7,8 @@
 주최자는 대회를 등록해 참가권을 팝니다.<br>
 러너는 혼자서, 또는 크루와 함께 신청합니다.
 
+<img src="frontend/src/app/opengraph-image.png" alt="크루런 대표 이미지" width="720"/>
+
 [서비스 바로가기](https://crewrun.duckdns.org)
 
 </div>
