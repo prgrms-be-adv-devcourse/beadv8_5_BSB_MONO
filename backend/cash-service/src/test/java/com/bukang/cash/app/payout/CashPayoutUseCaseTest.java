@@ -183,6 +183,27 @@ class CashPayoutUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("송금이 실패한 뒤 상계로 대금이 줄어 다른 금액으로 다시 요청하면, 409 없이 새 금액으로 다시 보낸다")
+	void retryAfterFailed_withChangedAmount_sendsNewAmount() {
+		createHoldingWallet();
+		createSellerWithMapping();
+		given(bankTransferClient.transfer(anyString(), anyLong(), anyLong()))
+			.willReturn(BankTransferResult.FAILED, BankTransferResult.COMPLETED);
+		assertThatThrownBy(() -> cashFacade.payout(509, SELLER_APPLICATION_ID, PayoutStage.FIRST, 90_000, 0))
+			.isInstanceOf(PayoutTransferFailedException.class);
+
+		CashPayoutResponseDto retried = cashFacade.payout(509, SELLER_APPLICATION_ID, PayoutStage.FIRST, 70_000, 0);
+
+		assertThat(retried.outcome()).isEqualTo(CashPayoutResponseDto.Outcome.PAID);
+		PayoutTransfer transfer =
+			payoutTransferRepository.findByPayoutIdAndTransferType(509, PayoutTransferType.SETTLEMENT).orElseThrow();
+		then(bankTransferClient).should().transfer("payout-" + transfer.getId() + "-2", SELLER_APPLICATION_ID, 70_000);
+		assertThat(transfer.getAmount()).isEqualTo(70_000);
+		assertThat(transfer.getStatus()).isEqualTo(PayoutTransferStatus.COMPLETED);
+		assertBalance(cashWalletProperties.holdingMemberId(), -70_000);
+	}
+
+	@Test
 	@DisplayName("최종 정산은 대금(홀딩 지급 1줄)과 수수료(홀딩→시스템 2줄)를 서로 다른 ref_id로 남긴다")
 	void finalStage_transfersSettlementAndFeeWithDifferentRefIds() {
 		createHoldingWallet();
