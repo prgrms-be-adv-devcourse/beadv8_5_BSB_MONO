@@ -30,7 +30,8 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, Long> {
 
 	// 배치가 정리 후보로 읽은 뒤 지우기 전까지 바뀌지 않았을 때만 지운다 (상태가 같고 기준 시각보다 오래됨)
 	// 그 사이 업로드 완료(completeUpload)나 대상 연결(link)로 바뀌었으면 0을 돌려주고, 이때는 S3 객체도 지우지 않는다
-	@Modifying
+	// 지운 뒤 영속성 컨텍스트를 비워, 지운 행의 엔티티를 트랜잭션이 끝날 때까지 들고 있지 않는다 (CRU-168)
+	@Modifying(clearAutomatically = true)
 	@Query("delete from StoredFile f where f.id = :id and f.status = :status and f.modifyDate < :cutoff")
 	int deleteIfOld(@Param("id") long id, @Param("status") FileStatus status, @Param("cutoff") LocalDateTime cutoff);
 }

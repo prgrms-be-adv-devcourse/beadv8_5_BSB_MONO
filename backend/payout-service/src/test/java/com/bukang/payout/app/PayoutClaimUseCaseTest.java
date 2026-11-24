@@ -321,6 +321,24 @@ class PayoutClaimUseCaseTest {
 	}
 
 	@Test
+	@DisplayName("TC-CLAIM-4-5 취소 전에 일정 변경으로 모두 환불돼 대회 취소 회수가 없어도, 환불 완료 다음 날 200,000원 청구가 생긴다")
+	void raceCancelWithOnlyScheduleChangeRecoveriesCreatesClaim() {
+		createFirstAndPay();
+		refund(IntStream.rangeClosed(101, 110).toArray());
+		LocalDateTime canceledAt = LocalDateTime.of(2026, 12, 1, 0, 30);
+		raceCancelUseCase.cancelRace(RACE_ID, canceledAt);
+		// 남은 참가권이 없어 주문은 환불할 것 없이 바로 환불 완료를 알린다
+		raceCancelUseCase.markRefunded(RACE_ID, canceledAt);
+
+		run(LocalDate.of(2026, 12, 1));
+		assertThat(claims()).isEmpty();
+
+		run(LocalDate.of(2026, 12, 2));
+		assertThat(claims()).extracting(PayoutClaim::getAmount, PayoutClaim::getStartDate)
+			.containsExactly(tuple(200_000L, LocalDate.of(2026, 12, 1)));
+	}
+
+	@Test
 	@DisplayName("TC-CLAIM-5-1 청구가 끝나지 않았으면 배치마다 판매자 청구 알림이 하나 남는다")
 	void openClaimNotifiesSeller() {
 		openClaimStartingOn(FINAL_CREATED_DATE);
