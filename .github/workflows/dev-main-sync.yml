@@ -40,8 +40,7 @@ jobs:
           if [ -z "$number" ]; then
             url=$(gh pr create --base main --head dev \
               --title "chore: dev를 main에 동기화 ($(TZ=Asia/Seoul date +%F))" \
-              --body "dev-main-sync 워크플로가 매일 05:00(KST)에 만드는 자동 동기화 PR입니다. 체크가 통과하면 자동으로 머지됩니다." \
-              --label no-issue)
+              --body "dev-main-sync 워크플로가 매일 05:00(KST)에 만드는 자동 동기화 PR입니다. 체크가 통과하면 자동으로 머지됩니다.")
             number=${url##*/}
           fi
           echo "number=$number" >> "$GITHUB_OUTPUT"
