@@ -74,6 +74,8 @@ patches:
   - path: app-config.yaml
   # 상품 서비스의 테스트용 당일 판매 설정 (CRU-36). product Pod에만 넣어, 켜고 끌 때 product만 다시 뜬다
   - path: product-same-day-sale.yaml
+  # 예치금 서비스의 테스트용 결제사 설정 (CRU-110). cash Pod에만 넣어, 켜고 끌 때 cash만 다시 뜬다
+  - path: cash-fake-pg.yaml
   # 도메인과 HTTPS. 인증서는 Traefik이 Let's Encrypt에서 받는다 (infra/main-node/traefik-config.yaml)
   - path: ingress.yaml
   # GHCR 이미지가 비공개라, 이미지를 받을 때 로그인 정보(Secret ghcr-pull)를 쓰게 한다

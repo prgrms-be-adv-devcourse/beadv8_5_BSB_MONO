@@ -1,0 +1,20 @@
+# 예치금 서비스의 테스트용 결제사(토스) 설정 (CRU-110). cash Pod에만 넣어, 켜고 끌 때 cash만 다시 뜬다
+#   "http": 실제 토스를 부른다 (평소·시연). application-prod.yaml과 같은 값
+#   "fake": 토스를 부르지 않고 요청 금액 그대로 바로 승인한다 → 누구의 충전이든 돈 없이 승인된다. 운영 부하 테스트 동안만 켠다
+#   켜는 법: 아래 CASH_CLIENTS_PG_MODE를 "fake"로 바꿔 main에 배포한다 → cash Pod만 다시 뜨며 1분쯤 충전·결제가 멈춘다. 끝나면 "http"로 되돌려 배포한다
+#   가짜일 때 승인 응답을 늦추는 시간(FAKECONFIRMDELAY)은 실제 토스 승인 시간에 가깝게 둔다. "http"일 때는 쓰지 않는다
+# (product 당일 판매 설정 product-same-day-sale.yaml, nginx 로그인 제한 스위치와 같은 방식. 절차는 docs/loadtest/real-flow/README.md)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bukang-cash-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          env:
+            - name: CASH_CLIENTS_PG_MODE
+              value: "fake"
+            - name: CASH_CLIENTS_PG_FAKECONFIRMDELAY
+              value: "500ms"
