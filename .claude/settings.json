@@ -18,5 +18,8 @@
       "Bash(./gradlew.bat dependencies:*)",
       "Bash(./gradlew.bat tasks:*)"
     ]
+  },
+  "enabledPlugins": {
+    "mattpocock-skills@claude-plugins-official": true
   }
 }

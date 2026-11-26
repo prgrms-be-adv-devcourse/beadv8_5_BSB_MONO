@@ -17,6 +17,14 @@
 - PR 본문은 `.github/pull_request_template.md` 칸을 따릅니다.
 - 아직 열려 있는 Linear(BUK·CRU) 이슈를 마무리할 때만 `docs/LINEAR.md`를 읽고, 첫 수정 전에 "작업 시작 체크"로 이슈 상태를 맞춥니다.
 
+## 기능 요청 흐름
+
+- 새 화면, 새 API, 티켓 여러 개로 나눌 만한 기능 요청은 `feature-run` 스킬로 설계부터 시작합니다. 스펙 이슈와 티켓 이슈가 만들어집니다.
+- 문구·색·간격 수정, 버그 수정, 파일 하나 안의 작은 변경은 `feature-run` 없이 바로 고칩니다.
+- 티켓 구현은 `/ticket-run <티켓 번호>`로 시작합니다. 번호 없이 `/ticket-run`을 부르면 `팩토리 구현` 라벨이 붙은 티켓을 순서대로 구현합니다.
+- 월요일 아침에는 `/triage`로 들어온 이슈를 분류합니다.
+- 두 스킬은 맷 포콕 플러그인을 읽습니다. 플러그인이 없으면 `claude plugin install mattpocock-skills@claude-plugins-official`을 실행합니다.
+
 ## 팀 맥락
 
 모든 팀원의 Claude가 같은 용어와 정책을 읽도록 레포 안의 글을 원본으로 둡니다.
