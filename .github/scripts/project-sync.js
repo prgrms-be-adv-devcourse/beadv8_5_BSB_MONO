@@ -63,6 +63,12 @@ async function loadProject(github, owner) {
     { o: owner, n: PROJECT_NUMBER },
   )
   const p = organization.projectV2
+  if (!p) {
+    throw new Error(
+      `PROJECT_TOKEN으로 ${owner}의 프로젝트 #${PROJECT_NUMBER}를 볼 수 없습니다. ` +
+        '토큰 주인이 이 오거나이제이션 프로젝트를 볼 수 있는지, 토큰 권한(Projects 읽기·쓰기)이 이 오거나이제이션에 적용됐는지 확인해 주세요.',
+    )
+  }
   return { id: p.id, field: (name) => p.fields.nodes.find((f) => f.name === name) }
 }
 
