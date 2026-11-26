@@ -28,6 +28,11 @@ class FlywayExistingTablesTest {
 	private static final String OUTBOX_MESSAGE_ID_FORMAT =
 		"order-outbox-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
+	private static final List<String> LEGACY_ORDER_COLUMNS =
+		List.of("recipient_name", "recipient_phone", "zipcode", "address", "address_detail");
+	private static final List<String> LEGACY_ORDER_ITEM_COLUMNS = List.of("kit_delivery_status", "kit_carrier",
+		"kit_tracking_number", "kit_shipped_at", "kit_delivered_at");
+
 	@Autowired
 	private DataSource dataSource;
 
@@ -74,6 +79,13 @@ class FlywayExistingTablesTest {
 		jdbcTemplate.execute("drop index idx_order_item_seller");
 		// 서버 표에는 아직 대회 ID 인덱스가 없다 (CRU-8)
 		jdbcTemplate.execute("drop index idx_order_item_race_status");
+		// 서버 표에는 배송 표로 옮긴 옛 배송 칸이 남아 있다 (BUK-6, CRU-170에서 지운다)
+		for (String column : LEGACY_ORDER_COLUMNS) {
+			jdbcTemplate.execute("alter table order_order add column " + column + " varchar(255)");
+		}
+		for (String column : LEGACY_ORDER_ITEM_COLUMNS) {
+			jdbcTemplate.execute("alter table order_order_item add column " + column + " varchar(255)");
+		}
 
 		// dev·운영과 같은 Flyway 설정 (BUK-29)
 		MigrateResult result = Flyway.configure()
@@ -101,10 +113,19 @@ class FlywayExistingTablesTest {
 			"select count(*) from information_schema.indexes"
 				+ " where table_name = 'order_order_item' and index_name = 'idx_order_item_race_status'",
 			Integer.class)).isPositive();
+		// 옛 배송 칸은 모두 지워진다 (CRU-170)
+		assertThat(legacyColumnCount("order_order", LEGACY_ORDER_COLUMNS)).isZero();
+		assertThat(legacyColumnCount("order_order_item", LEGACY_ORDER_ITEM_COLUMNS)).isZero();
 		// 이미 있던 아웃박스 행은 행마다 다른 order-outbox-{UUID}로 채워진다
 		assertThat(jdbcTemplate.queryForList("select message_id from order_outbox_kafka_event", String.class))
 			.hasSize(2)
 			.doesNotHaveDuplicates()
 			.allMatch(messageId -> messageId.matches(OUTBOX_MESSAGE_ID_FORMAT));
+	}
+
+	private int legacyColumnCount(String table, List<String> columns) {
+		return jdbcTemplate.queryForObject("select count(*) from information_schema.columns where table_name = ?"
+			+ " and column_name in (" + String.join(",", columns.stream().map(column -> "'" + column + "'").toList())
+			+ ")", Integer.class, table);
 	}
 }
