@@ -119,7 +119,7 @@ public class Order extends BaseIdAndTime {
 	private List<OrderItem> items = new ArrayList<>();
 
 	// 키트 배송 (BUK-6). 키트가 있는 참가권을 결제하면 1건 생긴다. 배송지는 주문이 아니라 배송에 둔다
-	// DB의 옛 배송지 컬럼(recipient_name ~ address_detail)은 값을 배송으로 옮긴 뒤 다음 배포에서 지운다
+	// DB의 옛 배송지 칸(recipient_name ~ address_detail)은 CRU-170 마이그레이션이 지웠다
 	// 만든 순서로 읽는다. 재발송이 생기면 마지막 배송이 지금 배송이다 (findKitShipment)
 	@BatchSize(size = 100)
 	@OneToMany(mappedBy = "order", cascade = ALL)
