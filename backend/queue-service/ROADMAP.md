@@ -203,7 +203,7 @@ shrimp 작업 설명과 이 문서가 다르면 **이 문서가 우선**입니�
 ## 남은 일 (단계 밖)
 
 - 완료: 이슈와 PR은 대기열 작업을 모두 마친 뒤 한 번에 했다(사용자 10/14 결정). 브랜치 `feat/PRO-172-queue-skeleton`을 dev와 맞춘 뒤 PR #146으로 머지했다(10/16). PRO-111 · 172 · 176 · 178~182는 Done이다.
-- [결정됨] 문서 맞추기(PRO-177)는 하지 않는다(사용자 10/16, Canceled). 그때 적어 둔 대상: `docs/policy/party-lottery.md` · `backend/product-service/ROADMAP.md`의 대기열 "최종" 표기, `CONTEXT.md`의 대기열 · 활성 시간 용어, `docs/erd/cash.md`의 "결제 기한은 개인 10분", "중복 기기 불가" 정책 원문(피그잼 2차 8장).
+- [결정됨] 문서 맞추기(PRO-177)는 하지 않는다(사용자 10/16, Canceled). 그때 적어 둔 대상: `docs/policy/party-lottery.md` · `backend/product-service/ROADMAP.md`의 대기열 "최종" 표기, `GLOSSARY.md`의 대기열 · 활성 시간 용어, `docs/erd/cash.md`의 "결제 기한은 개인 10분", "중복 기기 불가" 정책 원문(피그잼 2차 8장).
 - 전달 목록 (대기열 코드로는 고칠 수 없는 것, 사용자가 전달)
   - 이다윗 님(주문)
     - 대기열 HTTP 어댑터: 이다윗 님이 `feat/PRO-226-queue-admission-http` 브랜치에서 진행 중이다(10/16 기준 dev 머지 전, `ea3717e` · `038dcbc`). `HttpQueueAdmissionAdapter`가 6단계 내부 API를 부르고 끝 시각은 `remainingMillis`를 주문의 지금 시각에 더해 세며, 대기열 호출 제한을 3초(`order.clients.queue.timeout`)로 따로 두어 대기열의 Redis 제한 2초보다 길게 기다린다. 운영 queue mode는 http로 바뀐다.

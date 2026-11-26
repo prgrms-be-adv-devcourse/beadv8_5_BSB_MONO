@@ -1,0 +1,51 @@
+name: project-sync
+
+# 이슈를 GitHub 프로젝트 「크루런」 칸반에 올리고 칸·영역·우선순위·주를 맞춘다. 규칙은 docs/decisions/github-conventions.md 「칸반」, 코드는 .github/scripts/project-sync.js.
+# GITHUB_TOKEN은 오거나이제이션 프로젝트를 쓸 수 없어 시크릿 PROJECT_TOKEN을 쓴다.
+# PROJECT_TOKEN이 없으면(시크릿을 아직 안 넣은 레포, 시크릿을 못 받는 포크 PR) 안내만 남기고 성공으로 끝난다.
+# issues 이벤트는 기본 브랜치(main)의 이 파일로 돈다. main에 들어가야 적용된다.
+on:
+  issues:
+    types: [opened, reopened, closed, labeled, unlabeled, assigned, unassigned, milestoned]
+  pull_request:
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+
+# 이슈마다 하나만 돈다. 실행할 때마다 이슈의 지금 상태로 다시 계산하므로 진행 중인 실행을 끊어도 된다.
+concurrency:
+  group: project-sync-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      # 담당자가 지정된 이슈에 마일스톤이 없으면 이번 주 마일스톤을 붙인다.
+      # GITHUB_TOKEN으로 만든 이벤트는 다른 워크플로를 깨우지 않으므로, 아래 동기화 단계가 같은 실행 안에서 바뀐 마일스톤을 읽어 주 필드까지 채운다.
+      - if: github.event_name == 'issues' && github.event.action == 'assigned'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await require('./.github/scripts/week-milestone.js').attachThisWeek({ github, context, core })
+
+      - name: PROJECT_TOKEN 확인
+        run: |
+          if [ -z "$PROJECT_TOKEN" ]; then
+            echo "PROJECT_TOKEN 시크릿이 없어 프로젝트 동기화를 건너뜁니다."
+          fi
+
+      - if: env.PROJECT_TOKEN != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            await require('./.github/scripts/project-sync.js')({ github, context, core })

@@ -40,13 +40,12 @@ jobs:
           if [ -z "$number" ]; then
             url=$(gh pr create --base main --head dev \
               --title "chore: dev를 main에 동기화 ($(TZ=Asia/Seoul date +%F))" \
-              --body "dev-main-sync 워크플로가 매일 05:00(KST)에 만드는 자동 동기화 PR입니다. 체크가 통과하면 자동으로 머지됩니다." \
-              --label no-issue)
+              --body "dev-main-sync 워크플로가 매일 05:00(KST)에 만드는 자동 동기화 PR입니다. 체크가 통과하면 자동으로 머지됩니다.")
             number=${url##*/}
           fi
           echo "number=$number" >> "$GITHUB_OUTPUT"
 
-      # main에 필수 체크가 없어서 backend-ci·frontend-ci만 직접 본다(linear-sync 등은 머지를 막지 않는다).
+      # main에 필수 체크가 없어서 backend-ci·frontend-ci만 직접 본다(pr-rules 등은 머지를 막지 않는다).
       # 경로 필터 때문에 변경이 없는 쪽은 돌지 않는다. 60초 뒤에도 하나도 없으면 돌 CI가 없는 것으로 본다.
       # 체크가 하나도 없을 때(gh가 "no checks reported"로 실패)만 "CI 없음"으로 본다.
       # 그 밖의 API 오류는 CI 없음으로 오해해 머지하지 않도록 재시도하고, 5번 연속 실패하면 중단한다.
