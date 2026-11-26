@@ -96,4 +96,18 @@ describe('AuthSessionRestorer', () => {
     expect(replace).toHaveBeenCalledWith('/login?next=%2Ftickets%3Ftab%3Ddone')
     window.history.replaceState(null, '', '/')
   })
+
+  it('앱 충전 페이지(/app-charge)에서는 로그인이 필요 없어 재발급을 부르지 않는다', async () => {
+    window.history.replaceState(null, '', '/app-charge/done?orderId=o1')
+    const reissue = vi.fn(() =>
+      HttpResponse.json({ status: 401, message: '없음', data: null }, { status: 401 }),
+    )
+    server.use(http.post('*/api/v1/auth/reissue', reissue))
+
+    renderRestorer()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(reissue).not.toHaveBeenCalled()
+    window.history.replaceState(null, '', '/')
+  })
 })

@@ -18,6 +18,8 @@ export function AuthSessionRestorer() {
   const router = useRouter()
 
   useEffect(() => {
+    // 앱 안 브라우저로 여는 충전 페이지는 로그인이 필요 없다. 기기 브라우저와 쿠키를 같이 쓰면 재발급이 웹 로그인의 토큰을 바꾸므로 부르지 않는다.
+    if (window.location.pathname.startsWith('/app-charge')) return
     void restoreSession().then(() => {
       if (getAuthStatus() === 'authenticated') {
         void queryClient.prefetchQuery(memberApi.getFindMeQueryOptions())
