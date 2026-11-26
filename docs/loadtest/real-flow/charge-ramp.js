@@ -74,12 +74,14 @@ export const options = {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
+// 한꺼번에 로그인할 계정 수 (rush.js와 같다. 운영은 LOGIN_BATCH=20)
+const LOGIN_BATCH = Number(__ENV.LOGIN_BATCH || 50);
 // 계정 1~ACCOUNTS를 50개씩 한꺼번에 로그인한다 (nginx 로그인 제한 스위치를 끈 뒤에 돌린다)
 export function setup() {
 	const tokens = [];
-	for (let from = 1; from <= ACCOUNTS; from += 50) {
+	for (let from = 1; from <= ACCOUNTS; from += LOGIN_BATCH) {
 		const nos = [];
-		for (let no = from; no < Math.min(from + 50, ACCOUNTS + 1); no++) {
+		for (let no = from; no < Math.min(from + LOGIN_BATCH, ACCOUNTS + 1); no++) {
 			nos.push(no);
 		}
 		const res = http.batch(nos.map((no) => ({

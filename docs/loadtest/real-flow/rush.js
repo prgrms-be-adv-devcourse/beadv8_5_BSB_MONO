@@ -107,12 +107,14 @@ function call(method, path, body, token, extraHeaders = {}) {
 	});
 }
 
+// 한꺼번에 로그인할 계정 수. 운영 회원 서비스(메모리 640Mi)가 가입 50건을 한꺼번에 받다 메모리 초과로 죽어(2026-11-27) 운영은 20으로 줄여 돌린다
+const LOGIN_BATCH = Number(__ENV.LOGIN_BATCH || 50);
 // 계정을 50개씩 한꺼번에 로그인한다. Access Token은 파티를 만들 때, Refresh Token은 가상 사용자가 앱을 열 때 쓴다
 function loginAll(count) {
 	const tokens = new Array(count + 1);
-	for (let from = 1; from <= count; from += 50) {
+	for (let from = 1; from <= count; from += LOGIN_BATCH) {
 		const nos = [];
-		for (let no = from; no < Math.min(from + 50, count + 1); no++) {
+		for (let no = from; no < Math.min(from + LOGIN_BATCH, count + 1); no++) {
 			nos.push(no);
 		}
 		const res = http.batch(nos.map((no) => ({

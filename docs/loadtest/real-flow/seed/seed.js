@@ -27,8 +27,10 @@ const auth = (token) => ({ headers: { ...JSON_HEADERS, Authorization: `Bearer ${
 
 function batch(requests) {
 	const out = [];
-	for (let i = 0; i < requests.length; i += 50) {
-		out.push(...http.batch(requests.slice(i, i + 50)));
+	// 운영 회원 서비스(메모리 640Mi)는 가입 50건을 한꺼번에 받다 메모리 초과로 죽었다(2026-11-27). 운영 가입은 BATCH=10으로 돌린다
+	const size = Number(__ENV.BATCH || 50);
+	for (let i = 0; i < requests.length; i += size) {
+		out.push(...http.batch(requests.slice(i, i + size)));
 	}
 	return out;
 }
