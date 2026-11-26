@@ -1,0 +1,40 @@
+name: weekly-milestone
+
+# 매주 월요일 00:05(한국 시간)에 이번 주와 다음 주 마일스톤(「M/D 주」)이 없으면 만든다.
+# PROJECT_TOKEN이 있으면 프로젝트 「주」 필드에도 이번 주·다음 주 주기가 없을 때 더한다. 없으면 이 단계는 건너뛴다.
+on:
+  schedule:
+    - cron: '5 15 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await require('./.github/scripts/week-milestone.js').ensureMilestones({ github, context, core })
+
+      - name: PROJECT_TOKEN 확인
+        run: |
+          if [ -z "$PROJECT_TOKEN" ]; then
+            echo "PROJECT_TOKEN 시크릿이 없어 프로젝트 주 필드 갱신을 건너뜁니다."
+          fi
+
+      - if: env.PROJECT_TOKEN != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            await require('./.github/scripts/week-milestone.js').ensureIterations({ github, context, core })

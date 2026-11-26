@@ -3,7 +3,7 @@ name: pr-auto-approve
 # 동작을 바꾸지 않는 타입(docs·chore·style·test) PR은 사람 승인 없이 머지할 수 있게, github-actions 봇이 자동으로 승인 리뷰를 단다.
 # dev 보호 ruleset의 "승인 1개" 요구를 이 봇 승인으로 채운다. CI 필수 체크는 그대로 통과해야 머지된다.
 # 제목을 자동 승인 대상에서 다른 타입으로 바꾸면(edited) 봇 승인을 거둬, 리뷰 없이 머지되는 구멍을 막는다.
-# linear-sync처럼 pull_request_target이라 기본 브랜치(main)의 이 파일로 돈다. 적용하려면 main에 들어가야 한다.
+# pull_request_target이라 기본 브랜치(main)의 이 파일로 돈다. 적용하려면 main에 들어가야 한다.
 on:
   pull_request_target:
     types: [opened, reopened, edited, synchronize]

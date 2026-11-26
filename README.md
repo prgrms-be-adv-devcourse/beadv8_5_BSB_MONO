@@ -285,7 +285,9 @@ docker compose --profile app ps                # 모든 서비스가 healthy인�
 | 워크플로 | 하는 일 |
 |---|---|
 | `backend-ci` · `frontend-ci` | PR마다 바뀐 쪽(백엔드·프론트엔드)의 빌드와 테스트를 돌립니다. |
-| `pr-rules` · `linear-sync` | PR 브랜치 이름·본문 양식을 검사하고, PR을 Linear 이슈에 붙입니다. |
+| `pr-rules` | PR 브랜치 이름·본문 양식을 검사합니다. |
+| `project-sync` | 이슈를 GitHub 프로젝트 칸반에 올리고 칸·영역·우선순위·주를 맞춥니다. |
+| `weekly-milestone` | 매주 월요일 00:05(KST)에 이번 주·다음 주 마일스톤을 만듭니다. |
 | `dev-main-sync` | 매일 05:00(KST) `dev`를 `main`으로 머지합니다. |
 | `k8s-cd` | `main`에 들어오면 운영에 배포합니다. |
 | `data-node-cd` | 데이터 EC2의 Compose 구성을 손으로 실행해 배포합니다. |
