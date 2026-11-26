@@ -145,8 +145,9 @@ function registerRace(sellerToken, role, stageNo, pairNo, openAtMs, pair) {
 		crewSaleEndAt: crew ? kstDate(openAtMs, 0, 23, 59) : null,
 		// 한 대회 안에서 크루 기간과 개인 기간은 겹치지 않는다 (9절): A의 개인 오픈은 크루 마감 다음 날
 		individualOpenAt: crew ? kstDate(openAtMs, 1, 10) : kst(openAtMs),
-		applicationCloseAt: kstDate(openAtMs, 40, 18),
-		refundDeadline: kstDate(openAtMs, 40).slice(0, 10),
+		// 대회 일시는 접수 마감 3주 뒤부터, 환불 기준일은 접수 마감 다음 날부터 (상품 Race, CRU-131)
+		applicationCloseAt: kstDate(openAtMs, 36, 18),
+		refundDeadline: kstDate(openAtMs, 37).slice(0, 10),
 		refundPolicy: '환불 기한까지 취소하면 전액 환불됩니다.',
 		crewMinCount: 4,
 		crewMaxCount: PARTY_SIZE,
