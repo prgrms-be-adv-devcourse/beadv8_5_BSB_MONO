@@ -1,0 +1,81 @@
+name: 기능·개선
+description: 새 기능이나 기존 기능 개선
+title: ""
+labels: ["기능"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제목은 현상이나 결과를 명사형으로 30자 안쪽으로 씁니다. 예: 결제 후 같은 종목 대기열 재등록 시 409 오류
+  - type: textarea
+    id: problem
+    attributes:
+      label: 현재 문제
+      description: 지금 누가 무엇 때문에 불편한지 씁니다.
+      placeholder: 결제를 마친 회원이 같은 종목 대기열에 다시 들어가려고 하면 409 오류가 나서, 회원이 다시 신청하지 못합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: cause
+    attributes:
+      label: 원인
+      description: 코드나 설정에서 어디가 그렇게 만드는지 파일과 위치로 씁니다.
+      placeholder: queue-service의 QueueEntryService.enter()가 결제 완료 기록이 있으면 항상 중복으로 처리합니다.
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 끝났을 때 사용자나 시스템에 무엇이 달라지는지 씁니다.
+      placeholder: 결제를 취소한 회원은 같은 종목 대기열에 다시 들어갈 수 있습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      description: 확인할 수 있는 문장으로 한 줄씩 씁니다.
+      placeholder: |
+        - 결제를 취소한 회원이 같은 종목 대기열에 들어가면 대기 번호를 받는다
+        - 결제를 유지한 회원이 다시 들어가면 지금처럼 409 오류가 난다
+    validations:
+      required: true
+  - type: textarea
+    id: excluded
+    attributes:
+      label: 제외 범위
+      description: 이번에 하지 않는 일을 씁니다.
+      placeholder: 대기열 화면 문구 변경은 하지 않습니다.
+  - type: dropdown
+    id: service
+    attributes:
+      label: 담당 서비스
+      description: 가장 크게 바뀌는 영역을 고릅니다.
+      options:
+        - member
+        - product
+        - order
+        - queue
+        - cash
+        - payout
+        - board
+        - inquiry
+        - notification
+        - file
+        - ai
+        - gateway
+        - common
+        - design
+        - infra
+        - ci
+        - e2e
+        - loadtest
+    validations:
+      required: true
+  - type: input
+    id: policy
+    attributes:
+      label: 관련 정책
+      description: 정책 문서의 장과 항을 씁니다.
+      placeholder: 정책 4장 2-1

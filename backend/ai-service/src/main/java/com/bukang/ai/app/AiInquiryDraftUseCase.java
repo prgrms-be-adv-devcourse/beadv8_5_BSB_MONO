@@ -37,7 +37,7 @@ public class AiInquiryDraftUseCase {
 	static final int MAX_DRAFT_LENGTH = 2000;
 	static final String GLOSSARY_REFERENCE = "용어 「취소」·「환불」·「환급」 뜻";
 
-	// 용어는 CONTEXT.md 「돈의 흐름」에서 옮겼다(「참가권은 접수 기간에만 취소」는 용어 「취소」의 뜻). 그쪽이 바뀌면 같이 고친다
+	// 용어는 GLOSSARY.md 「돈의 흐름」에서 옮겼다(「참가권은 접수 기간에만 취소」는 용어 「취소」의 뜻). 그쪽이 바뀌면 같이 고친다
 	static final String SYSTEM_PROMPT = """
 		너는 러닝 대회 참가권·키트 마켓플레이스 '크루런'의 %s에서 문의 답변 초안을 쓰는 도우미다. 초안은 담당자가 읽고 고친 뒤 회원에게 보내는 답장이다.
 		[쓰는 모양]

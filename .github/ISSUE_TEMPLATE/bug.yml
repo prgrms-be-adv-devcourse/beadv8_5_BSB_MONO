@@ -1,0 +1,61 @@
+name: 버그
+description: 동작이 구현 의도와 다릅니다
+title: ""
+labels: ["버그"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제목은 현상이나 결과를 명사형으로 30자 안쪽으로 씁니다. 원인을 몰라도 괜찮습니다.
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 순서
+      description: 처음 보는 사람이 그대로 따라 할 수 있게 순서대로 씁니다.
+      placeholder: |
+        1. 회원 계정으로 로그인한다
+        2. 대회 상세에서 종목을 고르고 결제한다
+        3. 결제를 취소한 뒤 같은 종목 대기열에 다시 들어간다
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 구현 의도
+      description: 원래 어떻게 동작해야 하는지 씁니다.
+      placeholder: 결제를 취소한 회원은 같은 종목 대기열에 다시 들어갈 수 있습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 결과
+      description: 지금 어떻게 동작하는지 씁니다.
+      placeholder: 409 오류가 나고 대기 번호를 받지 못합니다.
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: 위치
+      description: 어느 화면이나 API에서 일어나는지 씁니다.
+      placeholder: 대기열 입장 화면, POST /api/v1/queue/entries
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 로그·스크린샷
+      description: 오류 문구, 로그, 화면 이미지를 붙입니다.
+      placeholder: 응답 본문 {"code":"QUEUE_ALREADY_ENTERED"}
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 우선순위
+      options:
+        - 긴급
+        - 높음
+        - 보통
+      default: 2
+    validations:
+      required: true

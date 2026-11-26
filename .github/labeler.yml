@@ -1,0 +1,23 @@
+# actions/labeler 설정. 수정한 파일 경로로 위치 라벨을 붙인다. (pr-rules 워크플로의 pr-labels 잡)
+프론트:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**'
+
+백엔드:
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**'
+
+인프라:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'backend/docker/**'
+          - 'k8s/**'
+          - 'infra/**'
+          - '**/compose*.yml'
+
+문서:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '**/*.md'

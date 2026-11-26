@@ -1,0 +1,48 @@
+name: 티켓
+description: 기능 이슈를 나눈 작은 작업
+title: ""
+body:
+  - type: markdown
+    attributes:
+      value: |
+        기능 이슈의 하위 이슈로 만듭니다. 선행 이슈는 GitHub의 「막는 이슈」 연결로 표시합니다.
+  - type: input
+    id: parent
+    attributes:
+      label: 상위 이슈
+      description: 이 작업이 속한 기능 이슈 번호를 씁니다.
+      placeholder: "#812"
+    validations:
+      required: true
+  - type: textarea
+    id: work
+    attributes:
+      label: 작업 내용
+      description: 이 티켓에서 바꿀 것을 씁니다.
+      placeholder: 결제 취소 이벤트를 받으면 대기열 재입장 제한을 풀도록 QueueEntryService를 고칩니다.
+    validations:
+      required: true
+  - type: textarea
+    id: test-items
+    attributes:
+      label: 테스트 항목
+      description: 한 줄이 테스트 이름 하나가 되고, PR의 테스트 항목에도 그대로 나옵니다.
+      placeholder: |
+        - 결제를 취소한 회원은 같은 종목 대기열에 다시 들어갈 수 있다
+        - 결제를 유지한 회원이 다시 들어가면 409 오류가 난다
+    validations:
+      required: true
+  - type: textarea
+    id: test-method
+    attributes:
+      label: 테스트 방법
+      description: 테스트를 어디서 어떻게 돌리는지 씁니다.
+      placeholder: cd backend && ./gradlew :queue-service:test
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: 수정 파일
+      description: 알고 있는 만큼만 씁니다.
+      placeholder: backend/queue-service/src/main/java/com/bukang/queue/app/QueueEntryService.java
