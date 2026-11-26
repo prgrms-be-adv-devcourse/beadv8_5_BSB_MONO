@@ -54,10 +54,14 @@ jobs:
             const check = require('./.github/scripts/pr-rules.js')
             await check({ context, core })
 
-  # PR 본문에 템플릿(.github/pull_request_template.md)의 섹션이 모두 있는지 본다.
+  # PR 본문이 템플릿(.github/pull_request_template.md)의 칸 규칙을 지키는지 보고, 중점 리뷰·논의 필요 라벨을 붙이거나 뗀다.
   # 본문을 고치면(edited) 다시 검사한다. 필수 체크는 아니다.
+  # pull_request 이벤트라 포크 PR은 토큰이 읽기 전용이다. 이때는 라벨만 못 붙이고 검사 결과는 그대로 난다.
   pr-body:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,4 +71,17 @@ jobs:
         with:
           script: |
             const check = require('./.github/scripts/pr-body.js')
-            await check({ context, core })
+            await check({ github, context, core })
+
+  # 수정한 파일 경로로 프론트·백엔드·인프라·문서 라벨을 붙인다(.github/labeler.yml).
+  # 포크 PR은 토큰이 읽기 전용이라 실패할 수 있어 continue-on-error로 둔다.
+  pr-labels:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v6.0.1
+        with:
+          sync-labels: true

@@ -10,7 +10,7 @@
 
 | 하려는 일 | 먼저 읽을 문서 |
 |---|---|
-| 프로젝트가 무엇인지 알기 | [../README.md](../README.md), [../CONTEXT.md](../CONTEXT.md) (용어) |
+| 프로젝트가 무엇인지 알기 | [../README.md](../README.md), [../GLOSSARY.md](../GLOSSARY.md) (용어) |
 | 로컬에서 띄우기 | [SETUP.md](SETUP.md), [../backend/README.md](../backend/README.md) |
 | 백엔드 코드 고치기 | [../backend/CLAUDE.md](../backend/CLAUDE.md), [../.claude/rules/](../.claude/rules/) |
 | 프론트엔드 코드 고치기 | [../frontend/AGENTS.md](../frontend/AGENTS.md) |
@@ -29,7 +29,7 @@
 |---|---|
 | [../README.md](../README.md) | 프로젝트 소개 (밖에서 보는 사람용) |
 | [../CLAUDE.md](../CLAUDE.md) | AI 작업 규칙의 입구. 폴더별 규칙 문서로 이어짐 |
-| [../CONTEXT.md](../CONTEXT.md) | 도메인 용어 |
+| [../GLOSSARY.md](../GLOSSARY.md) | 도메인 용어 |
 | [SETUP.md](SETUP.md) | 개발 환경 설정 (도구, git, 환경변수, MCP) |
 | [LINEAR.md](LINEAR.md) | Linear 사용 규칙, 브랜치 · PR 규칙, CI 필수 체크 |
 | [LINEAR-API-KEY.md](LINEAR-API-KEY.md) | Linear API 키를 저장소 시크릿으로 등록하는 방법 |
