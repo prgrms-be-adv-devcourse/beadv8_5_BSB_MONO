@@ -6,7 +6,7 @@ const APP_RETURN_URL = 'crewrun://deposit/charge-return'
 const text = (v: string | string[] | undefined) =>
   typeof v === 'string' && v !== '' ? v : undefined
 const positiveInt = (v: string | undefined) =>
-  v !== undefined && /^[1-9]\d*$/.test(v) ? Number(v) : undefined
+  v !== undefined && /^[1-9]\d*$/.test(v) && Number.isSafeInteger(Number(v)) ? Number(v) : undefined
 
 export type ChargeQuery = {
   orderId: string

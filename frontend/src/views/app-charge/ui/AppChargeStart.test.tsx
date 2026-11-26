@@ -80,4 +80,15 @@ describe('AppChargeStart', () => {
     await waitFor(() => expect(requestPayment).toHaveBeenCalled())
     expect(requestPayment).toHaveBeenCalledTimes(1)
   })
+
+  it('결제 화면에서 뒤로 가기로 되살아나면(bfcache) 멈추지 않고 실패 주소로 보낸다', async () => {
+    const navigate = vi.fn()
+    render(<AppChargeStart query={query} navigate={navigate} />)
+    await waitFor(() => expect(requestPayment).toHaveBeenCalled())
+
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(navigate.mock.calls[0][0]).toContain('code=PAYMENT_ABORTED')
+  })
 })

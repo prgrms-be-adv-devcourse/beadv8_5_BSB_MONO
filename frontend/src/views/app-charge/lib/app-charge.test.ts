@@ -19,7 +19,7 @@ describe('parseChargeQuery', () => {
     expect(parseChargeQuery({ ...valid, [key]: '' })).toBeUndefined()
   })
 
-  it.each(['abc', '0', '-100', '1.5', '1e3', '12000원', ' '])(
+  it.each(['abc', '0', '-100', '1.5', '1e3', '12000원', ' ', '99999999999999999999'])(
     '금액이 %j이면 undefined',
     (amount) => {
       expect(parseChargeQuery({ ...valid, amount })).toBeUndefined()

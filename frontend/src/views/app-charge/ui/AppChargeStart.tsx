@@ -58,5 +58,15 @@ export function AppChargeStart({
     })()
   }, [query, navigate])
 
+  // 결제 화면에서 뒤로 가기로 되살아나면 위 effect가 다시 돌지 않아 화면이 멈춘다. 결제를 마치지 않은 것으로 앱에 돌려보낸다.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted)
+        navigate(failPath('PAYMENT_ABORTED', '결제를 마치지 못했어요', query?.orderId))
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [query, navigate])
+
   return <p className="p-6 text-center">결제창을 여는 중이에요</p>
 }
