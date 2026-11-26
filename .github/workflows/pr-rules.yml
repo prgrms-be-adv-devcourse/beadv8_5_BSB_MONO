@@ -71,7 +71,7 @@ jobs:
         with:
           script: |
             const check = require('./.github/scripts/pr-body.js')
-            await check({ context, core })
+            await check({ github, context, core })
 
   # 수정한 파일 경로로 프론트·백엔드·인프라·문서 라벨을 붙인다(.github/labeler.yml).
   # 포크 PR은 토큰이 읽기 전용이라 실패할 수 있어 continue-on-error로 둔다.
