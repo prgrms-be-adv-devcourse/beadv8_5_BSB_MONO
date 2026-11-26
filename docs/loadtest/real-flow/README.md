@@ -93,11 +93,14 @@ bash check.sh 15,16
 2. 상품 당일 판매 설정(`k8s/overlays/aws/product-same-day-sale.yaml`)이 켜져 있는지 본다. 꺼져 있으면 오늘 오픈하는 대회가 판매 예정으로 남아 줄을 설 수 없다
 3. 준비 데이터: `identities.sh`를 운영 Redis에 넣고(`docs/loadtest/README.md`의 1번과 같은 방법), `seed.js`를 `JOIN=1`로(CHARGE 없이) 돌린다. 예치금은 `seed/charge-prod.sql`, 크루 가입일은 `seed/backdate-crews.sql`(crewrun_member)을 보조 서버 MySQL에서 돌린다
    판매자: 운영에는 `seller1@crewrun.com`이 없다. 테스트 계정 `realflow0`을 가입시키고(`identities.sh 0 0`, 토큰 `realflow-0`)
-   `crewrun_product.product_seller`에 승인 상태로 넣은 뒤 `-e SELLER_EMAIL=realflow0@crewrun.test`로 돌린다 (상품 쪽 판매자 표만이라 정산 대상이 되기 전에 정리한다)
+   `crewrun_product.product_seller`에 승인 상태로 넣은 뒤(`seed/seller-prod.sql`) `-e SELLER_EMAIL=realflow0@crewrun.test`로 돌린다 (상품 쪽 판매자 표만이라 정산 대상이 되기 전에 정리한다)
+   realflow0 가입: `seed.js`를 `-e JOIN=1 -e COUNT=1 -e ACCOUNT_OFFSET=-1 -e CREWS=0`으로 돌린다
+   **운영 가입은 `-e BATCH=10`으로 돌린다.** 50건을 한꺼번에 받으면 회원 서비스(메모리 640Mi)가 메모리 초과로 다시 뜬다(2026-11-27). rush.js·charge-ramp.js 로그인도 `-e LOGIN_BATCH=20`
+   크루를 이미 만들어 둔 운영 DB면 `seed/crews-prod.sql`로 `.crews.json`만 다시 만든다
    SQL에 한글(크루 이름)이 있으면 `SET NAMES utf8mb4;`를 먼저 넣는다. 없으면 0행이 바뀐다
    `charge-prod.sql`은 계정 번호가 5의 배수인 계정을 0원으로 둔다. 이 사람들은 결제에서 모자람을 받고 충전한 뒤 다시 결제한다(아래 「결제 중 충전」)
 4. **cash 결제사를 가짜로 바꾼다** (충전 흐름을 잴 때만). 운영 충전은 실제 Toss를 불러 k6의 가짜 결제 키를 거절하기 때문이다.
-   메인 EC2에서 돌린다. cash Pod가 다시 뜨며 1분쯤 충전·결제가 멈춘다
+   메인 EC2에서 돌린다(운영은 `kubectl` 대신 `sudo k3s kubectl`). cash Pod가 다시 뜨며 1분쯤 충전·결제가 멈춘다
 
    ```bash
    kubectl -n crewrun set env deploy/bukang-cash-service CASH_CLIENTS_PG_MODE=fake CASH_CLIENTS_PG_FAKECONFIRMDELAY=500ms
@@ -109,6 +112,8 @@ bash check.sh 15,16
 5. `rush.js`를 `BASE_URL`·`API_URL` 없이(기본 운영 주소) 돌린다. `PREP`은 계정 수에 맞춰 넉넉히(2,310개면 600초로 준비 150초)
    k6 지표를 운영 Prometheus로 보내려면 `-o experimental-prometheus-rw --tag testid=<이름>`과 `K6_PROMETHEUS_RW_*`(사용자 `crewrun`, 비밀번호는 Secret `monitoring-remote-write`)를 붙인다. Grafana 「크루런 · 부하 테스트」에서 testid로 본다
 6. 정합성: `DB=prod bash check.sh <대회 ID>`가 출력하는 SQL을 보조 서버 MySQL에서 돌린다
+   충전 한계(2부)는 `charge-ramp.js`로 잰다. 끝나면 준비 끝에 찍힌 충전 주문번호 앞머리를 `check-charge.sql`의 `@prefix`에 넣어 돌린다.
+   1부(rush.js)에서 충전한 계정의 남용 방지 5분 창이 비도록 1부가 끝나고 5분 넘게 쉰 뒤 돌린다. 결과는 `docs/measurements/2026-11-27-운영-예치금-부하.md`
 7. **cash 결제사를 실제 Toss로 되돌린다.** `deploy.sh`의 `kubectl apply`는 직접 넣은 환경 변수를 지우지 않아, 다음 배포가 와도 가짜로 남는다
 
    ```bash

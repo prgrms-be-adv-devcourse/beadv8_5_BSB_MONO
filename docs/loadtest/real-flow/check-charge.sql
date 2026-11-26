@@ -2,6 +2,7 @@
 -- @prefix는 charge-ramp.js가 준비 끝에 찍은 「충전 주문번호 앞머리」 (예: charge-cr-mihg2k1a-)
 -- 테스트 계정 잔액은 charge-prod.sql이 원장 없이 바꿔 둬서 「잔액 = 원장 합」으로는 못 본다
 -- 그래서 이번 실행에서 생긴 원장부터 앞뒤 원장의 잔액이 이어지는지, 마지막 원장 잔액이 지금 잔액과 같은지 본다
+USE crewrun_cash;
 SET @prefix = 'charge-cr-여기에-앞머리-';
 
 -- 참고: 이번 실행 충전의 상태별 건수. 완료가 아닌 것은 k6의 charge_failed와 같이 본다
