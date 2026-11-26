@@ -50,7 +50,7 @@ effort: medium
    - 백엔드: `backend/`에서 `./gradlew :<모듈>:test` 와 `./gradlew :<모듈>:checkstyleMain :<모듈>:checkstyleTest`
    - 프론트: `frontend/`에서 `pnpm lint && pnpm typecheck && pnpm test`
 6. 맷 포콕 `code-review`를 Read하고 두 축으로 리뷰합니다. 기준 축에는 `CODING_STANDARDS.md`를 줍니다. 지적은 같은 브랜치에서 고치고 5번을 다시 돌립니다.
-7. 브랜치 이름을 `<종류>/<이슈 번호>-<영어 설명>`으로 만들어 커밋하고 push합니다. 예: `feat/829-ticket-run`. 종류는 `.claude/rules/git-commit-convention.md`의 타입이고, 커밋 제목의 영역은 같은 파일의 목록에서 고릅니다.
+7. 브랜치 이름은 `<종류>/<이슈 번호>-<영어 설명>`입니다. 예: `feat/829-ticket-run`. 구현을 시작하기 전에 `gh issue develop <번호> --name <브랜치> --base dev --checkout`으로 브랜치를 만듭니다. 이렇게 만들어야 이슈의 Development 칸에 브랜치가 연결됩니다. 커밋하고 push합니다. 종류는 `.claude/rules/git-commit-convention.md`의 타입이고, 커밋 제목의 영역은 같은 파일의 목록에서 고릅니다.
 8. PR을 만듭니다: base `dev`, `--assignee @me`, 본문은 `.github/pull_request_template.md` 칸을 모두 채우고 마지막 줄에 `Closes #<번호>`. 제목은 `<종류>(<영역>): <한글 설명>`입니다.
 9. 맷 포콕 `retro`를 Read하고 이 세션에 대해 돌립니다. 환경을 고칠 제안이 나오면 PR이 아니라 보고에 적습니다.
 
