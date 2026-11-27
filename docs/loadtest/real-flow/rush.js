@@ -80,6 +80,9 @@ export const options = {
 		pay_retry_success: ['count>=0'],
 		booking_failed_final: ['count==0'],
 		flow_broken: ['count==0'],
+		charge_needed: ['count>=0'],
+		charge_completed: ['count>=0'],
+		charge_failed: ['count==0'],
 	},
 	summaryTrendStats: ['avg', 'p(50)', 'p(95)', 'p(99)', 'max'],
 };
@@ -104,12 +107,14 @@ function call(method, path, body, token, extraHeaders = {}) {
 	});
 }
 
+// 한꺼번에 로그인할 계정 수. 운영 회원 서비스(메모리 640Mi)가 가입 50건을 한꺼번에 받다 메모리 초과로 죽어(2026-11-27) 운영은 20으로 줄여 돌린다
+const LOGIN_BATCH = Number(__ENV.LOGIN_BATCH || 50);
 // 계정을 50개씩 한꺼번에 로그인한다. Access Token은 파티를 만들 때, Refresh Token은 가상 사용자가 앱을 열 때 쓴다
 function loginAll(count) {
 	const tokens = new Array(count + 1);
-	for (let from = 1; from <= count; from += 50) {
+	for (let from = 1; from <= count; from += LOGIN_BATCH) {
 		const nos = [];
-		for (let no = from; no < Math.min(from + 50, count + 1); no++) {
+		for (let no = from; no < Math.min(from + LOGIN_BATCH, count + 1); no++) {
 			nos.push(no);
 		}
 		const res = http.batch(nos.map((no) => ({
@@ -140,8 +145,9 @@ function registerRace(sellerToken, role, stageNo, pairNo, openAtMs, pair) {
 		crewSaleEndAt: crew ? kstDate(openAtMs, 0, 23, 59) : null,
 		// 한 대회 안에서 크루 기간과 개인 기간은 겹치지 않는다 (9절): A의 개인 오픈은 크루 마감 다음 날
 		individualOpenAt: crew ? kstDate(openAtMs, 1, 10) : kst(openAtMs),
-		applicationCloseAt: kstDate(openAtMs, 40, 18),
-		refundDeadline: kstDate(openAtMs, 40).slice(0, 10),
+		// 대회 일시는 접수 마감 3주 뒤부터, 환불 기준일은 접수 마감 다음 날부터 (상품 Race, CRU-131)
+		applicationCloseAt: kstDate(openAtMs, 36, 18),
+		refundDeadline: kstDate(openAtMs, 37).slice(0, 10),
 		refundPolicy: '환불 기한까지 취소하면 전액 환불됩니다.',
 		crewMinCount: 4,
 		crewMaxCount: PARTY_SIZE,
@@ -381,6 +387,7 @@ export function handleSummary(summary) {
 		`첫 결제 503 pay_busy_first: ${count('pay_busy_first')}  다시 시도해 결제 pay_retry_success: ${count('pay_retry_success')}`,
 		`결제 못 함 booking_failed_final: ${count('booking_failed_final')}`,
 		`파티 신청 성공 party_applied: ${count('party_applied')}  크루 자리 부족 party_seat_short: ${count('party_seat_short')}`,
+		`충전하러 감 charge_needed: ${count('charge_needed')}  충전됨 charge_completed: ${count('charge_completed')}  충전 실패 charge_failed: ${count('charge_failed')}`,
 		`흐름 끊김 flow_broken: ${count('flow_broken')}`,
 		'',
 	].join('\n');

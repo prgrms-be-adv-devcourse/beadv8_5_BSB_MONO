@@ -64,7 +64,11 @@ export const THINK = {
 	retryPay: 2, // 다시 열린 결제 화면에서 결제를 다시 누르기까지
 	browse: 3, // 보기만 하는 사람이 화면을 보는 시간
 	pageRetry: 3, // 화면이 오류(502·504·연결 실패)로 뜨면 보고 새로고침하기까지
+	tossWindow: Number(__ENV.TOSS_WINDOW || 30), // 결제 중 충전: 토스 결제창에서 카드를 고르고 승인하기까지 (CRU-110)
 };
+// 결제 중 충전 금액 = 모자란 금액. 1만 원보다 적으면 1만 원, 한 번에 30만 원까지 (frontend chargeAmountFor, cash CashChargePolicy)
+export const MIN_CHARGE = 10000;
+export const MAX_CHARGE = 300000;
 // 화면 오류 때 새로고침하는 횟수. 그래도 안 뜨면 그 사람은 다음 단계로 못 가고 흐름이 끊긴다
 // (오류 화면에는 다음 버튼이 없다. 예전에는 화면 결과를 보지 않고 다음 API로 넘어가, web이 무너질 때 결제가 부풀었다)
 export const PAGE_RETRIES = 2;

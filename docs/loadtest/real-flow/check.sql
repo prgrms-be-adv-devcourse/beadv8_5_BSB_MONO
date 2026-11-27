@@ -43,3 +43,14 @@ SELECT '5. 팔린 자리 = 결제 완료 참가권' AS `확인`,
 	ABS((SELECT COUNT(*) FROM @PRODUCT@.participation_hold h JOIN @PRODUCT@.race_course rc ON rc.race_course_id = h.race_course_id
 		WHERE rc.race_id IN (@RACES@) AND h.status = 'SOLD')
 		- (SELECT COUNT(*) FROM @ORDER@.order_order_item i WHERE i.race_id IN (@RACES@) AND i.status = 'PAID')) AS `불일치`;
+
+-- 6. 결제 중 충전 (CRU-110). k6가 충전 멱등키를 charge-rf-{주문 ID}-{시각}으로 보내 주문과 잇는다
+--    충전이 끝나지 않고 남은 행(요청됨·진행 중·결과 모름·실패)이 불일치다. 「충전하고 결제 안 된 주문」은 k6 flow_broken{where=payment}와 맞아야 한다
+SELECT '6. 결제 중 충전' AS `확인`,
+	COALESCE(SUM(c.status = 'COMPLETED'), 0) AS `충전됨`,
+	COALESCE(SUM(IF(c.status = 'COMPLETED', c.amount, 0)), 0) AS `충전 금액`,
+	COALESCE(SUM(c.status = 'COMPLETED' AND o.status <> 'PAID'), 0) AS `충전하고 결제 안 된 주문`,
+	COALESCE(SUM(c.status <> 'COMPLETED'), 0) AS `불일치`
+FROM @CASH@.cash_wallet_charge c
+	JOIN @ORDER@.order_order o ON o.id = CAST(SUBSTRING_INDEX(SUBSTRING(c.idempotency_key, 11), '-', 1) AS UNSIGNED)
+WHERE c.idempotency_key LIKE 'charge-rf-%' AND o.race_id IN (@RACES@);
