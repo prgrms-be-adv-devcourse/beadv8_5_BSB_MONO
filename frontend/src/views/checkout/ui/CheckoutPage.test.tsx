@@ -9,6 +9,7 @@ import { partyKeys } from '@/entities/party'
 import { cashApi, orderApi } from '@/shared/api'
 import { orderMock, productMock, server } from '@/shared/testing'
 
+import { markChargeResume } from '../lib/charge-resume'
 import { CheckoutPage, type CheckoutState } from './CheckoutPage'
 
 const push = vi.fn()
@@ -105,12 +106,15 @@ const payHandler = (respond: () => Response) =>
 
 function renderCheckout(
   state?: CheckoutState,
-  props: { charged?: boolean; chargeFailed?: boolean } = {},
+  props: { charged?: boolean; chargeFailed?: boolean; leftForCharge?: boolean } = {},
 ) {
+  // charged=1로 열린 화면은 보통 이 주문으로 충전하러 떠났다 돌아온 것이다. 주소만 붙인 경우는 leftForCharge: false로 만든다
+  const { leftForCharge = props.charged === true, ...pageProps } = props
+  if (leftForCharge) markChargeResume(1)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <CheckoutPage state={state} orderId={state ? undefined : 1} {...props} />
+      <CheckoutPage state={state} orderId={state ? undefined : 1} {...pageProps} />
     </QueryClientProvider>,
   )
 }
@@ -500,6 +504,115 @@ describe('결제 화면', () => {
     await vi.waitFor(() => expect(replace).toHaveBeenCalledWith('/checkout/complete?orderId=1'))
     expect(paidOrders).toEqual(['1'])
     expect(requestCharge).not.toHaveBeenCalled()
+  })
+
+  it('충전한 적 없이 주소에 charged=1만 붙어 열리면 결제하지 않고 동의를 받는 평소 화면을 보여 준다', async () => {
+    let paid = 0
+    server.use(
+      payHandler(() => {
+        paid += 1
+        return HttpResponse.json(orderMock.getPayResponseMock())
+      }),
+    )
+    renderCheckout(undefined, { charged: true, leftForCharge: false })
+
+    const pay = await screen.findByRole('button', { name: '45,000원 결제하기' })
+    await act(() => vi.advanceTimersByTimeAsync(1000))
+    expect(paid).toBe(0)
+    expect(pay).toBeDisabled()
+    expect(replace).not.toHaveBeenCalled()
+  })
+
+  describe('충전하고 돌아온 표시', () => {
+    let paid = 0
+    beforeEach(() => {
+      paid = 0
+      server.use(
+        payHandler(() => {
+          paid += 1
+          return HttpResponse.json(orderMock.getPayResponseMock())
+        }),
+      )
+    })
+
+    it('충전하러 떠난 뒤 charged=1로 돌아오면 한 번 다시 결제하고, 새로고침으로 열면 다시 결제하지 않는다', async () => {
+      renderCheckout(undefined, { charged: true })
+      await vi.waitFor(() => expect(paid).toBe(1))
+      cleanup()
+      replace.mockClear()
+
+      renderCheckout(undefined, { charged: true, leftForCharge: false })
+      await screen.findByRole('button', { name: '45,000원 결제하기' })
+      await act(() => vi.advanceTimersByTimeAsync(1000))
+      expect(paid).toBe(1)
+      expect(replace).not.toHaveBeenCalled()
+    })
+
+    it('이 화면에서 충전 버튼을 눌러 떠난 경우에만 돌아와 다시 결제한다', async () => {
+      server.use(
+        balanceHandler(40_000),
+        payHandler(() => conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 5000 })),
+      )
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderCheckout()
+      const charge = await screen.findByRole('button', { name: '10,000원 충전하고 결제하기' })
+      await agree(user)
+      await user.click(charge)
+      await vi.waitFor(() => expect(requestCharge).toHaveBeenCalled())
+      cleanup()
+
+      server.use(
+        payHandler(() => {
+          paid += 1
+          return HttpResponse.json(orderMock.getPayResponseMock())
+        }),
+      )
+      renderCheckout(undefined, { charged: true, leftForCharge: false })
+      await vi.waitFor(() => expect(paid).toBe(1))
+    })
+
+    it('충전을 시작하지 못했거나 결제창을 닫았으면 표시를 남기지 않아 charged=1로 열어도 결제하지 않는다', async () => {
+      requestCharge.mockResolvedValue('canceled')
+      server.use(
+        balanceHandler(40_000),
+        payHandler(() => conflict('ORDER_INSUFFICIENT_BALANCE', { shortage: 5000 })),
+      )
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderCheckout()
+      const charge = await screen.findByRole('button', { name: '10,000원 충전하고 결제하기' })
+      await agree(user)
+      await user.click(charge)
+      await vi.waitFor(() => expect(requestCharge).toHaveBeenCalled())
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      cleanup()
+
+      server.use(
+        payHandler(() => {
+          paid += 1
+          return HttpResponse.json(orderMock.getPayResponseMock())
+        }),
+      )
+      renderCheckout(undefined, { charged: true, leftForCharge: false })
+      await screen.findByRole('button', { name: '10,000원 충전하고 결제하기' })
+      await act(() => vi.advanceTimersByTimeAsync(1000))
+      expect(paid).toBe(0)
+    })
+
+    it('충전하러 떠난 지 10분이 지난 표시로는 다시 결제하지 않는다', async () => {
+      markChargeResume(1)
+      vi.setSystemTime(new Date(NOW.getTime() + 10 * 60_000 + 1000))
+      renderCheckout(undefined, { charged: true, leftForCharge: false })
+      await act(() => vi.advanceTimersByTimeAsync(1000))
+      expect(paid).toBe(0)
+    })
+
+    it('다른 주문을 충전하러 떠난 표시로는 이 주문을 다시 결제하지 않는다', async () => {
+      markChargeResume(2)
+      renderCheckout(undefined, { charged: true, leftForCharge: false })
+      await screen.findByRole('button', { name: '45,000원 결제하기' })
+      await act(() => vi.advanceTimersByTimeAsync(1000))
+      expect(paid).toBe(0)
+    })
   })
 
   it('충전하고 돌아와 다시 결제했는데 또 모자라면 결제창을 저절로 띄우지 않고 버튼으로 다시 충전하게 한다', async () => {

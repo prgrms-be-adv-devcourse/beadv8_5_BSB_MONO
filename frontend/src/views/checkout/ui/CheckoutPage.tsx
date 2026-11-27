@@ -48,6 +48,7 @@ import {
 } from '@/shared/ui'
 
 import { useDepositBalance } from '../api/use-deposit-balance'
+import { clearChargeResume, hasChargeResume, markChargeResume } from '../lib/charge-resume'
 import { splitPayment } from '../lib/deposit'
 import { toPayFailure, type PayFailure } from '../lib/pay-error'
 import { useHoldCountdown } from '../model/use-hold-countdown'
@@ -282,13 +283,17 @@ function OfflinePreviewBody({ expiresAt }: { expiresAt: number }) {
 
 function OrderCheckout({
   orderId,
-  charged,
+  charged: chargedInUrl,
   chargeFailed,
 }: {
   orderId: number
   charged: boolean
   chargeFailed: boolean
 }) {
+  // 주소의 charged=1은 누구나 붙일 수 있다. 이 화면에서 충전하러 떠났다 돌아온 표시가 있을 때만 믿는다.
+  // 표시는 열릴 때 한 번 읽고 바로 지워, 새로고침하거나 주소만 다시 열어서는 저절로 결제되지 않게 한다.
+  const [charged] = useState(() => chargedInUrl && hasChargeResume(orderId))
+  useEffect(() => clearChargeResume(), [])
   const router = useRouter()
   const queryClient = useQueryClient()
   const completeHref = `/checkout/complete?orderId=${orderId}` as const
@@ -356,13 +361,18 @@ function OrderCheckout({
 
   const charge = (shortage: number) => {
     setCharging(true)
+    markChargeResume(orderId)
     requestCharge({ amount: chargeAmountFor(shortage), returnOrderId: orderId })
       .then((result) => {
-        if (result !== 'redirecting') setCharging(false)
+        if (result !== 'redirecting') {
+          setCharging(false)
+          clearChargeResume()
+        }
         setChargeHeld(result === 'held')
       })
       .catch(() => {
         setCharging(false)
+        clearChargeResume()
         setFailure({ kind: 'failed' })
       })
   }
