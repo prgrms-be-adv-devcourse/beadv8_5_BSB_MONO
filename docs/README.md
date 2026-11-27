@@ -12,7 +12,7 @@
 |---|---|
 | 프로젝트가 무엇인지 알기 | [../README.md](../README.md), [../CONTEXT.md](../CONTEXT.md) (용어) |
 | 로컬에서 띄우기 | [SETUP.md](SETUP.md), [../backend/README.md](../backend/README.md) |
-| 백엔드 코드 고치기 | [../backend/CLAUDE.md](../backend/CLAUDE.md), [../.claude/rules/](../.claude/rules/) |
+| 백엔드 코드 고치기 | [../backend/AGENTS.md](../backend/AGENTS.md), [../.claude/rules/](../.claude/rules/) |
 | 프론트엔드 코드 고치기 | [../frontend/AGENTS.md](../frontend/AGENTS.md) |
 | 기능의 규칙(정책) 확인하기 | [policy/README.md](policy/README.md) |
 | 이슈 만들기, PR 열기 | [LINEAR.md](LINEAR.md), [../.github/pull_request_template.md](../.github/pull_request_template.md) |
@@ -49,7 +49,7 @@
 | 문서 | 내용 |
 |---|---|
 | [backend/README.md](../backend/README.md) | 실행 방법, 컨테이너 구성, 서비스별 DB |
-| [backend/CLAUDE.md](../backend/CLAUDE.md) | 모듈 구조와 백엔드 작업 규칙 |
+| [backend/AGENTS.md](../backend/AGENTS.md) | 모듈 구조와 백엔드 작업 규칙 |
 | [backend/file-service/README.md](../backend/file-service/README.md) | 파일 서비스 |
 | [backend/file-service/ROADMAP.md](../backend/file-service/ROADMAP.md), [BATCH-ROADMAP.md](../backend/file-service/BATCH-ROADMAP.md) | 파일 서비스와 파일 정리 배치의 결정 기록 |
 | [backend/product-service/ROADMAP.md](../backend/product-service/ROADMAP.md) | 상품 서비스의 결정 기록 |

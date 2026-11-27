@@ -4,7 +4,7 @@
 
 ## 폴더
 
-- `backend/`: Spring Boot 백엔드. 작업 전에 `backend/CLAUDE.md`를 읽습니다. Gradle 명령은 `backend/`에서 실행합니다.
+- `backend/`: Spring Boot 백엔드. 작업 전에 `backend/AGENTS.md`를 읽습니다. Gradle 명령은 `backend/`에서 실행합니다.
 - `frontend/`: Next.js 프론트엔드. 작업 전에 `frontend/AGENTS.md`를 읽습니다. pnpm 명령은 `frontend/`에서 실행합니다.
 - `docs/`: 기획(`ideation/`)과 정책(`policy/`). 백엔드·프론트가 함께 보는 원본입니다. 어떤 문서가 어디 있는지는 `docs/README.md`(문서 지도)에서 찾습니다.
 - `.claude/rules/`: 공용 컨벤션 (커밋은 `git-commit-convention.md`, 나머지는 백엔드용).

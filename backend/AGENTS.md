@@ -1,256 +1,103 @@
-# CLAUDE.md
+# backend
 
-이 파일은 모노레포의 `backend/` 폴더에서 작업하는 Claude Code(claude.ai/code)를 위한 가이드입니다. 아래 명령은 모두 `backend/`에서 실행합니다.
-실행 환경(compose), 민감정보 암호화, Kafka 메시지, Swagger의 자세한 사용법은 `README.md`에 있습니다.
+크루런의 Spring Boot 백엔드입니다. Gradle 멀티 모듈 하나에 서비스별 Spring Boot 앱이 있습니다. 명령은 모두 `backend/`에서 실행합니다.
+실행 환경(compose), 민감정보 암호화, Kafka 메시지, Swagger, 파일 저장소, 크루런 AI의 자세한 사용법은 `README.md`에 있습니다.
+코드 컨벤션은 저장소 루트 `.claude/rules/`에 있습니다. Claude Code는 자동으로 읽고, 다른 도구는 작업 전에 직접 읽습니다.
 
-## 프로젝트 개요
+## 모듈
 
-크루런의 Spring Boot 백엔드입니다. 하나의 Gradle 멀티 모듈 프로젝트(모노레포) 안에 서비스별 Spring Boot 앱을 둡니다 (MSA 전환 중).
+| 모듈 | 포트 | 역할 |
+|---|---|---|
+| `common` | - | 모든 서비스가 함께 쓰는 jar (응답 형식, 예외, JPA 부모 클래스, 서비스 간 이벤트) |
+| `jwt` | - | JWT 발급·검증 jar. 웹·JPA 의존성이 없어 게이트웨이에서도 쓴다 |
+| `observability-dev` | - | dev bootRun에서만 로그를 OTLP로 보내는 jar. 운영 jar와 테스트에는 없다 |
+| `gateway` | 8000 | API 게이트웨이(WebFlux). Access Token을 검사하고 `/api/v1/<도메인>/**`를 서비스로 넘긴다 |
+| `member-service` | 8080 | 회원가입, 로그인, 인증 |
+| `cash-service` | 8081 | 예치금 |
+| `payout-service` | 8082 | 정산 |
+| `file-service` | 8083 | 파일 저장 (S3 presigned URL, 정리 배치) |
+| `order-service` | 8084 | 참가 신청, 장바구니, 주문·결제 |
+| `product-service` | 8085 | 대회, 종목, 정원 |
+| `queue-service` | 8086 | 예매 대기열 |
+| `notification-service` | 8087 | 내 알림 |
+| `inquiry-service` | 8088 | 대회 문의 |
+| `board-service` | 8089 | 커뮤니티 게시판 |
+| `ai-service` | 8092 | 판매자·관리자 챗봇 「크루런 AI」. DB 없음, 대화 기록은 Redis |
 
-| 모듈 | 종류 | 포트 | 역할 |
-|---|---|---|---|
-| `common` | 라이브러리(jar) | - | 모든 서비스가 함께 쓰는 코드 (응답 형식, 예외, JPA 부모 클래스, 서비스 간 이벤트) |
-| `jwt` | 라이브러리(jar) | - | JWT 발급·검증 (`JwtProvider`). 웹·JPA 의존성이 없어 게이트웨이(WebFlux)에서도 쓴다 |
-| `observability-dev` | 라이브러리(jar), bootRun 전용 | - | dev에서 Logback 로그를 OTLP로도 내보내는 appender를 붙인다. 루트 `build.gradle.kts`가 모든 실행 앱에 `developmentOnly`로 넣어 운영 jar와 테스트에는 없다 |
-| `gateway` | Spring Boot 앱 (WebFlux) | 8000 | API 게이트웨이. Access Token을 검사하고 `/api/v1/<도메인>/**`를 경로에 맞는 서비스로 넘긴다 (Spring Cloud Gateway) |
-| `member-service` | Spring Boot 앱 | 8080 | 회원가입, 로그인, 인증 |
-| `cash-service` | Spring Boot 앱 | 8081 | 회원 복제본(`CashMember`), 캐시 (뼈대만 있음) |
-| `payout-service` | Spring Boot 앱 | 8082 | 정산 내역(`Payout`), 정산 항목, 지급보류 (엔티티만 있음) |
-| `file-service` | Spring Boot 앱 | 8083 | 대회 이미지 등 파일 저장 (S3, presigned URL) |
-| `order-service` | Spring Boot 앱 | 8084 | 참가 신청, 장바구니, 바로 결제 예매(자리 확보·결제 기한 15분), 주문 |
-| `product-service` | Spring Boot 앱 | 8085 | 대회(상품), 종목(참가권), 정원 (뼈대만 있음) |
-| `queue-service` | Spring Boot 앱 | 8086 | 예매 대기열 (뼈대만 있음) |
-| `notification-service` | Spring Boot 앱 | 8087 | 내 알림. 다른 서비스가 보낸 `push.notification.requested`를 저장하고 조회·읽음 API를 연다 (BUK-69) |
-| `inquiry-service` | Spring Boot 앱 | 8088 | 대회 문의. 회원이 문의를 남기면 담당(판매자·관리자)이 한 번 답하고, 알림이 간다 (BUK-154) |
-| `board-service` | Spring Boot 앱 | 8089 | 커뮤니티 자유 게시판. 글·댓글·답글·좋아요(읽기는 로그인 없이), 회원 이벤트로 닉네임·판매자 복사본(`BoardMember`) (BUK-156) |
-| `ai-service` | Spring Boot 앱 | 8092 | 판매자·관리자 센터의 챗봇 「크루런 AI」. 질문을 모델에 보내 답하고 운영 숫자는 도구로 각 서비스 API에서 가져오고 출처를 붙인다. 대화 기록은 Redis. DB 없음. Kafka는 기록증 서버 확인(확인 요청 받기 · 확인 결과 보내기)에만 쓴다 (BUK-165, BUK-170, BUK-275). 문의 답변 초안도 만든다(BUK-191) |
+- Java 25, Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL). 패키지는 `com.bukang.<도메인 한 단어>`입니다.
+- 공통 빌드 설정은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
+- 운영은 k3s입니다(`infra/README.md`, `k8s/`, 배포 `.github/workflows/k8s-cd.yml`). 요청은 Traefik → nginx(`docker/nginx/routes.conf`) → `gateway` → 서비스 순서로 갑니다.
+- 새 서비스를 더하면 `gateway`의 라우팅 규칙도 더합니다. 게이트웨이와 Nginx는 `/internal/**`를 밖에 열지 않습니다.
 
-인프라(`compose.yml`: MySQL, Kafka, Elasticsearch, Redis, 로컬 S3 대체재 S3Mock)는 모든 서비스가 공용으로 씁니다.
-
-- Java 25 (Gradle toolchain), Spring Boot 4.1.1, Gradle 9.7.1 (Kotlin DSL)
-- 루트 패키지: `com.bukang` (`group`은 `com`). 모듈별 패키지는 `com.bukang.common`, `com.bukang.member`, `com.bukang.cash`, `com.bukang.payout`, `com.bukang.file`, `com.bukang.order`, `com.bukang.product`, `com.bukang.queue`, `com.bukang.notification`, `com.bukang.inquiry`, `com.bukang.ai`
-  (모듈 폴더 이름은 케밥 케이스 `<도메인>-service`, Java 패키지는 하이픈을 쓸 수 없으므로 도메인 한 단어)
-- 공통 빌드 설정(Java 버전, Spring Boot BOM, Lombok, Checkstyle)은 루트 `build.gradle.kts`, 모듈별 의존성은 각 모듈의 `build.gradle.kts`에 있습니다.
-- 운영에서는 Nginx가 HTTP 요청을 받아 `/api`를 `gateway`(8000)로, 나머지를 프론트(`web`, Next.js 3000)로 넘기고, 게이트웨이가 경로를 보고 각 서비스로 보냅니다.
-  Nginx 라우팅은 `docker/nginx/routes.conf`(로컬 `default.conf`와 운영 `*.conf.template`이 include), 컨테이너는 `compose.yml`의 `nginx`·`web`입니다.
-  운영은 2026-11-15부터 k3s입니다(메인 EC2 앱, 보조 EC2 데이터. `infra/README.md`, `k8s/`). 입구는 Traefik(HTTPS) → nginx Pod(같은 `routes.conf`)이고,
-  배포는 `.github/workflows/k8s-cd.yml`입니다. `compose.prod.yml`(443, certbot)은 되돌리기용으로만 남아 있습니다. Nginx도 주소를 자르지 않고 `/internal/`은 404로 막습니다.
-  게이트웨이는 주소 앞부분을 자르지 않고(StripPrefix 없음) `/internal/**`는 라우팅하지 않습니다. 새 서비스를 추가하면 `gateway`의 라우팅 규칙도 추가합니다.
-  `gateway`는 WebFlux 기반이라 webmvc를 가져오는 `common`에 의존하지 않습니다.
-
-## 빌드 및 실행 명령어
-
-Windows에서는 `gradlew.bat`, Git Bash에서는 `./gradlew`를 사용합니다.
+## 명령어
 
 ```bash
-./gradlew build                          # 전체 모듈 컴파일 + 테스트 + 패키징 (CI: .github/workflows/backend-ci.yml)
-./gradlew :gateway:bootRun               # 게이트웨이 실행 (8000, localhost:8080~8089로 라우팅)
-./gradlew :member-service:bootRun        # 회원 서비스 실행 (dev 프로파일, compose.yml 인프라 자동 실행)
-./gradlew :cash-service:bootRun          # 캐시 서비스 실행 (8081)
-./gradlew :payout-service:bootRun        # 정산 서비스 실행 (8082)
-./gradlew :file-service:bootRun          # 파일 서비스 실행 (8083)
-./gradlew :order-service:bootRun         # 주문 서비스 실행 (8084)
-./gradlew :product-service:bootRun       # 상품 서비스 실행 (8085)
-./gradlew :queue-service:bootRun         # 대기열 서비스 실행 (8086)
-./gradlew :notification-service:bootRun  # 알림 서비스 실행 (8087)
-./gradlew :inquiry-service:bootRun       # 문의 서비스 실행 (8088)
-./gradlew :board-service:bootRun         # 게시판 서비스 실행 (8089)
-./gradlew :ai-service:bootRun            # 크루런 AI 서비스 실행 (8092, 로컬 모델 Ollama는 README "크루런 AI" 참고)
-./gradlew test                           # 전체 테스트 (test 프로파일, H2)
-./gradlew :member-service:test           # 한 모듈만 테스트
-./gradlew :member-service:test --tests "com.bukang.member.MemberApplicationTests"              # 단일 테스트 클래스
-./gradlew :member-service:test --tests "com.bukang.member.MemberApplicationTests.contextLoads" # 단일 테스트 메서드
-./gradlew checkstyleMain checkstyleTest  # 컨벤션 검사 (경고만 출력)
-./gradlew clean
+./gradlew build                          # 전체 컴파일 + 테스트 + 패키징 (CI: .github/workflows/backend-ci.yml)
+./gradlew :member-service:bootRun        # 서비스 하나 실행 (dev 프로파일, compose.yml 인프라 자동 실행)
+./gradlew :member-service:test           # 한 모듈만 테스트 (test 프로파일, H2)
+./gradlew :member-service:test --tests "com.bukang.member.MemberApplicationTests"
+./gradlew checkstyleMain checkstyleTest  # 컨벤션 검사. 경고만 출력하므로 출력을 직접 확인한다
 ```
 
-## 모듈 / 패키지 구조
+Testcontainers를 쓰는 테스트(cash의 Flyway, order의 `@MySqlContainerTest`, ai-service의 Redis)는 Docker가 필요합니다.
 
-```
-backend/
-├── settings.gradle.kts        include("common", "jwt", "gateway", "member-service", "cash-service", "payout-service", "file-service", "order-service", "product-service", "queue-service", "notification-service", "inquiry-service", "board-service", "ai-service", "observability-dev")
-├── build.gradle.kts           모든 모듈 공통 설정
-├── compose.yml                공용 인프라 (MySQL, Kafka, Elasticsearch, Redis) + 서비스별 앱 컨테이너 + nginx·web(프론트)
-├── compose.prod.yml           옛 운영(EC2 compose) 덮어쓰기: Nginx HTTPS + certbot. 2026-11-15 k3s 전환 뒤 되돌리기용
-├── docker/nginx/              Nginx 설정 (routes.conf 라우팅: /api → gateway, 나머지 → web)
-├── common/      com.bukang.common
-│   ├── global/                기술 공통 (도메인 지식 없음)
-│   │   ├── config/            LocalDevEnvironmentPostProcessor (compose.yml, .env 위치 탐색)
-│   │   ├── crypto/            민감정보 암호화 (AES, 블라인드 인덱스). crypto.enabled: true인 서비스(member, cash, order)에서만 빈 등록
-│   │   ├── exception/         BusinessException, GlobalExceptionHandler
-│   │   ├── jpa/entity/        BaseEntity, BaseIdAndTime, BaseManualIdAndTime
-│   │   ├── json/              JsonConverter
-│   │   ├── rsdata/            RsData (공통 응답)
-│   │   └── web/               IdempotencyKeyHeader (중복 요청 방지 키 헤더 이름·최대 길이·오류 문구)
-│   ├── shared/                서비스 간 계약 (도메인 지식 있음)
-│   │   ├── file/domain/       FileType·FileKind (파일 용도·종류), FileRef (파일 연결 대상, 엔티티로만 만듦)
-│   │   └── member/
-│   │       ├── domain/        BaseMember, ReplicaMember (공개 필드만)
-│   │       ├── event/         MemberJoinedEvent
-│   │       └── web/           MemberIdHeader (회원 ID 헤더 이름·오류 문구), @LoginMemberId·LoginMemberIdArgumentResolver (헤더 읽기·검사)
-│   └── standard/              프레임워크와 무관한 인터페이스
-│       ├── modeltype/         HasModelTypeCode
-│       └── resulttype/        ResultType
-├── jwt/         com.bukang.jwt     JwtProvider, JwtProperties(jwt.*), JwtAutoConfiguration(빈 자동 등록)
-├── observability-dev/ com.bukang.observability  OtelLogbackAppenderAutoConfiguration (로그 주소가 있을 때만 appender를 붙임, bootRun 전용)
-├── gateway/     com.bukang.gateway GatewayApplication, auth/(JwtAuthenticationFilter, PublicPaths). 라우팅 규칙·공개 주소(gateway.auth.*)는 application.yaml, 서비스 주소는 프로파일별 yaml(gateway.services.*)
-├── member-service/  com.bukang.member
-│   ├── in/ app/ domain/ out/  컨트롤러 / Facade·UseCase / 엔티티·도메인 예외 / Repository
-│   ├── domain/                SourceMember, Member, exception/
-│   ├── security/              WebConfig, CustomUserDetailService, AuthExceptionHandler (JWT 발급 예정)
-│   └── dto/                   MemberDto, MemberJoinRequestDto, MemberLoginRequestDto, MemberSearchCondition
-├── cash-service/    com.bukang.cash
-│   ├── in/                    CashExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
-│   └── domain/                CashMember extends ReplicaMember
-├── payout-service/  com.bukang.payout
-│   ├── domain/                Payout, PayoutItem, PayoutHold, 상태·사유 enum
-│   └── out/                   PayoutRepository
-├── file-service/    com.bukang.file
-│   ├── in/                    ApiV1FileController(업로드 URL 발급·완료, 조회), InternalV1FileController(대상에 연결, 내부 전용),
-│   │                          FileCleanupBatchJobConfig·FileCleanupScheduler(정리 배치, prod에서 매일 05:00)
-│   ├── app/                   FileFacade, FileUploadUseCase, FileLinkUseCase, FileCleanupUseCase
-│   ├── domain/                StoredFile(FILE_FILE), FileStatus, FileFormat, exception/
-│   ├── config/                S3Properties(file.storage.s3), S3Config(S3Client, S3Presigner)
-│   └── out/                   StoredFileRepository, storage/(FileStorage, S3FileStorage)
-├── order-service/   com.bukang.order
-│   ├── in/                    ApiV1ParticipationController, ApiV1CartController, ApiV1OrderController,
-│   │                          InternalV1OrderController(정산용 판매 내역, 내부 전용 /internal/v1/order),
-│   │                          OrderExpiryScheduler(1분마다 결제 기한 지난 건 정리, test 프로파일 제외),
-│   │                          OrderExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
-│   ├── app/                   ParticipationFacade·ParticipationApplyUseCase, CartFacade·CartUseCase·CartCheckoutUseCase(장바구니 결제),
-│   │                          OrderFacade·OrderCreateUseCase·OrderPayUseCase·OrderCancelUseCase·OrderExpiryUseCase·
-│   │                          OrderQueryUseCase, SoldEntryQueryUseCase
-│   ├── domain/                Participation(ORDER_PARTICIPATION), Cart·CartItem(ORDER_CART·_ITEM),
-│   │                          Order·OrderItem(ORDER_ORDER·_ITEM), Shipment·ShipmentItem(ORDER_SHIPMENT·_ITEM, 키트 배송),
-│   │                          상태 enum, exception/
-│   └── out/                   Repository, OrderQueryRepository(QueryDSL 내 주문 목록),
-│                              race/(RaceCoursePort 종목 정보), seat/(SeatHoldPort 자리 확보·판매·복구·해제),
-│                              wallet/(WalletPort 예치금 결제·환원·환불), payout/(RefundEligibilityPort 환불 가능 여부)
-│                              상품(B)·예치금(D)은 연결 전이라 Fake*Adapter가 가짜 응답을 준다. 정산(E)은 order.clients.payout.mode가
-│                              http면 HttpRefundEligibilityAdapter(RestClient, 2초 제한, 실패 시 503)로 부른다 (prod=http, 그 밖=fake)
-├── product-service/ com.bukang.product
-│   └── ProductApplication     (뼈대만 있음)
-├── queue-service/   com.bukang.queue
-│   ├── QueueApplication       (뼈대만 있음)
-│   └── in/                    QueueExceptionHandler (헤더 누락·형식 오류를 RsData로 응답)
-└── ai-service/      com.bukang.ai
-    ├── in/                    ApiV1AiChatController (POST·DELETE /api/v1/ai/{seller|admin}/chat: 질문, 새 대화),
-    │                          ApiV1AiInquiryDraftController (POST /api/v1/ai/{seller|admin}/inquiries/{id}/draft: 문의 답변 초안, BUK-191)
-    ├── app/                   AiChatUseCase (역할 확인 → 화면에 맞는 도구를 붙여 앞 대화와 함께 모델 호출 → 답 + 출처 + 목록),
-    │                          SellerTools·AdminTools (운영 숫자 조회 도구, BUK-170), AiToolTrace (도구에 넘기는 회원 번호 + 부른 도구 기록),
-    │                          AiInquiryDraftUseCase (문의 상세를 읽어 초안 한 번 쓰기, 대화 기록·도구 없음), PersonalInfoMasker (본문 속 연락처·계좌 가리기)
-    ├── config/                AiChatConfig (ChatClient + Redis 대화 기록, 최근 10개만)
-    ├── domain/                AiScreen(화면 종류, 대화 번호 = 화면-회원 번호), AiSource(도구별 출처 화면·버튼·프론트 경로), exception/
-    ├── out/member/            MemberRolePort (관리자·승인된 판매자 확인. prod=http, dev=fake)
-    └── out/ops/               OpsPort·HttpOpsAdapter (도구와 문의 초안이 주문·정산·문의·회원의 화면용 API를 X-Member-Id로 직접 부른다. 가짜 모드 없음)
-```
+## 서비스 경계
 
-- 파일은 브라우저가 presigned PUT으로 S3 `{환경}/uploads/`에 직접 올리고, 완료 API가 `{환경}/files/`로 옮긴 뒤 형식·크기를 확인한다 (README "파일 저장소" 참고).
-  이미지는 이때 파일 머리에서 가로·세로를 읽어 `FileKind.maxDimension`(4000px)·`FileType.minWidth`(소개 이미지 1080px)도 확인한다(새 의존성 없이 `ImageSizeReader`).
-  `{환경}`은 `file.storage.s3.key-prefix`로, 프로파일별 yaml에 적는다(dev=`dev`, prod=`prod`, 테스트=`test`). 로컬과 운영이 같은 버킷을 써도 경로가 나뉜다.
-- 다른 서비스는 파일을 파일 ID로만 참조한다. 대상(대회 등)을 저장하면 같은 트랜잭션에서 아웃박스에 파일 연결 메시지(`FileLinkRequestedEvent`, 토픽 `race.filelink.requested`)를 남기고,
-  커밋 뒤 Kafka로 보낸다. file-service가 받아 대상마다 보낸 목록으로 파일을 통째로 바꾼다(빈 목록이면 모두 뗀다).
-  대표 이미지는 대회(`Race`), 나머지 대회 이미지는 종목(`RaceCourse`)에 붙는다. 동기로 연결하는 내부 API(`/internal/v1/file/refs/{refType}/{refId}/files`)도 남아 있지만 상품 서비스는 쓰지 않는다.
-  `/internal/**`은 게이트웨이에 노출하지 않는다.
-- 회원에게 알림을 띄우려면 트랜잭션 안에서 `eventPublisher.publish(NotificationRequestedEvent.of(회원 ID, NotificationKind.*, 제목, 내용, 링크))`
-  한 줄을 부른다. common의 `NotificationKafkaSender`가 커밋된 뒤에만 Kafka로 보내고(롤백되면 안 보냄), 실패하면 로그만 남긴다
-  (알림은 잃어도 되는 메시지라 아웃박스를 쓰지 않는다, 11/04 결정). AFTER_COMMIT 리스너 안에서 부르면 보내지지 않는다.
-- `ai-service`(크루런 AI)는 Spring AI 2.0.2를 쓴다. 코드는 `ChatClient`만 쓰고, 어느 회사 모델인지는 설정 `spring.ai.model.chat`이 정한다
-  (기본·prod는 `openai`, dev·test는 `ollama`). OpenAI 키는 `.env`의 `OPENAI_API_KEY`로만 받고, 비어 있어도 앱은 뜬다(질문하면 503).
-  대화 기록은 Spring AI의 Redis 저장소에 둔다(키 `ai:chats:{화면}-{회원 번호}:{순번}`, 보관 24시간, 검색·JSON 기능을 써서 Redis 8 이상).
-  Redis 저장소의 `metadata-fields`를 비우지 않는다. 비우면 OpenAI 답(숫자·목록 메타데이터)이 인덱스에 못 들어가 대화 기록에서 빠진다. 인덱스 모양을 바꾸면 `index-name`도 바꾼다.
-  `ChatMemory`를 빈으로 등록하면 Spring AI가 Redis 저장소를 만들지 않고 메모리 저장소로 바뀌므로 등록하지 않는다(`AiChatConfig`).
-  도구(`@Tool`)는 화면별 묶음(`SellerTools`, `AdminTools`)으로 나누고 인자를 받지 않는다. 회원 번호는 `ToolContext`의 `AiToolTrace`에서 꺼낸다(모델이 정하지 않음).
-  예외로 두 화면에 함께 붙는 정책 안내 도구(`PolicyTools`, CRU-104)는 문의 초안과 같은 `InquiryPolicy` 주제 이름만 인자로 받는다. 출처·규칙에서 「(잠정)」·「정해지지 않았다」 같은 말은 빼고 넘긴다.
-  도구는 필요한 값만 돌려주고 개인정보(구매자 이름·배송지·신청자 이름)는 모델에 보내지 않는다. 출처·버튼·목록은 `AiToolTrace`에 모아 코드가 응답에 붙인다.
-  도구를 더하면 `AiSource`(화면 이름·프론트 경로)와 `AiApiExamples`도 함께 고친다. 한 질문의 도구 호출 상한은 `spring.ai.tools.limits`.
-  common은 통째로 스캔하지 않고 오류 응답 · `@LoginMemberId` · `JsonConverter` · `SlackNotifier`만 고른다(DB가 없다). 테스트는 가짜 모델(`FakeChatModel`)과 Testcontainers Redis로 돈다(Docker 필요).
-- 회원 ID는 `X-Member-Id` 헤더로 받는다. 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId long memberId`로 받는다(int·Integer로는 받지 않는다). 헤더가 없으면 401 `LOGIN_REQUIRED`, 숫자가 아니거나 0 이하면 400 `INVALID_REQUEST`로 common이 응답한다(`shared/member/web`). 게이트웨이의 `auth/JwtAuthenticationFilter`가 클라이언트가 보낸 이 헤더를 지우고, Access Token을 검사해 토큰 속 회원 ID로 다시 넣는다.
-  토큰 없이 통과하는 주소는 `gateway`의 `application.yaml` `gateway.auth.public-paths`에 있다. 로그인 전에 쓰는 API를 추가하면 여기에도 추가한다(빠뜨리면 401로 막힌다).
-  서비스는 이 헤더를 그대로 믿으므로, `compose.yml`은 서비스 포트를 호스트에 열지 않는다. 서비스를 직접 부르며 확인할 때는 `bootRun`(dev)으로 띄운 서비스 포트(예: 8084)로 부른다.
-- 두 번 처리하면 안 되는 요청(대회 등록, 주문 생성, 장바구니 결제, 예치금 환급 신청)은 중복 요청 방지 키를 `Idempotency-Key` 헤더로 받는다.
-  헤더 이름·최대 길이(64)·오류 문구는 common의 `global/web/IdempotencyKeyHeader`를 쓴다.
-- 대상에 붙지 않은 파일(PENDING·UPLOADED·DELETED)은 마지막으로 바뀐 뒤 1일이 지나면 Spring Batch 정리 배치가 DB 행을 지우고 커밋한 뒤 S3 객체를 지운다.
-  실행 기록은 DB의 `BATCH_` 테이블에 남는다 (`file-service/BATCH-ROADMAP.md`).
+- **서비스끼리는 서로 의존하지 않습니다.** 다른 서비스의 클래스가 필요하면 `common`에 계약(이벤트, 공개 필드)으로 올릴지 먼저 검토합니다.
+- `common`에는 특정 서비스 전용 코드(Spring Security 인증·필터, 회원 엔티티 등)를 넣지 않습니다.
+- `common` 안의 의존 방향은 `shared`(서비스 간 계약) → `global`(기술 공통) → `standard`입니다. `global`은 `shared`를 참조하지 않습니다.
+- 서비스는 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common 빈을 등록합니다.
+  DB가 없는 `ai-service`만 필요한 패키지만 고릅니다. common에 모든 서비스가 써야 하는 빈을 새 패키지로 더하면 `AiApplication`에도 더합니다.
+- `gateway`는 WebFlux라 webmvc를 가져오는 `common`에 의존하지 않습니다.
+- 다른 서비스가 회원 정보를 가져야 하면 `ReplicaMember`를 상속한 엔티티에 Kafka 이벤트(`MemberJoinedEvent`)로 복제합니다.
+  공개 정보(nickname)만 복제하고, 비밀번호·이메일·실명·휴대폰 번호·생년월일은 `SourceMember`에만 둡니다. unique 제약은 원본(`Member`)에만 겁니다.
+- 다른 서비스는 파일을 파일 ID로만 참조합니다. 파일 연결은 아웃박스 → Kafka(`race.filelink.requested`)로 보냅니다.
+- 다른 서비스 테이블을 읽는 SQL은 쓰지 않습니다. 로컬은 DB 하나를 함께 써서 돌지만, 운영은 서비스마다 DB가 달라 실패합니다.
 
-- `common`은 실행 앱이 아니라 jar 라이브러리입니다. 각 서비스는 `implementation(project(":common"))`으로 의존합니다.
-  서비스의 `@SpringBootApplication(scanBasePackages = {"com.bukang.<서비스>", "com.bukang.common"})`로 common의 빈도 등록합니다.
-  (DB가 없는 `ai-service`만 예외로, 필요한 패키지(오류 응답, `@LoginMemberId`, JSON, Slack)만 고릅니다. common에 모든 서비스가 써야 하는 빈을 새 패키지로 더하면 `AiApplication`에도 더합니다.)
-- **서비스끼리는 서로 의존하지 않습니다.** 다른 서비스의 클래스가 필요하면 `common`에 올릴지(계약: 이벤트, 공개 필드) 먼저 검토합니다.
-  `common`에는 특정 서비스 전용 코드(Spring Security 인증·필터, 회원 엔티티 등)를 넣지 않습니다.
-  단, 암호화 유틸(`spring-security-crypto`)은 `global/crypto`에 두고, yaml에 `crypto.enabled: true`를 넣은 서비스에서만 빈을 만듭니다(`@ConditionalOnProperty`).
-- `common` 안에서 `global`(기술 공통)은 `shared`(서비스 간 계약)를 참조하지 않습니다. 의존 방향은 `shared` → `global` → `standard`입니다.
-- 다른 서비스가 회원 정보를 가져야 하면 `ReplicaMember`를 상속한 엔티티에 Kafka 이벤트(`MemberJoinedEvent`)로 복제해 보관합니다.
-  `BaseMember`(원본·복제본 공통)에는 공개 정보(nickname)만 두고, 비밀번호·이메일·실명·휴대폰 번호·생년월일은 `SourceMember`에만 둡니다.
-  unique 제약은 원본 엔티티(`Member`)에만 겁니다.
-- 도메인 예외는 `common`의 `global/exception/BusinessException`을 상속하고 생성자에서 `HttpStatus`를 정합니다.
-  `GlobalExceptionHandler`가 한 번에 처리하므로 도메인을 추가해도 핸들러는 고치지 않습니다.
-  Spring Security 예외는 `member-service`의 `AuthExceptionHandler`가 처리합니다.
-- API 응답은 성공·실패 모두 `RsData {status, code, message, data}` 형식입니다.
-  `code`는 오류 응답에 붙는 오류 코드입니다 (예: `MEMBER_DUPLICATE_EMAIL`, 입력값 오류는 `INVALID_REQUEST`, 예상 못 한 오류는 500 `INTERNAL_ERROR`).
-  코드가 없으면 JSON에서 `code` 칸이 빠집니다.
-  도메인 예외에 코드를 붙이려면 `BusinessException(status, code, message)` 생성자를 쓰고, 코드 이름은 `도메인_상황` 대문자 스네이크로 짓습니다.
-- 엔티티 테이블 이름은 `<서비스>_<엔티티>` 형식입니다 (예: `MEMBER_MEMBER`, `CASH_MEMBER`, `ORDER_CART`).
-  접두사는 서비스 모듈 이름(`member`, `cash`, `payout`, `file`, `order`, `product`, `queue`)을 대문자로 씁니다.
-  로컬(dev bootRun, compose 앱 컨테이너, k3d)은 모든 서비스가 같은 DB(`bukang-db`)를 쓰고 접두사로 구분합니다.
-  운영(k3s)만 서비스마다 자기 DB(`crewrun_<서비스>`, 같은 MySQL 서버)를 씁니다(BUK-238). 앱 계정 하나가 모든 서비스 DB 권한을 가집니다.
-  `application-prod.yaml`의 주소가 `${MYSQL_DB:crewrun_<서비스>}`라, `MYSQL_DB`를 주면(로컬 `.env`, k3d) 그 DB 하나로, 안 주면(운영) 서비스 DB로 붙습니다.
-  운영 DB는 보조 EC2 compose(`infra/data-node/compose.data.yml`)가 붙이는 `docker/mysql/initdb/service-dbs.sh`가 만듭니다.
-  서비스를 더하면 그 목록과 서비스의 `application-prod.yaml` 기본값을 함께 고칩니다. 다른 서비스 표를 읽는 SQL은 로컬에서는 돌지만 운영에서는 실패하므로 쓰지 않습니다.
-  테이블 이름 규칙(naming strategy)을 따로 두지 않아 실제 DB에는 소문자(`member_member`)로 만들어지므로, SQL을 직접 쓸 때는 소문자로 씁니다.
-  규칙과 다른 기존 테이블(상품의 `race`, `race_course`, `participation_hold`)은 서비스별로 DB를 나눌 때(최종, Flyway) 맞춥니다.
-  테이블 이름을 바꿀 때는 Flyway가 없는 서비스라면 배포 전에 서버 DB에서 `RENAME TABLE`을 먼저 실행합니다.
-  compose가 `ddl-auto: update`로 띄워서, 이름만 바꿔 배포하면 빈 새 테이블이 생기고 기존 데이터는 옛 테이블에 남습니다.
-- 표 변경은 Flyway SQL로 합니다. 지금은 DB를 쓰는 모든 서비스가 Flyway를 씁니다 (`file-service`·`product-service`·`queue-service`는 BUK-173에서 넣었습니다).
-  `file-service`의 Spring Batch 실행 기록 표(`BATCH_`)는 Flyway가 아니라 `spring.batch.jdbc.initialize-schema`가 만듭니다.
-  - Flyway 서비스: 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다. 이미 돈 SQL 파일은 고치지 않습니다.
-    dev·prod는 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다. `Flyway*ValidateTest`가 빈 DB에 SQL을 모두 돌린 뒤 칸 이름·타입을
-    엔티티와 맞춰 보므로, 칸을 빠뜨리면 테스트에서 먼저 실패합니다(길이·not null·인덱스·제약은 Hibernate validate가 보지 않으니 리뷰로 봅니다).
-    예전에 같은 DB를 함께 써서 기록 표 이름을 서비스마다 다르게 두었고, 지금도 그 이름을 씁니다(`flyway_schema_history_<서비스>`). 설정은 `member-service`의 `application-dev.yaml`을 따릅니다.
-  - `payout-service`·`cash-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때도 ENUM 목록을 바꾸는 SQL이 필요합니다
-    (`PayoutEnumColumnTest`·`CashEnumColumnTest`가 확인). cash의 Flyway 테스트는 H2가 아니라 MySQL(Testcontainers)로 돌아 Docker가 필요합니다.
-    `order-service`도 동시성 테스트 일부를 `@MySqlContainerTest`로 MySQL에서 다시 돌려 Docker가 필요합니다 (BUK-188).
-  - `order-service`는 전환 중입니다(BUK-29). V1은 `create table if not exists`라 표가 이미 있으면 통째로 건너뛰어, 지난 배포 뒤 엔티티에 더한 칸이
-    서버·로컬 표에 없으면 `validate`로는 뜨지 않습니다. 그래서 서버에 한 번 배포할 때까지 dev와 compose는 `update`로 둡니다
-    (Flyway가 먼저 돌고 Hibernate가 빠진 칸을 채움). 그 뒤 dev는 `validate`로, compose의 `order-service` 줄은 지웁니다.
-  - **다른 서비스도 Flyway를 넣기를 권합니다.** `update`는 표·칸을 더하기만 해서 이름 바꾸기·칸 지우기·제약 바꾸기·데이터 옮기기를 못 하고,
-    그때마다 서버 DB에서 SQL을 손으로 돌려야 합니다(주문 BUK-6). 또 서비스별로 DB를 나눌 때(최종) Flyway가 있으면 새 DB에 SQL을 처음부터 돌려
-    표를 그대로 만들고 접속 주소만 바꾸면 되지만, 없으면 표 구조를 손으로 옮겨야 합니다.
-    넣는 방법: 의존성 2줄(`spring-boot-starter-flyway`, `flyway-mysql`), 지금 표를 `create table if not exists`로 적은 `V1__baseline.sql`
-    (인덱스·제약은 create table 안에. 밖에 두면 표가 이미 있는 DB에서 "이미 있음"으로 실패), dev·prod의 Flyway 설정, 테스트의
-    `flyway.enabled: false`, `Flyway*ValidateTest`·`FlywayExistingTablesTest`. 서버 표에 빠진 칸이 있을 수 있으니 첫 배포는 `update`로 두고,
-    한 번 배포한 뒤 `validate`로 바꾸고 compose에서 그 서비스의 `SPRING_JPA_HIBERNATE_DDL_AUTO` 줄을 지웁니다. `order-service`(BUK-29)가 본보기입니다.
+## 인증과 요청
 
-## 의존성 구성 (`member-service/build.gradle.kts`)
+- 회원 ID는 게이트웨이가 Access Token에서 꺼내 `X-Member-Id` 헤더로 넣습니다. 클라이언트가 보낸 같은 헤더는 게이트웨이가 지웁니다.
+- 컨트롤러는 헤더를 직접 읽지 않고 `@LoginMemberId long memberId`로 받습니다(int·Integer 금지). 헤더가 없으면 401 `LOGIN_REQUIRED`, 잘못된 값이면 400 `INVALID_REQUEST`입니다.
+- 서비스는 이 헤더를 그대로 믿으므로 `compose.yml`은 서비스 포트를 호스트에 열지 않습니다. 직접 부를 때는 bootRun으로 띄운 포트로 부릅니다.
+- 로그인 없이 쓰는 API를 더하면 `gateway`의 `application.yaml` `gateway.auth.public-paths`에도 더합니다. 빠뜨리면 401로 막힙니다.
+- 두 번 처리하면 안 되는 요청(대회 등록, 주문 생성, 장바구니 결제, 예치금 환급 신청)은 `Idempotency-Key` 헤더를 받습니다. 이름·최대 길이(64)·오류 문구는 common의 `IdempotencyKeyHeader`를 씁니다.
+- 서비스는 세션을 만들지 않습니다. 휴대폰 번호는 AES로 암호화해 저장하고 해시 컬럼으로 조회합니다. 암호화한 필드로 직접 조회하지 않습니다.
 
-Spring Boot 4의 모듈화된 스타터를 사용합니다. 테스트 지원도 스타터별 `*-test` 모듈로 나뉘어 있습니다.
+## 응답과 예외
 
-| 영역 | 의존성 |
-|---|---|
-| Web | `spring-boot-starter-webmvc`, `spring-boot-starter-validation`, springdoc(Swagger) |
-| 보안 | `spring-boot-starter-security`, jjwt 0.13 (JWT) |
-| RDB | `spring-boot-starter-data-jpa` + MySQL 드라이버, QueryDSL, H2(테스트) |
-| 검색 | `spring-boot-starter-data-elasticsearch` |
-| 메시징 | `spring-boot-starter-kafka`, `kafka-streams` |
-| 캐시 | `spring-boot-starter-data-redis` |
-| 기타 | Lombok, devtools, `spring-boot-docker-compose`(개발 실행 시 인프라 자동 실행), Testcontainers |
+- API 응답은 성공·실패 모두 `RsData {status, code, message, data}`입니다. 오류 코드가 없으면 JSON에서 `code`가 빠집니다.
+- 도메인 예외는 common의 `BusinessException`을 상속하고 생성자에서 `HttpStatus`를 정합니다. `GlobalExceptionHandler`가 한 번에 처리하므로 핸들러는 고치지 않습니다.
+- 오류 코드는 `BusinessException(status, code, message)`로 붙이고 `도메인_상황` 대문자 스네이크로 짓습니다(예: `MEMBER_DUPLICATE_EMAIL`).
 
-## 설정 관련 주의사항
+## 이벤트
 
-- `backend/.env`와 `backend/compose.yml`은 `common`의 `global/config/LocalDevEnvironmentPostProcessor`가 실행 위치(working directory)와 상관없이 찾아 적용합니다.
-- 프로파일: `dev`(기본, 로컬 MySQL 등 compose 인프라), `test`(H2, Kafka 리스너 꺼짐), `prod`(값은 `.env` 환경변수).
-- dev의 암호화 키와 JWT 키는 prod처럼 `.env`에서 읽습니다(`JWT_SECRET`, `CRYPTO_*`, `MARKETING_UNSUBSCRIBE_KEY`, `INTERNAL_API_KEY`). 값이 없으면 dev 서버가 뜨지 않습니다. test 키만 yaml에 있습니다.
-- 인증은 JWT + Redis(Stateless)입니다. Access Token은 게이트웨이가 검사하고, 서비스는 게이트웨이가 넣어 준 `X-Member-Id` 헤더로 회원을 알아봅니다. 서비스는 세션을 만들지 않습니다 (`member-service`의 `security/WebConfig`).
-- 개인정보(휴대폰 번호)는 AES로 암호화해 저장하고 해시 컬럼으로 조회합니다. 암호화한 필드로 직접 조회하지 않습니다 (README 참고).
+- 알림은 트랜잭션 안에서 `eventPublisher.publish(NotificationRequestedEvent.of(회원 ID, NotificationKind.*, 제목, 내용, 링크))` 한 줄로 보냅니다.
+  커밋된 뒤에만 Kafka로 가고 실패하면 로그만 남깁니다(아웃박스 없음). AFTER_COMMIT 리스너 안에서 부르면 보내지지 않습니다.
+- 토픽 이름은 `.claude/rules/kafka-topic-convention.md`를 따르고, 상수는 common의 `KafkaTopics`에 모읍니다.
 
-## 코드 컨벤션
+## DB와 Flyway
 
-코드 컨벤션은 저장소 루트 `.claude/rules/`에 있습니다 (루트에서 Claude Code를 실행하면 자동으로 로드됨).
+- 테이블 이름은 `<서비스>_<엔티티>`입니다(예: `MEMBER_MEMBER`, `ORDER_CART`). 실제 DB에는 소문자로 만들어지므로 SQL은 소문자로 씁니다.
+- 로컬(dev bootRun, compose, k3d)은 모든 서비스가 `bukang-db` 하나를 씁니다. 운영은 서비스마다 `crewrun_<서비스>` DB를 씁니다.
+  서비스를 더하면 `docker/mysql/initdb/service-dbs.sh` 목록과 그 서비스의 `application-prod.yaml` 기본값을 함께 고칩니다.
+- DB를 쓰는 모든 서비스가 Flyway를 씁니다. 엔티티를 고치면 같은 커밋에 `src/main/resources/db/migration/V<날짜시각>__설명.sql`을 더합니다.
+  이미 돈 SQL 파일은 고치지 않습니다. 다른 PR과 버전 번호가 겹치지 않는지 확인합니다.
+- dev·prod는 `ddl-auto: validate`라 SQL을 빠뜨리면 앱이 뜨지 않습니다. `Flyway*ValidateTest`가 칸 이름·타입을 먼저 확인합니다.
+  길이·not null·인덱스·제약은 확인하지 않으므로 리뷰로 봅니다.
+- `payout-service`·`cash-service`의 enum 칸은 DB ENUM이라 enum 값을 더할 때 ENUM 목록을 바꾸는 SQL도 필요합니다.
+- `file-service`의 Spring Batch 기록 테이블(`BATCH_`)은 Flyway가 아니라 `spring.batch.jdbc.initialize-schema`가 만듭니다.
 
-- `java-convention.md`: Java 코딩 컨벤션 (캠퍼스 핵데이) 및 Checkstyle 검사
-- `git-commit-convention.md`: 커밋 메시지 규칙 (Conventional Commits 1.0.0)
-- `swagger-convention.md`: 컨트롤러와 요청 DTO의 Swagger 애노테이션 규칙 (`in`, `dto` 패키지 파일 작업 시 로드)
-- `redis-key-convention.md`: Redis 키 네이밍 규칙 (`{엔티티}:{ID}:{속성}`, 콜론 구분)
-- `kafka-topic-convention.md`: Kafka 토픽 네이밍 규칙 (`<message-type>.<dataset-name>.<data-name>`, 계층은 `.`으로만 구분)
+## ai-service
 
-컨트롤러에 Swagger 문서를 작성하거나 보완할 때는 `/swagger-annotate` 스킬(루트 `.claude/skills/swagger-annotate`)을 사용합니다.
+- 코드는 Spring AI의 `ChatClient`만 씁니다. 모델 회사는 설정 `spring.ai.model.chat`이 정합니다(prod `openai`, dev·test `ollama`).
+- `ChatMemory`를 빈으로 등록하지 않습니다. 등록하면 Redis 대화 기록 대신 메모리 저장소로 바뀝니다.
+- Redis 저장소의 `metadata-fields`를 비우지 않습니다. 비우면 OpenAI 답이 대화 기록에서 빠집니다. 인덱스 모양을 바꾸면 `index-name`도 바꿉니다.
+- 도구(`@Tool`)는 화면별 묶음(`SellerTools`, `AdminTools`)에 두고 인자를 받지 않습니다. 회원 번호는 `ToolContext`의 `AiToolTrace`에서 꺼냅니다.
+- 도구는 개인정보(구매자 이름·배송지·신청자 이름)를 모델에 보내지 않습니다. 도구를 더하면 `AiSource`와 `AiApiExamples`도 함께 고칩니다.
+
+## 설정
+
+- 프로파일은 `dev`(기본, compose 인프라), `test`(H2, Kafka 리스너 꺼짐), `prod`(값은 환경변수)입니다.
+- `backend/.env`와 `compose.yml`은 common의 `LocalDevEnvironmentPostProcessor`가 실행 위치와 상관없이 찾습니다.
+- dev도 키를 `.env`에서 읽습니다(`JWT_SECRET`, `CRYPTO_*`, `MARKETING_UNSUBSCRIBE_KEY`, `INTERNAL_API_KEY`). 값이 없으면 서버가 뜨지 않습니다. test 키만 yaml에 있습니다.
+- 컨트롤러에 Swagger 문서를 쓸 때는 `/swagger-annotate` 스킬을 씁니다.
