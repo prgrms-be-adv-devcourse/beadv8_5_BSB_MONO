@@ -1,0 +1,113 @@
+name: ai-review
+
+# dev로 가는 PR마다 Claude가 두 축(기준·스펙)으로 리뷰한다. 다크 팩토리의 첫 작업이다 (#841).
+# 결과는 PR 댓글과 「AI 리뷰 통과」·「AI 리뷰 반려」 라벨로 남긴다. 반려면 체크가 실패한다.
+# 자동 리뷰는 승인(Approve)을 주지 않는다. 머지 조건(사람 승인 1명, 빨간 항목 이해)은 그대로다.
+# 인증은 저장소 시크릿 ANTHROPIC_API_KEY 또는 CLAUDE_CODE_OAUTH_TOKEN 중 하나만 넣는다.
+# 시크릿이 없거나, 초안이거나, 같은 커밋을 이미 리뷰했으면 건너뛰고 체크는 성공으로 남긴다.
+# on.paths로 거르지 않는다. 워크플로가 안 뜨면 필수 체크가 대기 상태로 남는다(backend-ci와 같은 이유).
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    if: github.event.pull_request.base.ref == 'dev' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      PASS_LABEL: AI 리뷰 통과
+      REJECT_LABEL: AI 리뷰 반려
+    steps:
+      - name: 건너뛸지 정하기
+        id: gate
+        env:
+          HAS_AUTH: ${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_AUTH" != "true" ]; then
+            echo "::notice::인증 시크릿이 없어 자동 리뷰를 건너뜁니다."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # 리뷰 요약 댓글에 남긴 표시로 같은 커밋을 다시 리뷰하지 않는다 (reopened 등)
+          if gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate --jq '.[].body' \
+              | grep -qF "<!-- ai-review:$SHA -->"; then
+            echo "::notice::이 커밋($SHA)은 이미 리뷰했습니다."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: 이전 리뷰 라벨 떼기
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          gh pr edit "$PR" --repo "${{ github.repository }}" \
+            --remove-label "$PASS_LABEL" --remove-label "$REJECT_LABEL" || true
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          fetch-depth: 1
+
+      - name: Claude 리뷰
+        if: steps.gate.outputs.run == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            저장소: ${{ github.repository }}
+            PR 번호: ${{ github.event.pull_request.number }}
+            리뷰할 커밋: ${{ github.event.pull_request.head.sha }}
+
+            이 PR을 두 축으로 따로 리뷰하세요. 승인(Approve)은 하지 마세요.
+
+            1. 기준 축
+               - `.claude/rules/` 아래 규칙과, 있으면 `CODING_STANDARDS.md`를 읽고 바뀐 코드가 지키는지 봅니다.
+               - 금지 테스트 세 가지를 찾습니다: 구현에 묶인 테스트(내부 mock·private·DB 직접 조회),
+                 기대값을 코드처럼 다시 계산하는 테스트, 테스트를 전부 쓴 뒤 구현을 전부 쓴 흔적.
+               - 빨간 항목(보안·인증, 돈·트랜잭션·데이터가 바뀌는 곳, API 주소·응답·오류 코드, common 모듈)이
+                 PR 본문 「중점 리뷰 사항」에 적혀 있는지 봅니다.
+            2. 스펙 축
+               - PR 본문에서 연결된 이슈 번호를 찾아 `gh issue view`로 읽고, 완료 기준과 제외 범위대로 만들었는지 봅니다.
+               - 연결된 이슈가 없으면 스펙 축은 「연결된 이슈 없음」으로 적고 판정에서 뺍니다.
+
+            쓰는 법
+            - 특정 줄의 문제는 인라인 댓글로 답니다. 해요체 청유형으로 1~3문장, 무엇이 문제이고 어떻게 바꾸면 좋을지 씁니다.
+            - 마지막에 요약 댓글 하나를 `gh pr comment`로 답니다. 축마다 결과를 한두 줄로 쓰고,
+              맨 끝 줄에 `<!-- ai-review:${{ github.event.pull_request.head.sha }} -->`를 그대로 넣습니다.
+            - 판정: 고치지 않으면 버그·보안 문제·규칙 위반·스펙 누락이 되는 것이 하나라도 있으면 반려입니다.
+              취향이나 사소한 개선만 있으면 통과입니다.
+            - 판정에 따라 `gh pr edit ${{ github.event.pull_request.number }} --add-label "AI 리뷰 통과"` 또는
+              `--add-label "AI 리뷰 반려"` 중 하나만 실행합니다.
+          claude_args: |
+            --permission-mode default
+            --max-turns 40
+            --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh issue view:*)"
+
+      - name: 판정을 체크 결과로 남기기
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          labels=$(gh pr view "$PR" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
+          if grep -qxF "$REJECT_LABEL" <<<"$labels"; then
+            echo "::error::자동 리뷰가 반려했습니다. PR 댓글을 확인해 주세요."
+            exit 1
+          fi
+          if ! grep -qxF "$PASS_LABEL" <<<"$labels"; then
+            echo "::error::자동 리뷰가 판정 라벨을 남기지 않았습니다. 다시 실행해 주세요."
+            exit 1
+          fi
+          echo "자동 리뷰 통과"
