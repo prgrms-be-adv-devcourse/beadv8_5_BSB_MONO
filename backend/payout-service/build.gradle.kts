@@ -4,6 +4,26 @@ plugins {
 	id("org.springframework.boot")
 	id("io.spring.dependency-management")
 	id("org.asciidoctor.jvm.convert") // REST Docs: 테스트가 만든 스니펫을 HTML 문서로 묶는다
+	id("info.solidsoft.pitest") // 뮤테이션 테스트: ./gradlew :payout-service:pitest (CI에는 걸지 않는다)
+}
+
+// 테스트가 코드의 작은 변경(뮤턴트)을 실제로 잡는지 본다. 처음 범위는 돈 계산·날짜 규칙이 있는 domain 패키지
+// Payout(584줄)은 크기가 커서 빼고, DB 제약을 보는 Spring 테스트는 느려서 빼고 순수 단위 테스트만 돌린다
+pitest {
+	pitestVersion = "1.30.2"
+	junit5PluginVersion = "1.2.3"
+	// 켜 두면 플러그인이 옛 JUnit 런처(1.14)를 test 경로에 넣어 JUnit 6과 부딪힌다. 런처는 Boot BOM 것을 쓴다
+	addJUnitPlatformLauncher = false
+	targetClasses = setOf("com.bukang.payout.domain.*")
+	excludedClasses = setOf("com.bukang.payout.domain.Payout", "com.bukang.payout.domain.Payout$*",
+		"com.bukang.payout.domain.exception.*", "com.bukang.payout.domain.Q*") // Q*: QueryDSL이 만든 클래스
+	targetTests = setOf("com.bukang.payout.domain.*")
+	excludedTestClasses = setOf("com.bukang.payout.domain.PayoutBundleKeyCharacterizationTest",
+		"com.bukang.payout.domain.PayoutItemConstraintTest", "com.bukang.payout.domain.PayoutRecoveryConstraintTest",
+		"com.bukang.payout.domain.PayoutStatusColumnTest")
+	threads = 4
+	outputFormats = setOf("HTML", "XML")
+	timestampedReports = false
 }
 
 // Asciidoctor가 REST Docs 스니펫 매크로(operation::[])를 읽도록 쓰는 확장 전용 설정
@@ -36,6 +56,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
 	testImplementation("org.springframework.boot:spring-boot-micrometer-metrics-test") // @AutoConfigureMetrics (테스트는 지표 내보내기가 기본으로 꺼져 있다)
+	testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1") // 패키지 의존 방향 규칙 (PayoutArchitectureTest)
 	testImplementation("org.openjdk.jol:jol-core:0.17") // 대사 비교 방식(집합 · 비트맵)의 메모리 크기 측정 (EntryDifferMemoryTest)
 	testImplementation(testFixtures(project(":common"))) // GlobalConfigTestExecutionListener (테스트마다 EventPublisher 재설정)
 	testImplementation("org.springframework.boot:spring-boot-testcontainers") // @ServiceConnection

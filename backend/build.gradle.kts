@@ -8,6 +8,7 @@ plugins {
 	id("org.springframework.boot") version "4.1.1" apply false
 	id("io.spring.dependency-management") version "1.1.7" apply false
 	id("org.asciidoctor.jvm.convert") version "4.0.5" apply false // REST Docs HTML 생성 (payout-service)
+	id("info.solidsoft.pitest") version "1.19.0" apply false // 뮤테이션 테스트 (payout-service, 로컬 실행만)
 }
 
 allprojects {
